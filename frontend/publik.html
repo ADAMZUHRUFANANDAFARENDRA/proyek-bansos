@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Warga Bansos - Pemerintah Daerah Sidoarjo</title>
+    
+    <!-- LIBRARIES / VENDOR CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    
+    <!-- MEMANGGIL FILE CSS EKSTERNAL WARGA -->
+    <link rel="stylesheet" href="static/css/style.css">
+    <link rel="stylesheet" href="static/css/publik.css">
+
+    <!-- Z-Index Override & CSS Khusus WebRTC Modern (DIPAKSA RENDER) -->
+    <style>
+        #incomingCallUI, #activeCallUI { z-index: 9999999 !important; }
+        #imageEditorModal { z-index: 105000 !important; }
+        #filerobotContainer { width: 100vw !important; height: 100vh !important; }
+        input[inputmode="numeric"] { font-family: monospace; letter-spacing: 1.5px; }
+        
+        /* GARANSI MAP TIDAK BLANK */
+        .map-box-area { height: 350px !important; width: 100%; border: 1px solid #cbd5e1; border-radius: 12px; position: relative; z-index: 10; display: block; }
+        
+        .tab-btn { font-size: 0.9rem !important; padding: 15px 5px !important; }
+        .tab-btn i { font-size: 1.3rem !important; margin-bottom: 4px; }
+
+        /* --- CALL UI MODERN WARGA --- */
+        .call-card-modern { width: 100%; max-width: 400px; background: #0f172a; border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8); border: 1px solid #334155; display: flex; flex-direction: column; position: relative; animation: scaleUp 0.3s ease-out;}
+        .call-header-modern { position: absolute; top: 0; left: 0; width: 100%; padding: 25px 20px 40px 20px; text-align: center; z-index: 20; background: linear-gradient(to bottom, rgba(15,23,42,0.95) 0%, transparent 100%); pointer-events: none; }
+        .call-header-modern h3 { margin: 0; color: white; font-size: 1.4rem; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        .call-header-modern p { margin: 5px 0 0 0; color: #a7f3d0; font-weight: 600; font-size: 0.95rem; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+        .call-header-modern div { font-family: monospace; font-size: 1.2rem; color: white; margin-top: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        
+        .video-area-modern { position: relative; width: 100%; height: 60vh; max-height: 550px; background: #000; display: none; }
+        .video-area-modern video#remoteVideo { width: 100%; height: 100%; object-fit: cover; }
+        .video-area-modern video#localVideo { position: absolute; bottom: 20px; right: 20px; width: 110px; height: 150px; object-fit: cover; border-radius: 16px; border: 2px solid rgba(255,255,255,0.8); box-shadow: 0 8px 16px rgba(0,0,0,0.5); background: #1e293b; transition: 0.3s; z-index: 10;}
+        .video-area-modern video#localVideo.blurred { filter: blur(10px); }
+        
+        .audio-area-modern { width: 100%; height: 50vh; max-height: 400px; display: flex; justify-content: center; align-items: center; background: #0f172a; position: relative; }
+        .audio-avatar { width: 140px; height: 140px; background: linear-gradient(135deg, var(--info), #4f46e5); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 4rem; color: white; position: relative; z-index: 2; box-shadow: 0 0 30px rgba(59, 130, 246, 0.4); }
+        .ripple-ring { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 180px; height: 180px; border: 2px solid var(--info); border-radius: 50%; animation: ripple 1.5s infinite ease-out; z-index: 1; }
+        
+        .call-controls-modern { padding: 25px 20px; background: #1e293b; display: flex; justify-content: center; gap: 15px; border-top: 1px solid #334155; align-items: center; z-index: 20; position:relative;}
+        .ctrl-btn { width: 55px; height: 55px; border-radius: 50%; border: none; background: #334155; color: white; font-size: 1.2rem; cursor: pointer; transition: 0.2s; display:flex; justify-content:center; align-items:center;}
+        .ctrl-btn:hover { background: #475569; }
+        .ctrl-btn.off { background: #fef2f2; color: #ef4444; }
+        .btn-end { width: 65px; height: 65px; background: #ef4444; font-size: 1.5rem; box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3); }
+        .btn-end:hover { background: #b91c1c; transform: scale(1.1); }
+        
+        /* EMOJI BAR & ANIMASI */
+        .emoji-reaction-bar { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(15,23,42,0.8); backdrop-filter: blur(5px); padding: 8px 12px; border-radius: 30px; display: flex; gap: 10px; z-index: 30; border: 1px solid rgba(255,255,255,0.1); }
+        .emoji-reaction-bar button { background: none; border: none; font-size: 1.8rem; cursor: pointer; transition: 0.2s; padding: 0; margin: 0; line-height: 1; }
+        .emoji-reaction-bar button:hover { transform: scale(1.3) translateY(-5px); }
+        
+        .call-reaction-display { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 6rem; z-index: 40; pointer-events: none; opacity: 0; transition: 0.3s; text-shadow: 0 10px 25px rgba(0,0,0,0.5);}
+        .call-reaction-display.show { animation: popEmoji 2.5s ease-out forwards; }
+        @keyframes popEmoji { 0% { opacity: 0; transform: translate(-50%, -20%) scale(0.5); } 20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } 80% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -80%) scale(0.8); } }
+
+        /* PRE-SEND EDIT BUTTON */
+        .presend-edit-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.5); padding: 8px 16px; border-radius: 20px; font-weight: 600; cursor: pointer; opacity: 0; transition: 0.3s ease; backdrop-filter: blur(4px);}
+        #previewMediaContainer:hover .presend-edit-btn { opacity: 1; }
+
+        /* UI CHAT MODERN HEADER WARGA */
+        .chat-header-modern { padding: 15px 25px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--surface); flex-shrink: 0; }
+        .chat-header-profile { display: flex; align-items: center; gap: 15px; }
+        .contact-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--info), #4f46e5); color: white; display: flex; justify-content: center; align-items: center; font-size: 1.4rem; flex-shrink: 0; box-shadow: var(--shadow-sm); }
+        .chat-header-text h3 { margin: 0; font-size: 1.15rem; color: var(--text-main); font-weight: 800; display: flex; align-items: center; gap: 8px;}
+        .chat-header-text p { margin: 4px 0 0 0; font-size: 0.85rem; color: var(--text-muted); font-weight: 600; display: flex; gap: 6px; align-items: center;}
+        
+        /* Indikator Online Blinking */
+        .status-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block; animation: pulse-dot 2s infinite;}
+        @keyframes pulse-dot { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); } 70% { box-shadow: 0 0 0 6px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
+    </style>
+</head>
+<body class="page-public">
+
+    <a href="login.html" class="admin-portal-link" id="linkAdminBtn"><i class="fas fa-user-shield text-primary"></i> Akses Petugas</a>
+
+    <div id="landingView">
+        <div class="hero-public">
+            <div class="hero-content">
+                <h1><i class="fas fa-hand-holding-heart"></i> Portal Layanan Sosial</h1>
+                <p>Platform pendaftaran mandiri dan pemantauan transparan Bantuan Sosial Terpadu Pemerintah Kabupaten Sidoarjo.</p>
+                <button onclick="window.mulaiTurPanduan()" class="btn-help-tour"><i class="fas fa-play-circle"></i> Mulai Tur Interaktif Sistem</button>
+            </div>
+        </div>
+
+        <div class="container-public">
+            <div class="card" style="padding: 3rem;">
+                
+                <!-- PEMBAGIAN 4 TAB TERPISAH -->
+                <div class="tabs">
+                    <div class="tab-btn active" id="btn-login" onclick="window.switchTabPublik('loginWargaSection')"><i class="fas fa-sign-in-alt"></i> Masuk Dashboard</div>
+                    <div class="tab-btn" id="btn-cek" onclick="window.switchTabPublik('cekStatusSection')"><i class="fas fa-search"></i> Cek Status Bansos</div>
+                    <div class="tab-btn" id="btn-daftar" onclick="window.switchTabPublik('daftarMandiriSection')"><i class="fas fa-user-plus"></i> Daftar Mandiri</div>
+                    <div class="tab-btn" id="btn-panduan" onclick="window.switchTabPublik('bantuanSection')"><i class="fas fa-info-circle"></i> Bantuan (FAQ)</div>
+                </div>
+
+                <!-- 1. TAB LOGIN DASHBOARD -->
+                <div id="loginWargaSection" class="tab-content active">
+                    <div class="login-warga-box">
+                        <i class="fas fa-fingerprint"></i>
+                        <h2 style="margin-bottom: 10px; color: var(--text-main);">Akses Dashboard Personal</h2>
+                        <p style="color: var(--text-muted); margin-bottom: 25px;">Masukkan identitas lengkap Anda untuk masuk ke ruang pemantauan dan Live Chat.</p>
+                        
+                        <form onsubmit="window.loginWarga(event)">
+                            <div class="form-group" style="text-align: left;">
+                                <label class="form-label" style="font-size:0.85rem; color:#64748b;">Nomor Induk Kependudukan (NIK)</label>
+                                <input type="text" inputmode="numeric" maxlength="16" id="loginNik" placeholder="16 Digit NIK" required>
+                            </div>
+                            <div class="form-group" style="text-align: left;">
+                                <label class="form-label" style="font-size:0.85rem; color:#64748b;">Nama Lengkap Pemohon</label>
+                                <input type="text" id="loginNama" placeholder="Sesuai KTP Terdaftar" style="font-family: 'Inter', sans-serif; letter-spacing: normal;" required>
+                            </div>
+                            <div class="form-group" style="text-align: left;">
+                                <label class="form-label" style="font-size:0.85rem; color:#64748b;">Alamat Email</label>
+                                <input type="email" id="loginEmail" placeholder="Email Terdaftar" style="font-family: 'Inter', sans-serif; letter-spacing: normal;" required>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 20px; font-size: 1.15rem; border-radius: 40px; margin-top: 10px; box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);"><i class="fas fa-arrow-right"></i> Masuk Dashboard Saya</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 2. TAB CEK STATUS (HANYA NIK) -->
+                <div id="cekStatusSection" class="tab-content" style="display:none;">
+                    <div class="login-warga-box">
+                        <i class="fas fa-shield-alt"></i>
+                        <h2 style="margin-bottom: 10px; color: var(--text-main);">Cek Status Kepesertaan</h2>
+                        <p style="color: var(--text-muted); margin-bottom: 25px;">Ketahui status pengajuan Bantuan Sosial Anda hanya dengan menggunakan NIK.</p>
+                        
+                        <!-- Panel Input NIK -->
+                        <form id="panel-input-nik" onsubmit="window.cekStatusAwal(event)">
+                            <div class="form-group" style="text-align: left;">
+                                <label class="form-label" style="font-size:0.85rem; color:#64748b;">Nomor Induk Kependudukan (NIK)</label>
+                                <input type="text" inputmode="numeric" maxlength="16" id="cekNik" placeholder="Ketik 16 Digit NIK Anda..." required>
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 20px; font-size: 1.15rem; border-radius: 40px; margin-top: 10px; background: linear-gradient(135deg, var(--info), #1e3a8a);"><i class="fas fa-search"></i> Lacak Status Bansos</button>
+                        </form>
+
+                        <!-- Panel Hasil Pencarian -->
+                        <div id="panel-hasil-cek" style="display:none; text-align:left; animation: fadeIn 0.4s;">
+                            <div id="kartuStatus" style="background:#f0fdf4; border:1px solid #a7f3d0; padding:20px; border-radius:12px; margin-bottom:20px;">
+                                <!-- Diisi via JavaScript -->
+                            </div>
+                            
+                            <div style="display:flex; gap:10px; margin-top:20px;">
+                                <button type="button" onclick="window.resetCekStatus()" class="btn btn-secondary" style="padding: 15px; border-radius: 12px; flex-shrink:0;" title="Cek NIK Lain"><i class="fas fa-arrow-left"></i> Cek NIK Lain</button>
+                                <button type="button" onclick="window.switchTabPublik('loginWargaSection'); document.getElementById('loginNik').value = document.getElementById('cekNik').value;" class="btn btn-primary" style="flex:1; padding: 15px; border-radius: 12px;"><i class="fas fa-sign-in-alt"></i> Lanjut Masuk Dashboard</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. TAB DAFTAR MANDIRI -->
+                <div id="daftarMandiriSection" class="tab-content" style="display:none;">
+                    <div style="background: #eff6ff; padding: 22px; border-radius: var(--radius-md); border: 1px solid #bfdbfe; border-left: 6px solid var(--info); margin-bottom: 25px;">
+                        <b style="font-size:1.1rem; color:#1e3a8a;"><i class="fas fa-bolt"></i> Terintegrasi Langsung ke Pusat (Real-Time)</b><br>
+                        <span style="color:#475569; font-size:1rem; font-weight:400; display:block; margin-top:5px;">Formulir yang Anda kirimkan di sini akan seketika membunyikan notifikasi di layar komputer Kantor Dinas Sosial. Notifikasi hasil evaluasi juga akan dikirimkan ke Email Anda.</span>
+                    </div>
+
+                    <div class="form-group" style="background: var(--bg-base); padding: 30px; border-radius: var(--radius-md); border: 2px dashed var(--primary); box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+                        <label class="form-label" style="color:var(--primary-dark); font-size:1.1rem;"><i class="fas fa-camera"></i> 1. Foto KTP (Autentikasi Ekstraksi Teks AI)</label>
+                        <input type="file" id="ktpUpload" accept="image/*" class="form-input" style="padding:15px; background:var(--surface); cursor:pointer;" onchange="window.processOCR(this)">
+                        <span class="form-helper-desc"><i class="fas fa-magic"></i> <b>Fitur Cerdas (Opsional):</b> Unggah foto KTP Anda, dan Robot Kecerdasan Buatan kami akan mengetik NIK & Nama Anda secara otomatis.</span>
+                    </div>
+
+                    <form id="formPendaftaranWarga" onsubmit="window.daftarMandiri(event)">
+                        <h4 style="margin-bottom: 15px; color: var(--primary-dark); border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">A. Identitas Pemohon Utama</h4>
+                        <div class="form-group">
+                            <label class="form-label"><i class="fas fa-id-card"></i> Nomor Induk Kependudukan (NIK)</label>
+                            <input type="text" inputmode="numeric" maxlength="16" id="regNik" class="form-input" required placeholder="Ketik 16 Digit NIK">
+                            <span class="form-helper-desc"><i class="fas fa-info-circle"></i> <b>Catatan:</b> Wajib diisi sesuai KTP asli. NIK ini nantinya akan menjadi "Kunci Masuk" Anda untuk login.</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label"><i class="fas fa-user"></i> Nama Lengkap Pemohon</label>
+                            <input type="text" id="regNama" class="form-input" required placeholder="Tuliskan nama lengkap tanpa gelar">
+                        </div>
+                        
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                            <div class="form-group">
+                                <label class="form-label">Tempat Lahir</label>
+                                <input type="text" id="regTempatLahir" class="form-input" placeholder="Kabupaten/Kota" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tanggal Lahir</label>
+                                <input type="date" id="regTglLahir" class="form-input" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Alamat Lengkap</label>
+                            <textarea id="regAlamat" class="form-input" rows="2" placeholder="Tuliskan alamat lengkap jalan, RT/RW, dan Desa" required onblur="window.cariAlamatDiPeta(this.value)"></textarea>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px;">
+                            <div class="form-group">
+                                <label class="form-label"><i class="fab fa-whatsapp"></i> No. Telepon / WhatsApp Aktif</label>
+                                <input type="text" inputmode="numeric" id="regNoHp" class="form-input" placeholder="Contoh: 08123456789" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label"><i class="fas fa-envelope"></i> Alamat Email Pemohon (Wajib)</label>
+                                <input type="email" id="regEmail" class="form-input" placeholder="contoh@gmail.com" required>
+                            </div>
+                        </div>
+                        
+                        <h4 style="margin: 35px 0 15px 0; color: var(--primary-dark); border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">B. Kuesioner Indikator Kelayakan Sosial</h4>
+                        <div style="margin-bottom: 20px; background: #fffbeb; padding: 15px; border-radius: 8px; border: 1px dashed #fcd34d;">
+                            <span style="font-size: 0.9rem; color: #b45309;"><i class="fas fa-exclamation-triangle"></i> <b>Penting:</b> Isilah kuesioner di bawah ini dengan sejujur-jujurnya. Data ini akan dihitung oleh Sistem Pendukung Keputusan (SPK) Dinas Sosial untuk menentukan prioritas bantuan.</span>
+                        </div>
+
+                        <div class="q-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; background: var(--bg-base); padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">C1. Ekonomi / Pendapatan</label>
+                                <input type="number" id="regC1" class="form-input" value="0" required>
+                                <span class="form-helper-desc">Estimasi pendapatan kotor keluarga (Rp).</span>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">C2. Total Nilai Aset</label>
+                                <input type="number" id="regC2" class="form-input" value="0" required>
+                                <span class="form-helper-desc">Total estimasi nilai barang berharga keluarga.</span>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">C3. Umur Kepala Keluarga</label>
+                                <input type="number" id="regC3" class="form-input" value="0" required>
+                                <span class="form-helper-desc">Usia kepala keluarga / pemohon.</span>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">C4. Jenis Kelamin</label>
+                                <select id="regC4" class="form-select" required><option value="1">Laki-laki</option><option value="2">Perempuan</option></select>
+                                <span class="form-helper-desc">Jenis kelamin (Perempuan diprioritaskan).</span>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">C5. Jumlah Tanggungan</label>
+                                <input type="number" id="regC5" class="form-input" value="0" required>
+                                <span class="form-helper-desc">Anggota keluarga yang tidak bekerja.</span>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">C6. Status Pernikahan</label>
+                                <select id="regC6" class="form-select" required>
+                                    <option value="1">Belum Menikah (1)</option>
+                                    <option value="2">Menikah (2)</option>
+                                    <option value="3">Cerai Hidup/Meninggal (3)</option>
+                                    <option value="4">Cerai (4)</option>
+                                </select>
+                                <span class="form-helper-desc">Status kepala keluarga saat ini.</span>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">C7. Kepemilikan Anak</label>
+                                <input type="number" id="regC7" class="form-input" value="0" required>
+                                <span class="form-helper-desc">Jumlah anak yang masih bersekolah.</span>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">C8. Status Tempat Tinggal</label>
+                                <select id="regC8" class="form-select" required>
+                                    <option value="1">Milik Sendiri (1)</option>
+                                    <option value="2">Sewa / Kontrak (2)</option>
+                                    <option value="3">Numpang (3)</option>
+                                </select>
+                                <span class="form-helper-desc">Status kepemilikan bangunan tempat tinggal.</span>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0; grid-column: span 2;">
+                                <label class="form-label">C9. Pendidikan Terakhir</label>
+                                <select id="regC9" class="form-select" required>
+                                    <option value="1">Tidak Sekolah / SD (1)</option>
+                                    <option value="2">SMP / SMA Sederajat (2)</option>
+                                    <option value="3">Diploma / Sarjana (Perkuliahan) (3)</option>
+                                </select>
+                                <span class="form-helper-desc">Pendidikan formal terakhir kepala keluarga.</span>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 0; grid-column: span 2;">
+                                <label class="form-label">C10. Kondisi Kesehatan</label>
+                                <select id="regC10" class="form-select" required><option value="1">Sehat</option><option value="2">Sakit Menahun / Disabilitas</option></select>
+                                <span class="form-helper-desc">Kondisi kesehatan dominan keluarga inti.</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label"><i class="fas fa-comment-dots"></i> Rincian Deskriptif Alasan Pengajuan</label>
+                            <textarea id="regCatatan" class="form-input" rows="4" required placeholder="Ceritakan dengan jujur mengapa Anda membutuhkan bantuan ini (Misal: Korban PHK, Lansia sebatang kara, dll)..."></textarea>
+                            <span class="form-helper-desc"><i class="fas fa-pen"></i> Penjelasan ini akan dibaca langsung oleh Petugas Validasi Dinsos sebagai pertimbangan awal.</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" style="color:var(--info);"><i class="fas fa-map-pin"></i> Kunci Geotagging Presisi Rumah</label>
+                            <div class="map-wrapper" style="padding:0; overflow:hidden;">
+                                <div id="mapPublik" class="map-box-area"></div>
+                            </div>
+                            <div style="display:flex; gap:8px; margin-top:10px;">
+                                <input type="text" id="latPublik" class="form-input" placeholder="Garis Lintang (Lat)" readonly style="background:var(--bg-body); text-align:center;">
+                                <input type="text" id="lngPublik" class="form-input" placeholder="Garis Bujur (Lng)" readonly style="background:var(--bg-body); text-align:center;">
+                                <button type="button" onclick="window.ambilLokasiGPS()" class="btn btn-secondary" style="color:var(--info); border-color:var(--info); white-space:nowrap;" title="Kunci GPS Gawai Saat Ini"><i class="fas fa-crosshairs"></i> Gunakan GPS</button>
+                            </div>
+                        </div>
+                        
+                        <label class="form-label" style="color:var(--danger); font-size:1.1rem; margin-top: 30px;"><i class="fas fa-shield-alt"></i> Verifikasi Keamanan Pengguna (Anti-Bot)</label>
+                        <div class="warga-captcha">
+                            <div>
+                                <div class="w-cap-text" id="wargaCaptchaQ">3 + 4 =</div>
+                                <div style="font-size:0.95rem; color:#b45309; margin-top:6px; font-weight:600;">Jawab hitungan di atas untuk melanjutkan pengiriman dokumen</div>
+                            </div>
+                            <input type="number" id="wargaCaptchaA" class="w-cap-input" required placeholder="Hasil?">
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 22px; font-size: 1.15rem; border-radius: 40px; box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);"><i class="fas fa-cloud-upload-alt"></i> Kirim dan Daftarkan Data ke Peladen</button>
+                    </form>
+                </div>
+
+                <!-- 4. TAB BANTUAN FAQ -->
+                <div id="bantuanSection" class="tab-content" style="display:none;">
+                    <div style="text-align:center; margin-bottom:40px;">
+                        <i class="fas fa-book-reader" style="font-size:5rem; color:var(--primary); margin-bottom:20px; filter: drop-shadow(0 10px 15px rgba(16, 185, 129, 0.2));"></i>
+                        <h2 style="margin:0; color:var(--text-main); font-weight:800; font-size:2rem;">Pusat Bantuan & Edukasi Warga</h2>
+                    </div>
+                    <div class="guide-box"><div class="guide-icon"><i class="fas fa-mobile-alt"></i></div><div class="guide-text"><h4>Apa Fungsi Portal Mandiri Ini?</h4><p>Portal ini adalah inovasi jembatan komunikasi digital milik Pemerintah Kabupaten untuk mengakomodir pendaftaran bantuan sosial secara daring, memangkas birokrasi dan menghilangkan antrean fisik di balai desa maupun kantor dinas.</p></div></div>
+                    <div class="guide-box"><div class="guide-icon"><i class="fas fa-camera"></i></div><div class="guide-text"><h4>Adakah Cara Mengisi Formulir Secara Otomatis?</h4><p>Sangat ada. Pilih tab <b>Pendaftaran Mandiri</b>, lalu ketuk area "Scan KTP Auto-Fill". Sistem penglihatan komputer (AI OCR) kami akan otomatis membaca gambar KTP Anda dan menyalin teksnya seketika ke dalam formulir pengisian.</p></div></div>
+                    <div class="guide-box"><div class="guide-icon"><i class="fas fa-comments"></i></div><div class="guide-text"><h4>Apa Langkah Selanjutnya Pasca-Pendaftaran?</h4><p>Anda bisa ke menu <b>Cek Status</b> untuk melacak proses NIK Anda. Jika ingin mengobrol dengan Petugas Dinsos, silakan buka menu <b>Masuk Dashboard</b> dengan melengkapi Nama dan Email yang terdaftar.</p></div></div>
+                </div>
+
+            </div>
+        </div>
+    </div> 
+
+    <!-- 5. TAMPILAN DASHBOARD WARGA JIKA SUDAH LOGIN -->
+    <div id="dashboardWargaSection" style="display:none; padding-bottom: 60px;">
+        <div style="background: linear-gradient(135deg, var(--primary), var(--primary-dark)); padding: 25px 5%; color: white; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow-md); position: sticky; top:0; z-index: 1000;">
+            <div style="display:flex; align-items:center; gap:20px;">
+                <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.15); border-radius: 18px; display:flex; justify-content:center; align-items:center; font-size: 2rem; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.3);"><i class="fas fa-user-check"></i></div>
+                <div>
+                    <h2 style="margin:0; font-size:1.7rem; font-weight: 800; letter-spacing:-0.5px;">Dashboard Pribadi Anda</h2>
+                    <div style="font-size:1rem; font-weight:500; opacity:0.9; margin-top:2px;">Pusat Layanan Terpadu Warga Sidoarjo</div>
+                </div>
+            </div>
+            <button onclick="window.logoutWarga()" class="btn btn-secondary" style="border:none; padding:14px 28px; font-size:1.05rem; box-shadow:var(--shadow-sm); border-radius:30px;"><i class="fas fa-sign-out-alt text-danger"></i> Keluar Aman</button>
+        </div>
+
+        <div style="max-width: 1400px; margin: 40px auto; padding: 0 20px; display:grid; grid-template-columns: 1.1fr 1.3fr; gap: 35px;" class="grid-layout">
+            
+            <div style="display:flex; flex-direction:column; gap:35px;">
+                <div class="card" style="padding:40px; border-left: 8px solid var(--primary); margin-bottom: 0;">
+                    <h3 style="margin:0 0 15px 0; color:var(--text-main); font-size:2rem; font-weight:800;">Halo, <span id="wNama" style="color:var(--primary);"></span></h3>
+                    <p style="margin:0; font-size:1.15rem; color:var(--text-muted); font-weight:600;"><i class="fas fa-id-card" style="color:var(--primary); margin-right:8px;"></i> NIK Terdaftar: <b id="wNik" style="color:var(--text-main);"></b></p>
+                    <p style="margin:12px 0 0 0; font-size:1.05rem; color:var(--text-muted); line-height:1.6;"><i class="fas fa-map-marker-alt" style="margin-right:8px; color:var(--danger);"></i> Titik Geotagging Lokasi: <span id="wAlamat"></span></p>
+                </div>
+
+                <div class="card" style="padding:40px; margin-bottom: 0;">
+                    <h3 style="margin:0 0 25px 0; border-bottom:1px solid var(--border-color); padding-bottom:18px; color:var(--text-main); font-size:1.4rem; font-weight:800;"><i class="fas fa-tasks" style="color:var(--accent); margin-right:10px;"></i> Pantauan Progres Pengajuan</h3>
+                    
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; flex-wrap:wrap; gap:15px; background: var(--bg-base); padding: 15px 20px; border-radius: var(--radius-md);">
+                        <div><p style="margin:0; font-weight:800; color:var(--text-muted); font-size: 1rem; text-transform:uppercase;">Status Evaluasi Real-Time:</p></div>
+                        <div id="wStatus" class="status-badge badge-proses" style="font-size: 1.05rem; padding: 10px 22px;">Diproses</div>
+                    </div>
+                    
+                    <div class="progress-bar-container" style="margin-top:25px; margin-bottom: 10px; border-radius:15px; height:20px; background:var(--border-color);">
+                        <div class="progress-bar-fill" id="progressFill" style="width: 25%; background:var(--primary); border-radius:15px; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                    </div>
+                    
+                    <div id="actionContainer" style="margin-top:20px; background:#f8fafc; padding:20px; border-radius:12px; border:1px dashed var(--border-color);"></div>
+                </div>
+            </div>
+
+            <!-- CHAT MODAL -->
+            <div class="card" style="padding:0; overflow:hidden; display:flex; flex-direction:column; height: 850px; margin-bottom: 0; border:1px solid var(--border-color);">
+                
+                <div class="chat-header-modern" id="chatHeaderArea">
+                    <div class="chat-header-profile">
+                        <div class="contact-avatar"><i class="fas fa-headset"></i></div>
+                        <div class="chat-header-text">
+                            <h3>Live Chat Dinas Sosial</h3>
+                            <p><span class="status-dot"></span> Admin Online | Terenkripsi (E2EE)</p>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <button type="button" onclick="window.startCallAdmin('audio')" class="btn btn-primary" style="padding: 8px 16px; border-radius: 20px; font-size: 0.85rem;"><i class="fas fa-phone-alt"></i> Suara</button>
+                        <button type="button" onclick="window.startCallAdmin('video')" class="btn" style="background:var(--info); color:white; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem;"><i class="fas fa-video"></i> Video</button>
+                    </div>
+                </div>
+                
+                <div id="wargaChatMessages" style="flex:1; padding:30px 25px; overflow-y:auto; background:var(--bg-base); display:flex; flex-direction:column; gap:25px; scroll-behavior: smooth;"></div>
+                
+                <div id="replyPreviewContainerWarga" style="display:none; padding: 10px 25px; background: #f8fafc; border-top: 1px solid var(--border-color); font-size:0.85rem; color:var(--text-muted); align-items:center; justify-content:space-between; z-index:11; flex-shrink: 0;">
+                    <div style="border-left: 3px solid var(--primary); padding-left: 10px;">
+                        <b id="replyPreviewSenderWarga" style="color:var(--text-main);"></b><br>
+                        <span id="replyPreviewTextWarga"></span>
+                    </div>
+                    <button type="button" onclick="window.batalReplyWarga()" style="background:none; border:none; cursor:pointer; color:var(--danger);"><i class="fas fa-times"></i></button>
+                </div>
+
+                <div id="preSendPreviewWarga" style="display:none; padding: 15px 25px; background: var(--surface); border-top: 1px solid var(--border-color); position: relative; z-index: 10; box-shadow: 0 -4px 10px rgba(0,0,0,0.02); flex-shrink: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);"><i class="fas fa-eye text-info"></i> File Siap Kirim (<span id="wargaFileStatusTxt">Raw</span>)</span>
+                        <button type="button" onclick="window.batalLampiranWarga()" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.8rem; border-radius: 20px; color: var(--danger); border-color: var(--danger);"><i class="fas fa-times"></i> Batal Kirim</button>
+                    </div>
+                    <div id="previewMediaContainerWarga" style="position: relative; text-align: center; max-height: 200px; overflow:hidden; border-radius: 12px; border: 1px dashed var(--border-color); background: var(--bg-base); display:flex; justify-content:center; align-items:center; padding:10px;"></div>
+                </div>
+
+                <div style="padding: 20px 25px; border-top: 1px solid var(--border-color); background:var(--surface); display:flex; align-items:center; gap:12px; position:relative; z-index:15; flex-shrink: 0;">
+                    <button type="button" onclick="event.stopPropagation(); window.toggleEmojiPickerWarga(event)" style="background:var(--bg-base); border:1px solid var(--border-color); width:45px; height:45px; border-radius:50%; font-size:1.4rem; color:var(--text-muted); cursor:pointer; transition:0.2s; display:flex; justify-content:center; align-items:center;" onmouseover="this.style.color='var(--accent)'; this.style.borderColor='var(--accent)';" onmouseout="this.style.color='var(--text-muted)'; this.style.borderColor='var(--border-color)';"><i class="fas fa-smile"></i></button>
+                    
+                    <div id="emojiPickerWarga" style="display:none; position:absolute; bottom:85px; left:25px; background:var(--surface); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:20px; box-shadow:var(--shadow-float); grid-template-columns:repeat(6, 1fr); gap:12px; z-index:150000;" onclick="event.stopPropagation()"></div>
+                    
+                    <input type="file" id="wargaChatFile" style="display:none;" accept="image/*, video/*, audio/*">
+                    <button type="button" onclick="document.getElementById('wargaChatFile').click()" title="Lampirkan File & Edit" style="background:var(--bg-base); border:1px solid var(--border-color); width:45px; height:45px; border-radius:50%; font-size:1.3rem; color:var(--info); cursor:pointer; transition:0.2s; display:flex; justify-content:center; align-items:center;" onmouseover="this.style.background='var(--info)'; this.style.color='white'"><i class="fas fa-paperclip"></i></button>
+                    
+                    <button type="button" id="btnRecordWarga" onclick="window.toggleVoiceRecordWarga()" title="Voice Note" style="background:var(--bg-base); border:1px solid var(--border-color); width:45px; height:45px; border-radius:50%; font-size:1.3rem; color:var(--text-muted); cursor:pointer; transition:0.2s; display:flex; justify-content:center; align-items:center;" onmouseover="this.style.color='var(--danger)'; this.style.borderColor='var(--danger)';" onmouseout="this.style.color='var(--text-muted)'; this.style.borderColor='var(--border-color)';"><i class="fas fa-microphone"></i></button>
+
+                    <div id="wargaFileName" style="font-size:0.85rem; font-weight:700; color:var(--primary-dark); max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:var(--primary-light); padding:8px 10px; border-radius:8px; display:none; border: 1px solid #a7f3d0;"></div>
+                    
+                    <input type="text" id="wargaChatInput" placeholder="Ketik pesan atau balasan Anda..." style="flex:1; border:1px solid var(--border-color); background:var(--bg-base); padding:14px 20px; border-radius:30px; outline:none; font-family:'Inter', sans-serif; font-size:1.05rem; font-weight:500; transition:0.3s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);" onkeypress="window.handleChatEnterWarga(event)" onfocus="this.style.borderColor='var(--primary)'; this.style.background='white'; box-shadow: 0 0 0 4px var(--primary-light);" onblur="this.style.borderColor='var(--border-color)'; this.style.background='var(--bg-base)'; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+                    
+                    <div id="wargaRecordingUI" style="display:none; flex:1; align-items:center; gap:10px; padding:12px 20px; background:#fef2f2; border:1px solid #fecaca; border-radius:30px; color:#dc2626; font-weight:700; font-size:0.95rem;">
+                        <div class="waveform">
+                            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+                        </div>
+                        <span id="wargaRecordTime">00:00</span>
+                        <div style="margin-left:auto; font-size:0.75rem; opacity:0.8;">Merekam... Klik Kirim Langsung</div>
+                    </div>
+
+                    <button type="button" id="btnSendWarga" onclick="window.sendWargaChat()" style="background:linear-gradient(135deg, var(--primary), var(--primary-dark)); color:white; border:none; width:55px; height:55px; border-radius:50%; cursor:pointer; font-size:1.3rem; display:flex; justify-content:center; align-items:center; transition:0.3s; box-shadow:0 8px 20px rgba(16, 185, 129, 0.4);"><i class="fas fa-paper-plane" style="margin-left:-3px; margin-top:2px;"></i></button>
+                </div>
+            </div>
+        </div>
+    </div> 
+
+    <!-- UI PANGGILAN MASUK MODERN -->
+    <div id="wargaIncomingCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); backdrop-filter:blur(10px); z-index:9999999; justify-content:center; align-items:center; flex-direction:column;">
+        <div style="text-align:center; animation: scaleUp 0.3s ease-out;">
+            <div style="width: 120px; height: 120px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 3.5rem; color: white; margin: 0 auto 30px auto; box-shadow: 0 0 30px rgba(16, 185, 129, 0.6); position: relative;">
+                <i class="fas fa-phone-volume" style="animation: pulse 1s infinite;"></i>
+                <div style="position: absolute; top: -15px; left: -15px; right: -15px; bottom: -15px; border: 2px solid #10b981; border-radius: 50%; animation: ripple 1.5s infinite ease-out;"></div>
+            </div>
+            <h2 id="wargaCallerNameText" style="color:white; font-size: 1.8rem; margin: 0 0 10px 0;">Admin Dinsos</h2>
+            <p id="wargaCallerTypeText" style="color: #94a3b8; font-size: 1.1rem; margin-bottom: 40px; font-weight:600;">Menerima Panggilan Baru</p>
+            <div style="display:flex; gap: 40px; justify-content:center;">
+                <button onclick="window.rejectCallWarga()" style="width: 70px; height: 70px; border-radius: 50%; background: #ef4444; border: none; color: white; font-size: 1.8rem; cursor: pointer; box-shadow: 0 10px 20px rgba(239, 68, 68, 0.4); transition: 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"><i class="fas fa-phone-slash"></i></button>
+                <button onclick="window.acceptCallWarga()" style="width: 70px; height: 70px; border-radius: 50%; background: #10b981; border: none; color: white; font-size: 1.8rem; cursor: pointer; box-shadow: 0 10px 20px rgba(16, 185, 129, 0.4); transition: 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"><i class="fas fa-phone"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI PANGGILAN AKTIF (AUDIO & VIDEO PIP) -->
+    <div id="wargaActiveCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.9); backdrop-filter:blur(10px); z-index:9999999; justify-content:center; align-items:center;">
+        <div class="call-card-modern">
+            <div class="call-header-modern">
+                <h3 id="wargaActiveCallName">Admin Dinsos</h3>
+                <p id="wargaCallStatusText">Menyambungkan...</p>
+                <div id="wargaCallDuration">00:00</div>
+            </div>
+            <div id="wargaVideoCallArea" class="video-area-modern">
+                <video id="wargaRemoteVideo" autoplay playsinline></video>
+                <video id="wargaLocalVideo" autoplay muted playsinline></video>
+            </div>
+            <div id="wargaAudioCallArea" class="audio-area-modern">
+                <div class="audio-avatar">
+                    <i class="fas fa-headset"></i>
+                    <div class="ripple-ring"></div>
+                </div>
+            </div>
+            <div class="call-controls-modern">
+                <button id="wargaBtnMute" onclick="window.toggleMuteCallWarga()" class="ctrl-btn" title="Matikan Suara"><i class="fas fa-microphone"></i></button>
+                <button onclick="window.endCallWarga()" class="ctrl-btn btn-end" title="Akhiri Panggilan"><i class="fas fa-phone-slash"></i></button>
+            </div>
+            <div style="text-align: center; padding-bottom: 15px; background: #1e293b; font-size: 0.75rem; color: #94a3b8; font-weight:600;"><i class="fas fa-shield-alt"></i> Terenkripsi E2EE</div>
+        </div>
+    </div>
+
+    <button class="chat-fab" id="chatbotFabBtn" onclick="window.toggleChat()" title="Bantuan Asisten Robot Cepat"><i class="fas fa-robot"></i></button>
+
+    <!-- Z-INDEX DIPERBESAR AGAR LEBIH TINGGI DARI EDITOR -->
+    <div id="mediaLightbox" class="modal-blur-overlay" style="z-index: 120000 !important; flex-direction: column;" onclick="window.closeLightbox(event)"><div style="position: absolute; top: 20px; right: 30px; font-size: 2.5rem; color: white; cursor: pointer; transition: 0.2s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='white'" class="close-lightbox-btn">&times;</div><div id="lightboxContent" style="max-width: 90%; max-height: 85vh; display: flex; justify-content: center; align-items: center;"></div></div>
+
+    <!-- Elemen Audio Ringtone WebRTC -->
+    <audio id="wargaRingtoneAudio" src="https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg" loop style="display:none;"></audio>
+
+    <!-- MEMANGGIL FILE JAVASCRIPT PENTING -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+    <!-- FILE INTERNAL KITA (Bypass Cache v9.5) -->
+    <script src="static/js/global.js?v=9.5"></script>
+    <script src="static/js/publik.js?v=9.5"></script>
+</body>
+</html>

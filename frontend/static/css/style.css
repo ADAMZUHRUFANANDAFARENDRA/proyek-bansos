@@ -1,0 +1,504 @@
+/* =========================================================
+   UI/UX MODERN SPK BANSOS SIDOARJO 2026 (GLOBAL STYLE)
+   Tema: Clean, Soft-Neumorphism, & Elegant Glassmorphism
+========================================================= */
+
+/* --- VARIABEL WARNA (PALET MODERN) --- */
+:root {
+    --primary: #009846; /* Hijau Khas Sidoarjo */
+    --primary-hover: #047857;
+    --primary-dark: #006635; 
+    --primary-light: #d1fae5;
+    --accent: #f59e0b; /* Kuning/Orange Aksen */
+    --accent-hover: #d97706;
+    --bg-body: #f8fafc; /* Abu-abu kebiruan sangat lembut */
+    --surface: #ffffff;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+    --danger: #ef4444;
+    --info: #0ea5e9;
+    
+    /* Konfigurasi Radius */
+    --radius-xl: 24px;
+    --radius-lg: 16px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+
+    /* Bayangan Lembut Modern (Soft Neumorphism) */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+    --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* --- RESET & TIPOGRAFI --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* --- KUSTOMISASI SCROLLBAR (Elegan & Tipis) --- */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* --- NAVBAR (GLASSMORPHISM EFFECT) --- */
+nav {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: var(--shadow-sm);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    padding: 0.75rem 0;
+}
+
+.nav-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: var(--primary);
+    font-weight: 800;
+    font-size: 1.25rem;
+    letter-spacing: -0.5px;
+}
+
+.logo i { font-size: 1.8rem; }
+.logo span {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0;
+}
+
+/* --- CARDS (KOTAK KONTEN MODERN) --- */
+.card {
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.5);
+    box-shadow: var(--shadow-md);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+}
+
+.dashboard-grid .card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-float);
+}
+
+.card-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(248, 250, 252, 0.5);
+}
+
+.card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* --- FORM & INPUTS --- */
+form { padding: 1.5rem; }
+.form-group { margin-bottom: 1.25rem; }
+.form-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #475569;
+}
+
+.form-input, .form-select, textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    background-color: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+}
+
+.form-input:focus, .form-select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    background-color: var(--surface);
+    box-shadow: 0 0 0 4px rgba(0, 152, 70, 0.15);
+}
+
+/* --- TOMBOL (MICRO-INTERACTIONS) --- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0.6rem 1.2rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn:active { transform: scale(0.95); } 
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(0, 152, 70, 0.2);
+}
+
+.btn-primary:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 152, 70, 0.3);
+    transform: translateY(-2px);
+}
+
+.btn-calc { padding: 1rem; font-size: 1rem; color: white; border-radius: 12px; }
+.btn-calc:hover { transform: translateY(-3px); filter: brightness(1.1); }
+
+/* --- TABEL MODERN --- */
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    border-radius: 0 0 16px 16px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    text-align: left;
+}
+
+th {
+    background-color: #f1f5f9;
+    color: #475569;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 1rem 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+td {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+    font-size: 0.95rem;
+}
+
+tbody tr { transition: background-color 0.2s ease; }
+tbody tr:hover { background-color: #f8fafc; }
+tbody tr:last-child td { border-bottom: none; }
+
+/* --- BADGES (STATUS) --- */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.badge-green { background-color: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+
+/* --- GLOBAL POP-UP / MODAL --- */
+.swal2-container { z-index: 110000 !important; }
+.modal-blur-overlay, .modal-blur { 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px); 
+    z-index: 99999; display: none; justify-content: center; align-items: center; 
+    animation: fadeIn 0.2s ease; 
+} 
+
+.modal-card-premium, .modal-card { 
+    background: var(--surface); border-radius: var(--radius-xl); 
+    border: 1px solid rgba(255,255,255,0.8); box-shadow: var(--shadow-float); 
+    animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); 
+}
+
+/* --- ANIMASI GLOBAL --- */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleUp { 
+    from { transform: scale(0.95) translateY(10px); opacity: 0; } 
+    to { transform: scale(1) translateY(0); opacity: 1; } 
+}
+
+.card { animation: fadeInUp 0.5s ease-out forwards; }
+
+/* =========================================================
+   UI TELEPON & VIDEO CALL MODERN (WEBRTC)
+========================================================= */
+
+/* Wadah Utama Panggilan Aktif */
+.call-card-modern { 
+    width: 100%; 
+    max-width: 400px; 
+    background: #0f172a; 
+    border-radius: 24px; 
+    overflow: hidden; 
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8); 
+    border: 1px solid #334155; 
+    display: flex; 
+    flex-direction: column; 
+    position: relative; 
+    animation: scaleUp 0.3s ease-out;
+}
+
+/* Header Info Nama & Durasi */
+.call-header-modern { 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    padding: 25px 20px 40px 20px; 
+    text-align: center; 
+    z-index: 20; 
+    background: linear-gradient(to bottom, rgba(15,23,42,0.95) 0%, transparent 100%); 
+    pointer-events: none; 
+}
+.call-header-modern h3 { margin: 0; color: white; font-size: 1.4rem; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+.call-header-modern p { margin: 5px 0 0 0; color: #a7f3d0; font-weight: 600; font-size: 0.95rem; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+.call-header-modern div { font-family: monospace; font-size: 1.2rem; color: white; margin-top: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+
+/* Area Video (Picture-in-Picture) */
+.video-area-modern { 
+    position: relative; 
+    width: 100%; 
+    height: 60vh; 
+    max-height: 550px; 
+    background: #000; 
+    display: none; 
+}
+.video-area-modern video#remoteVideo { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+}
+.video-area-modern video#localVideo { 
+    position: absolute; 
+    bottom: 20px; 
+    right: 20px; 
+    width: 110px; 
+    height: 150px; 
+    object-fit: cover; 
+    border-radius: 16px; 
+    border: 2px solid rgba(255,255,255,0.8); 
+    box-shadow: 0 8px 16px rgba(0,0,0,0.5); 
+    background: #1e293b; 
+    transition: filter 0.3s ease; 
+    z-index: 10;
+}
+.video-area-modern video#localVideo.blurred { 
+    filter: blur(10px); 
+}
+
+/* Area Audio (Mode Telepon Suara) */
+.audio-area-modern { 
+    width: 100%; 
+    height: 50vh; 
+    max-height: 400px; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    background: #0f172a; 
+    position: relative; 
+}
+.audio-avatar { 
+    width: 140px; 
+    height: 140px; 
+    background: linear-gradient(135deg, var(--info), #4f46e5); 
+    border-radius: 50%; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    font-size: 4rem; 
+    color: white; 
+    position: relative; 
+    z-index: 2; 
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.4); 
+}
+.ripple-ring { 
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    width: 180px; 
+    height: 180px; 
+    border: 2px solid var(--info); 
+    border-radius: 50%; 
+    animation: ripple 1.5s infinite ease-out; 
+    z-index: 1; 
+}
+
+/* Tombol Kontrol Panggilan */
+.call-controls-modern { 
+    padding: 25px 20px; 
+    background: #1e293b; 
+    display: flex; 
+    justify-content: center; 
+    gap: 15px; 
+    border-top: 1px solid #334155; 
+    align-items: center; 
+    z-index: 20; 
+    position: relative;
+}
+.ctrl-btn { 
+    width: 55px; 
+    height: 55px; 
+    border-radius: 50%; 
+    border: none; 
+    background: #334155; 
+    color: white; 
+    font-size: 1.2rem; 
+    cursor: pointer; 
+    transition: 0.2s; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+}
+.ctrl-btn:hover { background: #475569; }
+.ctrl-btn.off { background: #fef2f2; color: #ef4444; }
+.ctrl-btn.active-blur { background: #d1fae5; color: #059669; }
+
+.btn-end { 
+    width: 65px; 
+    height: 65px; 
+    background: #ef4444; 
+    font-size: 1.5rem; 
+    box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3); 
+}
+.btn-end:hover { background: #b91c1c; transform: scale(1.1); }
+
+/* Animasi Ripple WebRTC */
+@keyframes ripple { 
+    0% { transform: translate(-50%, -50%) scale(0.8); opacity: 1; } 
+    100% { transform: translate(-50%, -50%) scale(1.4); opacity: 0; } 
+}
+
+/* EMOJI REACTION (WebRTC Chat) */
+.emoji-reaction-bar { 
+    position: absolute; 
+    bottom: 100px; 
+    left: 50%; 
+    transform: translateX(-50%); 
+    background: rgba(15,23,42,0.8); 
+    backdrop-filter: blur(5px); 
+    padding: 8px 12px; 
+    border-radius: 30px; 
+    display: flex; 
+    gap: 10px; 
+    z-index: 30; 
+    border: 1px solid rgba(255,255,255,0.1); 
+}
+.emoji-reaction-bar button { 
+    background: none; 
+    border: none; 
+    font-size: 1.8rem; 
+    cursor: pointer; 
+    transition: 0.2s; 
+    padding: 0; 
+    margin: 0; 
+    line-height: 1; 
+}
+.emoji-reaction-bar button:hover { 
+    transform: scale(1.3) translateY(-5px); 
+}
+
+.call-reaction-display { 
+    position: absolute; 
+    top: 40%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    font-size: 6rem; 
+    z-index: 40; 
+    pointer-events: none; 
+    opacity: 0; 
+    transition: 0.3s; 
+    text-shadow: 0 10px 25px rgba(0,0,0,0.5);
+}
+.call-reaction-display.show { 
+    animation: popEmoji 2.5s ease-out forwards; 
+}
+@keyframes popEmoji { 
+    0% { opacity: 0; transform: translate(-50%, -20%) scale(0.5); } 
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } 
+    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 
+    100% { opacity: 0; transform: translate(-50%, -80%) scale(0.8); } 
+}
+
+/* =========================================================
+   PRE-SEND EDIT BUTTON (Tombol Melayang Edit Media)
+========================================================= */
+.presend-edit-btn { 
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    background: rgba(0,0,0,0.6); 
+    color: white; 
+    border: 1px solid rgba(255,255,255,0.5); 
+    padding: 8px 16px; 
+    border-radius: 20px; 
+    font-weight: 600; 
+    cursor: pointer; 
+    opacity: 0; 
+    transition: 0.3s ease; 
+    backdrop-filter: blur(4px);
+    z-index: 100;
+}
+
+#previewMediaContainerAdmin:hover .presend-edit-btn, 
+#previewMediaContainer:hover .presend-edit-btn { 
+    opacity: 1; 
+}

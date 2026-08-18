@@ -1,0 +1,82 @@
+/* =========================================================
+   ADMIN.CSS - TATA LETAK KHUSUS DASBOR PETUGAS/ADMIN
+========================================================= */
+
+/* --- GRID & LAYOUT UTAMA --- */
+.container { max-width: 1440px; margin: 0 auto; padding: 2.5rem 2rem; }
+.grid-layout { display: grid; grid-template-columns: 450px 1fr; gap: 2rem; align-items: start; }
+@media (max-width: 1100px) { .grid-layout { grid-template-columns: 1fr; } }
+
+/* --- COMMAND CENTER --- */
+#adminCommandCenter { background: #fafafa; border: 1px solid #e0e7ff; }
+.cmd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; padding: 1.5rem; } 
+.cmd-btn { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 1rem; border-radius: var(--radius-sm); font-weight: 600; font-size: 0.95rem; border: none; cursor: pointer; color: white; transition: all 0.25s ease; box-shadow: var(--shadow-sm); } 
+.cmd-btn:hover { transform: translateY(-3px); filter: brightness(1.05); box-shadow: var(--shadow-md); }
+
+/* --- STATISTIK & KARTU --- */
+.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; } 
+.stat-card { padding: 1.5rem; display: flex; align-items: center; gap: 1.5rem; transition: transform 0.3s ease;} 
+.stat-card:hover { transform: translateY(-5px); }
+.stat-icon { width: 60px; height: 60px; border-radius: var(--radius-md); display: flex; justify-content: center; align-items: center; font-size: 1.75rem; } 
+.stat-blue { background: #eff6ff; color: var(--info); } 
+.stat-green { background: #ecfdf5; color: var(--primary); }
+.stat-card h2 { font-size: 2rem; font-weight: 800; line-height: 1; margin-bottom: 4px; color: var(--text-main);}
+.stat-card p { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin:0;}
+
+/* --- IDENTITAS PROFIL & ROLE --- */
+.user-profile { display: flex; align-items: center; gap: 1.5rem; }
+.user-name { font-weight: 700; font-size: 0.95rem; text-align: right; color: var(--text-main); } 
+.role-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; margin-top: 4px; border: 1px solid var(--border-color);} 
+.role-admin { background: #e0e7ff; color: var(--admin-color); border-color: #c7d2fe;} 
+.role-petugas { background: #e0f2fe; color: var(--info); border-color: #bae6fd;}
+
+/* --- FILTER TOMBOL --- */
+.filter-btn-group { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px; background: #f8fafc; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 15px; }
+.filter-btn { padding: 6px 14px; font-size: 0.85rem; border-radius: 20px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: 0.2s; background: white; color: var(--text-muted); box-shadow: var(--shadow-sm); }
+.filter-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+.filter-btn.active { background: var(--primary-light); color: var(--primary-dark); border-color: var(--primary); }
+.filter-btn-danger { color: var(--danger); }
+.filter-btn-danger.active { background: #fef2f2; color: var(--danger); border-color: var(--danger); }
+
+/* --- ELEMEN PETA & LAYOUT --- */
+.map-wrapper { background: var(--surface); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 8px; margin-bottom: 1rem; box-shadow: var(--shadow-sm); }
+.map-legend-card { background: rgba(255,255,255,0.95); backdrop-filter: blur(4px); padding: 12px; border-radius: var(--radius-sm); box-shadow: var(--shadow-md); line-height: 1.6; font-size: 0.8rem; font-weight: 600; border: 1px solid var(--border-color);}
+.map-legend-card i { width: 14px; height: 14px; float: left; margin-right: 8px; opacity: 0.9; border-radius: 50%; }
+.big-map-area { height: 400px; width: 100%; z-index: 10; position: relative; }
+
+/* --- STRUKTUR MATRIKS & KOMPARASI --- */
+.q-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: var(--bg-body); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 1.5rem; }
+.q-grid .form-group { margin-bottom: 0; }
+.matriks-val { font-family: 'monospace'; font-size: 1rem; color: var(--admin-color); font-weight: 600; background: #e0e7ff; padding: 4px 8px; border-radius: 6px; }
+.minmax-val { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; }
+.val-max { background: #d1fae5; color: var(--primary-dark); border: 1px solid #a7f3d0;}
+.val-min { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;}
+
+.komparasi-grid { display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 15px; padding: 0 1rem; }
+.rank-badge { width: 30px; height: 30px; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; font-weight: 800; font-size: 0.85rem; color: white; box-shadow: var(--shadow-sm); }
+.rank-saw { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
+.rank-wp { background: linear-gradient(135deg, var(--admin-color), #4f46e5); }
+
+/* --- MENU KLIK KANAN CHAT & KONTAK --- */
+.chat-contact-item { padding: 12px 16px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; gap: 4px; }
+.chat-contact-item:hover { background: var(--bg-body); }
+.chat-contact-item.active { background: #e0f2fe; border-left: 3px solid var(--info); }
+.hover-action:hover { color: var(--primary); }
+
+/* --- FAB BULK ACTION --- */
+.fab-bulk { position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%); background: var(--text-main); backdrop-filter: blur(10px); padding: 12px 24px; border-radius: 40px; display: flex; gap: 12px; align-items: center; box-shadow: var(--shadow-float); transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1500; border: 1px solid rgba(255,255,255,0.1);} 
+.fab-bulk.active { bottom: 30px; } 
+.fab-text { color: white; font-weight: 600; margin-right: 10px; font-size: 0.95rem; }
+
+/* --- SK BUPATI PRINT MODERN --- */
+#skBupatiPrintArea { display:none; padding: 40px 50px; background: white; font-family: 'Times New Roman', Times, serif; color: #000; font-size: 11pt; line-height: 1.5; }
+.sk-header { text-align: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 25px; }
+.sk-header h1 { margin: 0; font-size: 20pt; font-weight: bold; letter-spacing: 1px; }
+.sk-header h2 { margin: 5px 0 0 0; font-size: 16pt; font-weight: bold; }
+.sk-header p { margin: 5px 0 0 0; font-size: 10pt; }
+.sk-title { text-align: center; margin-bottom: 30px; }
+.sk-title h3 { margin: 0; font-size: 12pt; text-decoration: underline; text-transform: uppercase; }
+.sk-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+.sk-table th, .sk-table td { border: 1px solid #000; padding: 8px 10px; text-align: left; }
+.sk-table th { background-color: #f2f2f2; font-weight: bold; text-align: center; }
+.sk-signature { width: 300px; float: right; text-align: center; margin-top: 20px; }

@@ -1,0 +1,25 @@
+{
+  "name": "SPK Bansos Eksekutif Sidoarjo",
+  "short_name": "Bansos Sidoarjo",
+  "description": "Sistem Informasi SPK Penentuan Bantuan Sosial Cerdas Desa Cemandi, Kabupaten Sidoarjo Terintegrasi AI.",
+  "start_url": "/publik.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#009846",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Lambang_Kabupaten_Sidoarjo.png/409px-Lambang_Kabupaten_Sidoarjo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Lambang_Kabupaten_Sidoarjo.png/409px-Lambang_Kabupaten_Sidoarjo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
