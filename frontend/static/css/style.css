@@ -279,8 +279,6 @@ tbody tr:last-child td { border-bottom: none; }
 /* =========================================================
    UI TELEPON & VIDEO CALL MODERN (WEBRTC)
 ========================================================= */
-
-/* Wadah Utama Panggilan Aktif */
 .call-card-modern { 
     width: 100%; 
     max-width: 400px; 
@@ -295,7 +293,6 @@ tbody tr:last-child td { border-bottom: none; }
     animation: scaleUp 0.3s ease-out;
 }
 
-/* Header Info Nama & Durasi */
 .call-header-modern { 
     position: absolute; 
     top: 0; 
@@ -311,7 +308,6 @@ tbody tr:last-child td { border-bottom: none; }
 .call-header-modern p { margin: 5px 0 0 0; color: #a7f3d0; font-weight: 600; font-size: 0.95rem; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
 .call-header-modern div { font-family: monospace; font-size: 1.2rem; color: white; margin-top: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
 
-/* Area Video (Picture-in-Picture) */
 .video-area-modern { 
     position: relative; 
     width: 100%; 
@@ -343,7 +339,6 @@ tbody tr:last-child td { border-bottom: none; }
     filter: blur(10px); 
 }
 
-/* Area Audio (Mode Telepon Suara) */
 .audio-area-modern { 
     width: 100%; 
     height: 50vh; 
@@ -381,7 +376,6 @@ tbody tr:last-child td { border-bottom: none; }
     z-index: 1; 
 }
 
-/* Tombol Kontrol Panggilan */
 .call-controls-modern { 
     padding: 25px 20px; 
     background: #1e293b; 
@@ -420,7 +414,6 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .btn-end:hover { background: #b91c1c; transform: scale(1.1); }
 
-/* Animasi Ripple WebRTC */
 @keyframes ripple { 
     0% { transform: translate(-50%, -50%) scale(0.8); opacity: 1; } 
     100% { transform: translate(-50%, -50%) scale(1.4); opacity: 0; } 
@@ -477,9 +470,6 @@ tbody tr:last-child td { border-bottom: none; }
     100% { opacity: 0; transform: translate(-50%, -80%) scale(0.8); } 
 }
 
-/* =========================================================
-   PRE-SEND EDIT BUTTON (Tombol Melayang Edit Media)
-========================================================= */
 .presend-edit-btn { 
     position: absolute; 
     top: 50%; 
