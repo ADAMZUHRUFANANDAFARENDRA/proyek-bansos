@@ -1,50 +1,44 @@
 version: '3.8'
 
 services:
-  # 1. MESIN DATABASE MYSQL
   db:
     image: mysql:8.0
-    container_name: bansos_mysql
+    container_name: bansos_db
+    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: password_rahasia_dinsos
       MYSQL_DATABASE: bansos
     ports:
       - "3306:3306"
     volumes:
-      - db_data:/var/lib/mysql
-      # Baris di bawah ini SUPER PENTING: Akan otomatis merestore database.sql Anda ke dalam tabel!
-      - ./db/database.sql:/docker-entrypoint-initdb.d/database.sql
-    restart: unless-stopped
+      # Kunci utama: volume persisten agar database tidak ter-reset saat update kode
+      - db_bansos_data:/var/lib/mysql
+      - ./db/database.sql:/docker-entrypoint-initdb.d/init.sql
 
-  # 2. MESIN BACKEND (FLASK PYTHON)
   backend:
     build: ./backend
-    container_name: bansos_flask
+    container_name: bansos_backend
+    restart: always
+    environment:
+      - SQLALCHEMY_DATABASE_URI=mysql+mysqlconnector://root:password_rahasia_dinsos@db:3306/bansos
+      - SECRET_KEY=kunci_rahasia_pemkab_sidoarjo_2026
     ports:
       - "5000:5000"
     volumes:
-      # 👇 BARIS INI DITAMBAHKAN UNTUK SINKRONISASI REAL-TIME BACKEND (app.py) 👇
-      - ./backend:/app
-      # -----------------------------------------------------------------------
-      - ./backend/static/uploads:/app/static/uploads # Mencegah foto/video hilang saat server restart
+      # Agar file foto KTP, foto rumah, voice note, dan video tidak hilang
+      - ./backend/static/uploads:/app/static/uploads
     depends_on:
       - db
-    restart: unless-stopped
 
-  # 3. MESIN FRONTEND (NGINX WEB SERVER)
   frontend:
     build: ./frontend
-    container_name: bansos_web
+    container_name: bansos_frontend
+    restart: always
     ports:
       - "80:80"
-    volumes:
-      # 👇 BARIS INI DITAMBAHKAN UNTUK SINKRONISASI REAL-TIME FRONTEND (HTML, JS, CSS) 👇
-      - ./frontend:/usr/share/nginx/html
-      # -------------------------------------------------------------------------------
     depends_on:
       - backend
-    restart: unless-stopped
 
-# Menyimpan data database secara permanen di harddisk Anda
 volumes:
-  db_data:
+  db_bansos_data:
+    driver: local
