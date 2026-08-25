@@ -109,6 +109,7 @@ class User(db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
+    nama_lengkap = db.Column(db.String(100), nullable=True, default='')
     email = db.Column(db.String(100), unique=True, nullable=True)
     password = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), default='operator')
@@ -176,9 +177,9 @@ def init_kriteria():
             Kriteria(kode='C10', nama='Kesehatan', bobot=0.10, jenis='benefit')
         ])
     if not User.query.filter_by(username='admin').first():
-        db.session.add(User(username='admin', password=bcrypt.generate_password_hash('admin123').decode('utf-8'), role='admin'))
+        db.session.add(User(username='admin', nama_lengkap='Administrator', password=bcrypt.generate_password_hash('admin123').decode('utf-8'), role='admin'))
     if not User.query.filter_by(username='petugas').first():
-        db.session.add(User(username='petugas', password=bcrypt.generate_password_hash('12345').decode('utf-8'), role='operator'))
+        db.session.add(User(username='petugas', nama_lengkap='Petugas Lapangan', password=bcrypt.generate_password_hash('12345').decode('utf-8'), role='operator'))
     db.session.commit()
     return jsonify({"status": "success", "message": "Database dan data inisial siap!"})
 
