@@ -11,7 +11,6 @@ services:
     ports:
       - "3307:3306"
     volumes:
-      # Kunci utama: volume persisten agar database tidak ter-reset saat update kode
       - db_bansos_data:/var/lib/mysql
       - ./db/database.sql:/docker-entrypoint-initdb.d/init.sql
 
@@ -20,12 +19,12 @@ services:
     container_name: bansos_backend
     restart: always
     environment:
+      - DATABASE_URL=mysql+mysqlconnector://root:password_rahasia_dinsos@db:3306/bansos
       - SQLALCHEMY_DATABASE_URI=mysql+mysqlconnector://root:password_rahasia_dinsos@db:3306/bansos
       - SECRET_KEY=kunci_rahasia_pemkab_sidoarjo_2026
     ports:
       - "5000:5000"
     volumes:
-      # Agar file foto KTP, foto rumah, voice note, dan video tidak hilang
       - ./backend/static/uploads:/app/static/uploads
     depends_on:
       - db

@@ -19,7 +19,8 @@ app = Flask(__name__)
 # KONFIGURASI DATABASE & APLIKASI
 # ====================================================
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
-    'DATABASE_URL', 'mysql+mysqlconnector://root:@localhost/bansos'
+    'DATABASE_URL', 
+    os.environ.get('SQLALCHEMY_DATABASE_URI', 'mysql+mysqlconnector://root:password_rahasia_dinsos@db:3306/bansos')
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'kunci_rahasia_pemkab_sidoarjo')
