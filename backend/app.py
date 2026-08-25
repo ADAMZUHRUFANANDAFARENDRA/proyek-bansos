@@ -1,42 +1,54 @@
-import os
-import json
-import secrets
-import smtplib
 import math
-from email.mime.text import MIMEText
+import os
+import smtplib
+import uuid
+from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from functools import wraps
-from datetime import datetime
-from flask import Flask, request, jsonify, send_from_directory
-from flask_sqlalchemy import SQLAlchemy
+
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request, send_from_directory
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
+import jwt
+from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
 
-app = Flask(__name__)
+# ====================================================
+# KONFIGURASI ENVIRONMENT & APLIKASI
+# ====================================================
+load_dotenv()
 
-# ====================================================
-# KONFIGURASI DATABASE & APLIKASI
-# ====================================================
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
-    'DATABASE_URL', 
-    os.environ.get('SQLALCHEMY_DATABASE_URI', 'mysql+mysqlconnector://root:password_rahasia_dinsos@db:3306/bansos')
+app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'kunci_rahasia_pemkab_sidoarjo_2026')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
+    'DATABASE_URL', 'mysql+mysqlconnector://root:@localhost/bansos'
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'kunci_rahasia_pemkab_sidoarjo')
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # Maksimal 100 MB
 
-# Batas Maksimal Upload (100 MB)
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
-UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'static/uploads')
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov', 'avi', 'mkv', 'webm', 'pdf'}
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-ACTIVE_SESSIONS = {}
-LOGIN_ATTEMPTS = {}
+EMAIL_SENDER = os.getenv('EMAIL_SENDER', '')
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', '')
+
+LOGIN_ATTEMPTS = {}  # Format: {username: {'count': int, 'locked_until': datetime}}
+
+# ====================================================
+# HELPER & EXCEPTION HANDLER
+# ====================================================
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1).lower() in ALLOWED_EXTENSIONS
 
 def safe_float(val, default=0.0):
     try:
@@ -50,27 +62,27 @@ def safe_int(val, default=0):
     except (ValueError, TypeError):
         return default
 
+@app.errorhandler(HTTPException)
+def handle_http_exception(e):
+    return jsonify({"status": "error", "message": e.description}), e.code
+
 @app.errorhandler(Exception)
-def handle_exception(e):
+def handle_generic_exception(e):
     return jsonify({"status": "error", "message": f"Server Error: {str(e)}"}), 500
 
-EMAIL_SENDER = os.environ.get("EMAIL_SENDER", "emailkamu@gmail.com")
-EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD", "password_app_gmail_kamu")
-
-def send_email_notification(to_email, subject, body_text):
-    if not to_email or "@" not in to_email:
+def send_email_notification(to_email, subject, body_html):
+    if not EMAIL_SENDER or not EMAIL_PASSWORD or not to_email or "@" not in to_email:
         return False
     try:
         msg = MIMEMultipart()
         msg['From'] = f"Layanan Bansos Sidoarjo <{EMAIL_SENDER}>"
         msg['To'] = to_email
         msg['Subject'] = subject
-        msg.attach(MIMEText(body_text, 'html'))
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-        server.send_message(msg)
-        server.quit()
+        msg.attach(MIMEText(body_html, 'html'))
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.starttls()
+            server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+            server.send_message(msg)
         return True
     except Exception:
         return False
@@ -88,6 +100,8 @@ class Warga(db.Model):
     tempat_lahir = db.Column(db.String(50), nullable=True)
     tanggal_lahir = db.Column(db.Date, nullable=True)
     alamat = db.Column(db.String(255), nullable=True)
+
+    # 10 Kriteria Penilaian (Sesuai Proposal TA)
     c1_ekonomi = db.Column(db.Float, nullable=False, default=0.0)
     c2_aset = db.Column(db.Integer, nullable=False, default=0)
     c3_umur = db.Column(db.Integer, nullable=False, default=0)
@@ -98,21 +112,25 @@ class Warga(db.Model):
     c8_tempat_tinggal = db.Column(db.Integer, nullable=False, default=1)
     c9_pendidikan = db.Column(db.Integer, nullable=False, default=1)
     c10_kesehatan = db.Column(db.Integer, nullable=False, default=1)
+
     is_verified = db.Column(db.Boolean, default=False)
     tanggal_verifikasi = db.Column(db.Date, nullable=True)
-    catatan = db.Column(db.Text, nullable=True)
-    status_salur = db.Column(db.String(20), default='Pending')
+    foto_rumah = db.Column(db.String(255), nullable=True)
     latitude = db.Column(db.String(50), nullable=True)
     longitude = db.Column(db.String(50), nullable=True)
+    catatan = db.Column(db.Text, nullable=True)
+    status_salur = db.Column(db.String(20), default='Pending')
+    bukti_salur = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class User(db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
-    nama_lengkap = db.Column(db.String(100), nullable=True, default='')
     email = db.Column(db.String(100), unique=True, nullable=True)
     password = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), default='operator')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Kriteria(db.Model):
     __tablename__ = 'kriteria'
@@ -120,13 +138,13 @@ class Kriteria(db.Model):
     kode = db.Column(db.String(5), unique=True, nullable=False)
     nama = db.Column(db.String(50), nullable=False)
     bobot = db.Column(db.Float, nullable=False)
-    jenis = db.Column(db.String(10), nullable=False)
+    jenis = db.Column(db.String(10), nullable=False)  # 'benefit' atau 'cost'
 
 class Notifikasi(db.Model):
     __tablename__ = 'notifikasi'
     id = db.Column(db.Integer, primary_key=True)
     pesan = db.Column(db.Text, nullable=False)
-    role_target = db.Column(db.String(20), nullable=False)
+    role_target = db.Column(db.String(20), nullable=False, default='all')
     waktu = db.Column(db.DateTime, default=datetime.now)
     is_read = db.Column(db.Boolean, default=False)
     is_pinned = db.Column(db.Boolean, default=False)
@@ -140,25 +158,54 @@ class ChatKeluhan(db.Model):
     sender = db.Column(db.String(20), nullable=False)  # 'warga' atau 'admin'
     pesan = db.Column(db.Text, nullable=True)
     file_path = db.Column(db.String(255), nullable=True)
-    file_type = db.Column(db.String(20), nullable=True)  # 'image' atau 'video'
+    file_type = db.Column(db.String(20), nullable=True)
     waktu = db.Column(db.DateTime, default=datetime.now)
 
 # ====================================================
-# MIDDLEWARE AUTH
+# MIDDLEWARE AUTENTIKASI JWT & ROLE-BASED ACCESS
 # ====================================================
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        auth_header = request.headers.get('Authorization', '')
-        token = auth_header.replace('Bearer ', '').strip() if auth_header else request.args.get('token')
-        if not token or token not in ACTIVE_SESSIONS:
-            return jsonify({"status": "error", "message": "Akses Ditolak. Token tidak valid atau kedaluwarsa."}), 401
-        request.current_user = ACTIVE_SESSIONS[token]
+        auth_header = request.headers.get('Authorization', '').strip()
+        token = None
+        if auth_header.startswith('Bearer '):
+            parts = auth_header.split(' ')
+            if len(parts) > 1:
+                token = parts
+        elif request.args.get('token'):
+            token = request.args.get('token')
+
+        if not token:
+            return jsonify({"status": "error", "message": "Token autentikasi tidak ditemukan."}), 401
+
+        try:
+            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            user = User.query.get(payload.get('user_id'))
+            if not user:
+                return jsonify({"status": "error", "message": "Pengguna tidak terdaftar."}), 401
+            request.current_user = {"id": user.id, "username": user.username, "role": user.role}
+        except jwt.ExpiredSignatureError:
+            return jsonify({"status": "error", "message": "Sesi telah berakhir, silakan login kembali."}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"status": "error", "message": "Token tidak valid."}), 401
+
         return f(*args, **kwargs)
     return decorated
 
+def roles_required(*allowed_roles):
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            user_role = getattr(request, 'current_user', {}).get('role')
+            if user_role not in allowed_roles:
+                return jsonify({"status": "error", "message": "Akses ditolak: Hak akses tidak mencukupi."}), 403
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
 # ====================================================
-# ROUTES / API ENDPOINTS
+# AUTENTIKASI & INISIALISASI
 # ====================================================
 @app.route('/init-kriteria', methods=['GET'])
 def init_kriteria():
@@ -177,50 +224,85 @@ def init_kriteria():
             Kriteria(kode='C10', nama='Kesehatan', bobot=0.10, jenis='benefit')
         ])
     if not User.query.filter_by(username='admin').first():
-        db.session.add(User(username='admin', nama_lengkap='Administrator', password=bcrypt.generate_password_hash('admin123').decode('utf-8'), role='admin'))
+        db.session.add(User(
+            username='admin',
+            email='admin@sidoarjo.go.id',
+            password=bcrypt.generate_password_hash('admin123').decode('utf-8'),
+            role='admin'
+        ))
     if not User.query.filter_by(username='petugas').first():
-        db.session.add(User(username='petugas', nama_lengkap='Petugas Lapangan', password=bcrypt.generate_password_hash('12345').decode('utf-8'), role='operator'))
+        db.session.add(User(
+            username='petugas',
+            email='petugas@sidoarjo.go.id',
+            password=bcrypt.generate_password_hash('12345').decode('utf-8'),
+            role='operator'
+        ))
     db.session.commit()
-    return jsonify({"status": "success", "message": "Database dan data inisial siap!"})
+    return jsonify({"status": "success", "message": "Database dan Kriteria Berhasil Diinisialisasi!"})
 
 @app.route('/login', methods=['POST'])
 def login():
-    data = request.json or {}
-    username_input = data.get('username')
-    password_input = data.get('password')
+    data = request.get_json() or {}
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
 
-    if username_input in LOGIN_ATTEMPTS and LOGIN_ATTEMPTS[username_input] >= 5:
-        return jsonify({"status": "fail", "message": "Akun dikunci sementara karena terlalu banyak percobaan."}), 403
+    now = datetime.utcnow()
+    user_attempt = LOGIN_ATTEMPTS.get(username)
+    if user_attempt and user_attempt.get('locked_until') and now < user_attempt['locked_until']:
+        remaining = int((user_attempt['locked_until'] - now).total_seconds() // 60) + 1
+        return jsonify({
+            "status": "fail",
+            "message": f"Akun terkunci sementara karena 5x percobaan gagal. Coba lagi dalam {remaining} menit."
+        }), 403
 
-    user = User.query.filter_by(username=username_input).first()
-    if user and bcrypt.check_password_hash(user.password, password_input):
-        LOGIN_ATTEMPTS[username_input] = 0
-        token = secrets.token_hex(32)
-        ACTIVE_SESSIONS[token] = {"username": user.username, "role": user.role}
-        return jsonify({"status": "success", "access_token": token, "data": {"username": user.username, "role": user.role}})
+    user = User.query.filter_by(username=username).first()
+    if user and bcrypt.check_password_hash(user.password, password):
+        LOGIN_ATTEMPTS.pop(username, None)
+        token_payload = {
+            'user_id': user.id,
+            'username': user.username,
+            'role': user.role,
+            'exp': datetime.utcnow() + timedelta(hours=24)
+        }
+        token = jwt.encode(token_payload, app.config['SECRET_KEY'], algorithm='HS256')
+        return jsonify({
+            "status": "success",
+            "access_token": token,
+            "data": {"username": user.username, "role": user.role}
+        })
 
-    LOGIN_ATTEMPTS[username_input] = LOGIN_ATTEMPTS.get(username_input, 0) + 1
-    return jsonify({"status": "fail", "message": "Username atau Password salah!"}), 401
+    if username not in LOGIN_ATTEMPTS:
+        LOGIN_ATTEMPTS[username] = {'count': 1, 'locked_until': None}
+    else:
+        LOGIN_ATTEMPTS[username]['count'] += 1
+        if LOGIN_ATTEMPTS[username]['count'] >= 5:
+            LOGIN_ATTEMPTS[username]['locked_until'] = now + timedelta(minutes=15)
+
+    return jsonify({"status": "fail", "message": "Username atau Password Salah!"}), 401
 
 @app.route('/reset-password', methods=['POST'])
+@token_required
+@roles_required('admin')
 def reset_password():
-    data = request.json or {}
+    data = request.get_json() or {}
     username = data.get('username')
-    recovery_code = data.get('recovery_code')
     new_password = data.get('new_password')
-    if recovery_code != "SIDOARJO-BANSOS-2026":
-        return jsonify({"status": "error", "message": "Kode Pemulihan Instansi Tidak Valid!"}), 403
+
     user = User.query.filter_by(username=username).first()
     if not user:
         return jsonify({"status": "error", "message": "Username tidak ditemukan di database."}), 404
+
     user.password = bcrypt.generate_password_hash(new_password).decode('utf-8')
     db.session.commit()
-    return jsonify({"status": "success", "message": "Sandi berhasil direset. Silakan login kembali."})
+    return jsonify({"status": "success", "message": "Kata sandi berhasil direset."})
 
+# ====================================================
+# PUBLIC & DUKCAPIL API
+# ====================================================
 @app.route('/api/dukcapil/<nik>', methods=['GET'])
 def check_dukcapil(nik):
     if len(nik) != 16 or not nik.isdigit():
-        return jsonify({"status": "error", "message": "Format NIK tidak valid (harus 16 digit angka)."}), 400
+        return jsonify({"status": "error", "message": "Format NIK harus 16 digit angka."}), 400
     try:
         tgl = int(nik[6:8])
         bln = int(nik[8:10])
@@ -228,7 +310,10 @@ def check_dukcapil(nik):
         jk = "Perempuan" if tgl > 40 else "Laki-laki"
         if tgl > 40:
             tgl -= 40
-        thn_full = 1900 + thn if thn >= 30 else 2000 + thn
+
+        current_year_two_digit = datetime.now().year % 100
+        thn_full = (2000 + thn) if thn <= current_year_two_digit else (1900 + thn)
+
         return jsonify({
             "status": "success",
             "data": {
@@ -241,13 +326,14 @@ def check_dukcapil(nik):
             }
         })
     except Exception:
-        return jsonify({"status": "error", "message": "Gagal membaca format NIK."}), 400
+        return jsonify({"status": "error", "message": "Gagal membaca struktur NIK."}), 400
 
 @app.route('/api/public/cek-bansos/<nik>', methods=['GET'])
 def public_cek_bansos(nik):
     w = Warga.query.filter_by(nik=nik).first()
     if not w:
         return jsonify({"status": "error", "message": "NIK Anda belum terdaftar dalam sistem."}), 404
+
     status_text, status_level = "Menunggu Diproses", 1
     if w.is_verified:
         status_text, status_level = "Disetujui (Layak Menerima)", 2
@@ -264,9 +350,10 @@ def public_cek_bansos(nik):
 
 @app.route('/api/public/daftar', methods=['POST'])
 def public_daftar():
-    d = request.json or {}
+    d = request.get_json() or {}
     if not d.get('nik') or not d.get('nama'):
         return jsonify({"status": "error", "message": "NIK dan Nama wajib diisi."}), 400
+
     if Warga.query.filter_by(nik=d['nik']).first():
         return jsonify({"status": "error", "message": "NIK ini sudah terdaftar."}), 400
 
@@ -275,48 +362,34 @@ def public_daftar():
     if is_in_bps:
         catatan_public = "[✅ VALID BPS] " + catatan_public
 
-    tgl_lhr = None
-    if d.get('tanggal_lahir'):
-        try:
-            tgl_lhr = datetime.strptime(d['tanggal_lahir'], '%Y-%m-%d').date()
-        except ValueError:
-            pass
-
+    tgl_lhr = datetime.strptime(d['tanggal_lahir'], '%Y-%m-%d').date() if d.get('tanggal_lahir') else None
     new_w = Warga(
-        nama=d['nama'],
-        nik=d['nik'],
-        no_hp=d.get('no_hp', ''),
-        email=d.get('email', ''),
-        tempat_lahir=d.get('tempat_lahir', ''),
-        tanggal_lahir=tgl_lhr,
-        alamat=d.get('alamat', ''),
-        c1_ekonomi=0.0,
-        c2_aset=0,
-        c3_umur=0,
-        c4_jenis_kelamin=1,
-        c5_tanggungan=0,
-        c6_status_pernikahan=1,
-        c7_kepemilikan_anak=0,
-        c8_tempat_tinggal=1,
-        c9_pendidikan=1,
-        c10_kesehatan=1,
-        catatan=catatan_public,
-        is_verified=False
+        nama=d['nama'], nik=d['nik'], no_hp=d.get('no_hp', ''), email=d.get('email', ''),
+        tempat_lahir=d.get('tempat_lahir', ''), tanggal_lahir=tgl_lhr, alamat=d.get('alamat', ''),
+        c1_ekonomi=0.0, c2_aset=0, c3_umur=0, c4_jenis_kelamin=1, c5_tanggungan=0,
+        c6_status_pernikahan=1, c7_kepemilikan_anak=0, c8_tempat_tinggal=1, c9_pendidikan=1,
+        c10_kesehatan=1, catatan=catatan_public, is_verified=False
     )
-    db.session.add(new_w)
-    db.session.add(Notifikasi(pesan=f"Pendaftaran Mandiri: Warga baru bernama {d['nama']} (NIK: {d['nik']}) telah mengisi formulir secara online.", role_target='all'))
-    db.session.commit()
-
-    if d.get('email'):
-        send_email_notification(
-            d.get('email'),
-            "Pendaftaran Bansos Diterima",
-            f"<h3>Halo, {d['nama']}</h3><p>Pendaftaran Bansos Mandiri Anda berhasil masuk antrean verifikasi.</p>"
-        )
-    return jsonify({"status": "success", "message": "Pendaftaran berhasil."})
+    try:
+        db.session.add(new_w)
+        db.session.add(Notifikasi(
+            pesan=f"Pendaftaran Mandiri: Warga baru bernama {d['nama']} (NIK: {d['nik']}) telah mendaftar online.",
+            role_target='all'
+        ))
+        db.session.commit()
+        if d.get('email'):
+            send_email_notification(
+                d.get('email'),
+                "Pendaftaran Bansos Diterima",
+                f"<h3>Halo, {d['nama']}</h3><p>Pendaftaran Bansos Mandiri Anda berhasil masuk antrean verifikasi.</p>"
+            )
+        return jsonify({"status": "success", "message": "Pendaftaran berhasil disimpan."})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # ====================================================
-# LIVE CHAT MULTIMEDIA (MAX 100MB)
+# LIVE CHAT MULTIMEDIA (STRICT FILE VALIDATION)
 # ====================================================
 @app.route('/uploads/<path:filename>')
 def serve_uploads(filename):
@@ -328,13 +401,10 @@ def chat_list():
     chats = ChatKeluhan.query.order_by(ChatKeluhan.waktu.asc()).all()
     rooms = {}
     for c in chats:
-        last_msg = c.pesan
-        if not last_msg:
-            last_msg = "📷 Mengirim Foto" if c.file_type == 'image' else ("🎥 Mengirim Video" if c.file_type == 'video' else "📎 Mengirim Berkas")
         rooms[c.nik_warga] = {
             "nik": c.nik_warga,
             "nama": c.nama_warga,
-            "last_msg": last_msg,
+            "last_msg": c.pesan if c.pesan else ("📷 Mengirim Foto" if c.file_type == 'image' else "🎥 Mengirim Video"),
             "waktu": c.waktu.strftime("%H:%M | %d/%m")
         }
     return jsonify(list(rooms.values())[::-1])
@@ -359,21 +429,25 @@ def post_chat(nik):
     sender = request.form.get('sender', 'warga')
     nama = request.form.get('nama', 'Warga')
     pesan = request.form.get('pesan', '')
+
     file = request.files.get('file')
     file_path = None
     file_type = None
 
-    if file and file.filename:
+    if file and file.filename != '':
+        if not allowed_file(file.filename):
+            return jsonify({"status": "error", "message": "Format berkas tidak diizinkan."}), 400
+
         filename = secure_filename(file.filename)
         ext = filename.rsplit('.', 1).lower() if '.' in filename else ''
-        if ext in ['jpg', 'jpeg', 'png', 'gif']:
+        if ext in {'jpg', 'jpeg', 'png', 'webp'}:
             file_type = 'image'
-        elif ext in ['mp4', 'mov', 'avi', 'mkv', 'webm']:
+        elif ext in {'mp4', 'mov', 'avi', 'mkv', 'webm'}:
             file_type = 'video'
         else:
-            file_type = 'other'
+            file_type = 'document'
 
-        unique_name = f"{int(datetime.now().timestamp())}_{filename}"
+        unique_name = f"{int(datetime.now().timestamp())}_{uuid.uuid4().hex[:8]}.{ext}"
         save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
         file.save(save_path)
         file_path = unique_name
@@ -386,28 +460,36 @@ def post_chat(nik):
         file_path=file_path,
         file_type=file_type
     )
-    db.session.add(new_chat)
-
-    if sender == 'warga':
-        notif_pesan = f"Pesan Live Baru: {nama} mengirim teks/berkas multimedia."
-        db.session.add(Notifikasi(pesan=notif_pesan, role_target='all'))
-
-    db.session.commit()
-    return jsonify({"status": "success"})
+    try:
+        db.session.add(new_chat)
+        if sender == 'warga':
+            db.session.add(Notifikasi(
+                pesan=f"Pesan Live Baru: {nama} mengirim teks/berkas multimedia.",
+                role_target='all'
+            ))
+        db.session.commit()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/public/keluhan', methods=['POST'])
 def submit_keluhan():
-    d = request.json or {}
-    pesan_keluhan = d.get('pesan', '')
+    d = request.get_json() or {}
+    pesan_keluhan = d.get('pesan', '').strip()
     nik = d.get('nik', 'Warga Umum')
     nama = d.get('nama', 'Anonim Publik')
 
     if pesan_keluhan:
         new_k = ChatKeluhan(nik_warga=nik, nama_warga=nama, sender='warga', pesan=pesan_keluhan)
-        db.session.add(new_k)
-        db.session.add(Notifikasi(pesan="LAPORAN LIVE: Warga mengirim pesan ke pusat.", role_target='all'))
-        db.session.commit()
-        return jsonify({"status": "success", "message": "Keluhan terkirim"})
+        try:
+            db.session.add(new_k)
+            db.session.add(Notifikasi(pesan="LAPORAN LIVE: Warga mengirim pesan pengaduan.", role_target='all'))
+            db.session.commit()
+            return jsonify({"status": "success", "message": "Keluhan terkirim."})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"status": "error", "message": str(e)}), 500
     return jsonify({"status": "error", "message": "Pesan keluhan tidak boleh kosong."}), 400
 
 # ====================================================
@@ -419,48 +501,29 @@ def manage_warga():
     if request.method == 'GET':
         warga = Warga.query.order_by(Warga.id.desc()).all()
         return jsonify([{
-            'id': w.id,
-            'nama': w.nama,
-            'nik': w.nik,
-            'no_hp': w.no_hp,
-            'email': w.email,
-            'c1_ekonomi': w.c1_ekonomi,
-            'c2_aset': w.c2_aset,
-            'c3_umur': w.c3_umur,
-            'c4_jenis_kelamin': w.c4_jenis_kelamin,
-            'c5_tanggungan': w.c5_tanggungan,
-            'c6_status_pernikahan': w.c6_status_pernikahan,
-            'c7_kepemilikan_anak': w.c7_kepemilikan_anak,
-            'c8_tempat_tinggal': w.c8_tempat_tinggal,
-            'c9_pendidikan': w.c9_pendidikan,
-            'c10_kesehatan': w.c10_kesehatan,
-            'is_verified': w.is_verified,
-            'alamat': w.alamat,
-            'tempat_lahir': w.tempat_lahir,
-            'tanggal_lahir': str(w.tanggal_lahir) if w.tanggal_lahir else "",
-            'catatan': w.catatan,
-            'lat': w.latitude,
-            'lng': w.longitude
+            'id': w.id, 'nama': w.nama, 'nik': w.nik, 'no_hp': w.no_hp, 'email': w.email,
+            'c1_ekonomi': w.c1_ekonomi, 'c2_aset': w.c2_aset, 'c3_umur': w.c3_umur,
+            'c4_jenis_kelamin': w.c4_jenis_kelamin, 'c5_tanggungan': w.c5_tanggungan,
+            'c6_status_pernikahan': w.c6_status_pernikahan, 'c7_kepemilikan_anak': w.c7_kepemilikan_anak,
+            'c8_tempat_tinggal': w.c8_tempat_tinggal, 'c9_pendidikan': w.c9_pendidikan,
+            'c10_kesehatan': w.c10_kesehatan, 'is_verified': w.is_verified, 'alamat': w.alamat,
+            'tempat_lahir': w.tempat_lahir, 'tanggal_lahir': str(w.tanggal_lahir) if w.tanggal_lahir else "",
+            'catatan': w.catatan, 'lat': w.latitude, 'lng': w.longitude
         } for w in warga])
-    elif request.method == 'POST':
-        d = request.json or {}
-        tgl = None
-        if d.get('tanggal_lahir'):
-            try:
-                tgl = datetime.strptime(d['tanggal_lahir'], '%Y-%m-%d').date()
-            except ValueError:
-                pass
 
+    elif request.method == 'POST':
+        d = request.get_json() or {}
+        if not d.get('nik') or not d.get('nama'):
+            return jsonify({"status": "error", "message": "Nama dan NIK wajib diisi."}), 400
+
+        if Warga.query.filter_by(nik=d['nik']).first():
+            return jsonify({"status": "error", "message": "NIK sudah terdaftar."}), 400
+
+        tgl = datetime.strptime(d['tanggal_lahir'], '%Y-%m-%d').date() if d.get('tanggal_lahir') else None
         new_w = Warga(
-            nama=d.get('nama', ''),
-            nik=d.get('nik', ''),
-            no_hp=d.get('no_hp'),
-            email=d.get('email'),
-            tempat_lahir=d.get('tempat_lahir'),
-            tanggal_lahir=tgl,
-            alamat=d.get('alamat'),
-            latitude=d.get('lat'),
-            longitude=d.get('lng'),
+            nama=d['nama'], nik=d['nik'], no_hp=d.get('no_hp'), email=d.get('email'),
+            tempat_lahir=d.get('tempat_lahir'), tanggal_lahir=tgl, alamat=d.get('alamat'),
+            latitude=d.get('lat'), longitude=d.get('lng'),
             c1_ekonomi=safe_float(d.get('c1', d.get('c1_ekonomi'))),
             c2_aset=safe_int(d.get('c2', d.get('c2_aset'))),
             c3_umur=safe_int(d.get('c3', d.get('c3_umur'))),
@@ -473,20 +536,29 @@ def manage_warga():
             c10_kesehatan=safe_int(d.get('c10', d.get('c10_kesehatan', 1))),
             catatan=d.get('catatan')
         )
-        db.session.add(new_w)
-        db.session.commit()
-        return jsonify({"status": "success"})
+        try:
+            db.session.add(new_w)
+            db.session.commit()
+            return jsonify({"status": "success", "message": "Data warga berhasil ditambahkan."})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/warga/<int:id>', methods=['DELETE', 'PUT'])
 @token_required
 def action_warga(id):
     w = Warga.query.get_or_404(id)
     if request.method == 'DELETE':
-        db.session.delete(w)
-        db.session.commit()
-        return jsonify({"status": "deleted"})
+        try:
+            db.session.delete(w)
+            db.session.commit()
+            return jsonify({"status": "success", "message": "Data warga berhasil dihapus."})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"status": "error", "message": str(e)}), 500
+
     elif request.method == 'PUT':
-        d = request.json or {}
+        d = request.get_json() or {}
         w.nama = d.get('nama', w.nama)
         w.nik = d.get('nik', w.nik)
         w.no_hp = d.get('no_hp', w.no_hp)
@@ -494,10 +566,8 @@ def action_warga(id):
         w.alamat = d.get('alamat', w.alamat)
         w.tempat_lahir = d.get('tempat_lahir', w.tempat_lahir)
         if d.get('tanggal_lahir'):
-            try:
-                w.tanggal_lahir = datetime.strptime(d['tanggal_lahir'], '%Y-%m-%d').date()
-            except ValueError:
-                pass
+            w.tanggal_lahir = datetime.strptime(d['tanggal_lahir'], '%Y-%m-%d').date()
+
         w.c1_ekonomi = safe_float(d.get('c1', d.get('c1_ekonomi', w.c1_ekonomi)))
         w.c2_aset = safe_int(d.get('c2', d.get('c2_aset', w.c2_aset)))
         w.c3_umur = safe_int(d.get('c3', d.get('c3_umur', w.c3_umur)))
@@ -509,8 +579,13 @@ def action_warga(id):
         w.c9_pendidikan = safe_int(d.get('c9', d.get('c9_pendidikan', w.c9_pendidikan)))
         w.c10_kesehatan = safe_int(d.get('c10', d.get('c10_kesehatan', w.c10_kesehatan)))
         w.catatan = d.get('catatan', w.catatan)
-        db.session.commit()
-        return jsonify({"status": "success"})
+
+        try:
+            db.session.commit()
+            return jsonify({"status": "success", "message": "Data berhasil diperbarui."})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/warga/<int:id>/verify', methods=['PATCH'])
 @token_required
@@ -518,62 +593,75 @@ def verify_warga(id):
     w = Warga.query.get_or_404(id)
     w.is_verified = not w.is_verified
     w.tanggal_verifikasi = datetime.now().date() if w.is_verified else None
-    db.session.commit()
-    return jsonify({"status": "success", "is_verified": w.is_verified})
+    try:
+        db.session.commit()
+        return jsonify({"status": "success", "is_verified": w.is_verified})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/warga/bulk', methods=['POST'])
 @token_required
 def bulk_insert():
-    data_list = request.json.get('data', []) if request.json else []
+    data_list = (request.get_json() or {}).get('data', [])
     count = 0
     for d in data_list:
-        nik_str = str(d.get('nik', '')).strip()
-        if not nik_str:
-            continue
-        if not Warga.query.filter_by(nik=nik_str).first():
+        nik = str(d.get('nik', d.get('NIK', ''))).strip()
+        if nik and not Warga.query.filter_by(nik=nik).first():
             new_w = Warga(
-                nama=d.get('nama', 'Tanpa Nama'),
-                nik=nik_str,
-                no_hp=str(d.get('no_hp', '')),
-                email=str(d.get('email', '')),
-                alamat=str(d.get('alamat', '')),
-                c1_ekonomi=safe_float(d.get('C1', d.get('c1_ekonomi', 0))),
-                c2_aset=safe_int(d.get('C2', d.get('c2_aset', 0))),
-                c3_umur=safe_int(d.get('C3', d.get('c3_umur', 0))),
-                c4_jenis_kelamin=safe_int(d.get('C4', d.get('c4_jenis_kelamin', 1))),
-                c5_tanggungan=safe_int(d.get('C5', d.get('c5_tanggungan', 0))),
-                c6_status_pernikahan=safe_int(d.get('C6', d.get('c6_status_pernikahan', 1))),
-                c7_kepemilikan_anak=safe_int(d.get('C7', d.get('c7_kepemilikan_anak', 0))),
-                c8_tempat_tinggal=safe_int(d.get('C8', d.get('c8_tempat_tinggal', 1))),
-                c9_pendidikan=safe_int(d.get('C9', d.get('c9_pendidikan', 1))),
-                c10_kesehatan=safe_int(d.get('C10', d.get('c10_kesehatan', 1))),
+                nama=str(d.get('nama', d.get('Nama', 'Tanpa Nama'))),
+                nik=nik,
+                no_hp=str(d.get('no_hp', d.get('No_Hp', ''))),
+                email=str(d.get('email', d.get('Email', ''))),
+                alamat=str(d.get('alamat', d.get('Alamat', ''))),
+                c1_ekonomi=safe_float(d.get('C1', d.get('c1', d.get('c1_ekonomi', 0)))),
+                c2_aset=safe_int(d.get('C2', d.get('c2', d.get('c2_aset', 0)))),
+                c3_umur=safe_int(d.get('C3', d.get('c3', d.get('c3_umur', 0)))),
+                c4_jenis_kelamin=safe_int(d.get('C4', d.get('c4', d.get('c4_jenis_kelamin', 1)))),
+                c5_tanggungan=safe_int(d.get('C5', d.get('c5', d.get('c5_tanggungan', 0)))),
+                c6_status_pernikahan=safe_int(d.get('C6', d.get('c6', d.get('c6_status_pernikahan', 1)))),
+                c7_kepemilikan_anak=safe_int(d.get('C7', d.get('c7', d.get('c7_kepemilikan_anak', 0)))),
+                c8_tempat_tinggal=safe_int(d.get('C8', d.get('c8', d.get('c8_tempat_tinggal', 1)))),
+                c9_pendidikan=safe_int(d.get('C9', d.get('c9', d.get('c9_pendidikan', 1)))),
+                c10_kesehatan=safe_int(d.get('C10', d.get('c10', d.get('c10_kesehatan', 1)))),
                 catatan="Diimpor dari File Excel"
             )
             db.session.add(new_w)
             count += 1
-    db.session.commit()
-    return jsonify({"status": "success", "message": f"{count} baris data berhasil diimpor!"})
+    try:
+        db.session.commit()
+        return jsonify({"status": "success", "message": f"{count} baris data berhasil diimpor!"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/warga/bulk/delete', methods=['POST'])
 @token_required
+@roles_required('admin')
 def bulk_delete():
-    ids = request.json.get('ids', []) if request.json else []
-    if ids:
+    ids = (request.get_json() or {}).get('ids', [])
+    try:
         Warga.query.filter(Warga.id.in_(ids)).delete(synchronize_session=False)
         db.session.commit()
-    return jsonify({"status": "success"})
+        return jsonify({"status": "success", "message": "Data terpilih berhasil dihapus."})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/warga/bulk/verify', methods=['POST'])
 @token_required
 def bulk_verify():
-    ids = request.json.get('ids', []) if request.json else []
-    if ids:
+    ids = (request.get_json() or {}).get('ids', [])
+    try:
         wargas = Warga.query.filter(Warga.id.in_(ids)).all()
         for w in wargas:
             w.is_verified = True
             w.tanggal_verifikasi = datetime.now().date()
         db.session.commit()
-    return jsonify({"status": "success"})
+        return jsonify({"status": "success", "message": "Data terpilih berhasil diverifikasi."})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/bps/sync', methods=['POST'])
 @token_required
@@ -583,39 +671,38 @@ def sync_bps():
     for d in dummy_bps_data:
         if not Warga.query.filter_by(nik=d['nik']).first():
             new_w = Warga(
-                nama=d['nama'],
-                nik=d['nik'],
-                alamat=d['alamat'],
-                c1_ekonomi=d['c1'],
-                c2_aset=5000000,
-                c3_umur=45,
-                c4_jenis_kelamin=1,
-                c5_tanggungan=3,
-                c6_status_pernikahan=2,
-                c7_kepemilikan_anak=2,
-                c8_tempat_tinggal=3,
-                c9_pendidikan=2,
-                c10_kesehatan=1,
-                is_verified=False,
-                catatan="Sinkronisasi BPS"
+                nama=d['nama'], nik=d['nik'], alamat=d['alamat'], c1_ekonomi=d['c1'],
+                c2_aset=5000000, c3_umur=45, c4_jenis_kelamin=1, c5_tanggungan=3,
+                c6_status_pernikahan=2, c7_kepemilikan_anak=2, c8_tempat_tinggal=3,
+                c9_pendidikan=2, c10_kesehatan=1, is_verified=False, catatan="Sinkronisasi BPS"
             )
             db.session.add(new_w)
-    db.session.commit()
-    return jsonify({"status": "success", "message": "Data BPS disinkronkan."})
+    try:
+        db.session.commit()
+        return jsonify({"status": "success", "message": "Data BPS disinkronkan."})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # ====================================================
-# KRITERIA & SPK METODE (SAW & WP)
+# LOGIKA PERHITUNGAN SPK (BWM - SAW & WEIGHTED PRODUCT)
 # ====================================================
-@app.route('/kriteria', methods=['GET', 'POST'])
-@token_required
-def manage_kriteria():
-    if request.method == 'POST':
-        for i in request.json or []:
-            k = Kriteria.query.filter_by(kode=i.get('kode')).first()
-            if k and 'bobot' in i:
-                k.bobot = float(i['bobot'])
-        db.session.commit()
-    return jsonify([{'kode': k.kode, 'nama': k.nama, 'bobot': k.bobot, 'jenis': k.jenis} for k in Kriteria.query.all()])
+KRITERIA_KEYS = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10']
+
+def get_mapped_value(w, k):
+    mapping = {
+        'C1': max(w.c1_ekonomi, 1.0),
+        'C2': max(w.c2_aset, 1.0),
+        'C3': max(w.c3_umur, 1.0),
+        'C4': max(w.c4_jenis_kelamin, 1.0),
+        'C5': max(w.c5_tanggungan, 1.0),
+        'C6': max(w.c6_status_pernikahan, 1.0),
+        'C7': max(w.c7_kepemilikan_anak, 1.0),
+        'C8': max(w.c8_tempat_tinggal, 1.0),
+        'C9': max(w.c9_pendidikan, 1.0),
+        'C10': max(w.c10_kesehatan, 1.0)
+    }
+    return mapping.get(k, 1.0)
 
 def hitung_saw_logic():
     warga_list = Warga.query.filter_by(is_verified=True).all()
@@ -625,42 +712,48 @@ def hitung_saw_logic():
     if not warga_list or not kriteria_list:
         return {'hasil_akhir': []}
 
-    raw_data = [{
-        'nama': w.nama, 'nik': w.nik,
-        'C1': w.c1_ekonomi, 'C2': w.c2_aset, 'C3': w.c3_umur,
-        'C4': w.c4_jenis_kelamin, 'C5': w.c5_tanggungan,
-        'C6': w.c6_status_pernikahan, 'C7': w.c7_kepemilikan_anak,
-        'C8': w.c8_tempat_tinggal, 'C9': w.c9_pendidikan, 'C10': w.c10_kesehatan
-    } for w in warga_list]
-
     bobot = {k.kode: k.bobot for k in kriteria_list}
-    jenis = {k.kode: k.jenis.lower() for k in kriteria_list}
-    KRITERIA_KEYS = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10']
+    jenis = {k.kode: k.jenis for k in kriteria_list}
 
-    vals = {k: [d[k] for d in raw_data] for k in KRITERIA_KEYS}
-    min_max = {k: {'min': min(v) if v else 1, 'max': max(v) if v else 1} for k, v in vals.items()}
+    raw_data = []
+    for w in warga_list:
+        row = {'nama': w.nama, 'nik': w.nik}
+        for k in KRITERIA_KEYS:
+            row[k] = get_mapped_value(w, k)
+        raw_data.append(row)
 
-    matriks_normalisasi, hasil_akhir = [], []
+    min_max = {}
+    for k in KRITERIA_KEYS:
+        vals = [d[k] for d in raw_data]
+        min_max[k] = {
+            'min': min(vals) if vals else 1.0,
+            'max': max(vals) if vals else 1.0
+        }
+
+    matriks_normalisasi = []
+    hasil_akhir = []
+
     for w in raw_data:
-        skor_total = 0
+        skor_total = 0.0
         norm_row = {'nama': w['nama'], 'nik': w['nik']}
         for k in KRITERIA_KEYS:
             val = w[k]
-            if jenis.get(k) == 'cost':
-                r = (min_max[k]['min'] / val) if val > 0 else 0
+            if jenis[k] == 'cost':
+                r = (min_max[k]['min'] / val) if val > 0 else 1.0
             else:
-                r = (val / min_max[k]['max']) if min_max[k]['max'] > 0 else 0
+                r = (val / min_max[k]['max']) if min_max[k]['max'] > 0 else 0.0
+
             norm_row[k] = round(r, 4)
-            skor_total += r * bobot.get(k, 0)
+            skor_total += r * bobot.get(k, 0.0)
+
         matriks_normalisasi.append(norm_row)
         hasil_akhir.append({'nama': w['nama'], 'nik': w['nik'], 'skor_akhir': round(skor_total, 4)})
 
     hasil_akhir.sort(key=lambda x: x['skor_akhir'], reverse=True)
     total_warga = len(hasil_akhir)
+
     for idx, item in enumerate(hasil_akhir):
-        desil_calc = int((idx / total_warga) * 10) + 1 if total_warga > 0 else 1
-        if desil_calc > 10:
-            desil_calc = 10
+        desil_calc = min(10, max(1, math.ceil(((idx + 1) / total_warga) * 10))) if total_warga > 0 else 1
         item['desil'] = desil_calc
         if desil_calc <= 4:
             item['prioritas'] = "Diprioritaskan"
@@ -679,79 +772,90 @@ def hitung_saw_logic():
     }
 
 def hitung_wp_logic():
-    warga = Warga.query.filter_by(is_verified=True).all()
-    if not warga:
-        warga = Warga.query.all()
+    warga = Warga.query.filter_by(is_verified=True).all() or Warga.query.all()
     kriteria = Kriteria.query.all()
     if not warga or not kriteria:
         return {'hasil_akhir': []}
 
     total_w = sum(k.bobot for k in kriteria) or 1.0
     w_norm = {k.kode: (k.bobot / total_w) for k in kriteria}
-    jenis = {k.kode: k.jenis.lower() for k in kriteria}
-    KRITERIA_KEYS = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10']
+    jenis = {k.kode: k.jenis for k in kriteria}
 
-    s_vector, total_s = [], 0.0
+    s_vector = []
+    total_s = 0.0
+
     for w in warga:
-        row = {
-            'C1': w.c1_ekonomi, 'C2': w.c2_aset, 'C3': w.c3_umur,
-            'C4': w.c4_jenis_kelamin, 'C5': w.c5_tanggungan,
-            'C6': w.c6_status_pernikahan, 'C7': w.c7_kepemilikan_anak,
-            'C8': w.c8_tempat_tinggal, 'C9': w.c9_pendidikan, 'C10': w.c10_kesehatan
-        }
         s = 1.0
         for k in KRITERIA_KEYS:
-            val = row[k] if row[k] > 0 else 1.0
-            pangkat = -w_norm[k] if jenis.get(k) == 'cost' else w_norm[k]
+            val = get_mapped_value(w, k)
+            pangkat = -w_norm[k] if jenis[k] == 'cost' else w_norm[k]
             s *= math.pow(val, pangkat)
         s_vector.append({'nama': w.nama, 'nik': w.nik, 's': s})
         total_s += s
 
     hasil_akhir = []
     for item in s_vector:
-        v = (item['s'] / total_s) if total_s > 0 else 0
+        v = (item['s'] / total_s) if total_s > 0 else 0.0
         hasil_akhir.append({'nama': item['nama'], 'nik': item['nik'], 'skor_akhir': round(v, 4)})
+
     hasil_akhir.sort(key=lambda x: x['skor_akhir'], reverse=True)
     return {'hasil_akhir': hasil_akhir}
-
-@app.route('/komparasi', methods=['GET'])
-@token_required
-def komparasi_metode():
-    saw_data, wp_data = hitung_saw_logic(), hitung_wp_logic()
-    data_saw = {
-        x['nik']: {
-            'skor': x['skor_akhir'],
-            'rank': i + 1,
-            'nama': x['nama'],
-            'desil': x['desil'],
-            'prioritas': x['prioritas'],
-            'menerima': x['menerima']
-        } for i, x in enumerate(saw_data.get('hasil_akhir', []))
-    }
-    data_wp = {
-        x['nik']: {
-            'skor': x['skor_akhir'],
-            'rank': i + 1
-        } for i, x in enumerate(wp_data.get('hasil_akhir', []))
-    }
-    res = [{
-        'nama': val['nama'],
-        'nik': nik,
-        'saw_skor': val['skor'],
-        'saw_rank': val['rank'],
-        'wp_skor': data_wp.get(nik, {}).get('skor', 0),
-        'wp_rank': data_wp.get(nik, {}).get('rank', 0),
-        'desil': val['desil'],
-        'prioritas': val['prioritas'],
-        'menerima': val['menerima']
-    } for nik, val in data_saw.items()]
-    res.sort(key=lambda x: x['saw_rank'])
-    return jsonify(res)
 
 @app.route('/hitung-saw', methods=['GET'])
 @token_required
 def get_hitung_saw():
     return jsonify(hitung_saw_logic())
+
+@app.route('/komparasi', methods=['GET'])
+@token_required
+def komparasi_metode():
+    saw_data = hitung_saw_logic()
+    wp_data = hitung_wp_logic()
+
+    data_saw = {
+        x['nik']: {'skor': x['skor_akhir'], 'rank': i + 1, 'nama': x['nama'], 'desil': x['desil'], 'prioritas': x['prioritas'], 'menerima': x['menerima']}
+        for i, x in enumerate(saw_data.get('hasil_akhir', []))
+    }
+    data_wp = {
+        x['nik']: {'skor': x['skor_akhir'], 'rank': i + 1}
+        for i, x in enumerate(wp_data.get('hasil_akhir', []))
+    }
+
+    res = []
+    for nik, val in data_saw.items():
+        res.append({
+            'nama': val['nama'],
+            'nik': nik,
+            'saw_skor': val['skor'],
+            'saw_rank': val['rank'],
+            'wp_skor': data_wp.get(nik, {}).get('skor', 0),
+            'wp_rank': data_wp.get(nik, {}).get('rank', 0),
+            'desil': val['desil'],
+            'prioritas': val['prioritas'],
+            'menerima': val['menerima']
+        })
+    res.sort(key=lambda x: x['saw_rank'])
+    return jsonify(res)
+
+@app.route('/kriteria', methods=['GET', 'POST'])
+@token_required
+def manage_kriteria():
+    if request.method == 'POST':
+        if request.current_user.get('role') != 'admin':
+            return jsonify({"status": "error", "message": "Hanya admin yang dapat mengubah bobot kriteria."}), 403
+
+        data = request.get_json() or []
+        for i in data:
+            k = Kriteria.query.filter_by(kode=i.get('kode')).first()
+            if k:
+                k.bobot = safe_float(i.get('bobot'), k.bobot)
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    return jsonify([{'kode': k.kode, 'nama': k.nama, 'bobot': k.bobot, 'jenis': k.jenis} for k in Kriteria.query.all()])
 
 # ====================================================
 # NOTIFIKASI
@@ -759,16 +863,18 @@ def get_hitung_saw():
 @app.route('/api/notifikasi', methods=['GET'])
 @token_required
 def get_notifikasi():
-    role = request.current_user.get('role', 'operator')
+    role = request.current_user['role']
     query = Notifikasi.query.filter(Notifikasi.role_target.in_([role, 'all']))
     notifs = query.order_by(Notifikasi.is_pinned.desc(), Notifikasi.id.desc()).limit(30).all()
-    hasil = [{
-        "id": n.id,
-        "pesan": n.pesan,
-        "waktu": n.waktu.strftime("%H:%M | %d/%m"),
-        "is_read": n.is_read,
-        "is_pinned": n.is_pinned
-    } for n in notifs]
+    hasil = []
+    for n in notifs:
+        hasil.append({
+            "id": n.id,
+            "pesan": n.pesan,
+            "waktu": n.waktu.strftime("%H:%M | %d/%m"),
+            "is_read": n.is_read,
+            "is_pinned": n.is_pinned
+        })
     return jsonify(hasil)
 
 @app.route('/api/notifikasi/<int:id>/read', methods=['PATCH'])
@@ -776,10 +882,17 @@ def get_notifikasi():
 def update_notifikasi(id):
     notif = Notifikasi.query.get_or_404(id)
     notif.is_read = not notif.is_read
-    db.session.commit()
-    return jsonify({"status": "success", "is_read": notif.is_read})
+    try:
+        db.session.commit()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
+# ====================================================
+# RUN SERVER
+# ====================================================
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, port=5000)
