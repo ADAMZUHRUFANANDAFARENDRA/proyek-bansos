@@ -9,7 +9,7 @@ services:
       MYSQL_ROOT_PASSWORD: password_rahasia_dinsos
       MYSQL_DATABASE: bansos
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       # Kunci utama: volume persisten agar database tidak ter-reset saat update kode
       - db_bansos_data:/var/lib/mysql
