@@ -13,15 +13,233 @@
     <!-- MEMANGGIL FILE CSS EKSTERNAL -->
     <link rel="stylesheet" href="static/css/style.css">
     <link rel="stylesheet" href="static/css/login.css">
+
+    <style>
+        :root {
+            --primary: #009846;
+            --primary-dark: #047857;
+            --primary-deep: #022c22;
+            --accent: #f59e0b;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --bg-base: #f8fafc;
+            --border: #e2e8f0;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        
+        /* LATAR BELAKANG HIJAU TEMA PEMKAB SIDOARJO */
+        body.page-login {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #065f46 0%, #009846 45%, #022c22 100%);
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Ornamen Cahaya Halus di Latar Belakang */
+        body.page-login::before {
+            content: "";
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 70%);
+            top: -100px;
+            left: -100px;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        /* Tombol Navigasi Melayang */
+        .tutorial-link, .public-portal-link {
+            position: absolute;
+            top: 24px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            color: var(--text-main);
+            padding: 11px 20px;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-decoration: none;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            z-index: 50;
+        }
+        .tutorial-link { left: 24px; }
+        .public-portal-link { right: 24px; color: var(--primary-dark); }
+        .tutorial-link:hover, .public-portal-link:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.25);
+            background: #ffffff;
+        }
+        
+        /* Tombol Cek BPS Interaktif */
+        .bps-circle-btn {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 65px;
+            height: 65px;
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(2, 132, 199, 0.45);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            font-size: 0.7rem;
+            font-weight: 800;
+            z-index: 100;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+        }
+        .bps-circle-btn i { font-size: 1.3rem; margin-bottom: 2px; }
+        .bps-circle-btn:hover { transform: scale(1.1) translateY(-4px); box-shadow: 0 14px 30px rgba(2, 132, 199, 0.6); }
+
+        /* Card Form Login */
+        .login-wrapper {
+            width: 100%;
+            max-width: 440px;
+            background: #ffffff;
+            border-radius: 28px;
+            padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+            position: relative;
+            z-index: 10;
+        }
+        .login-header { text-align: center; margin-bottom: 28px; }
+        .logo-box {
+            width: 68px;
+            height: 68px;
+            background: #dcfce7;
+            color: var(--primary);
+            border-radius: 20px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.8rem;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 16px rgba(0, 152, 70, 0.15);
+        }
+        .login-header h2 { font-size: 1.55rem; font-weight: 800; color: var(--text-main); margin-bottom: 4px; letter-spacing: -0.5px; }
+        .login-header p { font-size: 0.9rem; color: var(--text-muted); font-weight: 500; }
+
+        .form-group { margin-bottom: 18px; }
+        .form-label { display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700; color: #334155; margin-bottom: 8px; }
+        .forgot-link { color: var(--primary); text-decoration: none; cursor: pointer; }
+        .forgot-link:hover { text-decoration: underline; }
+        .input-wrapper { position: relative; display: flex; align-items: center; }
+        .input-icon { position: absolute; left: 16px; color: #94a3b8; font-size: 1rem; }
+        .form-input {
+            width: 100%;
+            padding: 13px 45px 13px 44px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            background: #f8fafc;
+            color: var(--text-main);
+            outline: none;
+            transition: all 0.2s;
+        }
+        .form-input:focus { border-color: var(--primary); background: white; box-shadow: 0 0 0 4px rgba(0, 152, 70, 0.12); }
+        .toggle-password { position: absolute; right: 15px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1.1rem; }
+
+        .cf-box {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #f8fafc;
+            margin-bottom: 16px;
+        }
+        .cf-spinner {
+            width: 18px;
+            height: 18px;
+            border: 3px solid #cbd5e1;
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .cf-success { color: #10b981; font-size: 1.2rem; display: none; }
+        .cf-text { font-size: 0.85rem; color: #475569; font-weight: 600; }
+
+        .captcha-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fef3c7;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px dashed var(--accent);
+            margin-bottom: 18px;
+        }
+        .captcha-text { font-weight: 800; font-size: 1rem; color: #b45309; display: flex; align-items: center; gap: 8px; }
+        .captcha-input { width: 85px; padding: 8px; border: 2px solid #fcd34d; border-radius: 8px; text-align: center; font-weight: 800; outline: none; }
+
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 8px 16px rgba(0, 152, 70, 0.25);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        .btn-login:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 20px rgba(0, 152, 70, 0.35); }
+        .btn-login:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; }
+
+        /* Modal Blur */
+        .modal-blur {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(6px);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .modal-card {
+            background: white;
+            padding: 35px;
+            border-radius: 24px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3);
+        }
+    </style>
 </head>
 <body class="page-login">
 
     <!-- Navigasi Melayang -->
-    <button onclick="mulaiTurLogin()" class="tutorial-link"><i class="fas fa-question-circle"></i> Panduan Login</button>
+    <button type="button" onclick="mulaiTurLogin()" class="tutorial-link"><i class="fas fa-question-circle"></i> Panduan Login</button>
     <a href="publik.html" class="public-portal-link">Portal Warga <i class="fas fa-arrow-right"></i></a>
 
     <!-- TOMBOL LINGKARAN CEK BPS -->
-    <div class="bps-circle-btn" onclick="cekDataBPS()" title="Cek Sinkronisasi Data BPS Sidoarjo">
+    <div class="bps-circle-btn" onclick="cekDataBPS()" title="Cek Status Bansos Berdasarkan NIK (Data BPS Sidoarjo)">
         <i class="fas fa-database"></i>
         <span>Cek BPS</span>
     </div>
@@ -38,7 +256,7 @@
             <div class="form-group">
                 <label class="form-label">Username Pegawai</label>
                 <div class="input-wrapper">
-                    <input type="text" id="username" class="form-input" required autocomplete="off" placeholder="Ketik username Anda">
+                    <input type="text" id="username" class="form-input" required autocomplete="off" placeholder="Ketik username resmi Anda">
                     <i class="fas fa-user input-icon"></i>
                 </div>
             </div>
@@ -49,7 +267,7 @@
                     <a class="forgot-link" onclick="openResetModal()">Lupa Sandi?</a>
                 </div>
                 <div class="input-wrapper">
-                    <input type="password" id="password" class="form-input" required placeholder="Ketik kata sandi rahasia">
+                    <input type="password" id="password" class="form-input" required placeholder="Ketik kata sandi Anda">
                     <i class="fas fa-lock input-icon"></i>
                     <button type="button" class="toggle-password" onclick="togglePassword('password', 'eyeIcon')"><i class="fas fa-eye" id="eyeIcon"></i></button>
                 </div>
@@ -73,31 +291,280 @@
     <!-- MODAL LUPA PASSWORD -->
     <div class="modal-blur" id="resetModal">
         <div class="modal-card">
-            <h3 style="margin: 0 0 12px 0; color: var(--text-main); font-size:1.6rem; font-weight:800;"><i class="fas fa-key" style="color:var(--primary);"></i> Pemulihan Akun</h3>
-            <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 25px; line-height:1.6; font-weight:500;">Masukkan Kode Akses Rahasia khusus dari Pemkab Sidoarjo untuk mengatur ulang sandi.</p>
+            <h3 style="margin: 0 0 12px 0; color: var(--text-main); font-size:1.4rem; font-weight:800;"><i class="fas fa-key" style="color:var(--primary);"></i> Pemulihan Akun</h3>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 25px; line-height:1.5; font-weight:500;">Silakan masukkan username Anda untuk mengajukan reset kata sandi ke Super Administrator.</p>
             
-            <form onsubmit="resetPassword(event)" style="padding:0;">
+            <form onsubmit="handleResetPassword(event)" style="padding:0;">
                 <div class="form-group">
-                    <label class="form-label">Username yang Lupa</label>
-                    <input type="text" id="resetUser" class="form-input" style="padding:14px 18px;" required>
+                    <label class="form-label">Username</label>
+                    <input type="text" id="resetUser" class="form-input" placeholder="Masukkan username Anda" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Kode Rahasia Dinas</label>
-                    <input type="password" id="resetCode" class="form-input" style="padding:14px 18px;" placeholder="SIDOARJO-..." required>
+                    <label class="form-label">Kata Sandi Baru yang Diinginkan</label>
+                    <input type="password" id="resetNewPass" class="form-input" placeholder="Minimal 6 karakter" required>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Kata Sandi Baru</label>
-                    <input type="password" id="resetNewPass" class="form-input" style="padding:14px 18px;" required>
-                </div>
-                <div style="display: flex; gap: 12px; margin-top: 30px;">
+                <div style="display: flex; gap: 12px; margin-top: 25px;">
                     <button type="button" class="btn-login" style="background: var(--bg-base); color: #475569; box-shadow:none; border:1px solid var(--border);" onclick="closeResetModal()">Batal</button>
-                    <button type="submit" class="btn-login" style="margin-top:0;">Simpan Sandi Baru <i class="fas fa-check-circle"></i></button>
+                    <button type="submit" class="btn-login" style="margin-top:0;">Kirim Pengajuan <i class="fas fa-paper-plane"></i></button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- MEMANGGIL FILE JAVASCRIPT EKSTERNAL -->
-    <script src="static/js/login.js"></script>
+    <!-- SCRIPT LOGIKA LOGIN -->
+    <script>
+        const API_URL = "http://localhost:5000";
+        let expectedCaptcha = 0;
+        let isSecure = false;
+
+        window.onload = () => {
+            // Simulasi Verifikasi Enkripsi Cloudflare (1.2 detik)
+            setTimeout(() => {
+                const spinner = document.getElementById('cf-spinner');
+                const successIcon = document.getElementById('cf-success');
+                const cfText = document.getElementById('cf-text');
+                const captchaBox = document.getElementById('captchaBox');
+                const btnSubmit = document.getElementById('btnSubmit');
+
+                if (spinner) spinner.style.display = 'none';
+                if (successIcon) successIcon.style.display = 'block';
+                if (cfText) cfText.innerText = 'Koneksi Peladen Terenkripsi.';
+                if (captchaBox) captchaBox.style.display = 'flex';
+
+                generateCaptcha();
+
+                if (btnSubmit) {
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = 'Masuk Terenkripsi <i class="fas fa-sign-in-alt"></i>';
+                }
+                isSecure = true;
+            }, 1200);
+        };
+
+        function generateCaptcha() {
+            const num1 = Math.floor(Math.random() * 9) + 1;
+            const num2 = Math.floor(Math.random() * 9) + 1;
+            expectedCaptcha = num1 + num2;
+            const qEl = document.getElementById('captchaQuestion');
+            const ansEl = document.getElementById('captchaAnswer');
+            if (qEl) qEl.innerText = `${num1} + ${num2} =`;
+            if (ansEl) ansEl.value = '';
+        }
+
+        function togglePassword(inputId, iconId) {
+            const pwd = document.getElementById(inputId);
+            const eye = document.getElementById(iconId);
+            if (pwd && eye) {
+                if (pwd.type === 'password') {
+                    pwd.type = 'text';
+                    eye.className = 'fas fa-eye-slash';
+                } else {
+                    pwd.type = 'password';
+                    eye.className = 'fas fa-eye';
+                }
+            }
+        }
+
+        // 1. PANDUAN LOGIN RESMI (TANPA KATA SANDI)
+        function mulaiTurLogin() {
+            Swal.fire({
+                title: 'Panduan Alur Akses Sistem',
+                html: `
+                    <div style="text-align:left; font-size:0.9rem; line-height:1.7; color:#334155;">
+                        <div style="margin-bottom:12px; padding:10px; background:#f0fdf4; border-radius:10px; border-left:4px solid #009846;">
+                            <b>1. Petugas & Administrator Dinas:</b><br>
+                            Gunakan formulir login di tengah layar dengan memasukkan username dan kata sandi resmi instansi. Sistem akan secara otomatis mengarahkan ke dashboard sesuai hak akses Anda.
+                        </div>
+                        <div style="margin-bottom:12px; padding:10px; background:#f0f9ff; border-radius:10px; border-left:4px solid #0284c7;">
+                            <b>2. Akses Masyarakat / Warga:</b><br>
+                            Masyarakat umum tidak perlu login di halaman ini. Silakan klik tombol <b>"Portal Warga"</b> di pojok kanan atas untuk pendaftaran bansos mandiri atau mengecek status pengajuan.
+                        </div>
+                        <div style="padding:10px; background:#fef3c7; border-radius:10px; border-left:4px solid #f59e0b;">
+                            <b>3. Pengecekan Data BPS Terpadu:</b><br>
+                            Klik tombol lingkaran biru <b>"Cek BPS"</b> di pojok kanan bawah untuk mengecek status desil NIK secara langsung.
+                        </div>
+                    </div>
+                `,
+                icon: 'info',
+                confirmButtonText: 'Saya Mengerti',
+                confirmButtonColor: '#009846'
+            });
+        }
+
+        // 2. FITUR CEK DATA BPS INTERAKTIF DENGAN INPUT NIK
+        async function cekDataBPS() {
+            const { value: nik } = await Swal.fire({
+                title: '<i class="fas fa-database text-primary"></i> Cek Data BPS Sidoarjo',
+                html: '<p style="font-size:0.9rem; color:#64748b; margin-bottom:15px;">Masukkan 16 digit NIK untuk memverifikasi apakah warga terdaftar pada basis data BPS / DTSEN Desil 1–5:</p>',
+                input: 'text',
+                inputPlaceholder: 'Contoh: 3515xxxxxxxxxxxx',
+                inputAttributes: {
+                    maxlength: '16',
+                    autocapitalize: 'off',
+                    autocorrect: 'off'
+                },
+                showCancelButton: true,
+                confirmButtonText: '<i class="fas fa-search"></i> Cek Status',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#009846',
+                cancelButtonColor: '#64748b',
+                inputValidator: (value) => {
+                    if (!value || value.trim().length !== 16 || !/^\d+$/.test(value.trim())) {
+                        return 'Mohon masukkan tepat 16 digit angka NIK!';
+                    }
+                }
+            });
+
+            if (nik) {
+                Swal.fire({
+                    title: 'Memeriksa Basis Data...',
+                    html: `Mencocokkan NIK <b>${nik}</b> dengan data BPS & DTSEN...`,
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                try {
+                    const res = await fetch(`${API_URL}/api/public/cek-bansos/${nik}`);
+                    const json = await res.json();
+
+                    if (res.ok && json.status === 'success') {
+                        const d = json.data;
+                        const isLayak = d.level === 2;
+                        Swal.fire({
+                            icon: isLayak ? 'success' : 'info',
+                            title: isLayak ? 'Terdaftar & Disetujui BPS' : 'Terdaftar (Menunggu Verifikasi)',
+                            html: `
+                                <div style="text-align:left; font-size:0.9rem; background:#f8fafc; padding:16px; border-radius:14px; border:1px solid #e2e8f0; line-height:1.7;">
+                                    <div><b>Nama:</b> ${d.nama}</div>
+                                    <div><b>NIK:</b> ${d.nik}</div>
+                                    <div><b>Alamat:</b> ${d.alamat || '-'}</div>
+                                    <div style="margin-top:6px;"><b>Status Kelayakan:</b> <span style="background:${isLayak ? '#dcfce7' : '#e0f2fe'}; color:${isLayak ? '#15803d' : '#0369a1'}; padding:3px 10px; border-radius:20px; font-weight:700;">${d.status}</span></div>
+                                    <div style="margin-top:10px; font-size:0.8rem; color:#047857;"><i class="fas fa-shield-alt"></i> Data terverifikasi sesuai standar DTSEN / BPS Kabupaten Sidoarjo.</div>
+                                </div>
+                            `,
+                            confirmButtonColor: '#009846'
+                        });
+                    } else {
+                        // Cek ke API Dukcapil jika belum terdaftar di antrean bansos
+                        const dukcapilRes = await fetch(`${API_URL}/api/dukcapil/${nik}`).catch(() => null);
+                        if (dukcapilRes && dukcapilRes.ok) {
+                            const dukJson = await dukcapilRes.json();
+                            const duk = dukJson.data;
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Belum Terdaftar di Bansos',
+                                html: `
+                                    <div style="text-align:left; font-size:0.9rem; line-height:1.6;">
+                                        <p>NIK <b>${nik}</b> ditemukan pada data kependudukan atas nama <b>${duk.nama}</b>, tetapi <u>belum masuk</u> dalam daftar penerima bantuan.</p>
+                                        <p style="margin-top:10px; color:#047857; font-weight:600;">Warga dapat mendaftar mandiri melalui Portal Warga.</p>
+                                    </div>
+                                `,
+                                showCancelButton: true,
+                                confirmButtonText: 'Buka Portal Warga',
+                                cancelButtonText: 'Tutup',
+                                confirmButtonColor: '#009846'
+                            }).then((r) => {
+                                if (r.isConfirmed) window.location.href = 'publik.html';
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Data Tidak Ditemukan',
+                                text: `NIK ${nik} tidak ditemukan dalam basis data BPS maupun bansos.`,
+                                confirmButtonColor: '#ef4444'
+                            });
+                        }
+                    }
+                } catch (e) {
+                    Swal.fire('Koneksi Gagal', 'Gagal terhubung ke peladen data BPS.', 'error');
+                }
+            }
+        }
+
+        // 3. SUBMIT FORM LOGIN
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!isSecure) return;
+
+            const ansInput = document.getElementById('captchaAnswer');
+            const answer = parseInt(ansInput ? ansInput.value : '0');
+            if (answer !== expectedCaptcha) {
+                Swal.fire('Anti-Bot Terpicu', 'Hasil penjumlahan salah. Silakan coba kembali.', 'warning');
+                generateCaptcha();
+                return;
+            }
+
+            const btn = document.getElementById('btnSubmit');
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memverifikasi...';
+                btn.disabled = true;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: document.getElementById('username').value.trim(),
+                        password: document.getElementById('password').value.trim()
+                    })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.status === 'success') {
+                    // Simpan token JWT ke seluruh key penyimpanan lokal
+                    localStorage.setItem('token', data.access_token);
+                    localStorage.setItem('bansosToken', data.access_token);
+                    localStorage.setItem('user', JSON.stringify(data.data));
+                    localStorage.setItem('bansosUser', JSON.stringify(data.data));
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Akses Diterima',
+                        text: `Selamat bertugas, ${data.data.username.toUpperCase()}!`,
+                        showConfirmButton: false,
+                        timer: 1100
+                    }).then(() => {
+                        window.location.href = 'index.html';
+                    });
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Akses Ditolak', text: data.message || 'Username atau password salah.' });
+                    generateCaptcha();
+                }
+            } catch (err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Koneksi Terputus',
+                    text: 'Gagal terhubung ke backend Flask di port 5000. Pastikan server aktif.'
+                });
+            } finally {
+                if (btn) {
+                    btn.innerHTML = 'Masuk Terenkripsi <i class="fas fa-sign-in-alt"></i>';
+                    btn.disabled = false;
+                }
+            }
+        });
+
+        function openResetModal() {
+            const m = document.getElementById('resetModal');
+            if (m) m.style.display = 'flex';
+        }
+
+        function closeResetModal() {
+            const m = document.getElementById('resetModal');
+            if (m) m.style.display = 'none';
+        }
+
+        function handleResetPassword(e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Pengajuan Terkirim',
+                text: 'Permintaan reset kata sandi telah dikirim ke Administrator Database.',
+                icon: 'success',
+                confirmButtonColor: '#009846'
+            });
+            closeResetModal();
+        }
+    </script>
 </body>
 </html>

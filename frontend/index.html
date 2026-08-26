@@ -12,11 +12,364 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
     
-    <!-- CSS INTERNAL KITA -->
+    <!-- CSS INTERNAL -->
     <link rel="stylesheet" href="static/css/style.css">
     <link rel="stylesheet" href="static/css/admin.css">
 
-    <!-- CSS PERBAIKAN UI NAVBAR, TELEPON, & CHAT MODERN (DIPAKSA RENDER) -->
+    <style>
+        /* PERBAIKAN NAVBAR & NOTIFIKASI */
+        .user-profile { display: flex; align-items: center; gap: 15px; }
+        .notif-wrapper { position: relative; display: flex; justify-content: center; align-items: center; background: var(--bg-body, #f8fafc); border: 1px solid var(--border-color, #e2e8f0); width: 42px; height: 42px; border-radius: 50%; cursor: pointer; transition: 0.3s; }
+        .notif-wrapper:hover { background: #e2e8f0; }
+        .notif-badge { position: absolute; top: -5px; right: -5px; background: var(--danger, #ef4444); color: white; font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 10px; border: 2px solid white; display: none; }
+        #notifPanel { position: absolute; top: 55px; right: 0; width: 340px; background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); border: 1px solid var(--border-color, #e2e8f0); display: none; flex-direction: column; z-index: 9999; overflow: hidden; }
+        
+        /* CHAT & SEARCH STYLING */
+        .search-chat-box { display: flex; align-items: center; background: white; border: 1px solid var(--border-color, #e2e8f0); border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
+        .search-chat-box input { border: none; background: transparent; outline: none; width: 100%; margin-left: 10px; font-family: 'Inter', sans-serif; font-size: 0.9rem; color: var(--text-main, #0f172a); }
+        .chat-contact-item { padding: 12px 15px; border-bottom: 1px solid var(--border-color, #e2e8f0); cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 12px; position: relative; }
+        .chat-contact-item:hover { background: var(--bg-body, #f8fafc); }
+        .chat-contact-item.active { background: #e0f2fe; border-left: 4px solid var(--info, #0ea5e9); }
+        .contact-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #0ea5e9, #4f46e5); color: white; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 1.1rem; flex-shrink: 0; }
+        .chat-header-panel { padding: 14px 20px; border-bottom: 1px solid var(--border-color, #e2e8f0); display: flex; justify-content: space-between; align-items: center; background: var(--surface, #ffffff); flex-shrink: 0; }
+        
+        /* MODAL OVERLAY */
+        .modal-blur-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(6px); z-index: 2000; display: none; justify-content: center; align-items: center; padding: 20px; }
+        .modal-card-premium { background: white; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); overflow: hidden; border: 1px solid rgba(255,255,255,0.8); }
+    </style>
+
+    <!-- AUTH FAST CHECK -->
+    <script>
+        let t = localStorage.getItem('token') || localStorage.getItem('bansosToken');
+        if (!t || t === 'undefined' || t === 'null') {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+    </script>
+</head>
+<body class="page-dashboard">
+
+    <nav>
+        <div class="nav-container">
+            <a href="#" class="logo"><i class="fas fa-shield-alt"></i><div>Pemkab Sidoarjo<span>Sistem SAW & BWM</span></div></a>
+            
+            <div class="user-profile">
+                <button onclick="window.openAdminChat()" class="btn btn-secondary" style="color:var(--accent); border-radius:var(--radius-sm);"><i class="fas fa-comments"></i> Chat Warga</button>
+                
+                <div class="notif-wrapper" onclick="window.toggleNotifPanel(event)">
+                    <i class="fas fa-bell" style="font-size:1.2rem; color:var(--text-muted); transition: color 0.3s;"></i>
+                    <span id="notifBadge" class="notif-badge">0</span>
+                    <div id="notifPanel" onclick="event.stopPropagation()">
+                        <div style="padding:14px 16px; background:var(--bg-body); border-bottom:1px solid var(--border-color); font-weight:700; color:var(--primary); font-size:0.9rem; display:flex; justify-content:space-between; align-items:center;">
+                            <span><i class="fas fa-history"></i> Riwayat Sistem</span>
+                        </div>
+                        <div id="notifList" style="max-height:400px; overflow-y:auto; background:white;"></div>
+                    </div>
+                </div>
+
+                <div class="user-info">
+                    <div class="user-name" id="navUsername">Memuat...</div>
+                    <div id="navRoleBadge" class="role-badge">Tamu</div>
+                </div>
+                <button onclick="window.logout()" class="btn btn-secondary" style="color:var(--danger); border-color:var(--border-color);"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- PUSAT KENDALI ADMINISTRATOR -->
+        <div id="adminCommandCenter" style="display: none;" class="card">
+            <div class="card-header"><div class="card-title" style="color: var(--admin-color);"><i class="fas fa-chess-king"></i> Pusat Kendali Administrator</div></div>
+            <div class="cmd-grid">
+                <button onclick="window.bukaModalBobot()" class="cmd-btn" style="background: linear-gradient(135deg, #6366f1, #4f46e5);"><i class="fas fa-sliders-h"></i> Input Bobot BWM</button>
+                <button onclick="window.hitungSPK()" class="cmd-btn" style="background: linear-gradient(135deg, #10b981, #059669);"><i class="fas fa-calculator"></i> Proses Algoritma SAW</button>
+                <button onclick="window.bukaModalKomparasi()" class="cmd-btn" style="background: linear-gradient(135deg, #f59e0b, #d97706);"><i class="fas fa-balance-scale"></i> Verifikasi Algoritma</button>
+                <button onclick="window.openAdminChat()" class="cmd-btn" style="background: linear-gradient(135deg, #f43f5e, #be123c);"><i class="fas fa-comments"></i> Live Chat Warga</button>
+            </div>
+        </div>
+
+        <!-- PETA KERENTANAN GEOGRAFIS KECAMATAN -->
+        <div class="card" id="distributionMapCard" style="border: 1px solid #bae6fd; transition: 0.5s;">
+            <div class="card-header" style="background-color:#f0f9ff;">
+                <div class="card-title" style="color:var(--info);"><i class="fas fa-map-marked-alt"></i> Peta Kerentanan Geografis (Rata-rata Desil Per Wilayah)</div>
+            </div>
+            <div class="big-map-area" id="bigMapContainer" style="height: 400px; width: 100%;"></div>
+        </div>
+
+        <!-- DASHBOARD STATISTIK & GRAFIK DESIL -->
+        <div class="dashboard-grid">
+            <div class="card stat-card"><div class="stat-icon stat-blue"><i class="fas fa-users"></i></div><div><h2 id="statTotal">0</h2><p>Total Warga Terdaftar</p></div></div>
+            <div class="card stat-card"><div class="stat-icon stat-green"><i class="fas fa-check-circle"></i></div><div><h2 id="statValid" style="color:var(--primary);">0</h2><p>Warga Disetujui</p></div></div>
+            <div class="card" style="padding: 15px; display: flex; align-items: center; justify-content: center; min-height: 110px;">
+                <canvas id="wargaStatusChart" style="max-height: 95px; width: 100%;"></canvas>
+            </div>
+        </div>
+
+        <div class="grid-layout">
+            <!-- FORM PENDATAAN WARGA (10 KRITERIA LENGKAP) -->
+            <div>
+                <div class="card" style="position: sticky; top: 90px;">
+                    <div class="card-header"><div class="card-title" style="color:var(--primary-dark);"><i class="fas fa-user-plus"></i> Form Pendataan Warga</div></div>
+                    <form id="bansosForm" onsubmit="window.tambahData(event)">
+                        <div class="form-group" style="background: var(--bg-body); padding: 16px; border-radius: var(--radius-sm); border: 1px dashed var(--primary); box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+                            <label class="form-label" style="color:var(--primary-dark);"><i class="fas fa-camera"></i> Scan KTP Auto-Fill (AI OCR)</label>
+                            <input type="file" id="ktpUpload" accept="image/*" class="form-input" style="background:white; border-color:var(--primary-light); cursor:pointer;" onchange="window.processOCR(this)">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Nomor Induk Kependudukan (NIK 16 Digit)</label>
+                            <div style="display:flex; gap:10px;">
+                                <input type="number" id="nik" class="form-input" required placeholder="Masukkan 16 digit NIK">
+                                <button type="button" onclick="window.cekDukcapilLokal()" class="btn btn-secondary" style="color:var(--info); border-color:var(--info);" title="Tarik Data dari Dukcapil"><i class="fas fa-search"></i> Cek Dukcapil</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group"><label class="form-label">Nama Lengkap Pemohon</label><input type="text" id="nama" class="form-input" required placeholder="Nama lengkap sesuai KTP"></div>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                            <div class="form-group"><label class="form-label">No. WhatsApp / HP</label><input type="number" id="no_hp" class="form-input" placeholder="Contoh: 08123456789"></div>
+                            <div class="form-group"><label class="form-label">Alamat Email</label><input type="email" id="email" class="form-input" placeholder="warga@mail.com"></div>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                            <div class="form-group"><label class="form-label">Tempat Lahir</label><input type="text" id="tempatLahir" class="form-input" placeholder="Kabupaten/Kota"></div>
+                            <div class="form-group"><label class="form-label">Tanggal Lahir</label><input type="date" id="tglLahir" class="form-input"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Alamat Lengkap Tempat Tinggal</label>
+                            <textarea id="alamat" class="form-input" rows="2" placeholder="Nama jalan, RT/RW, Dusun, Desa, Kecamatan..." onblur="window.cariAlamatDiPeta(this.value)"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label" style="color:var(--info);"><i class="fas fa-map-pin"></i> Kunci Geotagging Presisi Rumah (Otomatis Isi Alamat)</label>
+                            <div class="map-wrapper">
+                                <div id="formCoordMap" class="map-box-area" style="height: 300px;"></div>
+                            </div>
+                            <div style="display:flex; gap:8px; margin-top:8px;">
+                                <input type="text" id="lat" class="form-input" placeholder="Garis Lintang (Lat)" readonly style="background:var(--bg-body); text-align:center;">
+                                <input type="text" id="lng" class="form-input" placeholder="Garis Bujur (Lng)" readonly style="background:var(--bg-body); text-align:center;">
+                                <button type="button" onclick="window.ambilLokasiGPS()" class="btn btn-secondary" style="color:var(--info); border-color:var(--info);" title="Kunci GPS Gawai Saat Ini"><i class="fas fa-crosshairs"></i> GPS</button>
+                            </div>
+                        </div>
+
+                        <!-- KUESIONER 10 KRITERIA TANPA SINGKATAN -->
+                        <label class="form-label" style="margin-top:15px; font-weight:800; color:var(--text-main);"><i class="fas fa-list-ol text-primary"></i> Kuesioner Kelayakan Kriteria (10 Indikator BWM-SAW)</label>
+                        <div class="q-grid">
+                            <div class="form-group">
+                                <label class="form-label">C1. Kondisi Ekonomi / Penghasilan Bulanan (Rp)</label>
+                                <input type="number" id="c1" class="form-input" value="0" placeholder="Contoh: 1500000">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">C2. Estimasi Nilai Kepemilikan Aset (Rp)</label>
+                                <input type="number" id="c2" class="form-input" value="0" placeholder="Contoh: 5000000">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">C3. Usia / Umur Kepala Keluarga (Tahun)</label>
+                                <input type="number" id="c3" class="form-input" value="0" placeholder="Contoh: 48">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">C4. Jenis Kelamin Kepala Keluarga</label>
+                                <select id="c4" class="form-select">
+                                    <option value="1">Laki-laki (1)</option>
+                                    <option value="2">Perempuan (2)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">C5. Jumlah Tanggungan Keluarga (Jiwa)</label>
+                                <input type="number" id="c5" class="form-input" value="0" placeholder="Contoh: 4">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">C6. Status Pernikahan</label>
+                                <select id="c6" class="form-select">
+                                    <option value="1">Belum Menikah (1)</option>
+                                    <option value="2">Menikah (2)</option>
+                                    <option value="3">Cerai Hidup / Cerai Mati (3)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">C7. Kepemilikan Anak Usia Sekolah</label>
+                                <input type="number" id="c7" class="form-input" value="0" placeholder="Jumlah anak">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">C8. Status Kepemilikan Tempat Tinggal</label>
+                                <select id="c8" class="form-select">
+                                    <option value="1">Milik Sendiri (1)</option>
+                                    <option value="2">Sewa / Kontrak (2)</option>
+                                    <option value="3">Menumpang / Tidak Layak (3)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label class="form-label">C9. Tingkat Pendidikan Terakhir</label>
+                                <select id="c9" class="form-select">
+                                    <option value="1">Tidak Sekolah / SD (1)</option>
+                                    <option value="2">SMP / Sederajat (2)</option>
+                                    <option value="3">SMA / SMK (3)</option>
+                                    <option value="4">Diploma / Sarjana (4)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label class="form-label">C10. Status Kesehatan / Riwayat Penyakit</label>
+                                <select id="c10" class="form-select">
+                                    <option value="1">Sehat (1)</option>
+                                    <option value="2">Sakit Menahun / Disabilitas Fisik (2)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group"><label class="form-label">Catatan Lapangan Tambahan</label><textarea id="catatan" class="form-input" rows="1" placeholder="Catatan kondisi spesifik keluarga..."></textarea></div>
+                        <button type="submit" class="btn btn-primary" style="width:100%; padding: 14px;"><i class="fas fa-save"></i> Simpan Data Manual</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ARSIP DATA & HASIL REKOMENDASI SPK -->
+            <div>
+                <div class="card">
+                    <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
+                        <div class="card-title" style="color:var(--text-main);"><i class="fas fa-folder-open" style="color:var(--accent)"></i> Arsip Data Warga</div>
+                        <div style="display:flex; gap:8px; flex-wrap: wrap;">
+                            <button onclick="window.loadDashboardData()" class="btn btn-secondary" title="Refresh Data"><i class="fas fa-sync-alt"></i></button>
+                            <button onclick="document.getElementById('fileImport').click()" class="btn btn-secondary" style="color:var(--admin-color);" title="Import dari Excel"><i class="fas fa-file-import"></i> Impor Excel</button>
+                            <input type="file" id="fileImport" style="display:none;" accept=".xlsx, .xls" onchange="window.smartImportPreview(this)">
+                            <button onclick="window.syncBPS()" class="btn btn-secondary" style="color:var(--info);" title="Tarik Sinkronisasi BPS"><i class="fas fa-cloud-download-alt"></i> BPS</button>
+                            <button onclick="window.verifyAllData()" class="btn btn-primary" title="Setujui Semua"><i class="fas fa-check-double"></i> Setujui Semua</button>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <!-- TABEL ARSIP DENGAN 6 KOLOM TEPAT -->
+                        <table id="dataTable" class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:20px; text-align:center;"><input type="checkbox" id="selectAll" onchange="window.toggleSelectAll(this)"></th>
+                                    <th>Nomor NIK</th>
+                                    <th>Identitas Warga</th>
+                                    <th>Waktu Pendaftaran</th>
+                                    <th style="text-align:center;">Validasi</th>
+                                    <th style="text-align:center;">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- HASIL REKOMENDASI SPK -->
+                <div class="card hidden" id="resultCard" style="display:none; border: 1px solid var(--primary-light); box-shadow: 0 10px 25px rgba(16, 185, 129, 0.15);">
+                    <div class="card-header" style="background: linear-gradient(to right, #ecfdf5, #ffffff);">
+                        <div class="card-title" style="color: var(--primary-dark); font-size: 1.25rem;"><i class="fas fa-trophy" style="color:var(--accent); font-size: 1.5rem;"></i> Hasil Rekomendasi SAW & BWM</div>
+                        <div style="display:flex; gap:8px;">
+                            <button type="button" onclick="window.bukaModalMatriksKerja()" class="btn btn-secondary" style="color:var(--admin-color); border-color: #c7d2fe; background: white;"><i class="fas fa-table"></i> Lihat Matriks Kerja</button>
+                            <button type="button" onclick="window.exportSPKPDF()" class="btn btn-primary" style="background: linear-gradient(135deg, var(--danger), #be123c); box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);"><i class="fas fa-file-pdf"></i> Cetak SK Bupati</button>
+                        </div>
+                    </div>
+                    <div class="table-container" style="max-height: 600px; overflow-y:auto; padding: 0;">
+                        <table id="resultTable" class="modern-table" style="border: none; border-radius: 0;">
+                            <thead>
+                                <tr>
+                                    <th style="text-align:center; width:60px;">Peringkat</th>
+                                    <th>Nama Warga</th>
+                                    <th style="text-align:center; width:100px;">Skor Akhir</th>
+                                    <th style="text-align:center;">Golongan Desil</th>
+                                    <th style="text-align:center;">Hasil Keputusan</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SK BUPATI PRINT AREA (PDF) -->
+    <div id="skBupatiPrintArea" style="display:none; padding: 50px 60px; background: white; font-family: 'Times New Roman', Times, serif; color: #000; font-size: 11pt; line-height: 1.5; position: relative;">
+        <div class="sk-header" style="text-align: center; border-bottom: 4px double #000; padding-bottom: 15px; margin-bottom: 25px;">
+            <h1 style="margin: 0; font-size: 18pt; font-weight: bold; letter-spacing: 1.5px;">PEMERINTAH KABUPATEN SIDOARJO</h1>
+            <h2 style="margin: 5px 0 0 0; font-size: 22pt; font-weight: 900; letter-spacing: 2px;">DINAS SOSIAL</h2>
+            <p style="margin: 5px 0 0 0; font-size: 10pt;">Jalan Pahlawan No. 1, Kabupaten Sidoarjo, Jawa Timur 61213</p>
+        </div>
+        <div class="sk-title" style="text-align: center; margin-bottom: 30px;">
+            <h3 style="margin: 0; font-size: 14pt; text-decoration: underline; text-transform: uppercase; font-weight: bold;">SURAT KEPUTUSAN KEPALA DINAS SOSIAL SIDOARJO</h3>
+            <p style="margin-top:5px; font-weight:bold; font-size:12pt; text-transform: uppercase;">TENTANG PENETAPAN DAFTAR PENERIMA BANTUAN SOSIAL TERPADU 2026</p>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
+            <thead>
+                <tr>
+                    <th style="width: 5%; border: 1px solid #000; padding: 8px; background-color: #f2f2f2; text-align: center;">No</th>
+                    <th style="width: 25%; border: 1px solid #000; padding: 8px; background-color: #f2f2f2; text-align: center;">NIK</th>
+                    <th style="width: 35%; border: 1px solid #000; padding: 8px; background-color: #f2f2f2; text-align: center;">Nama Lengkap</th>
+                    <th style="width: 15%; border: 1px solid #000; padding: 8px; background-color: #f2f2f2; text-align: center;">Desil</th>
+                    <th style="width: 20%; border: 1px solid #000; padding: 8px; background-color: #f2f2f2; text-align: center;">Keputusan</th>
+                </tr>
+            </thead>
+            <tbody id="skBupatiTableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- MODAL LIVE CHAT ADMIN -->
+    <div id="modalAdminChat" class="modal-blur-overlay">
+        <div class="modal-card-premium card" style="width:95%; max-width:1100px; height:85vh; padding:0; display:flex; flex-direction:row; overflow:hidden; background:var(--bg-body);">
+            <div style="width: 340px; border-right: 1px solid var(--border-color); display:flex; flex-direction:column; background:white;">
+                <div style="padding: 20px; border-bottom: 1px solid var(--border-color); background:linear-gradient(135deg, var(--primary), var(--primary-dark)); font-weight:800; color:white; font-size:1.15rem; display:flex; justify-content:space-between; align-items:center;">
+                    <span><i class="fas fa-inbox"></i> Kotak Masuk Warga</span>
+                    <button onclick="window.closeModal('modalAdminChat')" style="background:none; border:none; color:white; font-size:1.2rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+                </div>
+                <div id="chatContactList" style="flex:1; overflow-y:auto;">
+                    <div style="text-align:center; color:var(--text-muted); margin-top:50px;"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>
+                </div>
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column; background:var(--bg-body);">
+                <div class="chat-header-panel">
+                    <h3 id="chatActiveName" style="margin:0; font-size:1.1rem; color:var(--primary-dark); font-weight:800;">Pilih warga dari panel kiri...</h3>
+                </div>
+                <div id="adminChatMessages" style="flex:1; padding:25px; overflow-y:auto; display:flex; flex-direction:column; gap:15px;">
+                    <div style="text-align:center; color:var(--text-muted); margin-top:100px;"><i class="fas fa-comments fa-3x" style="opacity:0.3; margin-bottom:15px;"></i><br>Pilih daftar warga untuk mulai berinteraksi.</div>
+                </div>
+                <div style="padding: 15px 25px; border-top: 1px solid var(--border-color); background:white; display:flex; align-items:center; gap:12px;">
+                    <input type="file" id="adminChatFile" style="display:none;" accept="image/*, video/*">
+                    <button onclick="document.getElementById('adminChatFile').click()" title="Lampirkan File" style="background:none; border:none; font-size:1.3rem; color:var(--text-muted); cursor:pointer;"><i class="fas fa-paperclip"></i></button>
+                    <div id="adminFileName" style="font-size:0.75rem; font-weight:700; color:var(--primary); max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:#e6f9f0; padding:4px 8px; border-radius:10px; display:none;"></div>
+                    <input type="text" id="adminChatInput" placeholder="Ketik balasan Anda..." style="flex:1; border:1px solid var(--border-color); background:var(--bg-body); padding:12px 20px; border-radius:25px; outline:none; font-family:'Inter';" onkeypress="if(event.key==='Enter') window.sendAdminChat()" disabled>
+                    <button onclick="window.sendAdminChat()" style="background:linear-gradient(135deg, var(--primary), var(--primary-dark)); color:white; border:none; width:45px; height:45px; border-radius:50%; cursor:pointer; font-size:1.1rem; display:flex; justify-content:center; align-items:center;"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS EKSTERNAL -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- SCRIPTS UTAMA APLIKASI -->
+    <script src="static/js/global.js?v=9.0"></script>
+    <script src="static/js/admin.js?v=9.0"></script>
+</body>
+</html><!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Eksekutif - SPK SAW & BWM</title>
+    
+    <!-- LIBRARIES CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    
+    <!-- CSS INTERNAL -->
+    <link rel="stylesheet" href="static/css/style.css">
+    <link rel="stylesheet" href="static/css/admin.css">
+
+    <!-- CSS PERBAIKAN UI NAVBAR, TELEPON, & CHAT MODERN -->
     <style>
         /* PERBAIKAN NAVBAR & NOTIFIKASI */
         .user-profile { display: flex; align-items: center; gap: 15px; }
@@ -125,6 +478,7 @@
     </nav>
 
     <div class="container">
+        <!-- PUSAT KENDALI ADMINISTRATOR -->
         <div id="adminCommandCenter" style="display: none;" class="card">
             <div class="card-header"><div class="card-title" style="color: var(--admin-color);"><i class="fas fa-chess-king"></i> Pusat Kendali Administrator</div></div>
             <div class="cmd-grid">
@@ -136,6 +490,7 @@
             </div>
         </div>
 
+        <!-- PETA KERENTANAN GEOGRAFIS KECAMATAN -->
         <div class="card" id="distributionMapCard" style="border: 1px solid #bae6fd; transition: 0.5s;">
             <div class="card-header" style="background-color:#f0f9ff;">
                 <div class="card-title" style="color:var(--info);"><i class="fas fa-map-marked-alt"></i> Peta Kerentanan Geografis (Rata-rata Desil Per Wilayah)</div>
@@ -143,6 +498,7 @@
             <div class="big-map-area" id="bigMapContainer" style="height: 400px; width: 100%;"></div>
         </div>
 
+        <!-- DASHBOARD STATISTIK & GRAFIK DESIL -->
         <div class="dashboard-grid">
             <div class="card stat-card"><div class="stat-icon stat-blue"><i class="fas fa-users"></i></div><div><h2 id="statTotal">0</h2><p>Total Warga Terdaftar</p></div></div>
             <div class="card stat-card"><div class="stat-icon stat-green"><i class="fas fa-check-circle"></i></div><div><h2 id="statValid" style="color:var(--primary);">0</h2><p>Warga Disetujui</p></div></div>
@@ -152,6 +508,7 @@
         </div>
 
         <div class="grid-layout">
+            <!-- FORM PENDATAAN WARGA (10 KRITERIA LENGKAP) -->
             <div>
                 <div class="card" style="position: sticky; top: 90px;">
                     <div class="card-header"><div class="card-title" style="color:var(--primary-dark);"><i class="fas fa-user-plus"></i> Form Pendataan Warga</div></div>
@@ -162,17 +519,17 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">NIK (16 Digit)</label>
+                            <label class="form-label">Nomor Induk Kependudukan (NIK 16 Digit)</label>
                             <div style="display:flex; gap:10px;">
-                                <input type="number" id="nik" class="form-input" required placeholder="Masukkan NIK">
+                                <input type="number" id="nik" class="form-input" required placeholder="Masukkan 16 digit NIK">
                                 <button type="button" onclick="window.cekDukcapilLokal()" class="btn btn-secondary" style="color:var(--info); border-color:var(--info);" title="Tarik Data dari Dukcapil"><i class="fas fa-search"></i> Cek Dukcapil</button>
                             </div>
                         </div>
 
-                        <div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" id="nama" class="form-input" required placeholder="Nama lengkap warga"></div>
+                        <div class="form-group"><label class="form-label">Nama Lengkap Pemohon</label><input type="text" id="nama" class="form-input" required placeholder="Nama lengkap sesuai KTP"></div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                            <div class="form-group"><label class="form-label">No. WA</label><input type="number" id="no_hp" class="form-input" placeholder="08..."></div>
-                            <div class="form-group"><label class="form-label">Email Warga</label><input type="email" id="email" class="form-input" placeholder="warga@mail.com"></div>
+                            <div class="form-group"><label class="form-label">No. WhatsApp / HP</label><input type="number" id="no_hp" class="form-input" placeholder="Contoh: 08123456789"></div>
+                            <div class="form-group"><label class="form-label">Alamat Email</label><input type="email" id="email" class="form-input" placeholder="warga@mail.com"></div>
                         </div>
 
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
@@ -181,48 +538,99 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Alamat Lengkap</label>
-                            <textarea id="alamat" class="form-input" rows="2" placeholder="Ketik nama jalan/desa..." onblur="window.cariAlamatDiPeta(this.value)"></textarea>
+                            <label class="form-label">Alamat Lengkap Tempat Tinggal</label>
+                            <textarea id="alamat" class="form-input" rows="2" placeholder="Nama jalan, RT/RW, Dusun, Desa, Kecamatan..." onblur="window.cariAlamatDiPeta(this.value)"></textarea>
                         </div>
                         
                         <div class="form-group">
-                            <label class="form-label" style="color:var(--info);"><i class="fas fa-map-pin"></i> Kunci Geotagging Presisi Rumah</label>
+                            <label class="form-label" style="color:var(--info);"><i class="fas fa-map-pin"></i> Kunci Geotagging Presisi Rumah (Otomatis Isi Alamat)</label>
                             <div class="map-wrapper">
-                                <div id="formCoordMap" class="map-box-area" id="map-target-click" style="height: 350px;"></div>
+                                <div id="formCoordMap" class="map-box-area" style="height: 350px;"></div>
                             </div>
-                            <div style="display:flex; gap:8px;">
+                            <div style="display:flex; gap:8px; margin-top:8px;">
                                 <input type="text" id="lat" class="form-input" placeholder="Garis Lintang (Lat)" readonly style="background:var(--bg-body); text-align:center;">
                                 <input type="text" id="lng" class="form-input" placeholder="Garis Bujur (Lng)" readonly style="background:var(--bg-body); text-align:center;">
-                                <button type="button" onclick="window.ambilLokasiGPS()" class="btn btn-secondary" style="color:var(--info); border-color:var(--info);" title="Kunci GPS Gawai Saat Ini"><i class="fas fa-crosshairs"></i></button>
+                                <button type="button" onclick="window.ambilLokasiGPS()" class="btn btn-secondary" style="color:var(--info); border-color:var(--info);" title="Kunci GPS Gawai Saat Ini"><i class="fas fa-crosshairs"></i> GPS</button>
                             </div>
                         </div>
 
-                        <label class="form-label"><i class="fas fa-list-ol" style="color:var(--primary);"></i> Kuesioner Kelayakan Kriteria</label>
+                        <!-- KUESIONER 10 KRITERIA TANPA SINGKATAN -->
+                        <label class="form-label" style="margin-top:15px; font-weight:800; color:var(--text-main);"><i class="fas fa-list-ol text-primary"></i> Kuesioner Kelayakan Kriteria (10 Indikator BWM-SAW)</label>
                         <div class="q-grid">
-                            <div class="form-group"><label class="form-label">C1. Ekonomi</label><input type="number" id="c1" class="form-input" value="0"></div>
-                            <div class="form-group"><label class="form-label">C2. Aset</label><input type="number" id="c2" class="form-input" value="0"></div>
-                            <div class="form-group"><label class="form-label">C3. Umur</label><input type="number" id="c3" class="form-input" value="0"></div>
-                            <div class="form-group"><label class="form-label">C4. J.Kelamin</label><select id="c4" class="form-select"><option value="1">Laki-laki(1)</option><option value="2">Perempuan(2)</option></select></div>
-                            <div class="form-group"><label class="form-label">C5. Tggn</label><input type="number" id="c5" class="form-input" value="0"></div>
-                            <div class="form-group"><label class="form-label">C6. Nikah</label><select id="c6" class="form-select"><option value="1">Belum Menikah (1)</option><option value="2">Menikah (2)</option><option value="3">Cerai Hidup/Meninggal (3)</option><option value="4">Cerai (4)</option></select></div>
-                            <div class="form-group"><label class="form-label">C7. Anak</label><input type="number" id="c7" class="form-input" value="0"></div>
-                            <div class="form-group"><label class="form-label">C8. Tempat Tggl</label><select id="c8" class="form-select"><option value="1">Milik Sendiri (1)</option><option value="2">Sewa / Kontrak (2)</option><option value="3">Numpang (3)</option></select></div>
-                            <div class="form-group" style="grid-column: span 2;"><label class="form-label">C9. Pendidikan Terakhir</label><select id="c9" class="form-select"><option value="1">Tidak Sekolah / SD (1)</option><option value="2">SMP / SMA Sederajat (2)</option><option value="3">Diploma / Sarjana (Perkuliahan) (3)</option></select></div>
-                            <div class="form-group" style="grid-column: span 2;"><label class="form-label">C10. Kes</label><select id="c10" class="form-select"><option value="1">Sehat</option><option value="2">Sakit Menahun/Disabilitas</option></select></div>
+                            <div class="form-group">
+                                <label class="form-label">C1. Kondisi Ekonomi / Penghasilan Bulanan (Rp)</label>
+                                <input type="number" id="c1" class="form-input" value="0" placeholder="Contoh: 1500000">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">C2. Estimasi Nilai Kepemilikan Aset (Rp)</label>
+                                <input type="number" id="c2" class="form-input" value="0" placeholder="Contoh: 5000000">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">C3. Usia / Umur Kepala Keluarga (Tahun)</label>
+                                <input type="number" id="c3" class="form-input" value="0" placeholder="Contoh: 48">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">C4. Jenis Kelamin Kepala Keluarga</label>
+                                <select id="c4" class="form-select">
+                                    <option value="1">Laki-laki (1)</option>
+                                    <option value="2">Perempuan (2)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">C5. Jumlah Tanggungan Keluarga (Jiwa)</label>
+                                <input type="number" id="c5" class="form-input" value="0" placeholder="Contoh: 4">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">C6. Status Pernikahan</label>
+                                <select id="c6" class="form-select">
+                                    <option value="1">Belum Menikah (1)</option>
+                                    <option value="2">Menikah (2)</option>
+                                    <option value="3">Cerai Hidup / Cerai Mati (3)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">C7. Kepemilikan Anak Usia Sekolah</label>
+                                <input type="number" id="c7" class="form-input" value="0" placeholder="Jumlah anak">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">C8. Status Kepemilikan Tempat Tinggal</label>
+                                <select id="c8" class="form-select">
+                                    <option value="1">Milik Sendiri (1)</option>
+                                    <option value="2">Sewa / Kontrak (2)</option>
+                                    <option value="3">Menumpang / Tidak Layak (3)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label class="form-label">C9. Tingkat Pendidikan Terakhir</label>
+                                <select id="c9" class="form-select">
+                                    <option value="1">Tidak Sekolah / SD (1)</option>
+                                    <option value="2">SMP / Sederajat (2)</option>
+                                    <option value="3">SMA / SMK (3)</option>
+                                    <option value="4">Diploma / Sarjana (4)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label class="form-label">C10. Status Kesehatan / Riwayat Penyakit</label>
+                                <select id="c10" class="form-select">
+                                    <option value="1">Sehat (1)</option>
+                                    <option value="2">Sakit Menahun / Disabilitas Fisik (2)</option>
+                                </select>
+                            </div>
                         </div>
 
-                        <div class="form-group"><label class="form-label">Catatan Lapangan</label><textarea id="catatan" class="form-input" rows="1"></textarea></div>
+                        <div class="form-group"><label class="form-label">Catatan Lapangan Tambahan</label><textarea id="catatan" class="form-input" rows="1" placeholder="Catatan kondisi spesifik keluarga..."></textarea></div>
                         <button type="submit" class="btn btn-primary" style="width:100%; padding: 14px;"><i class="fas fa-save"></i> Simpan Data Manual</button>
                     </form>
                 </div>
             </div>
 
+            <!-- ARSIP DATA & HASIL REKOMENDASI SPK -->
             <div>
                 <div class="card">
                     <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
                         <div class="card-title" style="color:var(--text-main);"><i class="fas fa-folder-open" style="color:var(--accent)"></i> Arsip Data Warga</div>
                         <div style="display:flex; gap:8px; flex-wrap: wrap;">
-                            <button onclick="window.loadData()" class="btn btn-secondary" title="Refresh Data"><i class="fas fa-sync-alt"></i></button>
+                            <button onclick="window.loadDashboardData()" class="btn btn-secondary" title="Refresh Data"><i class="fas fa-sync-alt"></i></button>
                             <button onclick="window.bukaModalExport()" class="btn btn-secondary" style="color:var(--primary-dark);" title="Export ke Excel"><i class="fas fa-file-excel"></i></button>
                             <button onclick="document.getElementById('fileImport').click()" class="btn btn-secondary" style="color:var(--admin-color);" title="Import dari Excel"><i class="fas fa-file-import"></i></button>
                             <input type="file" id="fileImport" style="display:none;" accept=".xlsx, .xls" onchange="window.smartImportPreview(this)">
@@ -249,6 +657,7 @@
                             </div>
                         </div>
 
+                        <!-- TABEL ARSIP 6 KOLOM TEPAT -->
                         <table id="dataTable" class="modern-table">
                             <thead>
                                 <tr>
@@ -265,12 +674,13 @@
                     </div>
                 </div>
 
+                <!-- HASIL REKOMENDASI SPK -->
                 <div class="card hidden" id="resultCard" style="display:none; border: 1px solid var(--primary-light); box-shadow: 0 10px 25px rgba(16, 185, 129, 0.15);">
                     <div class="card-header" style="background: linear-gradient(to right, #ecfdf5, #ffffff);">
                         <div class="card-title" style="color: var(--primary-dark); font-size: 1.25rem;"><i class="fas fa-trophy" style="color:var(--accent); font-size: 1.5rem;"></i> Hasil Rekomendasi SAW & BWM</div>
                         <div style="display:flex; gap:8px;">
-                            <button onclick="window.bukaModalDetail()" class="btn btn-secondary" style="color:var(--admin-color); border-color: #c7d2fe; background: white;"><i class="fas fa-eye"></i> Lihat Matriks Kerja</button>
-                            <button onclick="window.exportSPKPDF()" class="btn btn-primary" style="background: linear-gradient(135deg, var(--danger), #be123c); box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);"><i class="fas fa-file-pdf"></i> Cetak SK Bupati</button>
+                            <button type="button" onclick="window.bukaModalMatriksKerja()" class="btn btn-secondary" style="color:var(--admin-color); border-color: #c7d2fe; background: white;"><i class="fas fa-table"></i> Lihat Matriks Kerja</button>
+                            <button type="button" onclick="window.exportSPKPDF()" class="btn btn-primary" style="background: linear-gradient(135deg, var(--danger), #be123c); box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);"><i class="fas fa-file-pdf"></i> Cetak SK Bupati</button>
                         </div>
                     </div>
                     <div class="table-container" style="max-height: 600px; overflow-y:auto; padding: 0;">
@@ -281,7 +691,7 @@
                                     <th>Nama Warga</th>
                                     <th style="text-align:center; width:100px;">Skor Akhir</th>
                                     <th style="text-align:center;">Golongan Desil</th>
-                                    <th style="text-align:center;">HASIL KEPUTUSAN</th>
+                                    <th style="text-align:center;">Hasil Keputusan</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -309,12 +719,11 @@
                             <input type="text" id="manageUsername" class="form-input" required>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Kata Sandi (Password) <small id="pwHelp" style="color:var(--text-muted); font-weight:normal;">(Dapat dilihat)</small></label>
+                            <label class="form-label">Kata Sandi (Password)</label>
                             <div style="display:flex; gap:10px;">
                                 <input type="password" id="managePassword" class="form-input" required style="flex:1;">
                                 <button type="button" onclick="const p=document.getElementById('managePassword'); p.type=p.type==='password'?'text':'password'; this.innerHTML=p.type==='password'?'<i class=\'fas fa-eye\'></i>':'<i class=\'fas fa-eye-slash\'></i>';" class="btn btn-secondary" style="padding: 0 15px;"><i class="fas fa-eye"></i></button>
                             </div>
-                            <small style="color:var(--danger); font-size: 0.75rem; display:block; margin-top:5px;"><i class="fas fa-exclamation-triangle"></i> Peringatan: Enkripsi Bcrypt telah dilepas. Password kini disimpan dalam format Teks Terang (Plain Text).</small>
                         </div>
                         <div class="form-group"><label class="form-label">Level Akses (Role)</label>
                             <select id="manageRole" class="form-select"><option value="operator">Petugas / Operator</option><option value="admin">Administrator</option></select>
@@ -335,95 +744,115 @@
         </div>
     </div>
 
-    <!-- UI PANGGILAN MASUK MODERN -->
+    <!-- UI PANGGILAN MASUK & AKTIF -->
     <div id="incomingCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); backdrop-filter:blur(10px); z-index:9999999; justify-content:center; align-items:center; flex-direction:column;">
         <div style="text-align:center; animation: scaleUp 0.3s ease-out;">
             <div style="width: 120px; height: 120px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 3.5rem; color: white; margin: 0 auto 30px auto; box-shadow: 0 0 30px rgba(16, 185, 129, 0.6); position: relative;">
                 <i class="fas fa-phone-volume" style="animation: pulse 1s infinite;"></i>
-                <div style="position: absolute; top: -15px; left: -15px; right: -15px; bottom: -15px; border: 2px solid #10b981; border-radius: 50%; animation: ripple 1.5s infinite ease-out;"></div>
             </div>
             <h2 id="callerNameText" style="color:white; font-size: 1.8rem; margin: 0 0 10px 0;">Memanggil...</h2>
             <p id="callerTypeText" style="color: #94a3b8; font-size: 1.1rem; margin-bottom: 40px; font-weight:600;">Menerima Panggilan Baru</p>
             <div style="display:flex; gap: 40px; justify-content:center;">
-                <button onclick="window.rejectCall()" style="width: 70px; height: 70px; border-radius: 50%; background: #ef4444; border: none; color: white; font-size: 1.8rem; cursor: pointer; box-shadow: 0 10px 20px rgba(239, 68, 68, 0.4); transition: 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"><i class="fas fa-phone-slash"></i></button>
-                <button onclick="window.acceptCall()" style="width: 70px; height: 70px; border-radius: 50%; background: #10b981; border: none; color: white; font-size: 1.8rem; cursor: pointer; box-shadow: 0 10px 20px rgba(16, 185, 129, 0.4); transition: 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"><i class="fas fa-phone"></i></button>
+                <button onclick="window.rejectCall()" style="width: 70px; height: 70px; border-radius: 50%; background: #ef4444; border: none; color: white; font-size: 1.8rem; cursor: pointer;"><i class="fas fa-phone-slash"></i></button>
+                <button onclick="window.acceptCall()" style="width: 70px; height: 70px; border-radius: 50%; background: #10b981; border: none; color: white; font-size: 1.8rem; cursor: pointer;"><i class="fas fa-phone"></i></button>
             </div>
         </div>
     </div>
 
-    <!-- UI PANGGILAN AKTIF (AUDIO & VIDEO PIP) -->
     <div id="activeCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.9); backdrop-filter:blur(10px); z-index:9999999; justify-content:center; align-items:center;">
         <div class="call-card-modern">
-            <!-- Header Info -->
             <div class="call-header-modern">
                 <h3 id="activeCallName">Nama Kontak</h3>
                 <p id="callStatusText">Menyambungkan...</p>
                 <div id="callDuration">00:00</div>
             </div>
-
-            <!-- JIKA VIDEO CALL -->
             <div id="videoCallArea" class="video-area-modern">
                 <video id="remoteVideo" autoplay playsinline></video>
                 <video id="localVideo" autoplay muted playsinline></video>
             </div>
-
-            <!-- JIKA AUDIO CALL -->
             <div id="audioCallArea" class="audio-area-modern">
-                <div class="audio-avatar">
-                    <i class="fas fa-user"></i>
-                    <div class="ripple-ring"></div>
-                </div>
+                <div class="audio-avatar"><i class="fas fa-user"></i><div class="ripple-ring"></div></div>
             </div>
-
-            <!-- Emoji Floating Bar -->
-            <div class="emoji-reaction-bar" id="callEmojiBar">
-                <button onclick="window.sendCallEmoji('👍')">👍</button>
-                <button onclick="window.sendCallEmoji('❤️')">❤️</button>
-                <button onclick="window.sendCallEmoji('😂')">😂</button>
-                <button onclick="window.sendCallEmoji('😮')">😮</button>
-                <button onclick="window.sendCallEmoji('🙏')">🙏</button>
-            </div>
-            
-            <!-- Area Reaksi Muncul -->
-            <div id="callReactionDisplay" class="call-reaction-display"></div>
-
-            <!-- Panel Tombol Bawah -->
             <div class="call-controls-modern">
                 <button id="btnMute" onclick="window.toggleMuteCall()" class="ctrl-btn" title="Matikan Suara"><i class="fas fa-microphone"></i></button>
                 <button id="btnVideo" onclick="window.toggleVideoCall()" class="ctrl-btn" title="Matikan Kamera"><i class="fas fa-video"></i></button>
                 <button id="btnBlur" onclick="window.toggleBlur()" class="ctrl-btn" title="Blur Latar Belakang"><i class="fas fa-magic"></i></button>
                 <button onclick="window.endCall()" class="ctrl-btn btn-end" title="Akhiri Panggilan"><i class="fas fa-phone-slash"></i></button>
             </div>
-            
-            <div style="text-align: center; padding-bottom: 15px; background: #1e293b; font-size: 0.75rem; color: #94a3b8; font-weight:600;"><i class="fas fa-shield-alt"></i> AI Noise Cancelling Aktif</div>
         </div>
     </div>
 
-    <!-- Modal Export Builder -->
-    <div id="modalExportBuilder" class="modal-blur-overlay"><div class="modal-card-premium card" style="width:500px; padding:24px;"><div class="card-header"><div class="card-title"><i class="fas fa-filter" style="color:var(--info);"></i> Custom Export Excel</div><button onclick="window.closeModal('modalExportBuilder')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button></div><div style="padding:20px 0;">
-        <div id="exportCols" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.85rem; font-weight: 500; color:var(--text-main); max-height: 300px; overflow-y:auto; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px;">
-            <label><input type="checkbox" value="nik" checked> NIK</label><label><input type="checkbox" value="nama" checked> Nama</label><label><input type="checkbox" value="alamat" checked> Alamat Lengkap</label><label><input type="checkbox" value="c1_ekonomi" checked> C1 (Ekonomi)</label><label><input type="checkbox" value="c2_aset" checked> C2 (Aset)</label><label><input type="checkbox" value="c3_umur" checked> C3 (Umur)</label><label><input type="checkbox" value="is_verified" checked> Status Validasi</label>
+    <!-- MODAL EXPORT, IMPORT, EDIT, BOBOT -->
+    <div id="modalExportBuilder" class="modal-blur-overlay">
+        <div class="modal-card-premium card" style="width:500px; padding:24px;">
+            <div class="card-header"><div class="card-title"><i class="fas fa-filter" style="color:var(--info);"></i> Custom Export Excel</div><button onclick="window.closeModal('modalExportBuilder')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button></div>
+            <div style="padding:20px 0;">
+                <div id="exportCols" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.85rem; font-weight: 500; color:var(--text-main); max-height: 300px; overflow-y:auto; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <label><input type="checkbox" value="nik" checked> NIK</label><label><input type="checkbox" value="nama" checked> Nama</label><label><input type="checkbox" value="alamat" checked> Alamat Lengkap</label><label><input type="checkbox" value="c1_ekonomi" checked> C1 (Ekonomi)</label><label><input type="checkbox" value="c2_aset" checked> C2 (Aset)</label><label><input type="checkbox" value="c3_umur" checked> C3 (Umur)</label><label><input type="checkbox" value="is_verified" checked> Status Validasi</label>
+                </div>
+            </div>
+            <button onclick="window.executeCustomExport()" class="btn btn-primary" style="width:100%;"><i class="fas fa-download"></i> Unduh File .xlsx</button>
         </div>
-    </div><button onclick="window.executeCustomExport()" class="btn btn-primary" style="width:100%;"><i class="fas fa-download"></i> Unduh File .xlsx</button></div></div>
-    
-    <!-- Modal Import Preview -->
-    <div id="modalImportPreview" class="modal-blur-overlay"><div class="modal-card-premium card" style="width:95%; max-width:900px; height:85%; padding:24px; display:flex; flex-direction:column;"><div class="card-header" style="flex-shrink:0;"><div class="card-title" style="color:var(--admin-color);"><i class="fas fa-magic"></i> Validasi Pra-Import Data</div><button onclick="window.closeModal('modalImportPreview')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button></div><div style="flex-grow:1; overflow-y:auto; padding:15px 0;"><p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:15px;">Ditemukan <b id="importCount" style="color:var(--text-main);">0</b> baris dari Excel.</p><div class="table-container" style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0;"><table id="importPreviewTable"><thead><tr><th>Baris</th><th>NIK</th><th>Nama Lengkap</th><th>Status Cek</th></tr></thead><tbody></tbody></table></div></div><div style="flex-shrink:0; text-align:right; margin-top:15px; padding-top:15px; border-top:1px solid var(--border-color);"><button onclick="window.executeBulkImport()" class="btn btn-primary"><i class="fas fa-cloud-upload-alt"></i> Eksekusi Import ke Database</button></div></div></div>
-    
-    <!-- Modal Edit Warga -->
-    <div id="modalEdit" class="modal-blur-overlay"><div class="modal-card-premium card" style="width:500px; max-height:85vh; display:flex; flex-direction:column;"><div class="card-header" style="flex-shrink:0;"><div class="card-title" style="color:var(--accent);"><i class="fas fa-edit"></i> Edit Data Warga</div><button onclick="window.closeModal('modalEdit')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button></div><form id="editForm" onsubmit="window.simpanEdit(event)" style="flex:1; overflow-y:auto; padding:20px;"><input type="hidden" id="editId"><div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" id="editNama" class="form-input" required></div><div class="form-group"><label class="form-label">NIK</label><input type="number" id="editNik" class="form-input" required></div><div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;"><div class="form-group"><label class="form-label">No. WA</label><input type="number" id="editNoHp" class="form-input"></div><div class="form-group"><label class="form-label">Email</label><input type="email" id="editEmail" class="form-input"></div></div><div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;"><div class="form-group"><label class="form-label">Tempat Lahir</label><input type="text" id="editTempatLahir" class="form-input"></div><div class="form-group"><label class="form-label">Tanggal Lahir</label><input type="date" id="editTglLahir" class="form-input"></div></div><div class="form-group"><label class="form-label">Alamat</label><textarea id="editAlamat" class="form-input" rows="2"></textarea></div><label class="form-label">Kuesioner Kelayakan</label><div class="q-grid"><div><label class="form-label">C1. Ekonomi</label><input type="number" id="editC1" class="form-input" value="0"></div><div><label class="form-label">C2. Aset</label><input type="number" id="editC2" class="form-input" value="0"></div><div><label class="form-label">C3. Umur</label><input type="number" id="editC3" class="form-input" value="0"></div><div><label class="form-label">C4. Kelamin</label><select id="editC4" class="form-select"><option value="1">Laki-laki(1)</option><option value="2">Perempuan(2)</option></select></div><div><label class="form-label">C5. Tggn</label><input type="number" id="editC5" class="form-input" value="0"></div>
-                    <div><label class="form-label">C6. Nikah</label><select id="editC6" class="form-select"><option value="1">Belum Menikah (1)</option><option value="2">Menikah (2)</option><option value="3">Cerai Hidup/Meninggal (3)</option><option value="4">Cerai (4)</option></select></div>
-                    <div><label class="form-label">C7. Anak</label><input type="number" id="editC7" class="form-input" value="0"></div>
-                    <div><label class="form-label">C8. Tempat Tggl</label><select id="editC8" class="form-select"><option value="1">Milik Sendiri (1)</option><option value="2">Sewa / Kontrak (2)</option><option value="3">Numpang (3)</option></select></div>
-                    <div style="grid-column: span 2;"><label class="form-label">C9. Pendidikan Terakhir</label><select id="editC9" class="form-select"><option value="1">Tidak Sekolah / SD (1)</option><option value="2">SMP / SMA Sederajat (2)</option><option value="3">Diploma / Sarjana (Perkuliahan) (3)</option></select></div>
-                    <div style="grid-column: span 2;"><label class="form-label">C10. Kes</label><select id="editC10" class="form-select"><option value="1">Sehat</option><option value="2">Sakit Menahun/Disabilitas</option></select></div></div><div class="form-group"><label class="form-label">Catatan</label><textarea id="editCatatan" class="form-input" rows="1"></textarea></div><button type="submit" class="btn btn-primary" style="width:100%;"><i class="fas fa-save"></i> Simpan Perubahan</button></form></div></div>
-    
-    <!-- Modal Bobot -->
-    <div id="modalBobot" class="modal-blur-overlay"><div class="modal-card-premium card" style="width:400px; padding:24px;"><div class="card-header"><div class="card-title" style="color:var(--admin-color)"><i class="fas fa-sliders-h"></i> Input Bobot BWM</div><button onclick="window.closeModal('modalBobot')" style="background:none;border:none;font-size:1.2rem; cursor:pointer; color:var(--text-muted);">×</button></div><form onsubmit="window.simpanBobot(event)" style="padding-top:10px;"><p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px;">Masukkan nilai akhir vektor bobot (W) hasil komputasi Best-Worst Method.</p><div id="bobotInputs" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; max-height: 40vh; overflow-y:auto; padding:5px;"></div><button type="submit" class="btn btn-primary" style="margin-top:20px; width:100%; background:var(--admin-color);"><i class="fas fa-save"></i> Terapkan ke Algoritma</button></form></div></div>
-    
-    <!-- Modal Detail Matriks -->
-    <div id="modalDetail" class="modal-blur-overlay"><div class="modal-card-premium card" style="width:95%; max-width:1100px; height:85%; display: flex; flex-direction: column; overflow: hidden; padding: 0;"><div class="card-header" style="background: linear-gradient(135deg, #1e293b, #0f172a); color: white; border: none; padding: 1.5rem; flex-shrink: 0;"><div class="card-title" style="color: white; font-size: 1.25rem;"><i class="fas fa-cogs" style="color:var(--info);"></i> Matriks Kerja Normalisasi Algoritma</div><button onclick="window.closeModal('modalDetail')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:white; opacity: 0.8;"><i class="fas fa-times"></i></button></div><div id="detailContent" style="padding: 1.5rem 2rem; overflow-y: auto; flex: 1; background: var(--bg-body);"></div></div></div>
-    
-    <!-- MODAL KOMPARASI -->
+    </div>
+
+    <!-- MODAL EDIT WARGA DENGAN 10 KRITERIA LENGKAP -->
+    <div id="modalEdit" class="modal-blur-overlay">
+        <div class="modal-card-premium card" style="width:600px; max-height:85vh; display:flex; flex-direction:column;">
+            <div class="card-header" style="flex-shrink:0;"><div class="card-title" style="color:var(--accent);"><i class="fas fa-edit"></i> Edit Data Warga</div><button onclick="window.closeModal('modalEdit')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button></div>
+            <form id="editForm" onsubmit="window.simpanEdit(event)" style="flex:1; overflow-y:auto; padding:20px;">
+                <input type="hidden" id="editId">
+                <div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" id="editNama" class="form-input" required></div>
+                <div class="form-group"><label class="form-label">NIK (16 Digit)</label><input type="number" id="editNik" class="form-input" required></div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                    <div class="form-group"><label class="form-label">No. WA / HP</label><input type="number" id="editNoHp" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">Email</label><input type="email" id="editEmail" class="form-input"></div>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                    <div class="form-group"><label class="form-label">Tempat Lahir</label><input type="text" id="editTempatLahir" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">Tanggal Lahir</label><input type="date" id="editTglLahir" class="form-input"></div>
+                </div>
+                <div class="form-group"><label class="form-label">Alamat Lengkap</label><textarea id="editAlamat" class="form-input" rows="2"></textarea></div>
+                
+                <label class="form-label" style="font-weight:800; color:var(--text-main); margin-top:15px;"><i class="fas fa-list-ol text-primary"></i> Kuesioner Kelayakan (10 Indikator Lengkap)</label>
+                <div class="q-grid">
+                    <div><label class="form-label">C1. Kondisi Ekonomi (Rp)</label><input type="number" id="editC1" class="form-input" value="0"></div>
+                    <div><label class="form-label">C2. Nilai Aset (Rp)</label><input type="number" id="editC2" class="form-input" value="0"></div>
+                    <div><label class="form-label">C3. Usia / Umur (Tahun)</label><input type="number" id="editC3" class="form-input" value="0"></div>
+                    <div><label class="form-label">C4. Jenis Kelamin</label><select id="editC4" class="form-select"><option value="1">Laki-laki (1)</option><option value="2">Perempuan (2)</option></select></div>
+                    <div><label class="form-label">C5. Tanggungan (Jiwa)</label><input type="number" id="editC5" class="form-input" value="0"></div>
+                    <div><label class="form-label">C6. Status Pernikahan</label><select id="editC6" class="form-select"><option value="1">Belum Menikah (1)</option><option value="2">Menikah (2)</option><option value="3">Cerai Hidup / Cerai Mati (3)</option></select></div>
+                    <div><label class="form-label">C7. Anak Sekolah</label><input type="number" id="editC7" class="form-input" value="0"></div>
+                    <div><label class="form-label">C8. Tempat Tinggal</label><select id="editC8" class="form-select"><option value="1">Milik Sendiri (1)</option><option value="2">Sewa / Kontrak (2)</option><option value="3">Menumpang / Tidak Layak (3)</option></select></div>
+                    <div style="grid-column: span 2;"><label class="form-label">C9. Pendidikan Terakhir</label><select id="editC9" class="form-select"><option value="1">Tidak Sekolah / SD (1)</option><option value="2">SMP / Sederajat (2)</option><option value="3">SMA / SMK (3)</option><option value="4">Diploma / Sarjana (4)</option></select></div>
+                    <div style="grid-column: span 2;"><label class="form-label">C10. Status Kesehatan</label><select id="editC10" class="form-select"><option value="1">Sehat (1)</option><option value="2">Sakit Menahun / Disabilitas Fisik (2)</option></select></div>
+                </div>
+                <div class="form-group"><label class="form-label">Catatan Tambahan</label><textarea id="editCatatan" class="form-input" rows="1"></textarea></div>
+                <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fas fa-save"></i> Simpan Perubahan</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL BOBOT BWM -->
+    <div id="modalBobot" class="modal-blur-overlay">
+        <div class="modal-card-premium card" style="width:450px; padding:24px;">
+            <div class="card-header"><div class="card-title" style="color:var(--admin-color)"><i class="fas fa-sliders-h"></i> Input Bobot BWM</div><button onclick="window.closeModal('modalBobot')" style="background:none;border:none;font-size:1.2rem; cursor:pointer; color:var(--text-muted);">×</button></div>
+            <form onsubmit="window.simpanBobot(event)" style="padding-top:10px;">
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px;">Masukkan nilai akhir vektor bobot (W) hasil komputasi Best-Worst Method.</p>
+                <div id="bobotInputs" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; max-height: 40vh; overflow-y:auto; padding:5px;"></div>
+                <button type="submit" class="btn btn-primary" style="margin-top:20px; width:100%; background:var(--admin-color);"><i class="fas fa-save"></i> Terapkan ke Algoritma</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DETAIL MATRIKS -->
+    <div id="modalDetail" class="modal-blur-overlay">
+        <div class="modal-card-premium card" style="width:95%; max-width:1100px; height:85%; display: flex; flex-direction: column; overflow: hidden; padding: 0;">
+            <div class="card-header" style="background: linear-gradient(135deg, #1e293b, #0f172a); color: white; border: none; padding: 1.5rem; flex-shrink: 0;"><div class="card-title" style="color: white; font-size: 1.25rem;"><i class="fas fa-cogs" style="color:var(--info);"></i> Matriks Kerja Normalisasi Algoritma</div><button onclick="window.closeModal('modalDetail')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:white; opacity: 0.8;"><i class="fas fa-times"></i></button></div>
+            <div id="detailContent" style="padding: 1.5rem 2rem; overflow-y: auto; flex: 1; background: var(--bg-body);"></div>
+        </div>
+    </div>
+
+    <!-- MODAL KOMPARASI SAW VS WP -->
     <div id="modalKomparasi" class="modal-blur-overlay">
         <div class="modal-card-premium card" style="width:95%; max-width:1200px; height:88%; display: flex; flex-direction: column; overflow: hidden; padding: 0;">
             <div class="card-header" style="background: linear-gradient(135deg, #fffbeb, #fef3c7); border-bottom: 1px solid #fde68a; padding: 1.5rem; flex-shrink: 0;">
@@ -452,61 +881,29 @@
         </div>
     </div>
 
-    <!-- SK BUPATI PRINT MODERN -->
+    <!-- SK BUPATI PRINT AREA (PDF) -->
     <div id="skBupatiPrintArea" style="display:none; padding: 50px 60px; background: white; font-family: 'Times New Roman', Times, serif; color: #000; font-size: 11pt; line-height: 1.5; position: relative;">
-        <!-- Watermark -->
-        <div style="position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); opacity: 0.05; z-index: 0; pointer-events: none;">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Lambang_Kabupaten_Sidoarjo.png/409px-Lambang_Kabupaten_Sidoarjo.png" style="width: 400px;">
+        <div class="sk-header" style="text-align: center; border-bottom: 4px double #000; padding-bottom: 15px; margin-bottom: 25px;">
+            <h1 style="margin: 0; font-size: 18pt; font-weight: bold; letter-spacing: 1.5px;">PEMERINTAH KABUPATEN SIDOARJO</h1>
+            <h2 style="margin: 5px 0 0 0; font-size: 22pt; font-weight: 900; letter-spacing: 2px;">DINAS SOSIAL</h2>
+            <p style="margin: 5px 0 0 0; font-size: 10pt;">Jalan Pahlawan No. 1, Kabupaten Sidoarjo, Jawa Timur 61213</p>
         </div>
-        <div class="sk-header" style="text-align: center; border-bottom: 4px double #000; padding-bottom: 15px; margin-bottom: 25px; position: relative; z-index: 1;">
-            <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Lambang_Kabupaten_Sidoarjo.png/409px-Lambang_Kabupaten_Sidoarjo.png" alt="Logo Sidoarjo" style="width: 80px;">
-                <div>
-                    <h1 style="margin: 0; font-size: 18pt; font-weight: bold; letter-spacing: 1.5px;">PEMERINTAH KABUPATEN SIDOARJO</h1>
-                    <h2 style="margin: 5px 0 0 0; font-size: 22pt; font-weight: 900; letter-spacing: 2px;">DINAS SOSIAL</h2>
-                    <p style="margin: 5px 0 0 0; font-size: 10pt;">Jalan Pahlawan No. 1, Kabupaten Sidoarjo, Jawa Timur 61213</p>
-                    <p style="margin: 0; font-size: 10pt;">Telepon: (031) 8921000 | Email: dinsos@sidoarjokab.go.id</p>
-                </div>
-            </div>
-        </div>
-        <div class="sk-title" style="text-align: center; margin-bottom: 30px; position: relative; z-index: 1;">
+        <div class="sk-title" style="text-align: center; margin-bottom: 30px;">
             <h3 style="margin: 0; font-size: 14pt; text-decoration: underline; text-transform: uppercase; font-weight: bold;">SURAT KEPUTUSAN KEPALA DINAS SOSIAL SIDOARJO</h3>
-            <p style="margin-top:5px; font-size:11pt;">Nomor: 460 / <span id="skRandomNo"></span> / 438.5.8 / 2026</p><br>
-            <p style="margin-top:5px; font-weight:bold; font-size:12pt; text-transform: uppercase;">TENTANG PENETAPAN DAFTAR KELUARGA PENERIMA MANFAAT (KPM)<br>BANTUAN SOSIAL TERPADU TAHUN ANGGARAN 2026</p>
+            <p style="margin-top:5px; font-weight:bold; font-size:12pt; text-transform: uppercase;">TENTANG PENETAPAN DAFTAR PENERIMA BANTUAN SOSIAL TERPADU 2026</p>
         </div>
-        <table class="sk-table" style="width: 100%; border-collapse: collapse; margin-bottom: 40px; position: relative; z-index: 1;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
             <thead>
                 <tr>
-                    <th style="width: 5%; border: 1px solid #000; padding: 10px; background-color: #f2f2f2; font-weight: bold; text-align: center;">No</th>
-                    <th style="width: 25%; border: 1px solid #000; padding: 10px; background-color: #f2f2f2; font-weight: bold; text-align: center;">Nomor Induk Kependudukan</th>
-                    <th style="width: 30%; border: 1px solid #000; padding: 10px; background-color: #f2f2f2; font-weight: bold; text-align: center;">Nama Lengkap Pemohon</th>
-                    <th style="width: 10%; border: 1px solid #000; padding: 10px; background-color: #f2f2f2; font-weight: bold; text-align: center;">Skor SPK</th>
-                    <th style="width: 10%; border: 1px solid #000; padding: 10px; background-color: #f2f2f2; font-weight: bold; text-align: center;">Desil</th>
-                    <th style="width: 20%; border: 1px solid #000; padding: 10px; background-color: #f2f2f2; font-weight: bold; text-align: center;">Hasil Keputusan</th>
+                    <th style="width: 5%; border: 1px solid #000; padding: 8px; background-color: #f2f2f2; text-align: center;">No</th>
+                    <th style="width: 25%; border: 1px solid #000; padding: 8px; background-color: #f2f2f2; text-align: center;">NIK</th>
+                    <th style="width: 35%; border: 1px solid #000; padding: 8px; background-color: #f2f2f2; text-align: center;">Nama Lengkap</th>
+                    <th style="width: 15%; border: 1px solid #000; padding: 8px; background-color: #f2f2f2; text-align: center;">Desil</th>
+                    <th style="width: 20%; border: 1px solid #000; padding: 8px; background-color: #f2f2f2; text-align: center;">Keputusan</th>
                 </tr>
             </thead>
             <tbody id="skBupatiTableBody"></tbody>
         </table>
-        <div style="clear: both; margin-top: 30px; position: relative; z-index: 1; display: flex; justify-content: flex-end;">
-            <div class="sk-signature" style="width: 320px; text-align: center;">
-                <p style="margin: 0;">Sidoarjo, <span id="skDateNow"></span></p>
-                <p style="margin: 0; font-weight: bold;">Kepala Dinas Sosial</p>
-                <p style="margin: 0; font-weight: bold;">Kabupaten Sidoarjo</p><br><br><br><br><br>
-                <p style="margin: 0; font-weight: bold; text-decoration: underline;">Dr. H. Ahmad Zaini, M.Si.</p>
-                <p style="margin: 0;">Pembina Utama Muda</p>
-                <p style="margin: 0;">NIP. 19700101 199503 1 001</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Wadah Rahasia untuk Cetak Verifikasi Algoritma -->
-    <div id="hiddenPrintVerifikasi" style="display:none; padding: 40px; background: white; font-family: 'Inter', sans-serif; color: #000;">
-        <div style="text-align: center; border-bottom: 3px solid #000; padding-bottom: 10px; margin-bottom: 20px;">
-            <h2 style="margin:0;">LAPORAN VERIFIKASI ALGORITMA (UJI BEDA)</h2>
-            <h3 style="margin:5px 0 0 0; font-weight: normal; color: #333;">Sistem Pendukung Keputusan: Metode SAW vs Weighted Product</h3>
-        </div>
-        <div id="printChartImage" style="text-align: center; margin-bottom: 30px; width: 100%;"></div>
-        <div id="printTableContainer"></div>
     </div>
 
     <!-- MODAL INVESTIGASI LAPORAN CHAT WARGA -->
@@ -522,78 +919,20 @@
         </div>
     </div>
 
-    <!-- EDITOR STUDIO GAMBAR -->
-    <div id="imageEditorModal" class="modal-blur-overlay">
-        <div style="width: 100%; height: 100vh; position: relative;">
-            <div style="position: absolute; top: 15px; right: 85px; z-index: 46000; background: white; padding: 6px 12px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 8px;">
-                <label style="font-size: 0.8rem; font-weight: bold; margin: 0;">Kualitas:</label>
-                <select id="imgQualityAdmin" style="border: 1px solid var(--border-color); border-radius: 4px; outline: none; font-size: 0.8rem; cursor: pointer;"><option value="high">FullHD Asli</option><option value="medium" selected>Menengah (HD)</option><option value="low">SD (Hemat Data)</option></select>
-            </div>
-            <button onclick="window.batalImageEditor()" style="position: absolute; top: 15px; right: 25px; z-index: 46000; background: var(--danger); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"><i class="fas fa-times"></i></button>
-            <div id="filerobotContainer" style="width: 100%; height: 100%;"></div>
-        </div>
-    </div>
-
-    <!-- EDITOR STUDIO VIDEO -->
-    <div id="videoEditorModal" class="modal-blur-overlay" style="flex-direction: column;">
-        <div class="card" style="width: 95%; max-width: 900px; background: #0f172a; padding: 0; overflow: hidden; display: flex; flex-direction: column; height: 90vh; border: 1px solid #334155; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8);">
-            <div style="padding: 15px 25px; background: #1e293b; color: white; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; flex-shrink: 0;">
-                <div style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 10px;"><div style="background: var(--info); width: 32px; height: 32px; border-radius: 8px; display: flex; justify-content: center; align-items: center;"><i class="fas fa-film text-white"></i></div> Studio Pemotong Video</div>
-                <button onclick="window.batalVideoEditor()" style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer; transition: 0.2s;" onmouseover="this.style.color='white'"><i class="fas fa-times"></i></button>
-            </div>
-            <div style="flex: 1; position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden; background: #000; background-image: radial-gradient(circle at center, #1e293b 0%, #000 100%);">
-                <video id="vEditorPlayer" style="max-width: 100%; max-height: 100%; transition: transform 0.3s;" playsinline preload="auto" crossorigin="anonymous"></video>
-                <div id="vProcessingOverlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(15, 23, 42, 0.85); color:white; flex-direction:column; justify-content:center; align-items:center; z-index:10; backdrop-filter: blur(4px);">
-                    <div style="width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
-                    <h3 id="vProcessingText" style="font-weight: 600; letter-spacing: 1px;">Merender: 0.0s / 0.0s</h3>
-                    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
-                </div>
-            </div>
-            <div style="padding: 25px; background: #1e293b; color: white; flex-shrink: 0; border-top: 1px solid #334155;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <div style="display:flex; gap:20px; align-items:center;">
-                        <button onclick="window.vTogglePlay()" id="vPlayBtn" style="background: white; color: #0f172a; border: none; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; font-size:1.3rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'"><i class="fas fa-play" style="margin-left: 3px;"></i></button>
-                        <div style="font-family: 'Inter', monospace; font-size: 1.15rem; font-weight: 700; letter-spacing: 1px; color: #e2e8f0; background: #0f172a; padding: 6px 14px; border-radius: 8px; border: 1px solid #334155;"><span id="vTimeDisplay">00:00 / 00:00</span></div>
-                    </div>
-                    <div style="display:flex; gap:12px; align-items: center;">
-                        <button onclick="window.vRotate()" style="background:#334155; color:white; border:none; height:45px; width:45px; border-radius: 8px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#475569'" title="Putar Video"><i class="fas fa-sync-alt"></i></button>
-                        <div style="display: flex; align-items: center; background: #334155; height: 45px; border-radius: 8px; padding: 0 10px; cursor:pointer;" onclick="document.getElementById('vidMuteAdmin').click()"><input type="checkbox" id="vidMuteAdmin" style="margin-right:8px; cursor:pointer;"><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1; cursor:pointer;"><i class="fas fa-volume-mute"></i> Mute</label></div>
-                        <div style="display: flex; align-items: center; background: #334155; height: 45px; border-radius: 8px; padding: 0 10px;">
-                            <label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1; margin-right: 8px;">Kualitas:</label>
-                            <select id="vidQualityAdmin" style="background: transparent; color: white; border: none; font-weight: bold; outline: none; cursor: pointer;"><option value="high" style="color: black;">FullHD Asli</option><option value="medium" selected style="color: black;">Menengah (HD)</option><option value="low" style="color: black;">SD (Hemat Data)</option></select>
-                        </div>
-                        <button onclick="window.vProcessAndSave()" style="background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; border: none; height: 45px; padding: 0 24px; border-radius: 8px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(16,185,129,0.3); transition: 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'"><i class="fas fa-paper-plane" style="margin-right: 8px;"></i> Kirim</button>
-                    </div>
-                </div>
-                <div class="video-trim-container">
-                    <div class="trim-track"><div id="vTrimActive" class="trim-active-area"></div></div>
-                    <input type="range" id="vTrimStart" class="trim-slider" min="0" max="100" value="0" step="0.1" oninput="window.vUpdateTrim('start')">
-                    <input type="range" id="vTrimEnd" class="trim-slider" min="0" max="100" value="100" step="0.1" oninput="window.vUpdateTrim('end')">
-                </div>
-            </div>
-            <canvas id="vRenderCanvas" style="display:none;"></canvas>
-        </div>
-    </div>
-
-    <!-- MODAL CHAT ADMIN (DIPERBARUI) -->
+    <!-- MODAL LIVE CHAT ADMIN -->
     <div id="modalAdminChat" class="modal-blur-overlay">
         <div class="modal-card-premium card" style="width:95%; max-width:1200px; height:92vh; padding:0; display:flex; flex-direction:row; overflow:visible; background:var(--bg-body); border-radius:var(--radius-xl);">
-            
             <!-- PANEL KIRI: DAFTAR KONTAK & BUKU KONTAK -->
             <div style="width: 380px; border-right: 1px solid var(--border-color); display:flex; flex-direction:column; background:var(--surface); border-radius: var(--radius-xl) 0 0 var(--radius-xl);">
                 <div style="padding: 20px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; background: #f8fafc; border-radius: var(--radius-xl) 0 0 0;">
-                    
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
                         <div style="font-weight:800; color:var(--text-main); font-size:1.2rem;"><i class="fas fa-address-book text-primary"></i> Hubungi Warga</div>
                         <button onclick="window.closeModal('modalAdminChat')" class="btn btn-secondary btn-sm" style="color:var(--danger); border-color:var(--danger); padding:4px 8px;"><i class="fas fa-times"></i> Tutup</button>
                     </div>
-                    
                     <div style="display:flex; gap:10px; margin-bottom:15px; background: white; padding: 5px; border-radius: 12px; border: 1px solid var(--border-color);">
                         <button id="tabInboxBtn" onclick="window.switchChatTab('inbox')" class="btn btn-primary" style="flex:1; padding:8px; border-radius: 8px;"><i class="fas fa-inbox"></i> Pesan Masuk</button>
                         <button id="tabKontakBtn" onclick="window.switchChatTab('kontak')" class="btn btn-secondary" style="flex:1; padding:8px; border-radius: 8px; border:none; background:transparent; color:var(--text-muted);"><i class="fas fa-users"></i> Buku Kontak</button>
                     </div>
-
-                    <!-- Search Bar -->
                     <div class="search-chat-box" style="margin-bottom:0;">
                         <i class="fas fa-search text-muted"></i>
                         <input type="text" id="searchChatInput" placeholder="Cari Nama atau NIK warga..." onkeyup="window.filterChatList()">
@@ -603,15 +942,11 @@
                 <div id="chatContactList" style="flex:1; overflow-y:auto; background: #ffffff;">
                     <div style="text-align:center; color:var(--text-muted); margin-top:50px;"><i class="fas fa-spinner fa-spin"></i> Memuat Data Obrolan...</div>
                 </div>
-                <div id="chatBukuKontakList" style="flex:1; overflow-y:auto; background: #ffffff; display:none;">
-                    <!-- Diisi lewat JavaScript -->
-                </div>
+                <div id="chatBukuKontakList" style="flex:1; overflow-y:auto; background: #ffffff; display:none;"></div>
             </div>
 
             <!-- PANEL KANAN: AREA OBROLAN -->
             <div style="flex:1; display:flex; flex-direction:column; background:var(--bg-body); border-radius: 0 var(--radius-xl) var(--radius-xl) 0;">
-                
-                <!-- HEADER OBROLAN MODERN -->
                 <div class="chat-header-panel" id="chatHeaderArea">
                     <div class="chat-header-profile">
                         <div class="contact-avatar" id="chatHeaderAvatar" style="display:none;">W</div>
@@ -626,113 +961,28 @@
                     </div>
                     
                     <div style="display:flex; gap:10px; align-items:center;" id="chatHeaderActions" style="display:none;">
-                        <!-- Tombol Telepon -->
                         <button onclick="window.startCallWarga('audio')" class="btn btn-primary btn-sm"><i class="fas fa-phone-alt"></i> Suara</button>
                         <button onclick="window.startCallWarga('video')" class="btn btn-sm" style="background:var(--info); color:white;"><i class="fas fa-video"></i> Video</button>
-                        
-                        <div style="width: 1px; height: 30px; background: var(--border-color); margin: 0 5px;"></div>
-                        
-                        <!-- Dropdown Menu Tindakan -->
-                        <div class="chat-action-menu">
-                            <button class="chat-action-btn" onclick="window.toggleChatActionDropdown(event)"><i class="fas fa-ellipsis-v"></i></button>
-                            <div class="chat-dropdown-content" id="chatActionDropdown">
-                                <button onclick="window.pinChatActive()"><i class="fas fa-thumbtack text-accent"></i> Sematkan (Pin) Obrolan</button>
-                                <button onclick="window.bukaModalAlihkanAdmin()"><i class="fas fa-exchange-alt text-info"></i> Alihkan ke Admin Lain</button>
-                                <button onclick="window.bukaModalLaporRiwayat()"><i class="fas fa-shield-virus text-danger"></i> Laporkan Riwayat Chat</button>
-                                <div style="height:1px; background:var(--border-color); margin: 4px 0;"></div>
-                                <button onclick="window.hapusRiwayatLokal()" class="text-danger"><i class="fas fa-trash-alt"></i> Bersihkan Riwayat</button>
-                            </div>
-                        </div>
-
-                        <!-- Tutup Chat Aktif (Kembali ke State Awal) -->
-                        <button onclick="window.tutupObrolanAktif()" class="btn btn-secondary btn-sm" style="color:var(--text-muted); border:1px solid var(--border-color); margin-left: 5px;" title="Tutup Obrolan Aktif"><i class="fas fa-times"></i> Tutup Obrolan</button>
+                        <button onclick="window.tutupObrolanAktif()" class="btn btn-secondary btn-sm" style="color:var(--text-muted); border:1px solid var(--border-color); margin-left: 5px;"><i class="fas fa-times"></i> Tutup Obrolan</button>
                     </div>
                 </div>
 
-                <!-- AREA PESAN -->
                 <div id="adminChatMessages" style="flex:1; padding:25px; overflow-y:auto; display:flex; flex-direction:column; gap:15px; scroll-behavior: smooth;">
                     <div style="text-align:center; color:var(--text-muted); margin-top:100px;"><i class="fas fa-comments fa-3x" style="opacity:0.3; margin-bottom:15px;"></i><br>Pilih daftar warga untuk mulai berinteraksi secara real-time.</div>
                 </div>
                 
-                <div id="replyPreviewContainerAdmin" style="display:none; padding: 10px 25px; background: #f8fafc; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); font-size:0.85rem; color:var(--text-muted); align-items:center; justify-content:space-between; flex-shrink: 0;">
-                    <div style="border-left: 3px solid var(--admin-color); padding-left: 10px;"><b id="replyPreviewSenderAdmin" style="color:var(--text-main);"></b><br><span id="replyPreviewTextAdmin"></span></div>
-                    <button onclick="window.batalReplyAdmin()" style="background:none; border:none; cursor:pointer; color:var(--danger);"><i class="fas fa-times"></i></button>
-                </div>
-                
-                <div id="preSendPreviewAdmin" style="display:none; padding: 15px 25px; background: var(--surface); border-top: 1px solid var(--border-color); box-shadow: 0 -4px 10px rgba(0,0,0,0.02); flex-shrink: 0;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"><span style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);"><i class="fas fa-eye text-info"></i> File Siap Kirim (<span id="adminFileStatusTxt">Raw</span>)</span><button onclick="window.batalLampiranAdmin()" class="btn" style="background:#fef2f2; color:var(--danger); font-size:0.8rem; padding:6px 12px; border-radius:20px; font-weight:700;"><i class="fas fa-times"></i> Batal Kirim</button></div>
-                    <div id="previewMediaContainerAdmin" style="position: relative; text-align: center; max-height: 160px; overflow:hidden; border-radius: 12px; border: 1px dashed var(--border-color); background: var(--bg-body); padding:10px; display:flex; justify-content:center; align-items:center;"></div>
-                </div>
-                
                 <div style="padding: 15px 25px; border-top: 1px solid var(--border-color); background:var(--surface); display:flex; align-items:center; gap:12px; position:relative; flex-shrink: 0; border-radius: 0 0 var(--radius-xl) 0;">
-                    <button onclick="event.stopPropagation(); window.toggleEmojiPicker('admin')" style="background:none; border:none; font-size:1.5rem; color:var(--text-muted); cursor:pointer; transition:0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'"><i class="fas fa-smile"></i></button>
-                    <div id="emojiPickerAdmin" style="display:none; position:absolute; bottom:75px; left:25px; background:var(--surface); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:20px; box-shadow:var(--shadow-float); grid-template-columns:repeat(6, 1fr); gap:10px; z-index:150000;" onclick="event.stopPropagation()"></div>
+                    <button onclick="event.stopPropagation(); window.toggleEmojiPicker('admin')" style="background:none; border:none; font-size:1.5rem; color:var(--text-muted); cursor:pointer;"><i class="fas fa-smile"></i></button>
                     <input type="file" id="adminChatFile" style="display:none;" accept="image/*, video/*, audio/*">
-                    <button onclick="document.getElementById('adminChatFile').click()" title="Lampirkan File & Edit" style="background:var(--bg-body); border:1px solid var(--border-color); width:40px; height:40px; border-radius:50%; font-size:1.2rem; color:var(--admin-color); cursor:pointer; transition:0.2s; display:flex; align-items:center; justify-content:center;" onmouseover="this.style.background='var(--admin-color)'; this.style.color='white'"><i class="fas fa-paperclip"></i></button>
-                    <button id="btnRecordAdmin" onclick="window.toggleVoiceRecordAdmin()" title="Voice Note" style="background:none; border:none; font-size:1.4rem; color:var(--text-muted); cursor:pointer; transition:0.2s;"><i class="fas fa-microphone"></i></button>
-                    <input type="text" id="adminChatInput" placeholder="Ketik balasan Anda..." style="flex:1; border:1px solid var(--border-color); background:var(--bg-body); padding:12px 20px; border-radius:25px; outline:none; font-family:'Inter'; font-size:1rem; transition: 0.3s;" onkeypress="window.handleChatEnter(event, 'admin')" onfocus="this.style.borderColor='var(--primary)'; this.style.background='white'; box-shadow: 0 0 0 4px var(--primary-light);" onblur="this.style.borderColor='var(--border-color)'; this.style.background='var(--bg-body)'; box-shadow:none;" disabled>
-                    
-                    <div id="adminRecordingUI" style="display:none; flex:1; align-items:center; gap:10px; padding:12px 20px; background:#fef2f2; border:1px solid #fecaca; border-radius:30px; color:#dc2626; font-weight:700;">
-                        <div class="waveform"><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div></div>
-                        <span id="adminRecordTime">00:00</span><div style="margin-left:auto; font-size: 0.8rem; opacity: 0.7;">Kirim Langsung Jalan</div>
-                    </div>
-                    
-                    <button id="btnSendAdmin" onclick="window.sendAdminChat()" style="background:linear-gradient(135deg, var(--primary), var(--primary-dark)); color:white; border:none; width:50px; height:50px; border-radius:50%; cursor:pointer; font-size:1.2rem; display:flex; justify-content:center; align-items:center; transition:0.2s; box-shadow:0 5px 15px rgba(16, 185, 129, 0.4);" disabled><i class="fas fa-paper-plane" style="margin-left:-2px; margin-top:2px;"></i></button>
+                    <button onclick="document.getElementById('adminChatFile').click()" title="Lampirkan File" style="background:var(--bg-body); border:1px solid var(--border-color); width:40px; height:40px; border-radius:50%; font-size:1.2rem; color:var(--admin-color); cursor:pointer;"><i class="fas fa-paperclip"></i></button>
+                    <input type="text" id="adminChatInput" placeholder="Ketik balasan Anda..." style="flex:1; border:1px solid var(--border-color); background:var(--bg-body); padding:12px 20px; border-radius:25px; outline:none; font-family:'Inter'; font-size:1rem;" onkeypress="window.handleChatEnter(event, 'admin')" disabled>
+                    <button id="btnSendAdmin" onclick="window.sendAdminChat()" style="background:linear-gradient(135deg, var(--primary), var(--primary-dark)); color:white; border:none; width:50px; height:50px; border-radius:50%; cursor:pointer; font-size:1.2rem; display:flex; justify-content:center; align-items:center;" disabled><i class="fas fa-paper-plane"></i></button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL ALIHKAN ADMIN (TRANSFER CHAT) -->
-    <div id="modalAlihkanAdmin" class="modal-blur-overlay" style="z-index: 100000;">
-        <div class="modal-card-premium card" style="width:450px; padding:24px;">
-            <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
-                <div class="card-title" style="color:var(--info); font-size: 1.2rem;"><i class="fas fa-exchange-alt"></i> Alihkan Penanganan Chat</div>
-                <button onclick="window.closeModal('modalAlihkanAdmin')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button>
-            </div>
-            <div style="padding: 20px 0;">
-                <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 20px;">Pilih Admin atau Petugas lain untuk mengambil alih percakapan dengan <b id="transferWargaName" style="color:var(--text-main);"></b>.</p>
-                <div class="form-group">
-                    <label class="form-label">Pilih Petugas Tujuan:</label>
-                    <select id="selectAdminTransfer" class="form-select">
-                        <option value="">Memuat daftar petugas...</option>
-                    </select>
-                </div>
-            </div>
-            <button onclick="window.eksekusiAlihkanAdmin()" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1rem;"><i class="fas fa-paper-plane"></i> Pindahkan Penanganan</button>
-        </div>
-    </div>
-
-    <!-- MODAL LAPORKAN RIWAYAT CHAT KE INVESTIGASI -->
-    <div id="modalLaporRiwayat" class="modal-blur-overlay" style="z-index: 100000;">
-        <div class="modal-card-premium card" style="width:500px; padding:24px;">
-            <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
-                <div class="card-title" style="color:var(--danger); font-size: 1.2rem;"><i class="fas fa-shield-virus"></i> Laporkan ke Pusat Investigasi</div>
-                <button onclick="window.closeModal('modalLaporRiwayat')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button>
-            </div>
-            <div style="padding: 20px 0;">
-                <div style="background: #fef2f2; border: 1px dashed #fca5a5; padding: 15px; border-radius: var(--radius-sm); margin-bottom: 20px;">
-                    <p style="font-size: 0.9rem; color: var(--danger); margin: 0; font-weight: 600;"><i class="fas fa-exclamation-triangle"></i> Peringatan:</p>
-                    <p style="font-size: 0.85rem; color: var(--text-main); margin: 5px 0 0 0;">Tindakan ini akan mengirim <b>seluruh riwayat percakapan</b> dengan warga ini ke Sistem Investigasi Laporan untuk ditinjau oleh Atasan atau Administrator lain.</p>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Alasan Pelaporan (Wajib):</label>
-                    <textarea id="inputAlasanLaporChat" class="form-input" rows="3" placeholder="Jelaskan mengapa riwayat chat ini perlu diinvestigasi (Misal: Ancaman, Penipuan data, dll)..."></textarea>
-                </div>
-            </div>
-            <button onclick="window.eksekusiLaporRiwayat()" class="btn" style="background:var(--danger); color:white; width: 100%; padding: 14px; font-size: 1rem;"><i class="fas fa-flag"></i> Kirim ke Pusat Investigasi</button>
-        </div>
-    </div>
-
-    <!-- ELEMEN MENGAPUNG (FAB) DAN MEDIA LAINNYA -->
-    <div id="fabBulk" class="fab-bulk"><div class="fab-text"><span id="bulkCount">0</span> Baris Terpilih</div><button onclick="window.bulkProcess('verify')" class="btn btn-primary" style="padding:6px 14px; border-radius:20px; font-size: 0.85rem;"><i class="fas fa-check-double"></i> Verifikasi</button><button onclick="window.bulkProcess('delete')" class="btn" style="background:var(--danger); color:white; padding:6px 14px; border-radius:20px; font-size: 0.85rem;"><i class="fas fa-trash"></i> Hapus</button></div>
-    
-    <div id="mediaLightbox" class="modal-blur-overlay" style="z-index: 999999 !important; flex-direction: column;" onclick="window.closeLightbox(event)"><div style="position: absolute; top: 20px; right: 30px; font-size: 2.5rem; color: white; cursor: pointer; transition: 0.2s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='white'" class="close-lightbox-btn">&times;</div><div id="lightboxContent" style="max-width: 90%; max-height: 85vh; display: flex; justify-content: center; align-items: center;"></div></div>
-    
-    <!-- Audio Telepon Admin -->
-    <audio id="ringtoneAudio" src="https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg" loop style="display:none;"></audio>
-
-    <!-- Pindahkan semua script raksasa ke bagian paling bawah (BYPASS RENDER-BLOCKING) -->
+    <!-- SCRIPTS LIBRARIES EKSTERNAL -->
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -742,11 +992,9 @@
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://cdn.scaleflex.it/plugins/filerobot-image-editor/3.12.17/filerobot-image-editor.min.js"></script>
 
-    <!-- MEMANGGIL FILE JAVASCRIPT EKSTERNAL DENGAN VERSI BARU ANTI CACHE -->
-    <script src="static/js/global.js?v=7.0"></script>
-    <script src="static/js/admin.js?v=7.0"></script>
+    <!-- SCRIPTS APLIKASI KITA -->
+    <script src="static/js/global.js?v=9.0"></script>
+    <script src="static/js/admin.js?v=9.0"></script>
 </body>
 </html>

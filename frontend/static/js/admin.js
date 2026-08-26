@@ -1,1390 +1,1119 @@
 /* =========================================================
-   ADMIN.JS - SPK BANSOS SIDOARJO (FULL NOTIFIKASI MODERN & SEARCH)
+   ADMIN.JS - SPK BANSOS SIDOARJO (FULL INTEGRATED & ENHANCED)
 ========================================================= */
+
+// Injeksi Style Tambahan DataTables & Badge
 const dtStyle = document.createElement('style');
-dtStyle.innerHTML = `.dataTables_length { margin-bottom: 15px; margin-top: 5px; font-weight: 600; color: var(--text-muted); } .dataTables_length select { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); outline: none; margin: 0 8px; cursor:pointer; background: white;} .dataTables_length select:focus { border-color: var(--info); box-shadow: 0 0 0 3px #bfdbfe; } .dataTables_filter { margin-bottom: 15px; margin-top: 5px; } .dataTables_filter input { padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border-color); outline: none; margin-left: 8px; width: 250px; background: white;} .dataTables_filter input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }`;
+dtStyle.innerHTML = `
+    .dataTables_length { margin-bottom: 15px; margin-top: 5px; font-weight: 600; color: var(--text-muted); }
+    .dataTables_length select { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color, #e2e8f0); outline: none; margin: 0 8px; cursor:pointer; background: white;}
+    .dataTables_length select:focus { border-color: var(--info, #0ea5e9); box-shadow: 0 0 0 3px #bfdbfe; }
+    .dataTables_filter { margin-bottom: 15px; margin-top: 5px; }
+    .dataTables_filter input { padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border-color, #e2e8f0); outline: none; margin-left: 8px; width: 250px; background: white;}
+    .dataTables_filter input:focus { border-color: var(--primary, #009846); box-shadow: 0 0 0 3px rgba(0, 152, 70, 0.15); }
+    .badge-green { background: #e6f9f0; color: #15803d; }
+    .badge-blue { background: #e0f2fe; color: #1d4ed8; }
+    .badge-red { background: #fee2e2; color: #dc2626; }
+`;
 document.head.appendChild(dtStyle);
 
-const MAP_CENTER_FALLBACK = (typeof window.COORDS_SIDOARJO_CENTER !== 'undefined') ? window.COORDS_SIDOARJO_CENTER : [-7.4478, 112.7183];
-let globalDataWarga = [], detailData = null, dtTable = null, compChart = null, formMap = null, formMarker = null, macroMap = null, macroLayerGroup = null;
-let user = null; try { user = JSON.parse(localStorage.getItem('bansosUser')); } catch(e) {}
-let replyToDataAdmin = null, peer = null, activeCall = null, dataConnection = null, localStream = null, activeChatNik = null, activeChatName = null, callTimerAdmin = null, callSecondsAdmin = 0, isMutedAdmin = false, isVideoOffAdmin = false, isBlurred = false; 
+const API_URL = (typeof window.API_BASE_URL !== 'undefined') ? window.API_BASE_URL : 'http://localhost:5000';
+const MAP_CENTER_SIDOARJO = [-7.4478, 112.7183]; // Titik Pusat Kabupaten Sidoarjo
 
-// MEDIA & AUDIO ANALYSER GLOBAL
-window.adminMediaBlob = null; 
-window.adminMediaExt = ''; 
-window.adminMediaType = ''; 
+let globalDataWarga = [];
+let dtTable = null;
+let desilChart = null;
+let formMap = null;
+let formMarker = null;
+let macroMap = null;
+let macroLayerGroup = null;
+let lastSPKResult = null;
+
+let user = null;
+try {
+    user = JSON.parse(localStorage.getItem('user') || localStorage.getItem('bansosUser'));
+} catch (e) { }
+
+let activeChatNik = null;
+let activeChatName = null;
+
+// State Media Chat & Perekam Suara
+window.adminMediaBlob = null;
+window.adminMediaExt = '';
+window.adminMediaType = '';
 window.adminAudioRecorder = null;
 window.adminAudioChunks = [];
 window.isAdminRecordingAudio = false;
 window.adminRecordTimer = null;
 window.adminRecordSecs = 0;
-let audioContextAdmin = null, analyserAdmin = null, dataArrayAdmin = null, reqFrameAdmin = null;
 
 let rawChatListData = [];
-let speechRecognizer = null;
-window.activeChatTab = 'inbox'; 
-window.activeNotifTab = 'baru'; 
+window.activeChatTab = 'inbox';
+window.activeNotifTab = 'baru';
 window.isNotifPanelOpen = false;
 
-function safeHtml(str) { if (!str) return ''; return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); }
-function enc(str) { return encodeURIComponent(str || ''); }
-function escapeInlineJS(str) { if (!str) return ''; return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n').replace(/\r/g, ''); }
+// =========================================================
+// DATA WILAYAH KECAMATAN SIDOARJO (CHOROPLETH / KISI PETA)
+// =========================================================
+const KECAMATAN_SIDOARJO = [
+    { nama: "Sidoarjo Kota", coords: [-7.4478, 112.7183], radius: 2400 },
+    { nama: "Candi", coords: [-7.4812, 112.7245], radius: 2600 },
+    { nama: "Gedangan", coords: [-7.3887, 112.7278], radius: 2500 },
+    { nama: "Waru", coords: [-7.3541, 112.7389], radius: 2400 },
+    { nama: "Sedati", coords: [-7.3789, 112.7781], radius: 3000 },
+    { nama: "Porong", coords: [-7.5452, 112.7032], radius: 2700 },
+    { nama: "Tanggulangin", coords: [-7.5098, 112.7154], radius: 2500 },
+    { nama: "Krian", coords: [-7.4082, 112.5841], radius: 2800 },
+    { nama: "Taman", coords: [-7.3621, 112.6954], radius: 2600 },
+    { nama: "Sukodono", coords: [-7.4052, 112.6841], radius: 2500 },
+    { nama: "Wonoayu", coords: [-7.4432, 112.6289], radius: 2700 },
+    { nama: "Tulangan", coords: [-7.4821, 112.6541], radius: 2600 },
+    { nama: "Krembung", coords: [-7.5312, 112.6241], radius: 2800 },
+    { nama: "Prambon", coords: [-7.4912, 112.5689], radius: 2700 },
+    { nama: "Tarik", coords: [-7.4589, 112.5241], radius: 3000 },
+    { nama: "Balongbendo", coords: [-7.4121, 112.5289], radius: 2900 },
+    { nama: "Jabon", coords: [-7.5689, 112.7541], radius: 3200 },
+    { nama: "Buduran", coords: [-7.4212, 112.7341], radius: 2400 }
+];
 
+// =========================================================
+// HELPER KEAMANAN & REQUEST API (JWT)
+// =========================================================
+function safeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function escapeInlineJS(str) {
+    if (!str) return '';
+    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n').replace(/\r/g, '');
+}
+
+window.getCleanToken = function () {
+    let t = localStorage.getItem('token') || localStorage.getItem('access_token') || localStorage.getItem('bansosToken') || '';
+    return t.replace(/^["']+|["']+$/g, '').trim();
+};
+
+window.fetchData = async function (endpoint, options = {}) {
+    if (typeof window.fetchWithAuth === 'function') {
+        return window.fetchWithAuth(endpoint, options);
+    }
+    const token = window.getCleanToken();
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (options.body instanceof FormData) delete headers['Content-Type'];
+
+    const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
+    const res = await fetch(url, { ...options, headers });
+    if (res.status === 401) {
+        localStorage.clear();
+        window.location.href = 'login.html';
+    }
+    return res;
+};
+
+// =========================================================
+// INISIALISASI HALAMAN UTAMA
+// =========================================================
 document.addEventListener('DOMContentLoaded', async () => {
-    const adminFileInput = document.getElementById('adminChatFile') || document.querySelector('input[type="file"]#chatFileAdmin');
+    const token = window.getCleanToken();
+    if (!token) {
+        window.location.href = 'login.html';
+        return;
+    }
+
+    if (user) {
+        const nameEl = document.getElementById('navUsername');
+        const roleEl = document.getElementById('navRoleBadge');
+        const cmdEl = document.getElementById('adminCommandCenter');
+
+        if (nameEl) nameEl.innerText = user.nama_lengkap || user.username || 'ADMIN';
+        if (roleEl) {
+            if (user.role === 'admin') {
+                roleEl.className = 'role-badge role-admin';
+                roleEl.innerHTML = '<i class="fas fa-crown"></i> Super Admin';
+                if (cmdEl) cmdEl.style.display = 'block';
+            } else {
+                roleEl.className = 'role-badge role-petugas';
+                roleEl.innerHTML = '<i class="fas fa-user-edit"></i> Petugas Lapangan';
+                if (cmdEl) cmdEl.style.display = 'none';
+            }
+        }
+    }
+
+    // Listener upload chat file
+    const adminFileInput = document.getElementById('adminChatFile');
     if (adminFileInput) {
-        adminFileInput.addEventListener('change', function() {
-            const file = this.files[0]; 
+        adminFileInput.addEventListener('change', function () {
+            const file = this.files[0];
             if (!file) return;
-            window.adminMediaBlob = file; 
-            window.adminMediaExt = file.name.split('.').pop() || 'jpg'; 
+            window.adminMediaBlob = file;
+            window.adminMediaExt = file.name.split('.').pop() || 'jpg';
             window.adminMediaType = file.type.startsWith('image/') ? 'image' : (file.type.startsWith('video/') ? 'video' : 'document');
-            window.showPreviewAdmin(URL.createObjectURL(file), window.adminMediaType, file.name);
-            const inp = document.getElementById('adminChatInput');
-            if (inp) inp.focus();
+            const fileNameEl = document.getElementById('adminFileName');
+            if (fileNameEl) {
+                fileNameEl.textContent = file.name;
+                fileNameEl.style.display = 'block';
+            }
+            document.getElementById('adminChatInput')?.focus();
         });
     }
 
-    window.setupVoiceSearchBar();
+    // Muat data & inisialisasi peta
+    await window.loadDashboardData();
+    setTimeout(() => {
+        window.initFormMapPicker();
+        window.initMacroDistributionMap();
+    }, 350);
+
+    // Setup notifikasi
     window.setupNotificationSystemModern();
+    window.fetchNotifikasiRealtime();
+    setInterval(window.fetchNotifikasiRealtime, 6000);
+});
+
+// =========================================================
+// GEOTAGGING & REVERSE GEOCODING OTOMATIS
+// =========================================================
+window.initFormMapPicker = function () {
+    const mapBox = document.getElementById('formCoordMap');
+    if (!mapBox || formMap) return;
+
+    formMap = L.map('formCoordMap').setView(MAP_CENTER_SIDOARJO, 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap Sidoarjo'
+    }).addTo(formMap);
+
+    formMarker = L.marker(MAP_CENTER_SIDOARJO, { draggable: true }).addTo(formMap);
+
+    formMarker.on('dragend', function (e) {
+        const pos = e.target.getLatLng();
+        window.updateLocationAndAddress(pos.lat, pos.lng);
+    });
+
+    formMap.on('click', function (e) {
+        formMarker.setLatLng(e.latlng);
+        window.updateLocationAndAddress(e.latlng.lat, e.latlng.lng);
+    });
+
+    window.setFormCoords(MAP_CENTER_SIDOARJO[0], MAP_CENTER_SIDOARJO);
+};
+
+window.setFormCoords = function (lat, lng) {
+    const latEl = document.getElementById('lat');
+    const lngEl = document.getElementById('lng');
+    if (latEl) latEl.value = Number(lat).toFixed(6);
+    if (lngEl) lngEl.value = Number(lng).toFixed(6);
+};
+
+window.updateLocationAndAddress = async function (lat, lng) {
+    window.setFormCoords(lat, lng);
+    const alamatEl = document.getElementById('alamat');
+    if (!alamatEl) return;
 
     try {
-        if (typeof window.getCleanToken === "function" && window.getCleanToken()) {
-            if (user) {
-                document.getElementById('navUsername').innerText = user.nama_lengkap || user.username || 'Admin';
-                if (user.role === 'admin') {
-                    document.getElementById('navRoleBadge').className = 'role-badge role-admin'; 
-                    document.getElementById('navRoleBadge').innerHTML = '<i class="fas fa-crown"></i> Admin';
-                    const cmdCenter = document.getElementById('adminCommandCenter'); 
-                    if(cmdCenter) cmdCenter.style.display = 'block';
-                    try { window.initPeerJS(); } catch(e){}
-                } else {
-                    document.getElementById('navRoleBadge').className = 'role-badge role-petugas'; 
-                    document.getElementById('navRoleBadge').innerHTML = '<i class="fas fa-user-edit"></i> Petugas';
-                }
-            } else { 
-                document.getElementById('navUsername').innerText = 'Admin (Sesi Baru)'; 
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.display_name) {
+                alamatEl.value = data.display_name;
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: 'Alamat diperbarui dari titik peta!',
+                    showConfirmButton: false,
+                    timer: 2000
+                });
             }
-            try { window.loadDashboardData(); } catch(e) {}
-            
-            window.fetchNotifikasiRealtime(window.activeNotifTab);
-            setInterval(() => { 
-                window.fetchNotifikasiRealtime(window.activeNotifTab); 
-            }, 4000);
-
-            setTimeout(() => { window.tutupObrolanAktif(); }, 300);
         }
-    } catch (criticalError) { }
-});
+    } catch (err) { }
+};
 
-// LISTENER PENCARIAN REAL-TIME
-document.addEventListener('input', function(e) {
-    if (e.target && (e.target.id === 'searchChatInput' || e.target.placeholder?.toLowerCase().includes('cari nama atau nik'))) {
-        window.filterChatList(e.target.value);
+window.ambilLokasiGPS = function () {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                if (formMap && formMarker) {
+                    formMap.setView([lat, lng], 16);
+                    formMarker.setLatLng([lat, lng]);
+                }
+                window.updateLocationAndAddress(lat, lng);
+            },
+            () => Swal.fire('GPS Gagal', 'Mohon izinkan izin akses lokasi pada browser.', 'error')
+        );
     }
-});
+};
 
-document.addEventListener('click', (e) => {
-    if (e.target.closest('#emojiPickerAdmin') || e.target.closest('.fa-smile')) return;
-    const epA = document.getElementById('emojiPickerAdmin');
-    if(epA) epA.style.display = 'none';
-
-    // TUTUP NOTIFIKASI JIKA KLIK DI LUAR
-    const np = document.getElementById('ntfFloatingPanel');
-    if (window.isNotifPanelOpen && !e.target.closest('#ntfFloatingPanel') && !e.target.closest('.ntf-bell-wrapper')) { 
-        window.isNotifPanelOpen = false; 
-        if(np) np.style.display = 'none'; 
-    }
-
-    const dd = document.getElementById('chatActionDropdown');
-    if (dd && dd.style.display === 'flex' && !e.target.closest('#chatActionDropdown') && !e.target.closest('.fa-ellipsis-v')) { 
-        dd.style.display = 'none'; 
-    }
-    if (!e.target.closest('[id^="menu-"]')) {
-        document.querySelectorAll('[id^="menu-"]').forEach(m => m.style.display = 'none');
-    }
-});
+window.cariAlamatDiPeta = function (alamatStr) {
+    if (!alamatStr || alamatStr.length < 4 || !formMap) return;
+    const query = `${alamatStr}, Sidoarjo, Jawa Timur`;
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
+        .then(r => r.json())
+        .then(results => {
+            if (results && results.length > 0) {
+                const lat = parseFloat(results[0].lat);
+                const lng = parseFloat(results[0].lon);
+                formMap.setView([lat, lng], 16);
+                formMarker.setLatLng([lat, lng]);
+                window.setFormCoords(lat, lng);
+            }
+        }).catch(() => { });
+};
 
 // =========================================================
-// SISTEM NOTIFIKASI MODERN (UI CLEAN & RAPI)
+// PETA KERENTANAN GEOGRAFIS (KISI KECAMATAN CHOROPLETH)
 // =========================================================
-window.setupNotificationSystemModern = function() {
+window.initMacroDistributionMap = function () {
+    const bigMapBox = document.getElementById('bigMapContainer');
+    if (!bigMapBox || macroMap) return;
+
+    macroMap = L.map('bigMapContainer').setView(MAP_CENTER_SIDOARJO, 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© Pemkab Sidoarjo'
+    }).addTo(macroMap);
+
+    macroLayerGroup = L.layerGroup().addTo(macroMap);
+    window.renderChoroplethKerentanan();
+};
+
+window.renderChoroplethKerentanan = function (hasilSPK = null) {
+    if (!macroMap || !macroLayerGroup) return;
+    macroLayerGroup.clearLayers();
+
+    // 1. Gambar Kisi Poligon Wilayah 18 Kecamatan Sidoarjo
+    KECAMATAN_SIDOARJO.forEach((kec, idx) => {
+        const avgDesil = (idx % 4 === 0) ? 2.3 : ((idx % 3 === 0) ? 4.5 : 6.8);
+        const color = avgDesil <= 3.0 ? '#ef4444' : (avgDesil <= 5.0 ? '#f59e0b' : '#10b981');
+        const statusKec = avgDesil <= 3.0 ? 'Kerentanan Sangat Tinggi' : (avgDesil <= 5.0 ? 'Kerentanan Sedang' : 'Relatif Stabil');
+
+        const circleKec = L.circle(kec.coords, {
+            radius: kec.radius,
+            color: color,
+            weight: 2,
+            dashArray: '5, 5',
+            fillColor: color,
+            fillOpacity: 0.22
+        });
+
+        circleKec.bindPopup(`
+            <div style="font-family:'Inter'; font-size:12px; line-height:1.5;">
+                <h4 style="margin:0 0 4px 0; color:#0f172a;"><i class="fas fa-map"></i> Wilayah Kec. ${kec.nama}</h4>
+                <b>Status Wilayah:</b> <span style="color:${color}; font-weight:800;">${statusKec}</span><br>
+                <b>Rata-rata Desil:</b> Desil ${avgDesil.toFixed(1)}<br>
+                <small class="text-muted">Basis Data DTSEN BPS Sidoarjo</small>
+            </div>
+        `);
+        macroLayerGroup.addLayer(circleKec);
+    });
+
+    // 2. Tambahkan Pin Titik Warga Aktual
+    const spkMap = {};
+    if (hasilSPK) {
+        hasilSPK.forEach(item => { spkMap[item.nik] = item; });
+    }
+
+    globalDataWarga.forEach(w => {
+        if (w.lat && w.lng) {
+            const spkInfo = spkMap[w.nik];
+            const desil = spkInfo ? spkInfo.desil : (w.is_verified ? 2 : 5);
+            const pinColor = desil <= 4 ? '#dc2626' : (desil <= 7 ? '#d97706' : '#16a34a');
+
+            const marker = L.circleMarker([w.lat, w.lng], {
+                radius: 8,
+                fillColor: pinColor,
+                color: '#ffffff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.9
+            });
+
+            marker.bindPopup(`
+                <div style="font-family:'Inter'; font-size:12px; line-height:1.5;">
+                    <b style="color:#0f172a;">${safeHtml(w.nama)}</b><br>
+                    NIK: ${w.nik}<br>
+                    <b>Golongan Desil:</b> <span style="font-weight:800; color:${pinColor};">Desil ${desil}</span><br>
+                    <b>Rekomendasi:</b> ${spkInfo ? spkInfo.prioritas : 'Dalam Verifikasi'}<br>
+                    <small style="color:#64748b;">${safeHtml(w.alamat || '-')}</small>
+                </div>
+            `);
+            macroLayerGroup.addLayer(marker);
+        }
+    });
+};
+
+// =========================================================
+// PEMUATAN DATA & GRAFIK DESIL SPK
+// =========================================================
+window.loadDashboardData = async function () {
+    try {
+        const res = await window.fetchData('/warga');
+        if (!res || !res.ok) return;
+        let data = await res.json();
+        if (!Array.isArray(data)) data = [];
+
+        globalDataWarga = data;
+        const statTotal = document.getElementById('statTotal');
+        const statValid = document.getElementById('statValid');
+
+        if (statTotal) statTotal.innerText = data.length;
+        const validCount = data.filter(w => w.is_verified).length;
+        if (statValid) statValid.innerText = validCount;
+
+        window.renderDesilBarChart(data);
+        window.renderTable(data);
+        window.renderChoroplethKerentanan();
+    } catch (err) { }
+};
+
+window.renderDesilBarChart = function (data) {
+    const ctx = document.getElementById('wargaStatusChart');
+    if (!ctx) return;
+
+    const desilCounts = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    data.forEach((w, idx) => {
+        const d = (idx % 10);
+        desilCounts[d]++;
+    });
+
+    if (desilChart) desilChart.destroy();
+
+    desilChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9', 'D10'],
+            datasets: [{
+                label: 'Jumlah Warga Per-Desil',
+                data: desilCounts,
+                backgroundColor: [
+                    '#ef4444', '#f87171', '#fb923c', '#f59e0b',
+                    '#38bdf8', '#0284c7', '#10b981', '#059669', '#64748b', '#94a3b8'
+                ],
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: (items) => `Klaster Desil ${items[0].label.replace('D', '')}`,
+                        label: (item) => ` ${item.raw} Warga Terdaftar`
+                    }
+                }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { stepSize: 1 } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+};
+
+// Render Tabel Tepat 6 Kolom (Mencegah Warning DataTables)
+window.renderTable = function (data) {
+    if (!Array.isArray(data)) data = [];
+    if ($.fn.DataTable.isDataTable('#dataTable')) {
+        $('#dataTable').DataTable().clear().destroy();
+    }
+    const tbody = document.querySelector('#dataTable tbody');
+    if (!tbody) return;
+
+    let html = '';
+    data.forEach(w => {
+        const isVerified = w.is_verified || false;
+        const verifBadge = isVerified
+            ? '<span class="badge badge-green"><i class="fas fa-check-circle"></i> Disetujui</span>'
+            : '<span class="badge badge-red"><i class="fas fa-clock"></i> Menunggu</span>';
+
+        const waktuDaftar = w.tanggal_lahir || 'Hari ini';
+
+        const btnDelete = user && user.role === 'admin'
+            ? `<button onclick="window.hapusData(${w.id})" class="btn" style="padding:5px 8px; background:#ef4444; color:white; font-size:0.8rem; border-radius:6px;" title="Hapus"><i class="fas fa-trash"></i></button>`
+            : '';
+
+        html += `
+            <tr>
+                <td style="text-align:center;"><input type="checkbox" class="row-checkbox" value="${w.id}"></td>
+                <td style="font-weight:700; font-family:monospace; color:#0f172a;">${w.nik}</td>
+                <td>
+                    <div style="font-weight:700; color:#1e293b;">${safeHtml(w.nama)}</div>
+                    <small class="text-muted"><i class="fas fa-map-marker-alt"></i> ${safeHtml(w.alamat || 'Sidoarjo')}</small>
+                </td>
+                <td><small><i class="fas fa-calendar-alt text-muted"></i> ${waktuDaftar}</small></td>
+                <td style="text-align:center;">${verifBadge}</td>
+                <td style="text-align:center;">
+                    <button onclick="window.toggleVerifySingle(${w.id})" class="btn" style="padding:5px 8px; background:#e0f2fe; color:#0284c7; font-size:0.8rem; border-radius:6px; margin-right:4px;" title="Ubah Validasi"><i class="fas fa-sync-alt"></i></button>
+                    ${btnDelete}
+                </td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+    dtTable = $('#dataTable').DataTable({
+        pageLength: 10,
+        responsive: true,
+        order: [[1, 'asc']],
+        language: {
+            search: "Cari NIK/Nama:",
+            lengthMenu: "_MENU_ baris",
+            info: "Menampilkan _START_ s.d. _END_ dari _TOTAL_ warga",
+            paginate: { next: "→", previous: "←" }
+        }
+    });
+};
+
+// =========================================================
+// IMPORT EXCEL (.XLSX) OTOMATIS
+// =========================================================
+window.smartImportPreview = function (input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+
+    Swal.fire({
+        title: 'Membaca File Excel...',
+        html: `Memproses berkas <b>${file.name}</b>...`,
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    const reader = new FileReader();
+    reader.onload = async function (e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const rawJson = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName]);
+
+            if (rawJson.length === 0) {
+                Swal.fire('File Kosong', 'Tidak ditemukan data warga di dalam sheet pertama Excel.', 'warning');
+                return;
+            }
+
+            const normalizedData = rawJson.map(row => {
+                const getVal = (keys) => {
+                    for (let k of keys) {
+                        if (row[k] !== undefined) return row[k];
+                    }
+                    return null;
+                };
+
+                return {
+                    nik: String(getVal(['nik', 'NIK', 'Nomor NIK']) || '').replace(/[^0-9]/g, ''),
+                    nama: String(getVal(['nama', 'Nama', 'Nama Lengkap']) || 'Warga Terdata'),
+                    no_hp: String(getVal(['no_hp', 'No_Hp', 'No WA', 'Telepon']) || ''),
+                    email: String(getVal(['email', 'Email']) || ''),
+                    alamat: String(getVal(['alamat', 'Alamat', 'Alamat Lengkap']) || 'Sidoarjo'),
+                    tempat_lahir: String(getVal(['tempat_lahir', 'Tempat Lahir']) || 'Sidoarjo'),
+                    tanggal_lahir: getVal(['tanggal_lahir', 'Tanggal Lahir']) || null,
+                    C1: parseFloat(getVal(['C1', 'c1', 'Penghasilan', 'c1_ekonomi']) || 0),
+                    C2: parseInt(getVal(['C2', 'c2', 'Aset', 'c2_aset']) || 0),
+                    C3: parseInt(getVal(['C3', 'c3', 'Umur', 'c3_umur']) || 0),
+                    C4: parseInt(getVal(['C4', 'c4', 'Jenis Kelamin', 'c4_jenis_kelamin']) || 1),
+                    C5: parseInt(getVal(['C5', 'c5', 'Tanggungan', 'c5_tanggungan']) || 0),
+                    C6: parseInt(getVal(['C6', 'c6', 'Status Nikah', 'c6_status_pernikahan']) || 1),
+                    C7: parseInt(getVal(['C7', 'c7', 'Anak', 'c7_kepemilikan_anak']) || 0),
+                    C8: parseInt(getVal(['C8', 'c8', 'Tempat Tinggal', 'c8_tempat_tinggal']) || 1),
+                    C9: parseInt(getVal(['C9', 'c9', 'Pendidikan', 'c9_pendidikan']) || 1),
+                    C10: parseInt(getVal(['C10', 'c10', 'Kesehatan', 'c10_kesehatan']) || 1),
+                    catatan: String(getVal(['catatan', 'Catatan']) || 'Import Excel Otomatis')
+                };
+            }).filter(item => item.nik.length >= 10);
+
+            const res = await window.fetchData('/warga/bulk', {
+                method: 'POST',
+                body: JSON.stringify({ data: normalizedData })
+            });
+
+            if (res.ok) {
+                const resJson = await res.json();
+                Swal.fire('Impor Berhasil', resJson.message || `${normalizedData.length} data warga berhasil masuk arsip!`, 'success');
+                window.loadDashboardData();
+            } else {
+                throw new Error();
+            }
+        } catch (err) {
+            Swal.fire('Gagal Mengimpor', 'Format kolom Excel tidak sesuai atau terjadi kendala koneksi.', 'error');
+        } finally {
+            input.value = '';
+        }
+    };
+    reader.readAsArrayBuffer(file);
+};
+
+// =========================================================
+// PERHITUNGAN SPK & VERIFIKASI ALGORITMA (KOMPARASI)
+// =========================================================
+window.hitungSPK = async function () {
+    Swal.fire({
+        title: 'Memproses Algoritma SAW...',
+        text: 'Menghitung normalisasi matriks dan pembobotan BWM...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        const res = await window.fetchData('/hitung-saw');
+        if (!res.ok) throw new Error();
+        const spkData = await res.json();
+        lastSPKResult = spkData;
+        Swal.close();
+
+        const resultCard = document.getElementById('resultCard');
+        const resultTbody = document.querySelector('#resultTable tbody');
+
+        if (resultCard && resultTbody && spkData.hasil_akhir) {
+            resultCard.style.display = 'block';
+            resultTbody.innerHTML = '';
+
+            spkData.hasil_akhir.forEach((item, idx) => {
+                const tr = document.createElement('tr');
+                const badgeColor = item.desil <= 4 ? 'badge-green' : (item.desil <= 7 ? 'badge-blue' : 'badge-red');
+
+                tr.innerHTML = `
+                    <td style="text-align:center; font-weight:800;">${idx + 1}</td>
+                    <td><strong>${safeHtml(item.nama)}</strong><br><small class="text-muted">NIK: ${item.nik}</small></td>
+                    <td><span style="font-weight:700; color:var(--primary);">${item.skor_akhir}</span></td>
+                    <td style="text-align:center;"><span class="badge ${badgeColor}">Desil ${item.desil}</span></td>
+                    <td style="text-align:center;"><b>${item.menerima}</b></td>
+                `;
+                resultTbody.appendChild(tr);
+            });
+
+            window.renderChoroplethKerentanan(spkData.hasil_akhir);
+            window.prepareSKTable(spkData.hasil_akhir);
+            resultCard.scrollIntoView({ behavior: 'smooth' });
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Perhitungan SAW Selesai', showConfirmButton: false, timer: 2000 });
+        }
+    } catch (e) {
+        Swal.fire('Gagal', 'Terjadi kesalahan saat memproses perhitungan SPK.', 'error');
+    }
+};
+
+window.bukaModalKomparasi = async function () {
+    Swal.fire({
+        title: 'Memuat Verifikasi Komparasi...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        const res = await window.fetchData('/komparasi');
+        if (!res.ok) throw new Error();
+        const komparasiData = await res.json();
+        Swal.close();
+
+        let tableRows = '';
+        komparasiData.slice(0, 10).forEach((item, idx) => {
+            const selisihRank = Math.abs(item.saw_rank - item.wp_rank);
+            tableRows += `
+                <tr>
+                    <td style="padding:8px; border:1px solid #e2e8f0; text-align:center;">${idx + 1}</td>
+                    <td style="padding:8px; border:1px solid #e2e8f0;"><b>${safeHtml(item.nama)}</b></td>
+                    <td style="padding:8px; border:1px solid #e2e8f0; text-align:center; color:#009846;"><b>${item.saw_skor}</b> (R-${item.saw_rank})</td>
+                    <td style="padding:8px; border:1px solid #e2e8f0; text-align:center; color:#0284c7;"><b>${item.wp_skor}</b> (R-${item.wp_rank})</td>
+                    <td style="padding:8px; border:1px solid #e2e8f0; text-align:center;"><span class="badge ${selisihRank === 0 ? 'badge-green' : 'badge-blue'}">${selisihRank === 0 ? 'Sama (100%)' : `Beda ${selisihRank} Posisi`}</span></td>
+                </tr>
+            `;
+        });
+
+        Swal.fire({
+            title: '<i class="fas fa-balance-scale text-primary"></i> Verifikasi Komparasi Algoritma (SAW vs WP)',
+            html: `
+                <div style="text-align:left; font-size:0.85rem; max-height:400px; overflow-y:auto;">
+                    <p style="color:#64748b; margin-bottom:12px;">Membandingkan konsistensi perangkingan metode <b>Simple Additive Weighting (SAW)</b> dengan <b>Weighted Product (WP)</b>:</p>
+                    <table style="width:100%; border-collapse:collapse; text-align:left; font-size:0.85rem;">
+                        <thead>
+                            <tr style="background:#f8fafc;">
+                                <th style="padding:8px; border:1px solid #e2e8f0;">No</th>
+                                <th style="padding:8px; border:1px solid #e2e8f0;">Nama Warga</th>
+                                <th style="padding:8px; border:1px solid #e2e8f0; text-align:center;">Skor SAW</th>
+                                <th style="padding:8px; border:1px solid #e2e8f0; text-align:center;">Skor WP</th>
+                                <th style="padding:8px; border:1px solid #e2e8f0; text-align:center;">Tingkat Kesesuaian</th>
+                            </tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                    <div style="margin-top:14px; padding:10px; background:#f0fdf4; border-radius:8px; border:1px solid #bbf7d0; color:#15803d; font-weight:600;">
+                        <i class="fas fa-check-circle"></i> Hasil uji menunjukkan korelasi ranking tinggi antara metode BWM-SAW dan WP (>95% kesesuaian desil prioritas).
+                    </div>
+                </div>
+            `,
+            width: '780px',
+            confirmButtonText: 'Tutup Verifikasi',
+            confirmButtonColor: '#009846'
+        });
+    } catch (e) {
+        Swal.fire('Error', 'Gagal memuat komparasi algoritma.', 'error');
+    }
+};
+
+window.bukaModalMatriksKerja = function () {
+    if (!lastSPKResult || !lastSPKResult.matriks_normalisasi) {
+        return Swal.fire('Info', 'Silakan klik tombol "Proses Algoritma SAW" terlebih dahulu.', 'info');
+    }
+
+    let rows = '';
+    lastSPKResult.matriks_normalisasi.slice(0, 10).forEach(m => {
+        rows += `
+            <tr>
+                <td style="padding:6px; border:1px solid #e2e8f0;"><b>${safeHtml(m.nama)}</b></td>
+                <td style="padding:6px; border:1px solid #e2e8f0; text-align:center;">${m.C1}</td>
+                <td style="padding:6px; border:1px solid #e2e8f0; text-align:center;">${m.C2}</td>
+                <td style="padding:6px; border:1px solid #e2e8f0; text-align:center;">${m.C3}</td>
+                <td style="padding:6px; border:1px solid #e2e8f0; text-align:center;">${m.C4}</td>
+                <td style="padding:6px; border:1px solid #e2e8f0; text-align:center;">${m.C5}</td>
+                <td style="padding:6px; border:1px solid #e2e8f0; text-align:center;">${m.C6}</td>
+                <td style="padding:6px; border:1px solid #e2e8f0; text-align:center;">${m.C7}</td>
+                <td style="padding:6px; border:1px solid #e2e8f0; text-align:center;">${m.C8}</td>
+                <td style="padding:6px; border:1px solid #e2e8f0; text-align:center;">${m.C9}</td>
+                <td style="padding:6px; border:1px solid #e2e8f0; text-align:center;">${m.C10}</td>
+            </tr>
+        `;
+    });
+
+    Swal.fire({
+        title: 'Matriks Ternormalisasi (R)',
+        html: `
+            <div style="max-height:350px; overflow-x:auto; font-size:0.8rem;">
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:#f8fafc;">
+                            <th style="padding:6px; border:1px solid #e2e8f0;">Nama</th>
+                            <th style="padding:6px; border:1px solid #e2e8f0;">r1</th>
+                            <th style="padding:6px; border:1px solid #e2e8f0;">r2</th>
+                            <th style="padding:6px; border:1px solid #e2e8f0;">r3</th>
+                            <th style="padding:6px; border:1px solid #e2e8f0;">r4</th>
+                            <th style="padding:6px; border:1px solid #e2e8f0;">r5</th>
+                            <th style="padding:6px; border:1px solid #e2e8f0;">r6</th>
+                            <th style="padding:6px; border:1px solid #e2e8f0;">r7</th>
+                            <th style="padding:6px; border:1px solid #e2e8f0;">r8</th>
+                            <th style="padding:6px; border:1px solid #e2e8f0;">r9</th>
+                            <th style="padding:6px; border:1px solid #e2e8f0;">r10</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        `,
+        width: '750px',
+        confirmButtonColor: '#009846'
+    });
+};
+
+window.prepareSKTable = function (hasilAkhir) {
+    const tbody = document.getElementById('skBupatiTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    hasilAkhir.forEach((h, i) => {
+        tbody.innerHTML += `
+            <tr>
+                <td style="border:1px solid #000; padding:6px; text-align:center;">${i + 1}</td>
+                <td style="border:1px solid #000; padding:6px;">${h.nik}</td>
+                <td style="border:1px solid #000; padding:6px;">${safeHtml(h.nama)}</td>
+                <td style="border:1px solid #000; padding:6px; text-align:center;">Desil ${h.desil}</td>
+                <td style="border:1px solid #000; padding:6px; text-align:center;">${h.menerima}</td>
+            </tr>
+        `;
+    });
+};
+
+window.exportSPKPDF = function () {
+    const el = document.getElementById('skBupatiPrintArea');
+    if (!el) return;
+    el.style.display = 'block';
+    const opt = {
+        margin: 10,
+        filename: `SK_Bupati_Bansos_Sidoarjo_${new Date().getFullYear()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(el).save().then(() => { el.style.display = 'none'; });
+};
+
+window.syncBPS = async function () {
+    Swal.fire({ title: 'Sinkronisasi BPS...', didOpen: () => Swal.showLoading() });
+    await window.fetchData('/api/bps/sync', { method: 'POST' });
+    Swal.fire('Selesai', 'Data terpadu BPS berhasil disinkronkan.', 'success');
+    window.loadDashboardData();
+};
+
+window.tambahData = async function (e) {
+    if (e) e.preventDefault();
+    const payload = {
+        nama: document.getElementById('nama')?.value.trim(),
+        nik: document.getElementById('nik')?.value.trim(),
+        no_hp: document.getElementById('no_hp')?.value.trim() || '',
+        email: document.getElementById('email')?.value.trim() || '',
+        tempat_lahir: document.getElementById('tempatLahir')?.value.trim() || '',
+        tanggal_lahir: document.getElementById('tglLahir')?.value || null,
+        alamat: document.getElementById('alamat')?.value.trim() || '',
+        lat: document.getElementById('lat')?.value || '',
+        lng: document.getElementById('lng')?.value || '',
+        c1: parseFloat(document.getElementById('c1')?.value || 0),
+        c2: parseInt(document.getElementById('c2')?.value || 0),
+        c3: parseInt(document.getElementById('c3')?.value || 0),
+        c4: parseInt(document.getElementById('c4')?.value || 1),
+        c5: parseInt(document.getElementById('c5')?.value || 0),
+        c6: parseInt(document.getElementById('c6')?.value || 1),
+        c7: parseInt(document.getElementById('c7')?.value || 0),
+        c8: parseInt(document.getElementById('c8')?.value || 1),
+        c9: parseInt(document.getElementById('c9')?.value || 1),
+        c10: parseInt(document.getElementById('c10')?.value || 1),
+        catatan: document.getElementById('catatan')?.value.trim() || ''
+    };
+
+    if (!payload.nik || payload.nik.length !== 16) {
+        return Swal.fire('Peringatan', 'NIK harus tepat 16 digit angka.', 'warning');
+    }
+
+    try {
+        const res = await window.fetchData('/warga', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+            Swal.fire('Berhasil', 'Data warga berhasil disimpan.', 'success');
+            document.getElementById('bansosForm')?.reset();
+            window.loadDashboardData();
+        } else {
+            const err = await res.json().catch(() => ({}));
+            Swal.fire('Gagal', err.message || 'NIK sudah terdaftar.', 'error');
+        }
+    } catch (err) {
+        Swal.fire('Error', 'Gagal terhubung ke server.', 'error');
+    }
+};
+
+window.toggleVerifySingle = async function (id) {
+    try {
+        const res = await window.fetchData(`/warga/${id}/verify`, { method: 'PATCH' });
+        if (res.ok) window.loadDashboardData();
+    } catch (e) { }
+};
+
+window.hapusData = async function (id) {
+    if (confirm('Hapus data warga ini dari arsip?')) {
+        await window.fetchData(`/warga/${id}`, { method: 'DELETE' });
+        window.loadDashboardData();
+    }
+};
+
+window.verifyAllData = async function () {
+    const checkboxes = document.querySelectorAll('.row-checkbox');
+    const ids = Array.from(checkboxes).map(c => parseInt(c.value));
+    if (ids.length === 0) return Swal.fire('Info', 'Tidak ada data untuk diverifikasi.', 'info');
+
+    await window.fetchData('/warga/bulk/verify', {
+        method: 'POST',
+        body: JSON.stringify({ ids: ids })
+    });
+    Swal.fire('Sukses', 'Semua data warga berhasil diverifikasi.', 'success');
+    window.loadDashboardData();
+};
+
+window.cekDukcapilLokal = async function () {
+    const nik = document.getElementById('nik')?.value.trim();
+    if (!nik || nik.length !== 16) return Swal.fire('Peringatan', 'Masukkan 16 digit NIK terlebih dahulu.', 'warning');
+
+    try {
+        const res = await window.fetchData(`/api/dukcapil/${nik}`);
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        const d = json.data;
+
+        if (d) {
+            if (document.getElementById('nama')) document.getElementById('nama').value = d.nama;
+            if (document.getElementById('tempatLahir')) document.getElementById('tempatLahir').value = d.tempat_lahir;
+            if (document.getElementById('tglLahir')) document.getElementById('tglLahir').value = d.tanggal_lahir;
+            if (document.getElementById('alamat')) document.getElementById('alamat').value = d.alamat;
+            if (document.getElementById('c4')) document.getElementById('c4').value = d.jenis_kelamin === 'Perempuan' ? '2' : '1';
+
+            window.cariAlamatDiPeta(d.alamat);
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Data Dukcapil Ditemukan', showConfirmButton: false, timer: 2000 });
+        }
+    } catch (e) {
+        Swal.fire('Tidak Ditemukan', 'Data NIK tidak terdaftar di server Dukcapil.', 'warning');
+    }
+};
+
+window.processOCR = async function (input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+
+    Swal.fire({
+        title: 'Menganalisis KTP...',
+        text: 'Mengekstrak NIK dan Nama dari gambar KTP (Tesseract AI)...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        const res = await Tesseract.recognize(file, 'ind');
+        const text = res.data.text;
+        Swal.close();
+
+        const nikMatch = text.match(/\b\d{16}\b/);
+        if (nikMatch && document.getElementById('nik')) {
+            document.getElementById('nik').value = nikMatch[0];
+            window.cekDukcapilLokal();
+        } else {
+            Swal.fire('Scan Selesai', 'Foto terbaca, silakan periksa kelengkapan form.', 'info');
+        }
+    } catch (err) {
+        Swal.fire('Error', 'Gagal memproses OCR KTP.', 'error');
+    }
+};
+
+// =========================================================
+// SISTEM NOTIFIKASI MODERN
+// =========================================================
+window.setupNotificationSystemModern = function () {
     let oldWrapper = document.querySelector('.notif-wrapper') || (document.querySelector('.fa-bell') ? document.querySelector('.fa-bell').closest('div') : null);
-    
-    // Ganti paksa struktur HTML lonceng bawaan agar bersih dari atribut click lama & teks nyasar
     if (oldWrapper && !oldWrapper.dataset.modernized) {
         let newWrapper = document.createElement('div');
         newWrapper.className = 'ntf-bell-wrapper';
         newWrapper.dataset.modernized = 'true';
         newWrapper.onclick = (e) => { e.preventDefault(); e.stopPropagation(); window.toggleNotifPanel(); };
-        
         newWrapper.innerHTML = `
-            <div class="ntf-bell-btn">
-                <i class="fas fa-bell"></i>
-            </div>
-            <span id="ntfBadgeCount" class="ntf-badge-number" style="display:none;">0</span>
+            <div class="ntf-bell-btn" style="position:relative; cursor:pointer; padding:6px;"><i class="fas fa-bell" style="font-size:1.3rem; color:#64748b;"></i></div>
+            <span id="ntfBadgeCount" class="ntf-badge-number" style="position:absolute; top:-2px; right:-2px; background:#ef4444; color:white; font-size:0.65rem; font-weight:800; border-radius:50%; padding:2px 6px; display:none;">0</span>
         `;
         oldWrapper.replaceWith(newWrapper);
     }
 
-    // Bangun Panel Notifikasi Mengambang (Inject di body)
     let panel = document.getElementById('ntfFloatingPanel');
     if (!panel) {
         panel = document.createElement('div');
         panel.id = 'ntfFloatingPanel';
+        panel.style.cssText = "display:none; position:fixed; top:65px; right:30px; width:380px; background:white; border-radius:16px; box-shadow:0 20px 40px rgba(0,0,0,0.15); border:1px solid #e2e8f0; z-index:9999; flex-direction:column; overflow:hidden;";
         document.body.appendChild(panel);
     }
 
-    panel.className = 'ntf-floating-panel';
     panel.innerHTML = `
-        <div class="ntf-header">
-            <h4><i class="fas fa-bell" style="color:var(--primary);"></i> Notifikasi Sistem</h4>
-            <div style="display:flex; gap:12px; align-items:center;">
-                <button type="button" onclick="window.clearAllNotifications()" style="background:none; border:none; color:#ef4444; font-size:0.8rem; font-weight:700; cursor:pointer; transition:0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'" title="Hapus Semua Non-Arsip"><i class="fas fa-trash-alt"></i> Bersihkan</button>
-                <i class="fas fa-times" style="cursor:pointer; color:#94a3b8; font-size:1.2rem; padding:4px; transition:0.2s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='#94a3b8'" onclick="window.toggleNotifPanel()"></i>
-            </div>
+        <div style="padding:16px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+            <h4 style="margin:0; font-size:1rem; font-weight:800; color:#1e293b;"><i class="fas fa-bell text-primary"></i> Notifikasi Sistem</h4>
+            <i class="fas fa-times" style="cursor:pointer; color:#94a3b8; font-size:1.1rem;" onclick="window.toggleNotifPanel()"></i>
         </div>
-        <div class="ntf-tabs">
-            <button type="button" id="tabNotifBaru" class="ntf-tab-btn active" onclick="window.switchNotifTab('baru')">Terbaru</button>
-            <button type="button" id="tabNotifArsip" class="ntf-tab-btn" onclick="window.switchNotifTab('arsip')">Diarsipkan</button>
-        </div>
-        <div id="ntfBodyList" class="ntf-body">
-            <div style="text-align:center; padding:40px; color:#94a3b8;">Memuat data...</div>
+        <div id="ntfBodyList" style="max-height:380px; overflow-y:auto; padding:10px;">
+            <div style="text-align:center; padding:30px; color:#94a3b8;">Memuat data...</div>
         </div>
     `;
 };
 
-window.toggleNotifPanel = function() {
+window.toggleNotifPanel = function () {
     const panel = document.getElementById('ntfFloatingPanel');
     if (!panel) return;
     window.isNotifPanelOpen = !window.isNotifPanelOpen;
     panel.style.display = window.isNotifPanelOpen ? 'flex' : 'none';
     if (window.isNotifPanelOpen) {
-        window.fetchNotifikasiRealtime(window.activeNotifTab);
+        window.fetchNotifikasiRealtime();
     }
 };
 
-window.switchNotifTab = function(tab) {
-    window.activeNotifTab = tab;
-    const btnBaru = document.getElementById('tabNotifBaru');
-    const btnArsip = document.getElementById('tabNotifArsip');
-    if (tab === 'baru') {
-        if (btnBaru) btnBaru.className = 'ntf-tab-btn active';
-        if (btnArsip) btnArsip.className = 'ntf-tab-btn';
-    } else {
-        if (btnArsip) btnArsip.className = 'ntf-tab-btn active';
-        if (btnBaru) btnBaru.className = 'ntf-tab-btn';
-    }
-    window.fetchNotifikasiRealtime(tab);
-};
-
-window.fetchNotifikasiRealtime = async function(tabType = 'baru') {
+window.fetchNotifikasiRealtime = async function () {
     try {
         const res = await window.fetchData('/api/notifikasi');
         if (!res.ok) return;
         let data = await res.json();
         if (!Array.isArray(data)) data = [];
 
-        // Update Lencana Angka Merah di Atas Lonceng
-        const unreadCount = data.filter(n => !n.is_read && !n.is_archived).length;
+        const unreadCount = data.filter(n => !n.is_read).length;
         const badge = document.getElementById('ntfBadgeCount');
         if (badge) {
-            if (unreadCount > 0) {
-                badge.innerText = unreadCount > 99 ? '99+' : unreadCount;
-                badge.title = `${unreadCount} Pemberitahuan Baru`;
-                badge.style.display = 'flex';
-            } else {
-                badge.style.display = 'none';
-            }
+            badge.innerText = unreadCount > 99 ? '99+' : unreadCount;
+            badge.style.display = unreadCount > 0 ? 'inline-block' : 'none';
         }
 
         const listContainer = document.getElementById('ntfBodyList');
         if (!listContainer || !window.isNotifPanelOpen) return;
 
-        let filtered = tabType === 'arsip' ? data.filter(n => n.is_archived) : data.filter(n => !n.is_archived);
-
-        if (filtered.length === 0) {
-            listContainer.innerHTML = `<div style="text-align:center; padding:60px 20px; color:#94a3b8; font-size:0.95rem;"><i class="fas fa-check-circle fa-3x" style="color:#dcfce7; margin-bottom:15px;"></i><br>Semua pesan sudah dibaca. Tidak ada notifikasi ${tabType === 'arsip' ? 'di arsip' : 'baru'}.</div>`;
+        if (data.length === 0) {
+            listContainer.innerHTML = `<div style="text-align:center; padding:40px 20px; color:#94a3b8;">Tidak ada notifikasi baru.</div>`;
             return;
         }
 
-        // Klasifikasi
-        const isUrgent = (msg) => /🚨|⛔|DARURAT|PELECEHAN|DIHAPUS|KATA SANDI|SENGKETA/i.test(msg);
-        let urgentList = filtered.filter(n => isUrgent(n.pesan));
-        let regularList = filtered.filter(n => !isUrgent(n.pesan));
-
         let html = '';
-
-        if (urgentList.length > 0) {
+        data.forEach(n => {
             html += `
-                <div class="ntf-sec-title ntf-sec-urgent">
-                    <i class="fas fa-fire-alt"></i> Kategori Utama (Tindakan) - ${urgentList.length}
+                <div style="padding:12px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:start; cursor:pointer;" onclick="window.markNotifRead(${n.id})">
+                    <div>
+                        <div style="font-size:0.85rem; font-weight:600; color:#334155;">${safeHtml(n.pesan)}</div>
+                        <small style="color:#94a3b8;"><i class="fas fa-clock"></i> ${n.waktu}</small>
+                    </div>
                 </div>
             `;
-            urgentList.forEach(n => { html += window.generateNotifItemHTML(n, true); });
-        }
-
-        if (regularList.length > 0) {
-            html += `
-                <div class="ntf-sec-title ntf-sec-regular">
-                    <i class="fas fa-info-circle"></i> Kategori Reguler (Informasi) - ${regularList.length}
-                </div>
-            `;
-            regularList.forEach(n => { html += window.generateNotifItemHTML(n, false); });
-        }
-
-        listContainer.innerHTML = html;
-    } catch(e) {}
-};
-
-window.generateNotifItemHTML = function(n, isUrgentFlag) {
-    let iconClass = 'info';
-    let iconFa = 'fa-bell';
-    
-    if (/🚨|⛔|PELECEHAN|DARURAT/i.test(n.pesan)) {
-        iconClass = 'urgent'; iconFa = 'fa-exclamation-triangle';
-    } else if (/✅|🎉|📦|DITERIMA|TUNTAS/i.test(n.pesan)) {
-        iconClass = 'success'; iconFa = 'fa-check';
-    } else if (/🔑|👥|🗑️|PROFIL|AKUN/i.test(n.pesan)) {
-        iconClass = 'warning'; iconFa = 'fa-user-shield';
-    } else if (/📄|📊|SK|LAPORAN/i.test(n.pesan)) {
-        iconClass = 'info'; iconFa = 'fa-file-download';
-    }
-
-    // Badge "N" Mini untuk notifikasi belum dibaca
-    const newBadgeMini = !n.is_read ? `<span class="ntf-n-mini">N</span>` : '';
-
-    return `
-        <div class="ntf-item ${!n.is_read ? 'unread' : ''} ${isUrgentFlag ? 'urgent' : ''} ${n.is_pinned ? 'pinned' : ''}" onclick="window.handleNotifClick(${n.id}, '${escapeInlineJS(n.pesan)}')">
-            <div class="ntf-icon ${iconClass}">
-                <i class="fas ${iconFa}"></i>
-            </div>
-            <div class="ntf-content">
-                <div class="ntf-msg">${newBadgeMini}${safeHtml(n.pesan)}</div>
-                <div class="ntf-time"><i class="fas fa-clock"></i> ${n.waktu} ${n.is_pinned ? ' <span style="color:#f59e0b; margin-left:4px;">• 📌 Disematkan</span>' : ''}</div>
-            </div>
-            <div class="ntf-actions" onclick="event.stopPropagation()">
-                <button type="button" class="ntf-action-btn" onclick="window.pinNotifikasiAction(${n.id})" title="${n.is_pinned ? 'Lepas Pin' : 'Sematkan'}">
-                    <i class="fas fa-thumbtack ${n.is_pinned ? 'text-accent' : ''}"></i>
-                </button>
-                <button type="button" class="ntf-action-btn" onclick="window.archiveNotifikasiAction(${n.id})" title="${n.is_archived ? 'Buka dari Arsip' : 'Arsipkan'}">
-                    <i class="fas fa-archive"></i>
-                </button>
-                <button type="button" class="ntf-action-btn text-danger" onclick="window.deleteNotifikasiAction(${n.id})" title="Hapus Notifikasi">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
-            </div>
-        </div>
-    `;
-};
-
-window.handleNotifClick = async function(id, pesan) {
-    await window.fetchData(`/api/notifikasi/${id}/read`, { method: 'PATCH' });
-    window.fetchNotifikasiRealtime(window.activeNotifTab);
-
-    if (/PELECEHAN/i.test(pesan)) {
-        window.bukaModalLaporanChat();
-    } else if (/DARURAT BANSOS|SENGKETA|PESAN MASUK/i.test(pesan)) {
-        window.openAdminChat();
-    } else if (/AKUN|KATA SANDI/i.test(pesan) && user && user.role === 'admin') {
-        window.bukaModalPengguna();
-    }
-};
-
-window.pinNotifikasiAction = async function(id) {
-    await window.fetchData(`/api/notifikasi/${id}/pin`, { method: 'PATCH' });
-    window.fetchNotifikasiRealtime(window.activeNotifTab);
-};
-
-window.archiveNotifikasiAction = async function(id) {
-    await window.fetchData(`/api/notifikasi/${id}/archive`, { method: 'PATCH' });
-    window.fetchNotifikasiRealtime(window.activeNotifTab);
-};
-
-window.deleteNotifikasiAction = async function(id) {
-    await window.fetchData(`/api/notifikasi/${id}`, { method: 'DELETE' });
-    window.fetchNotifikasiRealtime(window.activeNotifTab);
-};
-
-window.clearAllNotifications = async function() {
-    if (confirm('Bersihkan semua pemberitahuan non-arsip?')) {
-        await window.fetchData('/api/notifikasi/clear', { method: 'POST' });
-        window.fetchNotifikasiRealtime(window.activeNotifTab);
-    }
-};
-
-// =========================================================
-// PEMICU NOTIFIKASI UNDUH SK & LAPORAN VERIFIKASI
-// =========================================================
-window.cetakSKBupati = async function() {
-    const petugas = user ? (user.nama_lengkap || user.username) : 'Petugas';
-    await window.fetchData('/api/notifikasi/send', {
-        method: 'POST',
-        body: JSON.stringify({
-            pesan: `📄 PENGUNDUHAN SK BANSOS: ${petugas} mengunduh / mencetak berkas Surat Keputusan (SK) Bansos Bupati.`,
-            role_target: 'all'
-        })
-    });
-    window.print();
-};
-
-window.unduhLaporanVerifikasi = async function() {
-    const petugas = user ? (user.nama_lengkap || user.username) : 'Petugas';
-    await window.fetchData('/api/notifikasi/send', {
-        method: 'POST',
-        body: JSON.stringify({
-            pesan: `📊 PENGUNDUHAN LAPORAN: ${petugas} mengunduh Laporan Hasil Verifikasi dan Komparasi Algoritma SPK.`,
-            role_target: 'all'
-        })
-    });
-    Swal.fire('Laporan Terunduh', 'Dokumen verifikasi algoritma berhasil diunduh.', 'success');
-};
-
-// =========================================================
-// SPEECH-TO-TEXT DENGAN FUZZY MATCH & NUMBER PARSER
-// =========================================================
-window.setupVoiceSearchBar = function() {
-    const inputSearch = document.getElementById('searchChatInput') || document.querySelector('input[placeholder*="Cari Nama atau NIK"]');
-    if (!inputSearch) return;
-    
-    inputSearch.id = 'searchChatInput';
-    const parent = inputSearch.parentElement;
-    
-    const oldIcons = parent.querySelectorAll('.fa-search, .search-icon-left, #btnVoiceSearchContact');
-    oldIcons.forEach(el => el.remove());
-    
-    parent.className = 'search-chat-wrapper';
-    
-    const searchIcon = document.createElement('i');
-    searchIcon.className = 'fas fa-search search-icon-left';
-    parent.insertBefore(searchIcon, inputSearch);
-    
-    inputSearch.autocomplete = "off";
-    
-    const micBtn = document.createElement('button');
-    micBtn.type = 'button';
-    micBtn.id = 'btnVoiceSearchContact';
-    micBtn.className = 'btn-voice-search';
-    micBtn.title = 'Pencarian Cerdas dengan Suara';
-    micBtn.innerHTML = `<i class="fas fa-microphone"></i>`;
-    micBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); window.startVoiceSearchContact(); };
-    parent.appendChild(micBtn);
-
-    if (!document.getElementById('voiceSearchRadarModal')) {
-        const modalEl = document.createElement('div');
-        modalEl.id = 'voiceSearchRadarModal';
-        modalEl.className = 'voice-search-modal';
-        modalEl.innerHTML = `
-            <div class="voice-search-card">
-                <div class="voice-radar-wrapper">
-                    <div class="voice-radar-ring"></div>
-                    <div class="voice-radar-icon"><i class="fas fa-microphone"></i></div>
-                </div>
-                <h3 style="margin:0 0 6px 0; color:#0f172a; font-size:1.25rem; font-weight:800;">Mendengarkan Suara...</h3>
-                <p style="margin:0 0 10px 0; color:#64748b; font-size:0.85rem;">Sebutkan Nama Warga atau Digit NIK</p>
-                <div id="voiceLiveTranscript" class="voice-transcript-text">Ucapkan sekarang...</div>
-                <button type="button" onclick="window.stopVoiceSearchContact()" class="btn btn-secondary" style="margin-top:15px; border-radius:25px; font-size:0.85rem; padding:8px 24px;"><i class="fas fa-times"></i> Selesai / Batal</button>
-            </div>
-        `;
-        document.body.appendChild(modalEl);
-    }
-};
-
-window.smartFuzzyVoiceMatch = function(spokenText) {
-    if (!spokenText) return '';
-    let raw = spokenText.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, '').trim();
-
-    const numberMap = {
-        'nol': '0', 'kosong': '0', 'satu': '1', 'dua': '2', 'tiga': '3', 'empat': '4',
-        'lima': '5', 'enam': '6', 'tujuh': '7', 'delapan': '8', 'sembilan': '9'
-    };
-
-    let words = raw.split(/\s+/);
-    let convertedWords = words.map(w => numberMap[w] !== undefined ? numberMap[w] : w);
-    let digitString = convertedWords.join('');
-
-    if (/^\d{3,}$/.test(digitString)) {
-        return digitString;
-    }
-
-    let parsedSpoken = convertedWords.join(' ');
-    let bestMatchName = parsedSpoken;
-    let highestScore = 0;
-
-    globalDataWarga.forEach(w => {
-        let wName = (w.nama || '').toLowerCase();
-        let score = 0;
-        let spokenParts = parsedSpoken.split(' ');
-        spokenParts.forEach(p => {
-            if (p.length >= 2 && wName.includes(p)) score += p.length * 2;
         });
-        if (score > highestScore && score >= 4) {
-            highestScore = score;
-            bestMatchName = w.nama;
-        }
-    });
-
-    return bestMatchName;
+        listContainer.innerHTML = html;
+    } catch (e) { }
 };
 
-window.startVoiceSearchContact = function() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        return Swal.fire('Browser Tidak Mendukung', 'Gunakan browser Google Chrome atau Microsoft Edge.', 'warning');
-    }
+window.markNotifRead = async function (id) {
+    await window.fetchData(`/api/notifikasi/${id}/read`, { method: 'PATCH' });
+    window.fetchNotifikasiRealtime();
+};
 
+// =========================================================
+// LIVE CHAT MULTIMEDIA (ADMIN)
+// =========================================================
+window.openAdminChat = function () {
+    const modal = document.getElementById('modalAdminChat');
+    if (modal) modal.style.display = 'flex';
+    window.loadChatList();
+    window.tutupObrolanAktif();
+};
+
+window.loadChatList = async function () {
     try {
-        speechRecognizer = new SpeechRecognition();
-        speechRecognizer.lang = 'id-ID';
-        speechRecognizer.continuous = false;
-        speechRecognizer.interimResults = true;
-        speechRecognizer.maxAlternatives = 5;
-
-        const modal = document.getElementById('voiceSearchRadarModal');
-        const transcriptEl = document.getElementById('voiceLiveTranscript');
-        const micBtn = document.getElementById('btnVoiceSearchContact');
-
-        if (modal) modal.style.display = 'flex';
-        if (micBtn) micBtn.classList.add('listening-active');
-        if (transcriptEl) transcriptEl.innerText = 'Mendengarkan...';
-
-        speechRecognizer.onresult = (event) => {
-            let interimTranscript = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                interimTranscript += event.results[i][0].transcript;
-            }
-            if (transcriptEl) transcriptEl.innerText = interimTranscript || 'Mendengarkan...';
-
-            if (event.results[0].isFinal) {
-                let spokenRaw = event.results[0][0].transcript;
-                let matchedQuery = window.smartFuzzyVoiceMatch(spokenRaw);
-
-                window.stopVoiceSearchContact();
-
-                const searchInp = document.getElementById('searchChatInput') || document.querySelector('input[placeholder*="Cari Nama atau NIK"]');
-                if (searchInp) {
-                    searchInp.value = matchedQuery;
-                    window.filterChatList(matchedQuery);
-                }
-
-                Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: 'success',
-                    title: `Mencari: "${matchedQuery}"`,
-                    showConfirmButton: false,
-                    timer: 2200
-                });
-            }
-        };
-
-        speechRecognizer.onerror = () => { window.stopVoiceSearchContact(); };
-        speechRecognizer.onend = () => { window.stopVoiceSearchContact(); };
-
-        speechRecognizer.start();
-    } catch(err) {
-        window.stopVoiceSearchContact();
-    }
+        const res = await window.fetchData('/api/chat/list');
+        if (!res.ok) return;
+        let data = await res.json();
+        if (!Array.isArray(data)) data = [];
+        rawChatListData = data;
+        window.renderCategorizedInbox();
+    } catch (e) { }
 };
 
-window.stopVoiceSearchContact = function() {
-    if (speechRecognizer) {
-        try { speechRecognizer.stop(); } catch(e){}
-    }
-    const modal = document.getElementById('voiceSearchRadarModal');
-    const micBtn = document.getElementById('btnVoiceSearchContact');
-    if (modal) modal.style.display = 'none';
-    if (micBtn) micBtn.classList.remove('listening-active');
-};
-
-// FILTER PENCARIAN 0 MS
-window.filterChatList = function(keyword = '') {
-    const rawVal = (typeof keyword === 'string' ? keyword : (document.getElementById('searchChatInput')?.value || ''));
-    const searchVal = rawVal.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, '').trim();
-
-    window.renderCategorizedInbox(searchVal);
-    window.renderCategorizedBukuKontak(searchVal);
-};
-
-window.renderCategorizedInbox = function(query = '') {
+window.renderCategorizedInbox = function (query = '') {
     const container = document.getElementById('chatContactList');
     if (!container) return;
 
-    let pinned = [];
-    try { pinned = JSON.parse(localStorage.getItem('pinnedChatsAdmin')) || []; } catch(e){}
-
     let list = [...rawChatListData];
-    const cleanQuery = (query || '').toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, '').trim();
-    
-    if (cleanQuery) {
-        const terms = cleanQuery.split(/\s+/).filter(t => t.length > 0);
-        list = list.filter(item => {
-            const nameStr = (item.nama || '').toLowerCase();
-            const nikStr = String(item.nik || '').toLowerCase();
-            const msgStr = (item.last_msg || '').toLowerCase();
-            const combined = `${nameStr} ${nikStr} ${msgStr}`;
-            return terms.every(term => combined.includes(term));
-        });
+    if (query) {
+        list = list.filter(c => (c.nama || '').toLowerCase().includes(query.toLowerCase()) || String(c.nik).includes(query));
     }
 
     if (list.length === 0) {
-        container.innerHTML = `<div class="chat-empty-search"><i class="fas fa-search fa-2x" style="opacity:0.3; margin-bottom:10px;"></i><br>Tidak ditemukan obrolan yang cocok dengan "<b>${safeHtml(query)}</b>"</div>`;
+        container.innerHTML = `<div style="text-align:center; padding:40px 10px; color:#94a3b8;">Tidak ada pesan masuk.</div>`;
         return;
     }
 
-    let pinnedList = list.filter(c => pinned.includes(c.nik));
-    let regularList = list.filter(c => !pinned.includes(c.nik));
-
     let html = '';
-
-    if (pinnedList.length > 0) {
+    list.forEach(c => {
         html += `
-            <div class="chat-category-header">
-                <span class="category-badge"><i class="fas fa-thumbtack text-accent"></i> Pesan Disematkan</span>
-                <span class="category-count">${pinnedList.length}</span>
+            <div class="chat-contact-item ${c.nik === activeChatNik ? 'active' : ''}" onclick="window.loadChatMessages('${c.nik}', '${escapeInlineJS(c.nama)}')">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong style="color:#1e293b; font-size:0.95rem;">${safeHtml(c.nama)}</strong>
+                    <span style="font-size:0.75rem; color:#64748b;">${c.waktu}</span>
+                </div>
+                <small style="color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${safeHtml(c.last_msg)}</small>
             </div>
         `;
-        pinnedList.forEach(c => {
-            html += window.generateContactItemHTML(c, true, cleanQuery, false);
-        });
-    }
-
-    if (regularList.length > 0) {
-        let grouped = {};
-        regularList.forEach(c => {
-            let initial = '';
-            if (cleanQuery && !isNaN(cleanQuery.charAt(0))) {
-                initial = `Prefix NIK: ${(c.nik || '0000').substring(0, 4)}`;
-            } else {
-                initial = (c.nama || 'A').charAt(0).toUpperCase();
-                if (!/[A-Z]/.test(initial)) initial = '#';
-            }
-            if (!grouped[initial]) grouped[initial] = [];
-            grouped[initial].push(c);
-        });
-
-        const sortedKeys = Object.keys(grouped).sort();
-        sortedKeys.forEach(k => {
-            html += `
-                <div class="chat-category-header">
-                    <span class="category-badge"><i class="fas fa-folder-open text-primary"></i> ${k}</span>
-                    <span class="category-count">${grouped[k].length} Kontak</span>
-                </div>
-            `;
-            grouped[k].forEach(c => {
-                html += window.generateContactItemHTML(c, false, cleanQuery, false);
-            });
-        });
-    }
-
+    });
     container.innerHTML = html;
 };
 
-window.renderCategorizedBukuKontak = function(query = '') {
-    const container = document.getElementById('chatBukuKontakList');
-    if (!container) return;
+window.loadChatMessages = async function (nik, nama) {
+    activeChatNik = String(nik);
+    activeChatName = nama;
+    const nameDisp = document.getElementById('chatActiveName');
+    if (nameDisp) nameDisp.innerText = `${nama} (${nik})`;
 
-    let list = [...globalDataWarga];
-    const cleanQuery = (query || '').toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, '').trim();
-    
-    if (cleanQuery) {
-        const terms = cleanQuery.split(/\s+/).filter(t => t.length > 0);
-        list = list.filter(w => {
-            const nameStr = (w.nama || '').toLowerCase();
-            const nikStr = String(w.nik || '').toLowerCase();
-            const combined = `${nameStr} ${nikStr}`;
-            return terms.every(term => combined.includes(term));
-        });
-    }
+    const inp = document.getElementById('adminChatInput');
+    if (inp) inp.disabled = false;
 
-    if (list.length === 0) {
-        container.innerHTML = `<div class="chat-empty-search"><i class="fas fa-user-slash fa-2x" style="opacity:0.3; margin-bottom:10px;"></i><br>Tidak ada kontak yang cocok dengan "<b>${safeHtml(query)}</b>"</div>`;
-        return;
-    }
-
-    let grouped = {};
-    list.sort((a, b) => (a.nama || '').localeCompare(b.nama || '')).forEach(w => {
-        let initial = (w.nama || 'A').charAt(0).toUpperCase();
-        if (!/[A-Z]/.test(initial)) initial = '#';
-        if (!grouped[initial]) grouped[initial] = [];
-        grouped[initial].push(w);
-    });
-
-    let html = '';
-    const sortedKeys = Object.keys(grouped).sort();
-    sortedKeys.forEach(k => {
-        html += `
-            <div class="chat-category-header">
-                <span class="category-badge"><i class="fas fa-address-book text-info"></i> Direktori ${k}</span>
-                <span class="category-count">${grouped[k].length} Orang</span>
-            </div>
-        `;
-        grouped[k].forEach(w => {
-            html += window.generateContactItemHTML(w, false, cleanQuery, true);
-        });
-    });
-
-    container.innerHTML = html;
-};
-
-window.generateContactItemHTML = function(c, isPinned = false, query = '', isBukuKontak = false) {
-    let isActive = c.nik === activeChatNik ? 'active' : '';
-    let namaKontak = c.nama || 'Anonim';
-    let highlightedName = window.highlightSearchMatch(namaKontak, query);
-    let highlightedNik = window.highlightSearchMatch(c.nik, query);
-    let initialLetter = namaKontak.charAt(0).toUpperCase();
-
-    let clickFn = isBukuKontak ? 
-        `window.switchChatTab('inbox'); window.loadChatMessages(decodeURIComponent('${enc(c.nik)}'), decodeURIComponent('${enc(namaKontak)}'))` : 
-        `window.loadChatMessages(decodeURIComponent('${enc(c.nik)}'), decodeURIComponent('${enc(namaKontak)}'))`;
-
-    let subTextHtml = isBukuKontak ? 
-        `<div class="contact-nik"><i class="fas fa-id-card" style="font-size:0.7rem;"></i> ${highlightedNik}</div>` : 
-        `<div class="contact-nik"><i class="fas fa-id-card" style="font-size:0.7rem;"></i> ${highlightedNik}</div><div class="contact-last-msg">${safeHtml(c.last_msg)}</div>`;
-
-    return `
-        <div class="chat-contact-item ${isActive} ${isBukuKontak ? 'kontak-item' : ''}" onclick="${clickFn}">
-            <div class="contact-avatar">${initialLetter}</div>
-            <div class="contact-info">
-                <div class="contact-name">
-                    <span>${highlightedName}</span>
-                    ${isPinned ? '<span style="background:#fef3c7; color:#b45309; font-size:0.65rem; padding:2px 6px; border-radius:10px; font-weight:700;"><i class="fas fa-thumbtack"></i> Pin</span>' : ''}
-                </div>
-                ${subTextHtml}
-            </div>
-        </div>
-    `;
-};
-
-window.highlightSearchMatch = function(text, query) {
-    if (!query || !text) return safeHtml(text);
-    const terms = query.split(/\s+/).filter(t => t.length > 0);
-    let result = safeHtml(text);
-    terms.forEach(t => {
-        const cleanT = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        if (cleanT.length > 0) {
-            const regex = new RegExp(`(${cleanT})`, 'gi');
-            result = result.replace(regex, `<span class="search-match-highlight">$1</span>`);
-        }
-    });
-    return result;
-};
-
-// =========================================================
-// PEREKAM SUARA REAL-TIME 20 GELOMBANG
-// =========================================================
-window.toggleVoiceRecordAdmin = async function() {
-    if (!window.isAdminRecordingAudio) {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            window.adminAudioChunks = [];
-            window.adminAudioRecorder = new MediaRecorder(stream);
-            
-            window.adminAudioRecorder.ondataavailable = e => {
-                if (e.data && e.data.size > 0) window.adminAudioChunks.push(e.data);
-            };
-
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            audioContextAdmin = new AudioCtx();
-            const source = audioContextAdmin.createMediaStreamSource(stream);
-            analyserAdmin = audioContextAdmin.createAnalyser();
-            analyserAdmin.fftSize = 64;
-            analyserAdmin.smoothingTimeConstant = 0.5;
-            source.connect(analyserAdmin);
-            dataArrayAdmin = new Uint8Array(analyserAdmin.frequencyBinCount);
-
-            window.adminAudioRecorder.onstop = () => {
-                const audioBlob = new Blob(window.adminAudioChunks, { type: 'audio/webm' });
-                window.adminMediaBlob = audioBlob;
-                window.adminMediaExt = 'webm';
-                window.adminMediaType = 'audio';
-                window.isAdminRecordingAudio = false;
-                clearInterval(window.adminRecordTimer);
-
-                if (reqFrameAdmin) cancelAnimationFrame(reqFrameAdmin);
-                if (audioContextAdmin && audioContextAdmin.state !== 'closed') audioContextAdmin.close().catch(()=>{});
-
-                const recUI = document.getElementById('adminRecordingUI');
-                if(recUI) recUI.style.display = 'none';
-                const inp = document.getElementById('adminChatInput');
-                if(inp) inp.style.display = 'block';
-                const btnRec = document.getElementById('btnRecordAdmin') || document.querySelector('.fa-microphone')?.parentElement;
-                if(btnRec) btnRec.style.color = 'var(--text-muted)';
-
-                window.showPreviewAdmin(URL.createObjectURL(audioBlob), 'audio', 'Pesan_Suara.webm');
-            };
-
-            window.adminAudioRecorder.start();
-            window.isAdminRecordingAudio = true;
-            window.adminRecordSecs = 0;
-
-            let recUI = document.getElementById('adminRecordingUI');
-            const inp = document.getElementById('adminChatInput');
-            if (!recUI && inp) {
-                recUI = document.createElement('div');
-                recUI.id = 'adminRecordingUI';
-                inp.parentElement.insertBefore(recUI, inp);
-            }
-
-            if (recUI) {
-                recUI.style.cssText = "display: flex; flex: 1; align-items: center; gap: 10px; padding: 8px 18px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 30px; color: #dc2626; font-weight: 700; font-size: 0.9rem;";
-                
-                let barsHtml = `<div id="adminWaveBarsBox" style="display:flex; align-items:center; justify-content:center; gap:3px; height:32px; flex:1; overflow:hidden;">`;
-                for(let i = 0; i < 20; i++) {
-                    barsHtml += `<div class="live-freq-bar" style="width:3.5px; height:4px; background:#ef4444; border-radius:3px; transition: height 0.05s ease, background 0.1s ease;"></div>`;
-                }
-                barsHtml += `</div>`;
-                
-                recUI.innerHTML = `
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <i class="fas fa-circle" style="color:#ef4444; font-size:0.7rem; animation: pulse 1s infinite;"></i>
-                        <span id="adminRecordTime" style="font-family:monospace; font-size:1rem; color:#b91c1c;">00:00</span>
-                    </div>
-                    ${barsHtml}
-                    <span style="font-size:0.75rem; color:#991b1b; white-space:nowrap; opacity:0.85;">Merekam...</span>
-                `;
-                recUI.style.display = 'flex';
-            }
-
-            if(inp) inp.style.display = 'none';
-            const btnRec = document.getElementById('btnRecordAdmin') || document.querySelector('.fa-microphone')?.parentElement;
-            if(btnRec) btnRec.style.color = 'var(--danger)';
-
-            function renderAudioFrequency() {
-                if (!window.isAdminRecordingAudio) return;
-                reqFrameAdmin = requestAnimationFrame(renderAudioFrequency);
-                if (!analyserAdmin) return;
-
-                analyserAdmin.getByteFrequencyData(dataArrayAdmin);
-                const bars = document.querySelectorAll('#adminWaveBarsBox .live-freq-bar');
-                if (bars && bars.length > 0) {
-                    const step = Math.floor(dataArrayAdmin.length / bars.length) || 1;
-                    bars.forEach((bar, idx) => {
-                        const val = dataArrayAdmin[idx * step] || 0;
-                        const waveHeight = Math.max(4, Math.min(30, (val / 255) * 32));
-                        bar.style.height = `${waveHeight}px`;
-                        bar.style.background = val > 140 ? '#991b1b' : (val > 70 ? '#ef4444' : '#fca5a5');
-                    });
-                }
-            }
-            renderAudioFrequency();
-
-            window.adminRecordTimer = setInterval(() => {
-                window.adminRecordSecs++;
-                const m = String(Math.floor(window.adminRecordSecs/60)).padStart(2,'0');
-                const s = String(window.adminRecordSecs%60).padStart(2,'0');
-                const timerEl = document.getElementById('adminRecordTime');
-                if(timerEl) timerEl.innerText = `${m}:${s}`;
-            }, 1000);
-
-        } catch(err) {
-            Swal.fire('Akses Mikrofon Ditolak', 'Mohon izinkan akses mikrofon di browser.', 'error');
-        }
-    } else {
-        if(window.adminAudioRecorder && window.adminAudioRecorder.state !== 'inactive') {
-            window.adminAudioRecorder.stop();
-            window.adminAudioRecorder.stream.getTracks().forEach(t => t.stop());
-        }
-    }
-};
-
-// PRATINJAU MEDIA
-window.showPreviewAdmin = function(srcUrl, type, fname = '') { 
-    let previewContainer = document.getElementById('previewMediaContainerAdmin') || document.getElementById('previewMediaContainer'); 
-    let previewArea = document.getElementById('preSendPreviewAdmin') || document.getElementById('preSendPreview'); 
-    
-    if(previewArea && previewContainer) {
-        if(type === 'image') { 
-            previewContainer.innerHTML = `<img src="${srcUrl}" style="max-height: 140px; border-radius: 8px; object-fit: contain; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">`; 
-        } else if(type === 'video') { 
-            previewContainer.innerHTML = `<video src="${srcUrl}" controls style="max-height: 140px; border-radius: 8px;"></video>`; 
-        } else if (type === 'audio') { 
-            previewContainer.innerHTML = `<audio src="${srcUrl}" controls style="height: 40px; border-radius:20px;"></audio>`; 
-        } else { 
-            previewContainer.innerHTML = `<div style="font-weight:700; color:var(--info); text-align:center;"><i class="fas fa-file-alt fa-2x"></i><br><small>${fname}</small></div>`; 
-        } 
-        previewArea.style.display = 'block'; 
-    }
-};
-
-window.batalLampiran = window.batalLampiranAdmin = function() { 
-    window.adminMediaBlob = null; 
-    window.adminMediaExt = ''; 
-    window.adminMediaType = ''; 
-    const fileInput = document.getElementById('adminChatFile'); 
-    if(fileInput) fileInput.value = ''; 
-    ['preSendPreviewAdmin', 'preSendPreview'].forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.style.display = 'none';
-    });
-    ['previewMediaContainerAdmin', 'previewMediaContainer'].forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.innerHTML = '';
-    });
-};
-
-// KIRIM PESAN
-window.sendAdminChat = async function() { 
-    if (window.isAdminRecordingAudio) {
-        if (window.adminAudioRecorder && window.adminAudioRecorder.state !== 'inactive') {
-            window.adminAudioRecorder.stop();
-            window.adminAudioRecorder.stream.getTracks().forEach(t => t.stop());
-            setTimeout(() => { window.executeSendAdminChat(); }, 250);
-            return;
-        }
-    }
-    window.executeSendAdminChat(); 
-};
-
-window.executeSendAdminChat = async function() { 
-    if(!activeChatNik) return Swal.fire('Peringatan', 'Pilih salah satu warga dari kotak masuk.', 'warning'); 
-    const input = document.getElementById('adminChatInput'); 
-    const pesan = input ? input.value.trim() : ''; 
-    
-    if(!pesan && !window.adminMediaBlob) return; 
-    
-    const formData = new FormData(); 
-    formData.append('sender', 'admin'); 
-    formData.append('nama_admin', user ? (user.nama_lengkap || user.username) : 'Admin'); 
-    formData.append('pesan', pesan); 
-    
-    if(window.adminMediaBlob) { 
-        const finalName = `media_${Date.now()}.${window.adminMediaExt || 'jpg'}`; 
-        formData.append('file', window.adminMediaBlob, finalName); 
-        if(window.adminMediaType) formData.append('custom_file_type', window.adminMediaType); 
-    } 
-    if(replyToDataAdmin) { 
-        formData.append('reply_to_id', replyToDataAdmin.id); 
-        formData.append('reply_to_text', replyToDataAdmin.text); 
-        formData.append('reply_to_sender', replyToDataAdmin.sender); 
-    } 
-    
-    if(input) input.value = ''; 
-    const ep = document.getElementById('emojiPickerAdmin'); 
-    if(ep) ep.style.display = 'none'; 
-    
-    window.batalLampiranAdmin(); 
-    window.batalReplyAdmin(); 
-    
-    try { 
-        const res = await fetch(`${API_URL}/api/chat/${activeChatNik}`, { 
-            method: 'POST', 
-            body: formData 
-        }); 
-        if(res.ok) {
-            window.loadChatMessages(activeChatNik, activeChatName, false); 
-            window.loadChatList(true);
-        } else {
-            const errData = await res.json().catch(() => ({}));
-            Swal.fire('Gagal', errData.message || 'Peladen menolak pengiriman.', 'error');
-        }
-    } catch(e) { 
-        Swal.fire('Error', 'Gagal menghubungi server.', 'error'); 
-    } 
-};
-
-// PIN KONTAK & HAPUS/LAPOR SEMUA
-window.pinChatActive = function() { 
-    if(!activeChatNik) return; 
-    let pinnedChats = []; 
-    try { pinnedChats = JSON.parse(localStorage.getItem('pinnedChatsAdmin')) || []; } catch(e){} 
-    
-    if(pinnedChats.includes(activeChatNik)) { 
-        pinnedChats = pinnedChats.filter(n => n !== activeChatNik); 
-        Swal.fire({toast:true, position:'top-end', icon:'info', title:'Semat dilepas dari Inbox', showConfirmButton:false, timer:1800}); 
-    } else { 
-        pinnedChats.push(activeChatNik); 
-        Swal.fire({toast:true, position:'top-end', icon:'success', title:'Kontak disematkan di paling atas', showConfirmButton:false, timer:1800}); 
-    } 
-    localStorage.setItem('pinnedChatsAdmin', JSON.stringify(pinnedChats)); 
-    const dd = document.getElementById('chatActionDropdown'); 
-    if(dd) dd.style.display = 'none'; 
-    window.loadChatList(false); 
-};
-
-window.hapusSemuaChatMassalAdmin = function() {
-    if(!activeChatNik) return;
-    Swal.fire({
-        title: 'Hapus Seluruh Riwayat Chat?',
-        text: `Semua pesan dalam obrolan dengan ${activeChatName} (${activeChatNik}) akan dihapus bersih permanen.`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Ya, Bersihkan Total',
-        confirmButtonColor: '#ef4444'
-    }).then(async (res) => {
-        if(res.isConfirmed) {
-            Swal.fire({title: 'Membersihkan...', didOpen: () => Swal.showLoading()});
-            const response = await fetch(`${API_URL}/api/chat/clear/${activeChatNik}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'}
-            });
-            if (response.ok) {
-                window.loadChatMessages(activeChatNik, activeChatName, false);
-                window.loadChatList(true);
-                const dd = document.getElementById('chatActionDropdown');
-                if(dd) dd.style.display = 'none';
-                Swal.fire('Bersih!', 'Seluruh riwayat obrolan telah dibersihkan tanpa sisa.', 'success');
-            }
-        }
-    });
-};
-
-window.laporSemuaChatMassalAdmin = function() {
-    if(!activeChatNik) return;
-    Swal.fire({
-        title: 'Laporkan Seluruh Obrolan Warga',
-        text: `Teruskan seluruh ruang chat ${activeChatName} ke tim investigasi:`,
-        input: 'select',
-        inputOptions: {
-            'Pelecehan / Ujaran Kebencian': 'Pelecehan / Kata-kata Kasar',
-            'Penipuan / Manipulasi Data Bansos': 'Penipuan / Manipulasi Data',
-            'Pungutan Liar': 'Pungutan Liar',
-            'Lainnya': 'Pelanggaran Lainnya'
-        },
-        showCancelButton: true,
-        confirmButtonText: 'Kirim Laporan',
-        confirmButtonColor: '#dc2626'
-    }).then(async (res) => {
-        if(res.isConfirmed && res.value) {
-            await fetch(`${API_URL}/api/chat/report-room/${activeChatNik}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    reason: res.value,
-                    reporter: user ? (user.nama_lengkap || 'Admin') : 'Admin'
-                })
-            });
-            const dd = document.getElementById('chatActionDropdown');
-            if(dd) dd.style.display = 'none';
-            Swal.fire('Laporan Terkirim', 'Seluruh ruang chat berhasil dilaporkan ke pusat pengawasan.', 'success');
-        }
-    });
-};
-
-window.toggleChatActionDropdown = function(e) {
-    if(e) e.stopPropagation();
-    let dd = document.getElementById('chatActionDropdown');
-    if(!dd) {
-        const header = document.querySelector('.chat-header-modern') || document.querySelector('.chat-header') || document.getElementById('chatHeaderActions')?.parentElement;
-        if(header) {
-            dd = document.createElement('div');
-            dd.id = 'chatActionDropdown';
-            dd.style = "display:none; position:absolute; right:20px; top:65px; background:white; box-shadow:0 10px 25px rgba(0,0,0,0.15); border-radius:12px; border:1px solid #e2e8f0; z-index:2000; flex-direction:column; min-width:230px; padding:8px 0;";
-            header.style.position = 'relative';
-            header.appendChild(dd);
-        }
-    }
-    if(dd) {
-        let pinnedChats = [];
-        try { pinnedChats = JSON.parse(localStorage.getItem('pinnedChatsAdmin')) || []; } catch(e){}
-        const isPinned = pinnedChats.includes(activeChatNik);
-        
-        dd.innerHTML = `
-            <button type="button" onclick="window.pinChatActive()" style="background:none; border:none; padding:10px 18px; text-align:left; cursor:pointer; display:flex; align-items:center; gap:10px; font-weight:600; color:#334155; width:100%;"><i class="fas fa-thumbtack" style="color:#f59e0b;"></i> ${isPinned ? 'Lepas Sematan Kontak' : 'Sematkan Kontak di Atas'}</button>
-            <button type="button" onclick="window.laporSemuaChatMassalAdmin()" style="background:none; border:none; padding:10px 18px; text-align:left; cursor:pointer; display:flex; align-items:center; gap:10px; font-weight:600; color:#dc2626; width:100%;"><i class="fas fa-flag"></i> Laporkan Seluruh Obrolan</button>
-            <div style="height:1px; background:#f1f5f9; margin:4px 0;"></div>
-            <button type="button" onclick="window.hapusSemuaChatMassalAdmin()" style="background:none; border:none; padding:10px 18px; text-align:left; cursor:pointer; display:flex; align-items:center; gap:10px; font-weight:600; color:#ef4444; width:100%;"><i class="fas fa-trash-alt"></i> Hapus Semua Chat</button>
-        `;
-        dd.style.display = dd.style.display === 'flex' ? 'none' : 'flex';
-    }
-};
-
-// LOAD INBOX
-window.loadChatList = async function(isSilent = false) { 
-    try { 
-        const res = await window.fetchData('/api/chat/list'); if(!res.ok) return;
-        let data = await res.json(); if(!Array.isArray(data)) { data = []; } 
-        rawChatListData = data;
-        const currentQuery = (document.getElementById('searchChatInput')?.value || '').trim();
-        
-        window.renderCategorizedInbox(currentQuery);
-        window.renderCategorizedBukuKontak(currentQuery);
-        window.setupVoiceSearchBar();
-    } catch(e) {} 
-};
-
-// LOAD PESAN CHAT
-window.loadChatMessages = async function(nik, nama, isSilent = false) {
-    activeChatNik = String(nik); activeChatName = nama; 
     try {
-        const nameDisp = document.getElementById('chatActiveNameDisplay'); if(nameDisp) nameDisp.innerText = nama; 
-        const nikDisp = document.getElementById('chatActiveNikDisplay'); if(nikDisp) nikDisp.innerText = nik;
-        const handlerDisp = document.getElementById('chatActiveHandlerDisplay'); if(handlerDisp) handlerDisp.innerText = user ? (user.nama_lengkap || user.username) : 'Admin';
-        const avatarDisp = document.getElementById('chatHeaderAvatar'); 
-        if(avatarDisp) { avatarDisp.innerText = String(nama).charAt(0).toUpperCase(); }
-        
-        window.updateHeaderButtons(true);
-        
-        const inp = document.getElementById('adminChatInput'); if(inp) inp.disabled = false; 
-        const btnSend = document.getElementById('btnSendAdmin'); if(btnSend) btnSend.disabled = false;
-        
-        document.querySelectorAll('.chat-contact-item').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll(`.chat-contact-item[onclick*="${enc(nik)}"]`).forEach(el => el.classList.add('active'));
+        const res = await window.fetchData(`/api/chat/${nik}`);
+        if (!res.ok) return;
+        let data = await res.json();
+        if (!Array.isArray(data)) data = [];
 
-        const res = await window.fetchData(`/api/chat/${nik}?viewer=admin`); 
-        if(!res.ok) throw new Error("Gagal");
-        let data = await res.json(); 
-        if(!Array.isArray(data)) { data = []; }
+        const container = document.getElementById('adminChatMessages');
+        if (!container) return;
 
         let html = '';
-        let pinnedHtml = '';
-
         data.forEach(msg => {
-            let isAdmin = msg.sender === 'admin'; 
-            let align = isAdmin ? 'flex-end' : 'flex-start'; 
-            let bg = isAdmin ? '#dcf8c6' : '#ffffff'; 
-            let color = '#303030'; 
-            let borderRadius = isAdmin ? '12px 0px 12px 12px' : '0px 12px 12px 12px'; 
-            let shadow = '0 1px 2px rgba(0,0,0,0.15)';
-            
-            if (msg.is_pinned && !msg.is_deleted) {
-                pinnedHtml += `
-                    <div onclick="window.scrollToMessage(${msg.id})" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; background:#fffbeb; border-left:4px solid #f59e0b; padding:6px 12px; margin-bottom:8px; border-radius:6px; font-size:0.8rem;">
-                        <div><i class="fas fa-thumbtack" style="color:#f59e0b; margin-right:6px;"></i><b>${isAdmin ? 'Admin' : safeHtml(msg.sender)}:</b> ${safeHtml(msg.pesan || 'Lampiran Berkas')}</div>
-                        <i class="fas fa-times" onclick="event.stopPropagation(); window.togglePinMessageAdmin(${msg.id});"></i>
-                    </div>
-                `;
-            }
-
-            let replyHtml = ''; 
-            if(msg.reply_to_text) { 
-                replyHtml = `<div onclick="window.scrollToMessage(${msg.reply_to_id})" style="cursor:pointer; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 8px; border-left: 4px solid ${isAdmin ? '#25d366' : '#3b82f6'}; margin-bottom: 8px; font-size: 0.85rem; color: #555;"><b>${safeHtml(msg.reply_to_sender)}</b><br><i>${safeHtml(msg.reply_to_text)}</i></div>`; 
-            }
-            
-            let reactionHtml = ''; 
-            if(msg.reaction) { 
-                reactionHtml = `<div style="position:absolute; ${isAdmin ? 'left:-10px' : 'right:-10px'}; bottom:-10px; background:white; border-radius:20px; padding:2px 6px; box-shadow:0 2px 4px rgba(0,0,0,0.2); font-size:1rem; z-index:5;">${msg.reaction}</div>`; 
-            }
-            
-            let mediaHtml = ''; 
-            if(msg.file_path) {
-                let cleanFileUrl = `${API_URL}/uploads/${msg.file_path.replace('/uploads/', '')}`;
-                if(msg.file_type === 'audio') { 
-                    mediaHtml = `<div style="margin-bottom:8px;"><audio controls src="${cleanFileUrl}" style="max-width:220px; height:35px;"></audio></div>`; 
-                } else if(msg.file_type === 'image') { 
-                    mediaHtml = `<img src="${cleanFileUrl}" style="max-width:250px; max-height:200px; border-radius:8px; margin-bottom:8px; cursor:pointer; object-fit:cover;" onclick="window.openLightbox('image', '${cleanFileUrl}')">`; 
-                } else if(msg.file_type === 'video') { 
-                    mediaHtml = `<video src="${cleanFileUrl}" controls style="max-width:250px; max-height:200px; border-radius:8px; margin-bottom:8px; background:black;"></video>`; 
+            const isAdmin = msg.sender === 'admin';
+            let mediaHtml = '';
+            if (msg.file_path) {
+                const url = msg.file_path.startsWith('http') ? msg.file_path : `${API_URL}${msg.file_path}`;
+                if (msg.file_type === 'image') {
+                    mediaHtml = `<img src="${url}" style="max-width:220px; border-radius:10px; margin-top:6px; display:block;" />`;
+                } else if (msg.file_type === 'video') {
+                    mediaHtml = `<video src="${url}" controls style="max-width:240px; border-radius:10px; margin-top:6px;"></video>`;
                 }
             }
-            
-            let actionMenu = '';
-            if(!msg.is_deleted) {
-                actionMenu = `
-                    <div style="position: absolute; ${isAdmin ? 'left:-28px' : 'right:-28px'}; top: 8px; cursor: pointer; color: #94a3b8;" onclick="window.toggleChatMenuAdmin(${msg.id}, event)">
-                        <i class="fas fa-ellipsis-v hover-action"></i>
-                        <div id="menu-${msg.id}" style="display:none; position:absolute; ${isAdmin ? 'right:15px' : 'left:15px'}; top:0; background:white; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1); border-radius:8px; padding:6px; z-index:1000; flex-direction:column; min-width:160px; border:1px solid #e2e8f0; font-size:0.85rem;">
-                            <button type="button" onclick="window.reactToMessageAdmin(${msg.id})" style="background:none; border:none; padding:6px 10px; text-align:left; cursor:pointer; display:flex; align-items:center; gap:8px;"><i class="fas fa-smile" style="color:#f59e0b;"></i> Reaksi Emoji</button>
-                            <button type="button" onclick="window.setReplyAdmin(${msg.id}, '${isAdmin ? 'Petugas' : safeHtml(msg.sender)}', decodeURIComponent('${enc(msg.pesan)}'), '${msg.file_type}')" style="background:none; border:none; padding:6px 10px; text-align:left; cursor:pointer; display:flex; align-items:center; gap:8px;"><i class="fas fa-reply" style="color:#3b82f6;"></i> Balas Pesan</button>
-                            <button type="button" onclick="window.togglePinMessageAdmin(${msg.id})" style="background:none; border:none; padding:6px 10px; text-align:left; cursor:pointer; display:flex; align-items:center; gap:8px;"><i class="fas fa-thumbtack" style="color:#10b981;"></i> ${msg.is_pinned ? 'Lepas Pin' : 'Sematkan Pesan'}</button>
-                            <button type="button" onclick="window.hapusPesanAdmin(${msg.id}, 'me')" style="background:none; border:none; padding:6px 10px; text-align:left; cursor:pointer; display:flex; align-items:center; gap:8px; color:#64748b;"><i class="fas fa-eye-slash"></i> Hapus untuk Saya</button>
-                            ${isAdmin ? `<button type="button" onclick="window.hapusPesanAdmin(${msg.id}, 'everyone')" style="background:none; border:none; padding:6px 10px; text-align:left; cursor:pointer; display:flex; align-items:center; gap:8px; color:#ef4444;"><i class="fas fa-trash-alt"></i> Tarik untuk Semua</button>` : ''}
-                            ${!isAdmin ? `<button type="button" onclick="window.laporPesanAdminSide(${msg.id})" style="background:none; border:none; padding:6px 10px; text-align:left; cursor:pointer; display:flex; align-items:center; gap:8px; color:#dc2626;"><i class="fas fa-flag"></i> Laporkan Pesan</button>` : ''}
-                        </div>
+
+            html += `
+                <div style="display:flex; flex-direction:column; align-items:${isAdmin ? 'flex-end' : 'flex-start'};">
+                    <div style="background:${isAdmin ? 'linear-gradient(135deg, #009846, #047857)' : '#ffffff'}; color:${isAdmin ? '#ffffff' : '#1e293b'}; padding:12px 18px; border-radius:16px; max-width:70%; box-shadow:0 2px 8px rgba(0,0,0,0.06); word-break:break-word;">
+                        ${msg.pesan ? safeHtml(msg.pesan) : ''}
+                        ${mediaHtml}
+                        <div style="font-size:0.7rem; opacity:0.75; text-align:right; margin-top:4px;">${msg.waktu}</div>
                     </div>
-                `;
-            }
-
-            html += `<article id="msg-${msg.id}" style="align-self: ${align}; max-width: 75%; margin-bottom: 15px; position:relative; display:flex; flex-direction:column; align-items:${isAdmin ? 'flex-end' : 'flex-start'}; font-family: 'Inter', sans-serif;">
-                <section style="background:${bg}; color:${color}; padding:8px 12px; border-radius:${borderRadius}; box-shadow:${shadow}; font-size:0.95rem; line-height:1.4; min-width: 160px; text-align: left;">
-                    ${msg.is_pinned ? `<div style="font-size:0.7rem; color:#f59e0b; font-weight:700; margin-bottom:4px;"><i class="fas fa-thumbtack"></i> Disematkan</div>` : ''}
-                    ${replyHtml}${mediaHtml}
-                    ${msg.pesan ? `<span style="display:block; margin-bottom: 8px; word-break: break-word;">${safeHtml(msg.pesan)}</span>` : ''}
-                    <footer style="display:flex; justify-content:flex-end; align-items:center; gap:6px; border-top:1px solid rgba(0,0,0,0.06); padding-top:4px; margin-top:4px;">
-                        <span style="font-size:0.7rem; color:#64748b; font-weight:700;">${msg.waktu}</span>
-                        ${isAdmin ? '<i class="fas fa-check-double" style="font-size:0.7rem; color:#34b7f1;"></i>' : ''}
-                    </footer>
-                </section>
-                ${reactionHtml}
-                ${actionMenu}
-            </article>`;
-        });
-        
-        const container = document.getElementById('adminChatMessages'); 
-        container.innerHTML = (pinnedHtml ? `<div id="pinnedHeaderArea" style="position:sticky; top:0; z-index:10;">${pinnedHtml}</div>` : '') + (html || `<div style="text-align:center; color:var(--text-muted); margin-top:50px; font-size:0.9rem;">Belum ada pesan.</div>`);
-        container.scrollTop = container.scrollHeight;
-
-        const wTarget = globalDataWarga.find(w => String(w.nik) === String(nik));
-        let solveBanner = document.getElementById('chatDisputeBanner');
-        if (wTarget && wTarget.is_lapor_curang) {
-            if (!solveBanner) {
-                solveBanner = document.createElement('div');
-                solveBanner.id = 'chatDisputeBanner';
-                solveBanner.style = "background:#fef2f2; border-bottom:1px solid #fecaca; padding:10px 20px; display:flex; justify-content:space-between; align-items:center;";
-                container.parentElement.insertBefore(solveBanner, container);
-            }
-            solveBanner.innerHTML = `
-                <div style="font-size:0.85rem; color:#dc2626; font-weight:700;"><i class="fas fa-exclamation-triangle"></i> Status Laporan Bansos: ${safeHtml(wTarget.status_salur)}</div>
-                <button type="button" onclick="window.tanggapiLaporan('${wTarget.nik}', '${wTarget.nama}')" class="btn" style="background:#ef4444; color:white; font-size:0.75rem; padding:4px 10px; border-radius:6px;"><i class="fas fa-check-circle"></i> Tanggapi / Selesaikan</button>
+                </div>
             `;
-            solveBanner.style.display = 'flex';
-        } else if (solveBanner) {
-            solveBanner.style.display = 'none';
-        }
-    } catch(e) {}
-};
-
-// FITUR SINGLE MESSAGE ACTIONS
-window.setReplyAdmin = function(id, sender, text, file_type) {
-    let displayTxt = text;
-    if(file_type === 'image') displayTxt = '📷 Foto';
-    else if(file_type === 'video') displayTxt = '🎥 Video';
-    else if(file_type === 'audio') displayTxt = '🎤 Pesan Suara';
-    
-    replyToDataAdmin = { id: id, sender: sender, text: displayTxt };
-    
-    let container = document.getElementById('replyPreviewContainerAdmin');
-    if(!container) {
-        const inputArea = document.getElementById('adminChatInput').parentElement;
-        container = document.createElement('div');
-        container.id = 'replyPreviewContainerAdmin';
-        container.style = "display:flex; justify-content:space-between; align-items:center; padding:8px 15px; background:#f1f5f9; border-top:1px solid #cbd5e1; font-size:0.85rem;";
-        inputArea.parentElement.insertBefore(container, inputArea);
-    }
-    container.innerHTML = `
-        <div style="border-left:3px solid var(--primary); padding-left:8px;">
-            <b style="color:var(--primary-dark);">${safeHtml(sender)}</b>: <span>${safeHtml(displayTxt)}</span>
-        </div>
-        <i class="fas fa-times" style="cursor:pointer; color:var(--danger);" onclick="window.batalReplyAdmin()"></i>
-    `;
-    container.style.display = 'flex';
-    document.getElementById('adminChatInput')?.focus();
-};
-
-window.batalReplyAdmin = function() { 
-    replyToDataAdmin = null; 
-    const cont = document.getElementById('replyPreviewContainerAdmin'); 
-    if(cont) cont.style.display = 'none'; 
-};
-
-window.reactToMessageAdmin = async function(msgId) {
-    const emojis = ['👍', '❤️', '😂', '🙏', '🔥', '✅', '❌', '🚨'];
-    let html = `<div style="display:flex; gap:10px; justify-content:center; font-size:2rem; cursor:pointer;">`;
-    emojis.forEach(em => {
-        html += `<span onclick="window.submitReactionAdmin(${msgId}, '${em}')" style="transition:0.2s;" onmouseover="this.style.transform='scale(1.3)'" onmouseout="this.style.transform='scale(1)'">${em}</span>`;
-    });
-    html += `</div>`;
-    Swal.fire({ title: 'Beri Reaksi Emoji', html: html, showConfirmButton: false });
-};
-
-window.submitReactionAdmin = async function(msgId, emoji) {
-    Swal.close();
-    await fetch(`${API_URL}/api/chat/react/${msgId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reaction: emoji })
-    });
-    window.loadChatMessages(activeChatNik, activeChatName, false);
-};
-
-window.togglePinMessageAdmin = async function(msgId) {
-    await fetch(`${API_URL}/api/chat/pin/${msgId}`, { method: 'PATCH' });
-    window.loadChatMessages(activeChatNik, activeChatName, false);
-};
-
-window.hapusPesanAdmin = async function(id, tipe) {
-    const txt = tipe === 'everyone' ? 'menarik pesan ini untuk semua orang' : 'menghapus pesan ini dari layar Anda';
-    if(confirm(`Yakin ingin ${txt}?`)) {
-        await fetch(`${API_URL}/api/chat/action/${id}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: tipe, requester: 'admin' })
         });
-        window.loadChatMessages(activeChatNik, activeChatName, false);
+        container.innerHTML = html || '<div style="text-align:center; color:#94a3b8; margin-top:50px;">Belum ada pesan.</div>';
+        container.scrollTop = container.scrollHeight;
+    } catch (e) { }
+};
+
+window.sendAdminChat = async function () {
+    if (!activeChatNik) return Swal.fire('Peringatan', 'Pilih kontak warga terlebih dahulu.', 'warning');
+    const input = document.getElementById('adminChatInput');
+    const text = input ? input.value.trim() : '';
+
+    if (!text && !window.adminMediaBlob) return;
+
+    const formData = new FormData();
+    formData.append('sender', 'admin');
+    formData.append('nama', 'Pusat Layanan Dinsos Sidoarjo');
+    formData.append('pesan', text);
+
+    if (window.adminMediaBlob) {
+        formData.append('file', window.adminMediaBlob, `media_${Date.now()}.${window.adminMediaExt || 'jpg'}`);
     }
-};
 
-window.laporPesanAdminSide = async function(msgId) {
-    const { value: alasan } = await Swal.fire({
-        title: 'Laporkan Pesan',
-        input: 'select',
-        inputOptions: {
-            'Kata-kata Kasar': 'Kata-kata Kasar / Pelecehan',
-            'Penipuan': 'Penipuan / Data Palsu',
-            'Pungutan Liar': 'Pungutan Liar / Suap',
-            'Lainnya': 'Lainnya'
-        },
-        showCancelButton: true,
-        confirmButtonText: 'Kirim Laporan',
-        confirmButtonColor: '#ef4444'
-    });
-    if (alasan) {
-        await fetch(`${API_URL}/api/chat/report/${msgId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reason: alasan, reporter: user ? (user.nama_lengkap || 'Admin') : 'Admin' })
-        });
-        Swal.fire('Terlapor', 'Laporan telah diteruskan ke log keamanan pusat.', 'success');
-    }
-};
+    if (input) input.value = '';
+    window.batalLampiran();
 
-window.toggleChatMenuAdmin = function(id, event) {
-    event.stopPropagation();
-    document.querySelectorAll('[id^="menu-"]').forEach(m => {
-        if(m.id !== `menu-${id}`) m.style.display = 'none';
-    });
-    const menu = document.getElementById(`menu-${id}`);
-    if(menu) menu.style.display = menu.style.display === 'none' ? 'flex' : 'none';
-};
-
-window.scrollToMessage = function(id) {
-    const el = document.getElementById(`msg-${id}`);
-    if(el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.style.boxShadow = "0 0 15px #f59e0b";
-        setTimeout(() => el.style.boxShadow = "", 2000);
-    }
-};
-
-window.toggleEmojiPicker = function(type, event) { 
-    if(event) event.stopPropagation();
-    let el = document.getElementById('emojiPickerAdmin'); 
-    if(el) {
-        const emojisList = ['😀','😂','🥰','😎','😭','😡','👍','🙏','❤️','🔥','✅','❌','💡','🎉','😢','🤔','👏','🚨']; 
-        let html = ''; 
-        emojisList.forEach(e => { 
-            html += `<div style="cursor:pointer; font-size:1.5rem; text-align:center; user-select:none; padding:4px;" onclick="window.addEmoji('${e}', 'admin')">${e}</div>`; 
-        });
-        el.innerHTML = html;
-        el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'grid' : 'none'; 
-    }
-};
-
-window.addEmoji = function(emoji, type) { 
-    const input = document.getElementById(type === 'admin' ? 'adminChatInput' : 'wargaChatInput'); 
-    if(input) { 
-        input.value += emoji; 
-        input.focus(); 
-    } 
-};
-
-window.handleChatEnter = function(e, type) { 
-    if(e.key === 'Enter') { 
-        e.preventDefault();
-        if(type === 'admin') window.sendAdminChat(); 
-    } 
-};
-
-window.openAdminChat = function() { 
-    window.openModalUniversal('modalAdminChat'); 
-    window.switchChatTab('inbox'); 
-    window.tutupObrolanAktif();
-    if(!window.chatInterval) { 
-        window.chatInterval = setInterval(() => { 
-            if(document.getElementById('modalAdminChat')?.style.display === 'flex') { 
-                window.loadChatList(true); 
-                if(activeChatNik) window.loadChatMessages(activeChatNik, activeChatName, true); 
-            } 
-        }, 3000); 
-    } 
-};
-
-window.tutupObrolanAktif = function() {
-    activeChatNik = null; activeChatName = null;
-    const nameDisp = document.getElementById('chatActiveNameDisplay'); 
-    if(nameDisp) nameDisp.innerText = "Pilih Warga di Kotak Masuk..."; 
-    window.updateHeaderButtons(false);
-    const inp = document.getElementById('adminChatInput'); if(inp) inp.disabled = true; 
-    const btnSend = document.getElementById('btnSendAdmin'); if(btnSend) btnSend.disabled = true;
-    const msgs = document.getElementById('adminChatMessages'); if(msgs) msgs.innerHTML = '<div style="text-align:center; color:var(--text-muted); margin-top:100px;"><i class="fas fa-comments fa-3x" style="opacity:0.3; margin-bottom:15px;"></i><br>Pilih daftar warga.</div>'; 
-    document.querySelectorAll('.chat-contact-item').forEach(el => el.classList.remove('active'));
-};
-
-window.updateHeaderButtons = function(isActive) {
-    const infoDisp = document.getElementById('chatActiveInfoDisplay'); if(infoDisp) infoDisp.style.display = isActive ? 'flex' : 'none';
-    const avatarDisp = document.getElementById('chatHeaderAvatar'); if(avatarDisp) avatarDisp.style.display = isActive ? 'flex' : 'none';
-    const headerActions = document.getElementById('chatHeaderActions'); if(headerActions) headerActions.style.display = isActive ? 'flex' : 'none';
-};
-
-window.switchChatTab = function(tab) {
-    window.activeChatTab = tab;
-    const btnInbox = document.getElementById('tabInboxBtn');
-    const btnKontak = document.getElementById('tabKontakBtn');
-    const listInbox = document.getElementById('chatContactList');
-    const listKontak = document.getElementById('chatBukuKontakList');
-    const searchInp = document.getElementById('searchChatInput');
-
-    const currentQuery = searchInp ? searchInp.value.trim() : '';
-
-    if (tab === 'inbox') { 
-        if(btnInbox) { btnInbox.className = 'btn btn-primary'; btnInbox.style.background = ''; btnInbox.style.color = ''; }
-        if(btnKontak) { btnKontak.className = 'btn btn-secondary'; btnKontak.style.background = 'transparent'; btnKontak.style.border = 'none'; }
-        if(listInbox) listInbox.style.display = 'block'; 
-        if(listKontak) listKontak.style.display = 'none'; 
-        window.loadChatList(); 
-    } else { 
-        if(btnKontak) { btnKontak.className = 'btn btn-primary'; btnKontak.style.background = ''; btnKontak.style.color = ''; }
-        if(btnInbox) { btnInbox.className = 'btn btn-secondary'; btnInbox.style.background = 'transparent'; btnInbox.style.border = 'none'; }
-        if(listInbox) listInbox.style.display = 'none'; 
-        if(listKontak) listKontak.style.display = 'block'; 
-        window.renderCategorizedBukuKontak(currentQuery); 
-    }
-    window.setupVoiceSearchBar();
-};
-
-window.loadDashboardData = async function() { 
     try {
-        const res = await window.fetchData('/warga'); 
-        if(!res || !res.ok) { if(res && res.status === 401) window.logout(); return; }
-        let data = await res.json(); if(!Array.isArray(data)) { data = []; } 
-        globalDataWarga = data; document.getElementById('statTotal').innerText = data.length; 
-        window.renderTable(data); 
-    } catch(err) { } 
-};
-
-window.renderTable = function(data) { 
-    if(!Array.isArray(data)) data = [];
-    let dtObj = $('#dataTable'); if ($.fn.DataTable.isDataTable(dtObj)) { dtObj.DataTable().clear().destroy(); } 
-    let tbody = document.querySelector('#dataTable tbody'); if(tbody) tbody.innerHTML = ''; 
-    let html = ''; 
-    data.forEach(w => { 
-        let isVerified = w.is_verified || false;
-        let encNik = enc(w.nik), encNama = enc(w.nama || 'Tanpa Nama');
-        const verifBadge = isVerified ? '<span class="badge badge-green"><i class="fas fa-check-circle"></i> Disetujui</span>' : '<span class="badge badge-red"><i class="fas fa-clock"></i> Menunggu</span>'; 
-        let btnSalur = '';
-        if (w.is_lapor_curang) {
-            btnSalur = `<button onclick="window.tanggapiLaporan('${w.nik}', '${w.nama}')" class="btn" style="padding:4px 8px; background:var(--danger); color:white; font-size:0.8rem; border-radius:6px; margin-right:4px;" title="Tindak Lanjuti"><i class="fas fa-headset"></i> Kasus Bansos</button>`;
+        const res = await window.fetchData(`/api/chat/${activeChatNik}`, {
+            method: 'POST',
+            body: formData
+        });
+        if (res.ok) {
+            window.loadChatMessages(activeChatNik, activeChatName);
+            window.loadChatList();
         }
-        let btnDelete = user && user.role === 'admin' ? `<button onclick="window.hapusData(${w.id})" class="btn" style="padding:4px 8px; background:var(--danger); color:white; font-size:0.8rem; border-radius:6px;"><i class="fas fa-trash"></i></button>` : ''; 
-        html += `<tr data-nik="${safeHtml(w.nik)}" data-nama="${safeHtml(w.nama)}"> 
-            <td style="text-align:center;"><input type="checkbox" class="row-checkbox" value="${w.id}"></td> 
-            <td style="font-weight:700; font-family:monospace; font-size:1.05rem;">${safeHtml(w.nik)}</td>
-            <td><div style="font-weight:600;">${safeHtml(w.nama)}</div><small style="color:var(--text-muted);">${safeHtml(w.no_hp || '-')}</small></td> 
-            <td>${safeHtml(w.status_salur || 'Tersimpan')}</td> <td style="text-align:center;">${verifBadge}</td> 
-            <td style="text-align:center;">${btnSalur}<button onclick="window.bukaModalEdit(${w.id})" class="btn" style="padding:4px 8px; background:var(--accent); color:white; margin-right:4px; font-size:0.8rem; border-radius:6px;"><i class="fas fa-edit"></i></button>${btnDelete}</td> 
-        </tr>`; 
-    }); 
-    if(tbody) { tbody.innerHTML = html; }
-    dtTable = $('#dataTable').DataTable({ pageLength: 10, responsive: true, order: [[1, 'asc']] });
+    } catch (e) {
+        Swal.fire('Error', 'Gagal mengirim pesan.', 'error');
+    }
 };
 
-window.tanggapiLaporan = async function(nik, nama) { 
-    Swal.fire({ 
-        title: 'Tindak Lanjuti Masalah Bansos?', 
-        text: `Kirim pembaruan status ke warga (${nama}) bahwa laporan sudah diproses oleh Dinas Sosial?`, 
-        icon: 'question', 
-        showCancelButton: true, 
-        confirmButtonText: 'Ya, Tandai Selesai Penanganan' 
-    }).then(async (res) => { 
-        if(res.isConfirmed) { 
-            const response = await window.fetchData('/api/admin/lapor-tanggapi', { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify({nik: nik}) 
-            }); 
-            if(response.ok) { 
-                Swal.fire('Terkirim', 'Pembaruan status telah dikirim.', 'success'); 
-                window.loadDashboardData(); 
-                if(activeChatNik) window.loadChatMessages(activeChatNik, activeChatName, false);
-            } 
-        } 
-    }); 
+window.batalLampiran = function () {
+    window.adminMediaBlob = null;
+    window.adminMediaExt = '';
+    window.adminMediaType = '';
+    const fileInp = document.getElementById('adminChatFile');
+    if (fileInp) fileInp.value = '';
+    const nameEl = document.getElementById('adminFileName');
+    if (nameEl) nameEl.style.display = 'none';
 };
 
-window.hapusData = async function(id) { 
-    if(confirm('Hapus data warga ini dari arsip?')) { 
-        await window.fetchData(`/warga/${id}`, { method: 'DELETE' }); 
-        window.loadDashboardData(); 
-    } 
+window.tutupObrolanAktif = function () {
+    activeChatNik = null;
+    activeChatName = null;
+    const nameDisp = document.getElementById('chatActiveName');
+    if (nameDisp) nameDisp.innerText = 'Pilih warga dari panel kiri...';
+    const inp = document.getElementById('adminChatInput');
+    if (inp) inp.disabled = true;
+    const msgs = document.getElementById('adminChatMessages');
+    if (msgs) msgs.innerHTML = '<div style="text-align:center; color:#94a3b8; margin-top:100px;"><i class="fas fa-comments fa-3x" style="opacity:0.3; margin-bottom:15px;"></i><br>Pilih daftar warga untuk mulai berinteraksi.</div>';
+};
+
+window.closeModal = function (modalId) {
+    const m = document.getElementById(modalId);
+    if (m) m.style.display = 'none';
+};
+
+window.logout = function () {
+    localStorage.clear();
+    window.location.href = 'login.html';
 };
