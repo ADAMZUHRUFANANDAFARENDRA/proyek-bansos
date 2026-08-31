@@ -90,6 +90,11 @@
         /* MODAL OVERLAY */
         .modal-blur-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(6px); z-index: 2000; display: none; justify-content: center; align-items: center; padding: 20px; }
         .modal-card-premium { background: white; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); overflow: hidden; border: 1px solid rgba(255,255,255,0.8); }
+        
+        .q-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+        .q-grid .form-group { margin-bottom: 0; }
+        .filter-btn.active { background: #10b981 !important; color: white !important; font-weight: 700; }
+        .filter-btn-danger.active { background: #ef4444 !important; color: white !important; font-weight: 700; }
     </style>
 
     <!-- AUTH FAST CHECK -->
@@ -157,7 +162,7 @@
         <!-- DASHBOARD STATISTIK & GRAFIK DESIL -->
         <div class="dashboard-grid">
             <div class="card stat-card"><div class="stat-icon stat-blue"><i class="fas fa-users"></i></div><div><h2 id="statTotal">0</h2><p>Total Warga Terdaftar</p></div></div>
-            <div class="card stat-card"><div class="stat-icon stat-green"><i class="fas fa-check-circle"></i></div><div><h2 id="statValid" style="color:var(--primary);">0</h2><p>Warga Disetujui</p></div></div>
+            <div class="card stat-card"><div class="stat-icon stat-green"><i class="fas fa-check-circle"></i></div><div><h2 id="statValid" style="color:var(--primary);">0</h2><p>Warga Disetujui (Layak)</p></div></div>
             <div class="card" style="padding: 15px; display: flex; align-items: center; justify-content: center; min-height: 110px;">
                 <canvas id="wargaStatusChart" style="max-height: 95px; width: 100%;"></canvas>
             </div>
@@ -184,7 +189,7 @@
 
                         <div class="form-group"><label class="form-label">Nama Lengkap Pemohon</label><input type="text" id="nama" class="form-input" required placeholder="Nama lengkap sesuai KTP"></div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                            <div class="form-group"><label class="form-label">No. WhatsApp / HP</label><input type="number" id="no_hp" class="form-input" placeholder="Contoh: 08123456789"></div>
+                            <div class="form-group"><label class="form-label">No. WhatsApp / HP</label><input type="text" id="no_hp" class="form-input" placeholder="Contoh: 08123456789"></div>
                             <div class="form-group"><label class="form-label">Alamat Email</label><input type="email" id="email" class="form-input" placeholder="warga@mail.com"></div>
                         </div>
 
@@ -215,15 +220,15 @@
                         <div class="q-grid">
                             <div class="form-group">
                                 <label class="form-label">C1. Kondisi Ekonomi / Penghasilan Bulanan (Rp)</label>
-                                <input type="number" id="c1" class="form-input" value="0" placeholder="Contoh: 1500000">
+                                <input type="number" id="c1" class="form-input" value="1500000" placeholder="Contoh: 1500000">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">C2. Estimasi Nilai Kepemilikan Aset (Rp)</label>
-                                <input type="number" id="c2" class="form-input" value="0" placeholder="Contoh: 5000000">
+                                <input type="number" id="c2" class="form-input" value="5000000" placeholder="Contoh: 5000000">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">C3. Usia / Umur Kepala Keluarga (Tahun)</label>
-                                <input type="number" id="c3" class="form-input" value="0" placeholder="Contoh: 48">
+                                <input type="number" id="c3" class="form-input" value="45" placeholder="Contoh: 48">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">C4. Jenis Kelamin Kepala Keluarga</label>
@@ -234,32 +239,32 @@
                             </div>
                             <div class="form-group">
                                 <label class="form-label">C5. Jumlah Tanggungan Keluarga (Jiwa)</label>
-                                <input type="number" id="c5" class="form-input" value="0" placeholder="Contoh: 4">
+                                <input type="number" id="c5" class="form-input" value="3" placeholder="Contoh: 4">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">C6. Status Pernikahan</label>
                                 <select id="c6" class="form-select">
                                     <option value="1">Belum Menikah (1)</option>
-                                    <option value="2">Menikah (2)</option>
+                                    <option value="2" selected>Menikah (2)</option>
                                     <option value="3">Cerai Hidup / Cerai Mati (3)</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">C7. Kepemilikan Anak Usia Sekolah</label>
-                                <input type="number" id="c7" class="form-input" value="0" placeholder="Jumlah anak">
+                                <input type="number" id="c7" class="form-input" value="2" placeholder="Jumlah anak">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">C8. Status Kepemilikan Tempat Tinggal</label>
                                 <select id="c8" class="form-select">
                                     <option value="1">Milik Sendiri (1)</option>
                                     <option value="2">Sewa / Kontrak (2)</option>
-                                    <option value="3">Menumpang / Tidak Layak (3)</option>
+                                    <option value="3" selected>Menumpang / Tidak Layak (3)</option>
                                 </select>
                             </div>
                             <div class="form-group" style="grid-column: span 2;">
                                 <label class="form-label">C9. Tingkat Pendidikan Terakhir</label>
                                 <select id="c9" class="form-select">
-                                    <option value="1">Tidak Sekolah / SD (1)</option>
+                                    <option value="1" selected>Tidak Sekolah / SD (1)</option>
                                     <option value="2">SMP / Sederajat (2)</option>
                                     <option value="3">SMA / SMK (3)</option>
                                     <option value="4">Diploma / Sarjana (4)</option>
@@ -268,7 +273,7 @@
                             <div class="form-group" style="grid-column: span 2;">
                                 <label class="form-label">C10. Status Kesehatan / Riwayat Penyakit</label>
                                 <select id="c10" class="form-select">
-                                    <option value="1">Sehat (1)</option>
+                                    <option value="1" selected>Sehat (1)</option>
                                     <option value="2">Sakit Menahun / Disabilitas Fisik (2)</option>
                                 </select>
                             </div>
@@ -291,7 +296,8 @@
                             <button onclick="document.getElementById('fileImport').click()" class="btn btn-secondary" style="color:var(--admin-color);" title="Import dari Excel"><i class="fas fa-file-import"></i> Impor Excel</button>
                             <input type="file" id="fileImport" style="display:none;" accept=".xlsx, .xls" onchange="window.smartImportPreview(this)">
                             <button onclick="window.syncBPS()" class="btn btn-secondary" style="color:var(--info);" title="Tarik Sinkronisasi BPS"><i class="fas fa-cloud-download-alt"></i> BPS</button>
-                            <button onclick="window.verifyAllData()" class="btn btn-primary" title="Setujui Semua"><i class="fas fa-check-double"></i> Setujui Semua</button>
+                            <button onclick="window.verifyAllData()" class="btn btn-primary" title="Setujui Data Sekaligus"><i class="fas fa-check-double"></i> Setujui Semua</button>
+                            <button onclick="window.hapusSemuaWarga()" class="btn" style="background:#fee2e2; color:#dc2626;" title="Hapus Seluruh Data Warga"><i class="fas fa-trash-alt"></i> Hapus Semua</button>
                         </div>
                     </div>
                     <div class="table-container">
@@ -315,7 +321,7 @@
                                     <th>Nomor NIK</th>
                                     <th>Identitas Warga</th>
                                     <th>Waktu Pendaftaran</th>
-                                    <th style="text-align:center;">Validasi</th>
+                                    <th style="text-align:center;">Validasi / Kelayakan</th>
                                     <th style="text-align:center;">Aksi</th>
                                 </tr>
                             </thead>
@@ -327,7 +333,7 @@
                 <!-- HASIL REKOMENDASI SPK -->
                 <div class="card hidden" id="resultCard" style="display:none; border: 1px solid var(--primary-light); box-shadow: 0 10px 25px rgba(16, 185, 129, 0.15);">
                     <div class="card-header" style="background: linear-gradient(to right, #ecfdf5, #ffffff);">
-                        <div class="card-title" style="color: var(--primary-dark); font-size: 1.25rem;"><i class="fas fa-trophy" style="color:var(--accent); font-size: 1.5rem;"></i> Hasil Rekomendasi SAW & BWM</div>
+                        <div class="card-title" style="color: var(--primary-dark); font-size: 1.25rem;"><i class="fas fa-trophy" style="color:var(--accent); font-size: 1.5rem;"></i> Hasil Rekomendasi SAW & BWM (Prioritas Desil 1–5)</div>
                         <div style="display:flex; gap:8px;">
                             <button type="button" onclick="window.bukaModalMatriksKerja()" class="btn btn-secondary" style="color:var(--admin-color); border-color: #c7d2fe; background: white;"><i class="fas fa-table"></i> Lihat Matriks Kerja</button>
                             <button type="button" onclick="window.exportSPKPDF()" class="btn btn-primary" style="background: linear-gradient(135deg, var(--danger), #be123c); box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);"><i class="fas fa-file-pdf"></i> Cetak SK Bupati</button>
@@ -479,7 +485,7 @@
                     <div><label class="form-label">C3. Usia / Umur Kepala Keluarga (Tahun)</label><input type="number" id="editC3" class="form-input" value="0"></div>
                     <div><label class="form-label">C4. Jenis Kelamin Kepala Keluarga</label><select id="editC4" class="form-select"><option value="1">Laki-laki (1)</option><option value="2">Perempuan (2)</option></select></div>
                     <div><label class="form-label">C5. Jumlah Tanggungan Keluarga (Jiwa)</label><input type="number" id="editC5" class="form-input" value="0"></div>
-                    <div><label class="form-label">C6. Status Pernikahan</label><select id="editC6" class="form-select"><option value="1">Belum Menikah (1)</option><option value="2">Menikah (2)</option><option value="3">Cerai Hidup / Cerai Mati (3)</option></select></div>
+                    <div><label class="form-label">C6. Status Pernikahan</label><select id="editC6" class="form-select"><option value="1">Belum Menikah (1)</option><option value="2">Menikah (2)</option></select></div>
                     <div><label class="form-label">C7. Kepemilikan Anak Usia Sekolah</label><input type="number" id="editC7" class="form-input" value="0"></div>
                     <div><label class="form-label">C8. Status Kepemilikan Tempat Tinggal</label><select id="editC8" class="form-select"><option value="1">Milik Sendiri (1)</option><option value="2">Sewa / Kontrak (2)</option><option value="3">Menumpang / Tidak Layak (3)</option></select></div>
                     <div style="grid-column: span 2;"><label class="form-label">C9. Tingkat Pendidikan Terakhir</label><select id="editC9" class="form-select"><option value="1">Tidak Sekolah / SD (1)</option><option value="2">SMP / Sederajat (2)</option><option value="3">SMA / SMK (3)</option><option value="4">Diploma / Sarjana (4)</option></select></div>
@@ -800,7 +806,7 @@
     <script src="https://cdn.scaleflex.it/plugins/filerobot-image-editor/3.12.17/filerobot-image-editor.min.js"></script>
 
     <!-- SCRIPTS APLIKASI KITA -->
-    <script src="static/js/global.js?v=10.0"></script>
-    <script src="static/js/admin.js?v=10.0"></script>
+    <script src="static/js/global.js?v=11.0"></script>
+    <script src="static/js/admin.js?v=11.0"></script>
 </body>
 </html>
