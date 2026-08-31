@@ -6,45 +6,42 @@
  * interceptor request fetch, dan fungsi formatting umum.
  */
 
-// 1. KONFIGURASI BASE URL API BACKEND
-const API_BASE_URL = 'http://localhost:5000';
+// 1. KONFIGURASI BASE URL API BACKEND (Menggunakan 127.0.0.1)
+const API_BASE_URL = 'http://127.0.0.1:5000';
+window.API_BASE_URL = API_BASE_URL;
 
 // 2. HELPER AUTENTIKASI & MANAJEMEN SESI (JWT)
-// HELPER AUTENTIKASI & MANAJEMEN SESI (JWT)
 function getAuthToken() {
-  let token =
-      localStorage.getItem('token') ||
-      localStorage.getItem('bansosToken') ||
-      localStorage.getItem('access_token') ||
-      '';
-  if (!token || token === 'undefined' || token === 'null') return '';
-  return token.replace(/^["']+|["']+$/g, '').trim();
+    let token = localStorage.getItem('token') ||
+                localStorage.getItem('bansosToken') ||
+                localStorage.getItem('access_token') || '';
+    if (!token || token === 'undefined' || token === 'null') return '';
+    return token.replace(/^["']+|["']+$/g, '').trim();
 }
 
 function getAuthUser() {
-  try {
-    const user =
-        localStorage.getItem('user') || localStorage.getItem('bansosUser');
-    return user ? JSON.parse(user) : null;
-  } catch (e) {
-    return null;
-  }
+    try {
+        const user = localStorage.getItem('user') || localStorage.getItem('bansosUser');
+        return user ? JSON.parse(user) : null;
+    } catch (e) {
+        return null;
+    }
 }
 
 function setAuthSession(token, userData) {
-  if (token) {
-    localStorage.setItem('token', token);
-    localStorage.setItem('bansosToken', token);
-  }
-  if (userData) {
-    localStorage.setItem('user', JSON.stringify(userData));
-    localStorage.setItem('bansosUser', JSON.stringify(userData));
-  }
+    if (token) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('bansosToken', token);
+    }
+    if (userData) {
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('bansosUser', JSON.stringify(userData));
+    }
 }
 
 function logoutUser() {
-  localStorage.clear();
-  window.location.href = 'login.html';
+    localStorage.clear();
+    window.location.href = 'login.html';
 }
 
 // 3. INTERCEPTOR FETCH DENGAN JWT (FETCH WITH AUTH)
@@ -109,7 +106,7 @@ async function fetchWithAuth(endpoint, options = {}) {
             Swal.fire({
                 icon: 'error',
                 title: 'Koneksi Terputus',
-                text: 'Gagal terhubung ke server backend. Pastikan server Flask aktif.',
+                text: 'Gagal terhubung ke server backend. Pastikan server Flask aktif di port 5000.',
                 confirmButtonColor: '#ef4444'
             });
         }
@@ -212,3 +209,13 @@ function showToast(icon = 'success', title = 'Berhasil!') {
         alert(title);
     }
 }
+
+// 6. TEMPELKAN KE OBJEK GLOBAL (WINDOW)
+window.getAuthToken = getAuthToken;
+window.getAuthUser = getAuthUser;
+window.setAuthSession = setAuthSession;
+window.logoutUser = logoutUser;
+window.fetchWithAuth = fetchWithAuth;
+window.formatRupiah = formatRupiah;
+window.formatDateIndo = formatDateIndo;
+window.showToast = showToast;
