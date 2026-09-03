@@ -319,7 +319,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Listener upload chat file
     const adminFileInput = document.getElementById('adminChatFile');
     if (adminFileInput) {
         adminFileInput.addEventListener('change', function () {
@@ -333,14 +332,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Muat data dashboard dan peta
     await window.loadDashboardData();
     setTimeout(() => {
         window.initFormMapPicker();
         window.initMacroDistributionMap();
     }, 350);
 
-    // Setup notifikasi dan WebRTC Peer
     window.setupNotificationSystemModern();
     window.fetchNotifikasiRealtime();
     setInterval(window.fetchNotifikasiRealtime, 6000);
@@ -381,33 +378,28 @@ window.processOCR = async function (input) {
         Swal.close();
         const text = res.data.text || '';
         
-        // 1. Ekstrak NIK 16 Digit
         const nikMatch = text.match(/\b\d{16}\b/);
         if (nikMatch && document.getElementById('nik')) {
             document.getElementById('nik').value = nikMatch[0];
             await window.cekDukcapilLokal();
         }
 
-        // 2. Ekstrak Nama Lengkap
         const namaMatch = text.match(/(?:Nama|NAMA)\s*[:;]?\s*([A-Za-z\s.,']+)/i);
         if (namaMatch && document.getElementById('nama')) {
             document.getElementById('nama').value = namaMatch[1].trim().replace(/\n/g, '');
         }
 
-        // 3. Ekstrak Tempat & Tanggal Lahir
         const ttlMatch = text.match(/(?:Tempat\/Tgl Lahir|Tempat\/Tgl|TTL)\s*[:;]?\s*([A-Za-z\s]+)[,\/]\s*(\d{2})[-–\/](\d{2})[-–\/](\d{4})/i);
         if (ttlMatch) {
             if (document.getElementById('tempatLahir')) document.getElementById('tempatLahir').value = ttlMatch[1].trim();
             if (document.getElementById('tglLahir')) document.getElementById('tglLahir').value = `${ttlMatch[4]}-${ttlMatch[3]}-${ttlMatch[2]}`;
         }
 
-        // 4. Ekstrak Alamat
         const alamatMatch = text.match(/(?:Alamat|ALAMAT)\s*[:;]?\s*([A-Za-z0-9\s.,\/-]+?)(?=(?:RT\/RW|Kel\/Desa|Kecamatan|Agama|$))/i);
         if (alamatMatch && document.getElementById('alamat')) {
             document.getElementById('alamat').value = alamatMatch[1].trim().replace(/\n/g, ' ') + ', Sidoarjo';
         }
 
-        // 5. Ekstrak Jenis Kelamin
         if (/LAKI|LAKI-LAKI/i.test(text) && document.getElementById('c4')) document.getElementById('c4').value = "1";
         if (/PEREMPUAN/i.test(text) && document.getElementById('c4')) document.getElementById('c4').value = "2";
 
@@ -579,7 +571,6 @@ window.renderChoroplethKerentanan = function () {
         const countWarga = wargaWilayah.length || (idx % 3 === 0 ? 12 : 6);
         const avgDesil = idx % 3 === 0 ? 2.1 : (idx % 2 === 0 ? 3.8 : 6.5);
         
-        // Warna: Merah = Sangat Rentan (Desil 1-2), Oranye = Sedang (Desil 3-4), Hijau = Rendah (Desil 5-10)
         const polyColor = avgDesil <= 2.5 ? '#ef4444' : (avgDesil <= 4.5 ? '#f59e0b' : '#10b981');
         const statusText = avgDesil <= 2.5 ? 'Kerentanan Tinggi' : (avgDesil <= 4.5 ? 'Kerentanan Sedang' : 'Relatif Mampu');
 
@@ -604,7 +595,6 @@ window.renderChoroplethKerentanan = function () {
         macroLayerGroup.addLayer(poly);
     });
 
-    // Tambahkan marker presisi warga
     globalDataWarga.forEach(w => {
         if (w.lat && w.lng) {
             const desil = w.desil || (w.is_verified ? 2 : 5);
@@ -678,7 +668,6 @@ window.render3DashboardCharts = function (data) {
     if (!Array.isArray(data)) data = [];
     const total = data.length;
 
-    // 1. Grafik 10 Klaster Desil (D1 - D10)
     const ctxDesil = document.getElementById('chartDesil10');
     if (ctxDesil) {
         const desilCounts = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -707,7 +696,6 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
-    // 2. Grafik Status Persetujuan Warga (Layak vs Menunggu)
     const ctxValid = document.getElementById('chartPersetujuan');
     if (ctxValid) {
         const disetujui = data.filter(w => w.is_verified).length;
@@ -747,7 +735,6 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
-    // 3. Grafik Status Penyaluran Bansos (Telah Salur vs Belum Salur)
     const ctxSalur = document.getElementById('chartPenyaluran');
     if (ctxSalur) {
         const telahMenerima = data.filter(w => w.status_salur === 'Telah Menerima').length;
@@ -787,7 +774,6 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
-    // 4. Grafik Status Mediasi Sengketa (Bebas Kasus vs Sengketa Aktif)
     const ctxSengketa = document.getElementById('chartSengketa');
     if (ctxSengketa) {
         const kasusSengketa = data.filter(w => String(w.status_salur).includes('Sengketa')).length;
@@ -891,11 +877,9 @@ window.loadDashboardData = async function (showToast = false) {
         const sengketa = data.filter(w => String(w.status_salur).includes('Sengketa')).length;
         const bebasSengketa = total - sengketa;
 
-        // Populate Card 1: Total
         const statTotal = document.getElementById('statTotal');
         if (statTotal) statTotal.innerText = total;
 
-        // Populate Card 2: Persetujuan Warga (Disetujui & Menunggu Jadi Satu)
         const statValid = document.getElementById('statValid');
         const statTotalRef = document.getElementById('statTotalRef');
         const statValidBadge = document.getElementById('statValidBadge');
@@ -905,19 +889,16 @@ window.loadDashboardData = async function (showToast = false) {
         if (statValidBadge) statValidBadge.innerText = disetujui;
         if (statMenungguBadge) statMenungguBadge.innerText = menunggu;
 
-        // Populate Card 3: Penyaluran Bantuan (Terpisah)
         const statTelahSalur = document.getElementById('statTelahSalur');
         const statBelumSalurBadge = document.getElementById('statBelumSalurBadge');
         if (statTelahSalur) statTelahSalur.innerText = telahSalur;
         if (statBelumSalurBadge) statBelumSalurBadge.innerText = belumSalur;
 
-        // Populate Card 4: Mediasi Sengketa (Terpisah)
         const statSengketa = document.getElementById('statSengketa');
         const statBebasSengketaBadge = document.getElementById('statBebasSengketaBadge');
         if (statSengketa) statSengketa.innerText = sengketa;
         if (statBebasSengketaBadge) statBebasSengketaBadge.innerText = bebasSengketa;
 
-        // Render 4 Grafik Statistik & Peta
         window.render3DashboardCharts(data);
         window.filterAndRenderData();
         window.renderChoroplethKerentanan();
@@ -957,9 +938,8 @@ window.renderTable = function (data) {
     data.forEach(w => {
         const isVerified = Boolean(w.is_verified);
         const desil = w.desil || 5;
-        const isEligible = isVerified && desil <= 4; // Memenuhi syarat Desil 1-4
+        const isEligible = isVerified && desil <= 4;
 
-        // 1. BADGE VALIDASI DENGAN TANDA CENTANG
         let verifBadge = '';
         if (isVerified) {
             verifBadge = `<span class="badge badge-green" style="background:#e6f9f0; color:#009846; border:1px solid #a7f3d0; padding:5px 12px; border-radius:20px; font-weight:800; display:inline-flex; align-items:center; gap:5px; font-size:0.8rem;"><i class="fas fa-check-circle" style="color:#009846;"></i> DISETUJUI</span>`;
@@ -967,7 +947,6 @@ window.renderTable = function (data) {
             verifBadge = `<span class="badge badge-red" style="background:#fee2e2; color:#dc2626; border:1px solid #fecaca; padding:5px 12px; border-radius:20px; font-weight:800; display:inline-flex; align-items:center; gap:5px; font-size:0.8rem;"><i class="fas fa-clock"></i> MENUNGGU</span>`;
         }
 
-        // 2. KETERANGAN KELAYAKAN BANSOS (DESIL 1-4 vs DESIL 5-10)
         let desilBadge = '';
         if (isVerified) {
             if (desil <= 4) {
@@ -977,7 +956,6 @@ window.renderTable = function (data) {
             }
         }
 
-        // 3. STATUS PENYALURAN
         let statusSalurBadge = '';
         if (w.status_salur === 'Telah Menerima') {
             statusSalurBadge = `<span class="badge badge-blue" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-box-check"></i> Telah Menerima</span>`;
@@ -985,15 +963,13 @@ window.renderTable = function (data) {
             statusSalurBadge = `<span class="badge badge-red" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-exclamation-triangle"></i> Sengketa</span>`;
         }
 
-        // 4. TOMBOL AKSI: BATAL / SETUJUI
         const btnToggleVerif = isVerified
             ? `<button onclick="window.toggleVerifySingle(${w.id}, '${escapeInlineJS(w.nama)}')" class="btn btn-secondary btn-sm" style="border:1px solid #cbd5e1; border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px; background:white; color:#334155;" title="Batalkan Konfirmasi"><i class="fas fa-undo"></i> Batal</button>`
             : `<button onclick="window.toggleVerifySingle(${w.id}, '${escapeInlineJS(w.nama)}')" class="btn btn-primary btn-sm" style="border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px; background:#009846; color:white;" title="Konfirmasi & Setujui"><i class="fas fa-check"></i> Setujui</button>`;
 
-        // 5. TOMBOL UNGGAH BUKTI: HANYA MUNCUL JIKA MEMENUHI SYARAT (DESIL 1-4)
         const btnKamera = isEligible
             ? `<button onclick="window.bukaUploadBuktiSalur(${w.id}, '${escapeInlineJS(w.nama)}', '${w.bukti_salur || ''}')" class="btn btn-sm" style="padding:5px 8px; background:#dcfce7; color:#15803d; border-radius:6px; margin-right:3px;" title="Unggah Bukti Penyaluran"><i class="fas fa-camera"></i></button>`
-            : ''; // Tombol kamera menghilang jika tidak memenuhi syarat Desil 1-4
+            : '';
 
         const btnDelete = (user && user.role === 'admin')
             ? `<button onclick="window.hapusData(${w.id})" class="btn" style="padding:5px 8px; background:#ef4444; color:white; font-size:0.8rem; border-radius:6px;" title="Hapus Data"><i class="fas fa-trash"></i></button>`
@@ -1030,7 +1006,6 @@ window.renderTable = function (data) {
 
     tbody.innerHTML = html;
     
-    // KUNCI: order: [] AGAR HASIL PENGURUTAN KITA TIDAK DITIMPA OLEH DATATABLES
     dtTable = $('#dataTable').DataTable({
         pageLength: 10,
         responsive: true,
@@ -1078,7 +1053,6 @@ window.filterAndRenderData = function () {
     let dataList = (window.globalDataWarga && window.globalDataWarga.length > 0) ? window.globalDataWarga : globalDataWarga;
     let filtered = [...dataList];
 
-    // 1. Filter Kategori
     if (window.currentFilter === 'layak') {
         filtered = filtered.filter(w => w.is_verified && ((w.desil || 5) <= 4));
     } else if (window.currentFilter === 'menerima') {
@@ -1087,14 +1061,12 @@ window.filterAndRenderData = function () {
         filtered = filtered.filter(w => String(w.status_salur).includes('Sengketa') || !w.is_verified);
     }
 
-    // 2. Pencarian Tanggal Daftar (Bisa Ketik Format: 02/09/2026, 2026-09-02, atau 02/09)
     if (window.selectedTanggalDaftar) {
         const query = window.selectedTanggalDaftar;
         filtered = filtered.filter(w => {
             const raw = String(w.created_at || '').toLowerCase();
             if (raw.includes(query)) return true;
             
-            // Konversi ISO ke dd/mm/yyyy jika input dari datepicker
             if (query.includes('-')) {
                 const parts = query.split('-');
                 if (parts.length === 3) {
@@ -1106,7 +1078,6 @@ window.filterAndRenderData = function () {
         });
     }
 
-    // 3. Eksekusi Pengurutan
     if (window.currentSort === 'nik_asc') {
         filtered.sort((a, b) => {
             const valA = BigInt(String(a.nik).replace(/\D/g, '') || 0);
@@ -1146,7 +1117,6 @@ window.verifyAllData = async function (e) {
 
     let dataList = (window.globalDataWarga && window.globalDataWarga.length > 0) ? window.globalDataWarga : globalDataWarga;
     
-    // Fallback otomatis jika data belum siap di memori
     if (!dataList || dataList.length === 0) {
         try {
             const res = await window.fetchData(`/warga?_t=${Date.now()}`);
@@ -1302,7 +1272,6 @@ window.toggleVerifySingle = async function (id, namaWarga) {
     }
 };
 
-// Event listener ganda pada dokumen (fallback listener)
 $(document).on('click', '#btnVerifyAll, .btn-verify-all', function (e) {
     window.verifyAllData(e);
 });
@@ -1487,7 +1456,7 @@ window.smartImportPreview = function (input) {
                 body: JSON.stringify({ data: rawJson })
             });
 
-            input.value = ''; // Reset input agar bisa upload ulang
+            input.value = '';
 
             if (res && res.ok) {
                 const result = await res.json();
@@ -1519,78 +1488,465 @@ window.smartImportPreview = function (input) {
 };
 
 // =========================================================================
-// 9. PROSES ALGORITMA BWM-SAW (STANDAR DESIL 1-4 LAYAK BANSOS)
+// 9. PROSES ALGORITMA BWM-SAW & TAMPILAN REKOMENDASI MODERN DETAIL
 // =========================================================================
 window.hitungSPK = async function () {
-    const wargaLayak = globalDataWarga.filter(w => w.is_verified);
+    const wargaLayak = (window.globalDataWarga || []).filter(w => w.is_verified);
     if (wargaLayak.length === 0) {
         return Swal.fire({
             icon: 'info',
-            title: 'Belum Ada Warga yang Dikonfirmasi',
-            text: 'Proses Algoritma SAW hanya memproses data warga yang telah disetujui (terkonfirmasi di sistem). Silakan setujui data warga terlebih dahulu.',
-            confirmButtonColor: '#10b981'
+            title: 'Belum Ada Warga Terverifikasi',
+            text: 'Algoritma SAW membutuhkan data warga yang telah berstatus Disetujui. Silakan setujui minimal 1 warga terlebih dahulu.',
+            confirmButtonColor: '#009846'
         });
     }
 
     Swal.fire({
         title: 'Memproses Algoritma SAW...',
-        text: 'Menghitung normalisasi matriks dan pembobotan BWM (Prioritas Desil 1–4)...',
+        html: 'Menghitung normalisasi matriks dan pembobotan BWM...',
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading()
     });
 
     try {
         const res = await window.fetchData('/hitung-saw');
-        if (!res || !res.ok) throw new Error();
+        
+        if (!res.ok) {
+            let errorDetail = `HTTP ${res.status}: ${res.statusText}`;
+            try {
+                const errJson = await res.json();
+                if (errJson.message) errorDetail = errJson.message;
+            } catch (_) {}
+            throw new Error(errorDetail);
+        }
+
         const spkData = await res.json();
         lastSPKResult = spkData;
         Swal.close();
 
+        // Normalisasi struktur data hasil_akhir
+        const hasilList = Array.isArray(spkData) 
+            ? spkData 
+            : (spkData.hasil_akhir || spkData.data || []);
+
+        if (hasilList.length === 0) {
+            throw new Error('Hasil komputasi kosong dari server backend.');
+        }
+
         const resultCard = document.getElementById('resultCard');
+        const resultTable = document.getElementById('resultTable');
         const resultTbody = document.querySelector('#resultTable tbody');
 
-        if (resultCard && resultTbody && spkData.hasil_akhir) {
-            resultCard.style.display = 'block';
-            resultTbody.innerHTML = '';
-
-            spkData.hasil_akhir.forEach((item, idx) => {
-                const tr = document.createElement('tr');
-                const isLayakDesil = item.desil <= 4;
-                const badgeColor = isLayakDesil ? 'badge-green' : 'badge-red';
-
-                tr.innerHTML = `
-                    <td style="text-align:center; font-weight:800;">#${idx + 1}</td>
-                    <td><strong>${safeHtml(item.nama)}</strong><br><small class="text-muted">NIK: ${item.nik}</small></td>
-                    <td style="text-align:center;"><span style="font-weight:700; color:var(--primary);">${item.skor_akhir}</span></td>
-                    <td style="text-align:center;"><span class="badge ${badgeColor}">Desil ${item.desil}</span></td>
-                    <td style="text-align:center;"><b style="color:${isLayakDesil ? '#15803d' : '#dc2626'};">${item.menerima}</b></td>
-                `;
-                resultTbody.appendChild(tr);
-            });
-
-            window.prepareSKTable(spkData.hasil_akhir);
-            resultCard.scrollIntoView({ behavior: 'smooth' });
-            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Perhitungan BWM-SAW Selesai!', showConfirmButton: false, timer: 2000 });
+        if (!resultCard || !resultTbody) {
+            throw new Error('Elemen #resultCard atau #resultTable tidak ditemukan di dalam HTML.');
         }
+
+        resultCard.style.display = 'block';
+
+        // 1. Ringkasan Metrik Statistik SPK
+        const totalWarga = hasilList.length;
+        const totalLayak = hasilList.filter(item => (item.desil || 5) <= 4).length;
+        const totalTidak = totalWarga - totalLayak;
+        const estimasiDana = totalLayak * 600000;
+
+        let summaryBox = document.getElementById('spkSummaryMetrics');
+        if (!summaryBox) {
+            summaryBox = document.createElement('div');
+            summaryBox.id = 'spkSummaryMetrics';
+            if (resultTable) {
+                resultTable.before(summaryBox);
+            } else {
+                resultCard.prepend(summaryBox);
+            }
+        }
+
+        // Tampilan Card Rapi dengan Buffer Margin & Padding agar tidak menabrak header
+        summaryBox.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin: 24px 0 28px 0; padding: 2px; box-sizing: border-box;">
+                <!-- Card 1: Total Dievaluasi -->
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 5px solid #0284c7; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; align-items: center; gap: 14px;">
+                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">Total Dievaluasi</div>
+                        <div style="font-size: 1.3rem; font-weight: 800; color: #0f172a; line-height: 1.2; margin-top: 2px;">${totalWarga} <span style="font-size: 0.8rem; font-weight: 600; color: #64748b;">Warga</span></div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Layak Desil 1-4 -->
+                <div style="background: #ffffff; border: 1px solid #bbf7d0; border-left: 5px solid #16a34a; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 6px rgba(22,163,74,0.05); display: flex; align-items: center; gap: 14px;">
+                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.72rem; color: #15803d; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">Layak (Desil 1–4)</div>
+                        <div style="font-size: 1.3rem; font-weight: 800; color: #14532d; line-height: 1.2; margin-top: 2px;">${totalLayak} <span style="font-size: 0.8rem; font-weight: 600; color: #16a34a;">Penerima</span></div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Tidak Prioritas -->
+                <div style="background: #ffffff; border: 1px solid #fecaca; border-left: 5px solid #dc2626; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 6px rgba(220,38,38,0.05); display: flex; align-items: center; gap: 14px;">
+                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.72rem; color: #b91c1c; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">Tidak Prioritas</div>
+                        <div style="font-size: 1.3rem; font-weight: 800; color: #7f1d1d; line-height: 1.2; margin-top: 2px;">${totalTidak} <span style="font-size: 0.8rem; font-weight: 600; color: #b91c1c;">Warga</span></div>
+                    </div>
+                </div>
+
+                <!-- Card 4: Alokasi Bansos -->
+                <div style="background: #ffffff; border: 1px solid #fde68a; border-left: 5px solid #d97706; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 6px rgba(217,119,6,0.05); display: flex; align-items: center; gap: 14px;">
+                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.72rem; color: #92400e; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">Alokasi Bansos</div>
+                        <div style="font-size: 1.25rem; font-weight: 800; color: #78350f; line-height: 1.2; margin-top: 2px;">Rp ${estimasiDana.toLocaleString('id-ID')}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 2. Render Tabel Hasil Pemeringkatan
+        resultTbody.innerHTML = '';
+        hasilList.forEach((item, idx) => {
+            const tr = document.createElement('tr');
+            const isLayakDesil = (item.desil || 5) <= 4;
+            const skorNum = parseFloat(item.skor_akhir || 0);
+            const skorPct = Math.min(100, Math.max(0, (skorNum * 100))).toFixed(1);
+
+            let rankBadge = `<span style="font-weight:700; color:#64748b;">#${idx + 1}</span>`;
+            if (idx === 0) rankBadge = `<span style="background:#f59e0b; color:white; padding:3px 9px; border-radius:12px; font-weight:800; font-size:0.75rem;"><i class="fas fa-medal"></i> #1</span>`;
+            else if (idx === 1) rankBadge = `<span style="background:#94a3b8; color:white; padding:3px 9px; border-radius:12px; font-weight:800; font-size:0.75rem;"><i class="fas fa-medal"></i> #2</span>`;
+            else if (idx === 2) rankBadge = `<span style="background:#d97706; color:white; padding:3px 9px; border-radius:12px; font-weight:800; font-size:0.75rem;"><i class="fas fa-medal"></i> #3</span>`;
+
+            tr.innerHTML = `
+                <td style="text-align:center; vertical-align:middle;">${rankBadge}</td>
+                <td style="vertical-align:middle;">
+                    <div style="font-weight:800; color:#1e293b; font-size:0.92rem;">${safeHtml(item.nama)}</div>
+                    <small style="color:#64748b; font-family:monospace; font-size:0.78rem;">NIK: ${item.nik || '-'}</small>
+                </td>
+                <td style="vertical-align:middle; min-width:120px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                        <span style="font-weight:800; font-family:monospace; color:#0f172a; font-size:0.88rem;">${skorNum.toFixed(4)}</span>
+                        <small style="color:#64748b; font-size:0.7rem;">${skorPct}%</small>
+                    </div>
+                    <div style="background:#e2e8f0; height:6px; border-radius:4px; overflow:hidden;">
+                        <div style="background:${isLayakDesil ? '#009846' : '#94a3b8'}; width:${skorPct}%; height:100%;"></div>
+                    </div>
+                </td>
+                <td style="text-align:center; vertical-align:middle;">
+                    <span class="badge" style="background:${isLayakDesil ? '#dcfce7' : '#f1f5f9'}; color:${isLayakDesil ? '#15803d' : '#64748b'}; font-weight:800; font-size:0.75rem; border:1px solid ${isLayakDesil ? '#86efac' : '#cbd5e1'};">
+                        DESIL ${item.desil || '-'}
+                    </span>
+                </td>
+                <td style="text-align:center; vertical-align:middle;">
+                    ${isLayakDesil 
+                        ? `<span class="badge badge-green" style="font-size:0.78rem;"><i class="fas fa-check-circle"></i> Menerima Bansos</span>`
+                        : `<span class="badge badge-red" style="font-size:0.78rem;"><i class="fas fa-times-circle"></i> Tidak Menerima</span>`}
+                </td>
+            `;
+            resultTbody.appendChild(tr);
+        });
+
+        resultCard.scrollIntoView({ behavior: 'smooth' });
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Perhitungan BWM-SAW Berhasil!', showConfirmButton: false, timer: 2000 });
+
     } catch (e) {
-        Swal.fire('Gagal', 'Terjadi kesalahan saat memproses komputasi SPK.', 'error');
+        console.error("Error SPK BWM-SAW:", e);
+        Swal.fire('Gagal Komputasi', `Detail Kendala: ${e.message}`, 'error');
     }
 };
 
-window.prepareSKTable = function (hasilAkhir) {
-    const tbody = document.getElementById('skBupatiTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-    hasilAkhir.forEach((h, i) => {
-        tbody.innerHTML += `<tr><td style="border:1px solid #000; padding:6px; text-align:center;">${i+1}</td><td style="border:1px solid #000; padding:6px;">${h.nik}</td><td style="border:1px solid #000; padding:6px;">${safeHtml(h.nama)}</td><td style="border:1px solid #000; padding:6px; text-align:center;">Desil ${h.desil}</td><td style="border:1px solid #000; padding:6px; text-align:center;">${h.menerima}</td></tr>`;
+// =========================================================================
+// 10. GENERATOR KONTEN SK BUPATI SIDOARJO (RESMI, DETAIL & OTOMATIS)
+// =========================================================================
+window.getSKBupatiHTML = function (data) {
+    const tanggalSekarang = new Date().toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
     });
+
+    const totalPenerima = data.filter(d => (d.desil || 5) <= 4).length;
+    const totalAnggaran = totalPenerima * 600000;
+
+    let lampiranRows = '';
+    data.forEach((item, idx) => {
+        const isMenerima = (item.desil || 5) <= 4;
+        const nominalStr = isMenerima ? 'Rp 600.000,-' : 'Rp 0,-';
+        const skorStr = parseFloat(item.skor_akhir || 0).toFixed(4);
+        const statusText = isMenerima ? 'Ditetapkan Menerima' : 'Tidak Prioritas';
+        const bgRow = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
+
+        lampiranRows += `
+            <tr style="background:${bgRow}; page-break-inside:avoid;">
+                <td style="border:1px solid #000; padding:6px 4px; text-align:center; font-size:8pt;">${idx + 1}</td>
+                <td style="border:1px solid #000; padding:6px 5px; font-family:'Courier New', monospace; font-size:8pt; text-align:center;">${item.nik || '-'}</td>
+                <td style="border:1px solid #000; padding:6px 8px; font-size:8pt; font-weight:bold;">${safeHtml(item.nama)}</td>
+                <td style="border:1px solid #000; padding:6px 4px; text-align:center; font-size:8pt; font-family:'Courier New', monospace;">${skorStr}</td>
+                <td style="border:1px solid #000; padding:6px 4px; text-align:center; font-size:8pt; font-weight:bold;">Desil ${item.desil || '-'}</td>
+                <td style="border:1px solid #000; padding:6px 6px; text-align:right; font-size:8pt;">${nominalStr}</td>
+                <td style="border:1px solid #000; padding:6px 6px; text-align:center; font-size:8pt; font-weight:${isMenerima ? 'bold' : 'normal'}; color:${isMenerima ? '#000' : '#666'};">${statusText}</td>
+            </tr>
+        `;
+    });
+
+    return `
+        <div style="font-family:'Times New Roman', Times, serif; color:#000; line-height:1.35; padding:15px 25px; box-sizing:border-box; width:100%; background:#ffffff;">
+            
+            <!-- HALAMAN 1: NASKAH RESMI SURAT KEPUTUSAN -->
+            <div style="min-height: 960px; position: relative;">
+                
+                <!-- KOP DINAS RESMI -->
+                <div style="text-align:center; border-bottom:3px double #000; padding-bottom:6px; margin-bottom:14px;">
+                    <h3 style="margin:0; font-size:13pt; letter-spacing:1px; text-transform:uppercase;">PEMERINTAH KABUPATEN SIDOARJO</h3>
+                    <h2 style="margin:2px 0; font-size:15pt; letter-spacing:2px; text-transform:uppercase; font-weight:bold;">DINAS SOSIAL</h2>
+                    <p style="margin:0; font-size:8.5pt; font-style:italic;">Jl. Pahlawan No. 56 Sidoarjo, Jawa Timur 61213 | Telp: (031) 8921877 | Pos-el: dinsos@sidoarjokab.go.id</p>
+                </div>
+
+                <!-- NOMOR & TENTANG SK -->
+                <div style="text-align:center; margin-bottom:14px;">
+                    <div style="font-size:11pt; font-weight:bold; text-decoration:underline;">KEPUTUSAN BUPATI SIDOARJO</div>
+                    <div style="font-size:9pt; margin-top:2px;">NOMOR: 460 / 218 / 438.5.12 / 2026</div>
+                    <div style="font-size:10pt; font-weight:bold; margin-top:6px; text-transform:uppercase;">
+                        TENTANG<br>
+                        PENETAPAN DAFTAR PENERIMA BANTUAN SOSIAL KABUPATEN SIDOARJO<br>
+                        BERDASARKAN HASIL SISTEM PENDUKUNG KEPUTUSAN (BWM - SAW)<br>
+                        TAHUN ANGGARAN 2026
+                    </div>
+                </div>
+
+                <!-- KONSIDERAN PEMBUKA RESMI -->
+                <table style="width:100%; border-collapse:collapse; font-size:8.5pt; margin-bottom:10px;">
+                    <tr style="vertical-align:top;">
+                        <td style="width:95px; font-weight:bold;">Menimbang</td>
+                        <td style="width:12px; text-align:center;">:</td>
+                        <td style="text-align:justify;">
+                            <ol style="margin:0; padding-left:14px;">
+                                <li style="margin-bottom:3px;">Bahwa dalam rangka percepatan penghapusan kemiskinan ekstrem serta pemenuhan perlindungan jaminan sosial dasar di wilayah Kabupaten Sidoarjo, perlu menetapkan penerima bantuan sosial yang akurat, transparan, dan akuntabel;</li>
+                                <li style="margin-bottom:3px;">Bahwa berdasarkan hasil pengolahan data Sistem Pendukung Keputusan (SPK) dengan metode <i>Best-Worst Method (BWM)</i> dan <i>Simple Additive Weighting (SAW)</i>, telah diperoleh pemeringkatan preferensi kelayakan masyarakat prioritas Desil 1 sampai dengan Desil 4;</li>
+                                <li>Bahwa warga yang terdaftar dalam lampiran keputusan ini dipandang memenuhi syarat kelayakan administrasi dan kriteria lapangan.</li>
+                            </ol>
+                        </td>
+                    </tr>
+                    <tr style="vertical-align:top;">
+                        <td style="font-weight:bold; padding-top:4px;">Mengingat</td>
+                        <td style="text-align:center; padding-top:4px;">:</td>
+                        <td style="text-align:justify; padding-top:4px;">
+                            <ol style="margin:0; padding-left:14px;">
+                                <li style="margin-bottom:2px;">Undang-Undang Nomor 11 Tahun 2009 tentang Kesejahteraan Sosial;</li>
+                                <li style="margin-bottom:2px;">Undang-Undang Nomor 13 Tahun 2011 tentang Penanganan Fakir Miskin;</li>
+                                <li style="margin-bottom:2px;">Peraturan Menteri Sosial Republik Indonesia Nomor 25 Tahun 2019 tentang Penyelenggaraan Kesejahteraan Sosial;</li>
+                                <li style="margin-bottom:2px;">Peraturan Daerah Kabupaten Sidoarjo Nomor 3 Tahun 2021 tentang Penyelenggaraan Kesejahteraan Sosial;</li>
+                                <li>Data Terpadu Kesejahteraan Sosial (DTKS/DTSEN) Kabupaten Sidoarjo Tahun 2026.</li>
+                            </ol>
+                        </td>
+                    </tr>
+                    <tr style="vertical-align:top;">
+                        <td style="font-weight:bold; padding-top:4px;">Memperhatikan</td>
+                        <td style="text-align:center; padding-top:4px;">:</td>
+                        <td style="text-align:justify; padding-top:4px;">
+                            Berita Acara Hasil Rekomendasi Seleksi Sistem Pendukung Keputusan BWM-SAW Dinas Sosial Kabupaten Sidoarjo Nomor 460/084/BA-SPK/2026 tanggal ${tanggalSekarang}.
+                        </td>
+                    </tr>
+                </table>
+
+                <div style="text-align:center; font-weight:bold; font-size:10pt; margin:8px 0; letter-spacing:1px;">MEMUTUSKAN:</div>
+
+                <!-- DIKTUM KEPUTUSAN -->
+                <table style="width:100%; border-collapse:collapse; font-size:8.5pt; margin-bottom:14px;">
+                    <tr style="vertical-align:top;">
+                        <td style="width:95px; font-weight:bold;">Menetapkan</td>
+                        <td style="width:12px; text-align:center;">:</td>
+                        <td></td>
+                    </tr>
+                    <tr style="vertical-align:top;">
+                        <td style="font-weight:bold;">KESATU</td>
+                        <td style="text-align:center;">:</td>
+                        <td style="text-align:justify;">Menetapkan nama-nama warga penerima Bantuan Sosial Kabupaten Sidoarjo Tahun Anggaran 2026 sebagaimana tercantum dalam Lampiran yang merupakan bagian tidak terpisahkan dari Keputusan ini.</td>
+                    </tr>
+                    <tr style="vertical-align:top;">
+                        <td style="font-weight:bold; padding-top:3px;">KEDUA</td>
+                        <td style="text-align:center; padding-top:3px;">:</td>
+                        <td style="text-align:justify; padding-top:3px;">Bantuan sosial disalurkan sebesar <b>Rp 600.000,- (Enam Ratus Ribu Rupiah)</b> per penerima manfaat pada klaster Desil 1 s.d. Desil 4 melalui mekanisme penyaluran resmi Dinas Sosial Kabupaten Sidoarjo.</td>
+                    </tr>
+                    <tr style="vertical-align:top;">
+                        <td style="font-weight:bold; padding-top:3px;">KETIGA</td>
+                        <td style="text-align:center; padding-top:3px;">:</td>
+                        <td style="text-align:justify; padding-top:3px;">Segala biaya yang timbul sebagai akibat ditetapkannya Keputusan ini dibebankan pada Anggaran Pendapatan dan Belanja Daerah (APBD) Kabupaten Sidoarjo Tahun Anggaran 2026.</td>
+                    </tr>
+                    <tr style="vertical-align:top;">
+                        <td style="font-weight:bold; padding-top:3px;">KEEMPAT</td>
+                        <td style="text-align:center; padding-top:3px;">:</td>
+                        <td style="text-align:justify; padding-top:3px;">Keputusan ini mulai berlaku pada tanggal ditetapkan dengan ketentuan apabila di kemudian hari terdapat kekeliruan, akan diadakan pembetulan sebagaimana mestinya.</td>
+                    </tr>
+                </table>
+
+                <!-- TANDA TANGAN BUPATI -->
+                <div style="display:flex; justify-content:flex-end; margin-top:16px; page-break-inside:avoid;">
+                    <div style="text-align:center; width:250px; font-size:8.5pt;">
+                        <div>Ditetapkan di Sidoarjo</div>
+                        <div>Pada tanggal ${tanggalSekarang}</div>
+                        <div style="font-weight:bold; margin-top:3px; text-transform:uppercase;">BUPATI SIDOARJO</div>
+                        <div style="height:55px; display:flex; align-items:center; justify-content:center;">
+                            <span style="font-size:7pt; color:#666; border:1px dashed #999; padding:3px 6px; border-radius:4px;">[Tanda Tangan & Cap Resmi Dinas]</span>
+                        </div>
+                        <div style="font-weight:bold; text-decoration:underline;">H. SUBANDI, S.H., M.Kn.</div>
+                        <div style="font-size:7.5pt; color:#444;">Pembina Utama Madya</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PEMISAH HALAMAN RESMI -->
+            <div class="html2pdf__page-break" style="height:10px;"></div>
+
+            <!-- HALAMAN 2+: LAMPIRAN REKAPITULASI & TABEL DATA LENGKAP -->
+            <div style="padding-top:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1.5px solid #000; padding-bottom:5px; margin-bottom:10px;">
+                    <div>
+                        <div style="font-size:8pt; font-weight:bold; text-transform:uppercase;">LAMPIRAN KEPUTUSAN BUPATI SIDOARJO</div>
+                        <div style="font-size:7.5pt;">Nomor: 460 / 218 / 438.5.12 / 2026</div>
+                    </div>
+                    <div style="text-align:right; font-size:7.5pt;">
+                        Tanggal: ${tanggalSekarang}
+                    </div>
+                </div>
+
+                <div style="text-align:center; font-size:9.5pt; font-weight:bold; text-transform:uppercase; margin-bottom:10px;">
+                    DAFTAR LENGKAP PENERIMA BANTUAN SOSIAL KABUPATEN SIDOARJO<br>
+                    HASIL PEMERINGKATAN PREFERENSI SAW & PEMBOBOTAN BWM TAHUN 2026
+                </div>
+
+                <!-- KOTAK RINGKASAN RESMI LAMPIRAN -->
+                <div style="border:1px solid #000; padding:6px 10px; margin-bottom:10px; font-size:8pt; background:#f9fafb;">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px;">
+                        <div>• <b>Total Warga Dievaluasi</b> : ${data.length} Orang</div>
+                        <div>• <b>Warga Lolos (Desil 1–4)</b> : ${totalPenerima} Orang</div>
+                        <div>• <b>Besaran Bantuan / Warga</b> : Rp 600.000,-</div>
+                        <div>• <b>Total Realisasi Anggaran</b> : Rp ${totalAnggaran.toLocaleString('id-ID')},-</div>
+                    </div>
+                </div>
+
+                <!-- TABEL DATA LENGKAP -->
+                <table style="width:100%; border-collapse:collapse; font-size:8pt;">
+                    <thead>
+                        <tr style="background:#e5e7eb; text-align:center;">
+                            <th style="border:1px solid #000; padding:5px 3px; width:28px;">NO</th>
+                            <th style="border:1px solid #000; padding:5px 4px; width:125px;">NIK</th>
+                            <th style="border:1px solid #000; padding:5px 6px; text-align:left;">NAMA LENGKAP</th>
+                            <th style="border:1px solid #000; padding:5px 4px; width:70px;">SKOR SAW</th>
+                            <th style="border:1px solid #000; padding:5px 4px; width:60px;">DESIL</th>
+                            <th style="border:1px solid #000; padding:5px 4px; width:90px;">ALOKASI</th>
+                            <th style="border:1px solid #000; padding:5px 4px; width:110px;">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${lampiranRows}
+                    </tbody>
+                </table>
+
+                <!-- TANDA TANGAN PENGESAHAN LAMPIRAN -->
+                <div style="display:flex; justify-content:flex-end; margin-top:20px; page-break-inside:avoid;">
+                    <div style="text-align:center; width:230px; font-size:8pt;">
+                        <div style="font-weight:bold; text-transform:uppercase;">BUPATI SIDOARJO</div>
+                        <div style="height:45px;"></div>
+                        <div style="font-weight:bold; text-decoration:underline;">H. SUBANDI, S.H., M.Kn.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 };
 
+// =========================================================================
+// 11. EKSPOR PDF SK BUPATI (METODE IFRAME ISOLASI: ANTI-BLANK & ANTI-FLICKER)
+// =========================================================================
 window.exportSPKPDF = function () {
-    const el = document.getElementById('skBupatiPrintArea');
-    if (!el) return;
-    el.style.display = 'block';
-    html2pdf().set({ margin: 10, filename: `SK_Bupati_Bansos_Sidoarjo_${new Date().getFullYear()}.pdf`, jsPDF: { unit: 'mm', format: 'a4' } }).from(el).save().then(() => { el.style.display = 'none'; });
+    const hasilList = (lastSPKResult && (lastSPKResult.hasil_akhir || lastSPKResult.data)) 
+        ? (lastSPKResult.hasil_akhir || lastSPKResult.data) 
+        : (Array.isArray(lastSPKResult) ? lastSPKResult : []);
+
+    if (hasilList.length === 0) {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Hasil SPK Kosong',
+            text: 'Jalankan Proses Algoritma SAW terlebih dahulu sebelum mencetak SK Bupati.',
+            confirmButtonColor: '#009846'
+        });
+    }
+
+    Swal.fire({
+        title: 'Menyiapkan Dokumen SK...',
+        html: 'Menyusun berkas Keputusan Bupati Sidoarjo dan lampiran data penerima...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.top = '-10000px';
+    iframe.style.left = '-10000px';
+    iframe.style.width = '794px';
+    iframe.style.height = '1123px';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>SK Bupati Sidoarjo 2026</title>
+            <style>
+                body { margin: 0; padding: 0; background: #ffffff; }
+                .html2pdf__page-break { page-break-after: always; break-after: page; }
+            </style>
+        </head>
+        <body>
+            ${window.getSKBupatiHTML(hasilList)}
+        </body>
+        </html>
+    `);
+    doc.close();
+
+    const opt = {
+        margin: [6, 6, 6, 6],
+        filename: `SK_Bupati_Bansos_Sidoarjo_${new Date().getFullYear()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+            scale: 2,
+            useCORS: true,
+            scrollY: 0,
+            scrollX: 0,
+            logging: false
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] }
+    };
+
+    setTimeout(() => {
+        html2pdf().set(opt).from(doc.body).save().then(() => {
+            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+            Swal.close();
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Dokumen SK Bupati Berhasil Diunduh!',
+                showConfirmButton: false,
+                timer: 2500
+            });
+        }).catch(err => {
+            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+            Swal.close();
+            Swal.fire('Gagal Cetak', 'Kendala saat menyusun PDF: ' + (err.message || err), 'error');
+        });
+    }, 400);
 };
 
 window.exportKomparasiPDF = function () {
@@ -1609,7 +1965,7 @@ window.syncBPS = async function () {
 };
 
 // =========================================================================
-// 10. MODAL BOBOT, PENGGUNA, KOMPARASI, LAPORAN & CHAT
+// 12. MODAL BOBOT, PENGGUNA, KOMPARASI, LAPORAN & CHAT
 // =========================================================================
 window.bukaModalPengguna = async function () {
     const modal = document.getElementById('modalPengguna');
@@ -1734,17 +2090,129 @@ window.bukaModalLaporanChat = async function () {
     } catch (e) { }
 };
 
+// =========================================================================
+// 13. MODAL MATRIKS NORMALISASI (R) - RAPI, TIDAK MENABRAK & ANTI-SCROLL ATAS
+// =========================================================================
 window.bukaModalMatriksKerja = function () {
-    if (!lastSPKResult || !lastSPKResult.matriks_normalisasi) return Swal.fire('Info', 'Jalankan Proses Algoritma SAW terlebih dahulu.', 'info');
-    let rows = '';
-    lastSPKResult.matriks_normalisasi.slice(0, 10).forEach(m => {
-        rows += `<tr><td><b>${safeHtml(m.nama)}</b></td><td>${m.C1}</td><td>${m.C2}</td><td>${m.C3}</td><td>${m.C4}</td><td>${m.C5}</td><td>${m.C6}</td><td>${m.C7}</td><td>${m.C8}</td><td>${m.C9}</td><td>${m.C10}</td></tr>`;
+    if (!lastSPKResult || !lastSPKResult.matriks_normalisasi || lastSPKResult.matriks_normalisasi.length === 0) {
+        return Swal.fire({
+            icon: 'info',
+            title: 'Data Belum Tersedia',
+            text: 'Silakan jalankan "Proses Algoritma SAW" terlebih dahulu untuk membentuk matriks normalisasi.',
+            confirmButtonColor: '#009846'
+        });
+    }
+
+    const matriks = lastSPKResult.matriks_normalisasi;
+
+    const kriteriaHeaders = [
+        { code: 'C1', name: 'Penghasilan', type: 'Cost' },
+        { code: 'C2', name: 'Aset', type: 'Cost' },
+        { code: 'C3', name: 'Usia', type: 'Benefit' },
+        { code: 'C4', name: 'Gender', type: 'Benefit' },
+        { code: 'C5', name: 'Tanggungan', type: 'Benefit' },
+        { code: 'C6', name: 'Status Nikah', type: 'Benefit' },
+        { code: 'C7', name: 'Anak Sekolah', type: 'Benefit' },
+        { code: 'C8', name: 'Tempat Tinggal', type: 'Cost' },
+        { code: 'C9', name: 'Pendidikan', type: 'Cost' },
+        { code: 'C10', name: 'Kesehatan', type: 'Benefit' }
+    ];
+
+    let theadHtml = `
+        <thead style="background: #0f172a; color: #ffffff; position: sticky; top: 0; z-index: 2;">
+            <tr>
+                <th style="padding: 10px 8px; text-align: center; border: 1px solid #334155; font-size: 0.78rem; width: 45px;">NO</th>
+                <th style="padding: 10px 12px; text-align: left; border: 1px solid #334155; font-size: 0.78rem; min-width: 170px;">NAMA LENGKAP</th>
+    `;
+
+    kriteriaHeaders.forEach(k => {
+        const typeBg = k.type === 'Cost' ? '#dc2626' : '#16a34a';
+        theadHtml += `
+            <th style="padding: 8px 6px; text-align: center; border: 1px solid #334155; min-width: 75px;">
+                <div style="font-weight: 800; font-size: 0.82rem; color: #38bdf8;">${k.code}</div>
+                <span style="background:${typeBg}; color:#ffffff; font-size:0.62rem; padding:1px 6px; border-radius:4px; font-weight:700; display:inline-block; margin-top:2px;">${k.type}</span>
+            </th>
+        `;
     });
-    Swal.fire({ title: 'Matriks Normalisasi (R)', html: `<div style="max-height:300px; overflow-x:auto;"><table class="modern-table">${rows}</table></div>`, width: '750px' });
+    theadHtml += `</tr></thead>`;
+
+    let tbodyHtml = '<tbody>';
+    matriks.forEach((row, idx) => {
+        const bgRow = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+        tbodyHtml += `
+            <tr style="background: ${bgRow}; transition: background 0.15s ease;">
+                <td style="padding: 8px 6px; text-align: center; font-weight: 700; border: 1px solid #e2e8f0; color: #64748b; font-size: 0.8rem;">${idx + 1}</td>
+                <td style="padding: 8px 12px; border: 1px solid #e2e8f0; text-align: left;">
+                    <div style="font-weight: 700; color: #1e293b; font-size: 0.85rem; white-space: nowrap;">${safeHtml(row.nama)}</div>
+                    <small style="color: #64748b; font-family: monospace; font-size: 0.72rem;">NIK: ${row.nik || '-'}</small>
+                </td>
+        `;
+
+        for (let i = 1; i <= 10; i++) {
+            const val = parseFloat(row[`C${i}`]);
+            const formatted = isNaN(val) ? '0.0000' : val.toFixed(4);
+            tbodyHtml += `
+                <td style="padding: 8px 6px; text-align: center; border: 1px solid #e2e8f0; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.82rem; font-weight: 600; color: #0f172a; white-space: nowrap;">
+                    <span style="background: #f1f5f9; padding: 3px 6px; border-radius: 4px; border: 1px solid #e2e8f0;">${formatted}</span>
+                </td>
+            `;
+        }
+        tbodyHtml += `</tr>`;
+    });
+    tbodyHtml += '</tbody>';
+
+    const modalContent = `
+        <div style="text-align: left; font-family: 'Inter', sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; padding-right: 48px; box-sizing: border-box;">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.15rem; color: #0f172a; font-weight: 800;"><i class="fas fa-table-cells text-primary" style="margin-right: 6px;"></i> Matriks Normalisasi Ternormalisasi (R)</h3>
+                    <p style="margin: 4px 0 0 0; font-size: 0.78rem; color: #64748b;">Hasil kalkulasi normalisasi matriks keputusan Simple Additive Weighting (SAW) berdasarkan kriteria Cost dan Benefit.</p>
+                </div>
+                <div style="background: #e6f9f0; border: 1px solid #a7f3d0; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; color: #166534; font-weight: 700; white-space: nowrap; margin-left: 12px;">
+                    Total: <b>${matriks.length}</b> Alternatif
+                </div>
+            </div>
+
+            <!-- Tabel Data Matriks -->
+            <div style="max-height: 380px; overflow-y: auto; overflow-x: auto; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+                    ${theadHtml}
+                    ${tbodyHtml}
+                </table>
+            </div>
+
+            <!-- Legend Informasi Kriteria -->
+            <div style="margin-top: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px;">
+                <div style="font-weight: 700; font-size: 0.75rem; color: #334155; margin-bottom: 6px;"><i class="fas fa-info-circle text-info"></i> Keterangan Kriteria Normalisasi:</div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px; font-size: 0.72rem; color: #475569;">
+                    <div><b>C1:</b> Penghasilan <span class="badge badge-red" style="font-size:0.6rem; padding:1px 4px;">Cost</span></div>
+                    <div><b>C2:</b> Nilai Aset <span class="badge badge-red" style="font-size:0.6rem; padding:1px 4px;">Cost</span></div>
+                    <div><b>C3:</b> Usia KK <span class="badge badge-green" style="font-size:0.6rem; padding:1px 4px;">Benefit</span></div>
+                    <div><b>C4:</b> Jenis Kelamin <span class="badge badge-green" style="font-size:0.6rem; padding:1px 4px;">Benefit</span></div>
+                    <div><b>C5:</b> Jml Tanggungan <span class="badge badge-green" style="font-size:0.6rem; padding:1px 4px;">Benefit</span></div>
+                    <div><b>C6:</b> Status Nikah <span class="badge badge-green" style="font-size:0.6rem; padding:1px 4px;">Benefit</span></div>
+                    <div><b>C7:</b> Anak Sekolah <span class="badge badge-green" style="font-size:0.6rem; padding:1px 4px;">Benefit</span></div>
+                    <div><b>C8:</b> Kondisi Rumah <span class="badge badge-red" style="font-size:0.6rem; padding:1px 4px;">Cost</span></div>
+                    <div><b>C9:</b> Pendidikan KK <span class="badge badge-red" style="font-size:0.6rem; padding:1px 4px;">Cost</span></div>
+                    <div><b>C10:</b> Kesehatan/Disabilitas <span class="badge badge-green" style="font-size:0.6rem; padding:1px 4px;">Benefit</span></div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    Swal.fire({
+        html: modalContent,
+        width: '940px',
+        showCloseButton: true,
+        heightAuto: false,
+        returnFocus: false,
+        confirmButtonColor: '#009846',
+        confirmButtonText: '<i class="fas fa-check"></i> Tutup Matriks'
+    });
 };
 
 // =========================================================================
-// 11. STUDIO GAMBAR (FILEROBOT) & PEMOTONG VIDEO (HTML5 CANVAS)
+// 14. STUDIO GAMBAR (FILEROBOT) & PEMOTONG VIDEO (HTML5 CANVAS)
 // =========================================================================
 window.initFilerobotEditor = function (imageUrl, filename) {
     const modal = document.getElementById('imageEditorModal');
@@ -1908,7 +2376,7 @@ window.batalVideoEditor = function () {
 };
 
 // =========================================================================
-// 12. WEBRTC AUDIO & VIDEO CALL (PEERJS)
+// 15. WEBRTC AUDIO & VIDEO CALL (PEERJS)
 // =========================================================================
 window.initPeerCall = function () {
     try {
@@ -2011,7 +2479,7 @@ window.toggleBlur = function () {
 };
 
 // =========================================================================
-// 13. VOICE NOTE DENGAN AUDIO FREQUENCY VISUALIZER
+// 16. VOICE NOTE DENGAN AUDIO FREQUENCY VISUALIZER
 // =========================================================================
 window.toggleVoiceRecordAdmin = async function () {
     if (!window.isAdminRecordingAudio) {
@@ -2079,7 +2547,7 @@ window.startAudioVisualizer = function () {
 };
 
 // =========================================================================
-// 14. CHAT REAL-TIME, LAMPIRAN, EMOJI & MODAL TRANSFER
+// 17. CHAT REAL-TIME, LAMPIRAN, EMOJI & MODAL TRANSFER
 // =========================================================================
 window.openAdminChat = function () {
     const modal = document.getElementById('modalAdminChat');
@@ -2353,7 +2821,7 @@ window.handleChatEnter = function (e, target) {
 };
 
 // =========================================================================
-// 15. SISTEM NOTIFIKASI REAL-TIME & ARSIP
+// 18. SISTEM NOTIFIKASI REAL-TIME & ARSIP
 // =========================================================================
 window.setupNotificationSystemModern = function () {
     const notifBtn = document.querySelector('.notif-wrapper');
@@ -2412,7 +2880,7 @@ window.markNotifRead = async function (id) {
 };
 
 // =========================================================================
-// 16. LIGHTBOX & FLOATING ACTION BAR (FAB)
+// 19. LIGHTBOX & FLOATING ACTION BAR (FAB)
 // =========================================================================
 window.openLightbox = function (url, type) {
     const box = document.getElementById('mediaLightbox');
@@ -2431,7 +2899,7 @@ window.closeLightbox = function (e) {
 };
 
 // =========================================================================
-// 17. FITUR KELOLA CHAT LANJUTAN (TRANSFER, LAPOR, PIN, BULK FAB, EXPORT)
+// 20. FITUR KELOLA CHAT LANJUTAN (TRANSFER, LAPOR, PIN, BULK FAB, EXPORT)
 // =========================================================================
 window.toggleChatActionDropdown = function (e) {
     e.stopPropagation();
