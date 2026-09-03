@@ -391,20 +391,20 @@ window.processOCR = async function (input) {
         // 2. Ekstrak Nama Lengkap
         const namaMatch = text.match(/(?:Nama|NAMA)\s*[:;]?\s*([A-Za-z\s.,']+)/i);
         if (namaMatch && document.getElementById('nama')) {
-            document.getElementById('nama').value = namaMatch.trim().replace(/\n/g, '');
+            document.getElementById('nama').value = namaMatch[1].trim().replace(/\n/g, '');
         }
 
         // 3. Ekstrak Tempat & Tanggal Lahir
         const ttlMatch = text.match(/(?:Tempat\/Tgl Lahir|Tempat\/Tgl|TTL)\s*[:;]?\s*([A-Za-z\s]+)[,\/]\s*(\d{2})[-–\/](\d{2})[-–\/](\d{4})/i);
         if (ttlMatch) {
-            if (document.getElementById('tempatLahir')) document.getElementById('tempatLahir').value = ttlMatch.trim();
-            if (document.getElementById('tglLahir')) document.getElementById('tglLahir').value = `${ttlMatch}-${ttlMatch}-${ttlMatch}`;
+            if (document.getElementById('tempatLahir')) document.getElementById('tempatLahir').value = ttlMatch[1].trim();
+            if (document.getElementById('tglLahir')) document.getElementById('tglLahir').value = `${ttlMatch[4]}-${ttlMatch[3]}-${ttlMatch[2]}`;
         }
 
         // 4. Ekstrak Alamat
         const alamatMatch = text.match(/(?:Alamat|ALAMAT)\s*[:;]?\s*([A-Za-z0-9\s.,\/-]+?)(?=(?:RT\/RW|Kel\/Desa|Kecamatan|Agama|$))/i);
         if (alamatMatch && document.getElementById('alamat')) {
-            document.getElementById('alamat').value = alamatMatch.trim().replace(/\n/g, ' ') + ', Sidoarjo';
+            document.getElementById('alamat').value = alamatMatch[1].trim().replace(/\n/g, ' ') + ', Sidoarjo';
         }
 
         // 5. Ekstrak Jenis Kelamin
@@ -485,7 +485,7 @@ window.initFormMapPicker = function () {
         window.updateLocationAndAddress(e.latlng.lat, e.latlng.lng);
     });
 
-    window.setFormCoords(MAP_CENTER_SIDOARJO[0], MAP_CENTER_SIDOARJO);
+    window.setFormCoords(MAP_CENTER_SIDOARJO[0], MAP_CENTER_SIDOARJO[1]);
     setTimeout(() => { if (formMap) formMap.invalidateSize(); }, 350);
 };
 
@@ -493,7 +493,7 @@ window.setFormCoords = function (lat, lng) {
     const latEl = document.getElementById('lat');
     const lngEl = document.getElementById('lng');
     if (latEl) latEl.value = Number(lat || MAP_CENTER_SIDOARJO[0]).toFixed(6);
-    if (lngEl) lngEl.value = Number(lng || MAP_CENTER_SIDOARJO).toFixed(6);
+    if (lngEl) lngEl.value = Number(lng || MAP_CENTER_SIDOARJO[1]).toFixed(6);
 };
 
 window.updateLocationAndAddress = async function (lat, lng) {
@@ -607,7 +607,7 @@ window.renderChoroplethKerentanan = function () {
     // Tambahkan marker presisi warga
     globalDataWarga.forEach(w => {
         if (w.lat && w.lng) {
-            const desil = w.is_verified ? 2 : 5;
+            const desil = w.desil || (w.is_verified ? 2 : 5);
             const pinColor = desil <= 4 ? '#10b981' : '#dc2626';
 
             const marker = L.circleMarker([w.lat, w.lng], {
@@ -658,7 +658,7 @@ window.bukaRincianWilayah = function (namaWilayah) {
                     <td style="text-align:center;">${idx + 1}</td>
                     <td><b>${safeHtml(w.nama)}</b><br><small class="text-muted">${w.nik}</small></td>
                     <td>${safeHtml(w.tempat_lahir || 'Sidoarjo')}, ${w.tanggal_lahir || '-'}<br><small class="text-muted">${safeHtml(w.alamat)}</small></td>
-                    <td style="text-align:center;"><span class="badge ${w.is_verified ? 'badge-green' : 'badge-red'}">Desil ${w.is_verified ? '1-4' : '5-10'}</span></td>
+                    <td style="text-align:center;"><span class="badge ${w.is_verified ? 'badge-green' : 'badge-red'}">Desil ${w.desil || (w.is_verified ? '1-4' : '5-10')}</span></td>
                     <td><small>${w.tanggal_salur || '-'}</small></td>
                     <td><small style="color:#15803d; font-weight:700;">${w.nominal_bantuan || 'Rp 600.000'}</small></td>
                     <td style="text-align:center;">${fotoBuktiHtml}</td>
@@ -682,7 +682,10 @@ window.render3DashboardCharts = function (data) {
     const ctxDesil = document.getElementById('chartDesil10');
     if (ctxDesil) {
         const desilCounts = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-        data.forEach((w, idx) => { desilCounts[idx % 10]++; });
+        data.forEach(w => {
+            const d = (w.desil && w.desil >= 1 && w.desil <= 10) ? w.desil : 5;
+            desilCounts[d - 1]++;
+        });
         if (chartDesilObj) chartDesilObj.destroy();
         chartDesilObj = new Chart(ctxDesil, {
             type: 'bar',
@@ -732,7 +735,7 @@ window.render3DashboardCharts = function (data) {
                     },
                     tooltip: {
                         callbacks: {
-                            label: function(ctx) {
+                            label: function (ctx) {
                                 const val = ctx.raw || 0;
                                 const pct = total > 0 ? Math.round((val / total) * 100) : 0;
                                 return ` ${ctx.label}: ${val} (${pct}%)`;
@@ -772,7 +775,7 @@ window.render3DashboardCharts = function (data) {
                     },
                     tooltip: {
                         callbacks: {
-                            label: function(ctx) {
+                            label: function (ctx) {
                                 const val = ctx.raw || 0;
                                 const pct = total > 0 ? Math.round((val / total) * 100) : 0;
                                 return ` ${ctx.label}: ${val} (${pct}%)`;
@@ -812,7 +815,7 @@ window.render3DashboardCharts = function (data) {
                     },
                     tooltip: {
                         callbacks: {
-                            label: function(ctx) {
+                            label: function (ctx) {
                                 const val = ctx.raw || 0;
                                 const pct = total > 0 ? Math.round((val / total) * 100) : 0;
                                 return ` ${ctx.label}: ${val} (${pct}%)`;
@@ -940,7 +943,7 @@ window.applySort = function (sortType, btn) {
 };
 
 // =========================================================================
-// RENDER TABEL DENGAN TOMBOL BATAL & BADGE CENTANG HIJAU
+// RENDER TABEL DENGAN LOGIKA FILTER DESIL 1-4 & DATA TABLES ORDER: []
 // =========================================================================
 window.renderTable = function (data) {
     if (!Array.isArray(data)) data = [];
@@ -953,27 +956,44 @@ window.renderTable = function (data) {
     let html = '';
     data.forEach(w => {
         const isVerified = Boolean(w.is_verified);
-        
-        // 1. BADGE VALIDASI (CENTANG HIJAU SEPERTI GAMBAR)
-        const verifBadge = isVerified
-            ? `<span class="badge badge-green" style="background:#e6f9f0; color:#009846; border:1px solid #a7f3d0; padding:6px 14px; border-radius:20px; font-weight:800; display:inline-flex; align-items:center; gap:6px; font-size:0.82rem;"><i class="fas fa-check-circle" style="color:#009846; font-size:0.95rem;"></i> DISETUJUI</span>`
-            : `<span class="badge badge-red" style="background:#fee2e2; color:#dc2626; border:1px solid #fecaca; padding:6px 14px; border-radius:20px; font-weight:800; display:inline-flex; align-items:center; gap:6px; font-size:0.82rem;"><i class="fas fa-clock"></i> MENUNGGU</span>`;
+        const desil = w.desil || 5;
+        const isEligible = isVerified && desil <= 4; // Memenuhi syarat Desil 1-4
 
-        // 2. TOMBOL AKSI: JIKA SUDAH DISETUJUI MUNCUL TOMBOL BATAL
-        const btnToggleVerif = isVerified
-            ? `<button onclick="window.toggleVerifySingle(${w.id}, '${escapeInlineJS(w.nama)}')" class="btn btn-secondary btn-sm" style="border:1px solid #cbd5e1; border-radius:8px; font-weight:700; padding:5px 12px; margin-right:4px; background:white; color:#334155;" title="Batalkan Persetujuan Data Warga"><i class="fas fa-undo"></i> Batal</button>`
-            : `<button onclick="window.toggleVerifySingle(${w.id}, '${escapeInlineJS(w.nama)}')" class="btn btn-primary btn-sm" style="border-radius:8px; font-weight:700; padding:5px 12px; margin-right:4px; background:#009846; color:white;" title="Setujui & Konfirmasi Data Warga"><i class="fas fa-check"></i> Setujui</button>`;
-
-        let statusSalurBadge = '';
-        if (w.status_salur === 'Telah Menerima') {
-            statusSalurBadge = `<span class="badge badge-green" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-box-check"></i> Telah Menerima</span>`;
-        } else if (String(w.status_salur).includes('Sengketa')) {
-            statusSalurBadge = `<span class="badge badge-red" style="font-size:0.7rem; margin-top:3px; background:#fee2e2; color:#dc2626;"><i class="fas fa-exclamation-triangle"></i> Sengketa Belum Terima</span>`;
+        // 1. BADGE VALIDASI DENGAN TANDA CENTANG
+        let verifBadge = '';
+        if (isVerified) {
+            verifBadge = `<span class="badge badge-green" style="background:#e6f9f0; color:#009846; border:1px solid #a7f3d0; padding:5px 12px; border-radius:20px; font-weight:800; display:inline-flex; align-items:center; gap:5px; font-size:0.8rem;"><i class="fas fa-check-circle" style="color:#009846;"></i> DISETUJUI</span>`;
+        } else {
+            verifBadge = `<span class="badge badge-red" style="background:#fee2e2; color:#dc2626; border:1px solid #fecaca; padding:5px 12px; border-radius:20px; font-weight:800; display:inline-flex; align-items:center; gap:5px; font-size:0.8rem;"><i class="fas fa-clock"></i> MENUNGGU</span>`;
         }
 
-        let btnKamera = isVerified
-            ? `<button onclick="window.bukaUploadBuktiSalur(${w.id}, '${escapeInlineJS(w.nama)}', '${w.bukti_salur || ''}')" class="btn" style="padding:5px 8px; background:#dcfce7; color:#15803d; font-size:0.8rem; border-radius:6px; margin-right:3px;" title="Unggah Bukti Penyaluran"><i class="fas fa-camera"></i></button>`
-            : `<button onclick="window.peringatanBelumLayak('${escapeInlineJS(w.nama)}')" class="btn" style="padding:5px 8px; background:#f1f5f9; color:#94a3b8; font-size:0.8rem; border-radius:6px; margin-right:3px; cursor:not-allowed;" title="Warga belum disetujui (Kirim bukti terkunci)"><i class="fas fa-camera"></i></button>`;
+        // 2. KETERANGAN KELAYAKAN BANSOS (DESIL 1-4 vs DESIL 5-10)
+        let desilBadge = '';
+        if (isVerified) {
+            if (desil <= 4) {
+                desilBadge = `<span class="badge badge-green" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-award"></i> Layak Bansos (Desil ${desil})</span>`;
+            } else {
+                desilBadge = `<span class="badge badge-warning" style="font-size:0.7rem; margin-top:3px; background:#fffbeb; color:#b45309; border:1px solid #fde68a;"><i class="fas fa-info-circle"></i> Tidak Prioritas (Desil ${desil})</span>`;
+            }
+        }
+
+        // 3. STATUS PENYALURAN
+        let statusSalurBadge = '';
+        if (w.status_salur === 'Telah Menerima') {
+            statusSalurBadge = `<span class="badge badge-blue" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-box-check"></i> Telah Menerima</span>`;
+        } else if (String(w.status_salur).includes('Sengketa')) {
+            statusSalurBadge = `<span class="badge badge-red" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-exclamation-triangle"></i> Sengketa</span>`;
+        }
+
+        // 4. TOMBOL AKSI: BATAL / SETUJUI
+        const btnToggleVerif = isVerified
+            ? `<button onclick="window.toggleVerifySingle(${w.id}, '${escapeInlineJS(w.nama)}')" class="btn btn-secondary btn-sm" style="border:1px solid #cbd5e1; border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px; background:white; color:#334155;" title="Batalkan Konfirmasi"><i class="fas fa-undo"></i> Batal</button>`
+            : `<button onclick="window.toggleVerifySingle(${w.id}, '${escapeInlineJS(w.nama)}')" class="btn btn-primary btn-sm" style="border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px; background:#009846; color:white;" title="Konfirmasi & Setujui"><i class="fas fa-check"></i> Setujui</button>`;
+
+        // 5. TOMBOL UNGGAH BUKTI: HANYA MUNCUL JIKA MEMENUHI SYARAT (DESIL 1-4)
+        const btnKamera = isEligible
+            ? `<button onclick="window.bukaUploadBuktiSalur(${w.id}, '${escapeInlineJS(w.nama)}', '${w.bukti_salur || ''}')" class="btn btn-sm" style="padding:5px 8px; background:#dcfce7; color:#15803d; border-radius:6px; margin-right:3px;" title="Unggah Bukti Penyaluran"><i class="fas fa-camera"></i></button>`
+            : ''; // Tombol kamera menghilang jika tidak memenuhi syarat Desil 1-4
 
         const btnDelete = (user && user.role === 'admin')
             ? `<button onclick="window.hapusData(${w.id})" class="btn" style="padding:5px 8px; background:#ef4444; color:white; font-size:0.8rem; border-radius:6px;" title="Hapus Data"><i class="fas fa-trash"></i></button>`
@@ -990,7 +1010,10 @@ window.renderTable = function (data) {
                     <div style="font-weight:800; color:#1e293b; font-size:0.95rem;">${safeHtml(w.nama)}</div>
                     <small style="color:#475569;"><i class="fas fa-birthday-cake text-muted"></i> ${safeHtml(ttlText)}</small><br>
                     <small class="text-muted"><i class="fas fa-map-marker-alt"></i> ${safeHtml(w.alamat || 'Sidoarjo')}</small><br>
-                    ${statusSalurBadge}
+                    <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:2px;">
+                        ${desilBadge}
+                        ${statusSalurBadge}
+                    </div>
                 </td>
                 <td><small><i class="fas fa-clock text-primary"></i> ${waktuDaftar}</small></td>
                 <td style="text-align:center;">${verifBadge}</td>
@@ -998,7 +1021,7 @@ window.renderTable = function (data) {
                     ${btnToggleVerif}
                     <button onclick="window.bukaModalEdit(${w.id})" class="btn" style="padding:5px 8px; background:#fef3c7; color:#b45309; font-size:0.8rem; border-radius:6px; margin-right:3px;" title="Edit Data"><i class="fas fa-edit"></i></button>
                     ${btnKamera}
-                    <button onclick="window.bukaAksiCepatSengketa(${w.id}, '${escapeInlineJS(w.nama)}', '${w.nik}')" class="btn" style="padding:5px 8px; background:#fee2e2; color:#dc2626; font-size:0.8rem; border-radius:6px; margin-right:3px;" title="Aksi Mediasi Sengketa"><i class="fas fa-shield-alt"></i></button>
+                    <button onclick="window.bukaAksiCepatSengketa(${w.id}, '${escapeInlineJS(w.nama)}', '${w.nik}')" class="btn" style="padding:5px 8px; background:#fee2e2; color:#dc2626; font-size:0.8rem; border-radius:6px; margin-right:3px;" title="Mediasi Sengketa"><i class="fas fa-shield-alt"></i></button>
                     ${btnDelete}
                 </td>
             </tr>
@@ -1006,14 +1029,23 @@ window.renderTable = function (data) {
     });
 
     tbody.innerHTML = html;
+    
+    // KUNCI: order: [] AGAR HASIL PENGURUTAN KITA TIDAK DITIMPA OLEH DATATABLES
     dtTable = $('#dataTable').DataTable({
-        pageLength: 10, responsive: true, order: [[1, 'asc']],
-        language: { search: "Cari NIK/Nama:", lengthMenu: "_MENU_ baris", info: "Menampilkan _START_ s.d. _END_ dari _TOTAL_ warga", paginate: { next: "→", previous: "←" } }
+        pageLength: 10,
+        responsive: true,
+        order: [], 
+        language: {
+            search: "Cari NIK/Nama:",
+            lengthMenu: "_MENU_ baris",
+            info: "Menampilkan _START_ s.d. _END_ dari _TOTAL_ warga",
+            paginate: { next: "→", previous: "←" }
+        }
     });
 };
 
 // =========================================================================
-// PENGURUTAN LENGKAP & FILTER PENCARIAN TANGGAL DAFTAR
+// FITUR PENGURUTAN LENGKAP & PENCARIAN TANGGAL BEBAS KETIK
 // =========================================================================
 window.toggleSortNik = function () {
     window.sortNikAsc = !window.sortNikAsc;
@@ -1038,7 +1070,7 @@ window.toggleSortAz = function (btnEl) {
 };
 
 window.filterByTanggalDaftar = function (val) {
-    window.selectedTanggalDaftar = val ? String(val).trim() : '';
+    window.selectedTanggalDaftar = val ? String(val).trim().toLowerCase() : '';
     window.filterAndRenderData();
 };
 
@@ -1048,28 +1080,33 @@ window.filterAndRenderData = function () {
 
     // 1. Filter Kategori
     if (window.currentFilter === 'layak') {
-        filtered = filtered.filter(w => w.is_verified);
+        filtered = filtered.filter(w => w.is_verified && ((w.desil || 5) <= 4));
     } else if (window.currentFilter === 'menerima') {
         filtered = filtered.filter(w => w.status_salur === 'Telah Menerima');
     } else if (window.currentFilter === 'bermasalah') {
         filtered = filtered.filter(w => String(w.status_salur).includes('Sengketa') || !w.is_verified);
     }
 
-    // 2. Filter Pencarian Tanggal Pendaftaran
+    // 2. Pencarian Tanggal Daftar (Bisa Ketik Format: 02/09/2026, 2026-09-02, atau 02/09)
     if (window.selectedTanggalDaftar) {
-        const targetDate = window.selectedTanggalDaftar; // format YYYY-MM-DD
+        const query = window.selectedTanggalDaftar;
         filtered = filtered.filter(w => {
-            const raw = String(w.created_at || '');
-            const match = raw.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-            if (match) {
-                const formatted = `${match}-${match}-${match}`;
-                return formatted === targetDate;
+            const raw = String(w.created_at || '').toLowerCase();
+            if (raw.includes(query)) return true;
+            
+            // Konversi ISO ke dd/mm/yyyy jika input dari datepicker
+            if (query.includes('-')) {
+                const parts = query.split('-');
+                if (parts.length === 3) {
+                    const formattedQuery = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                    return raw.includes(formattedQuery) || raw.includes(query);
+                }
             }
-            return raw.includes(targetDate);
+            return false;
         });
     }
 
-    // 3. Sorting Dinamis
+    // 3. Eksekusi Pengurutan
     if (window.currentSort === 'nik_asc') {
         filtered.sort((a, b) => {
             const valA = BigInt(String(a.nik).replace(/\D/g, '') || 0);
@@ -1302,7 +1339,7 @@ window.peringatanBelumLayak = function (namaWarga) {
     Swal.fire({
         icon: 'warning',
         title: 'Akses Bukti Terkunci',
-        html: `Warga <b>${safeHtml(namaWarga)}</b> belum berstatus <u>Disetujui</u>.<br><br>Silakan klik tombol <b>'Setujui'</b> pada baris warga tersebut untuk mengonfirmasi kelengkapan berkasnya terlebih dahulu sebelum mengunggah foto bukti serah terima.`,
+        html: `Warga <b>${safeHtml(namaWarga)}</b> belum memenuhi syarat atau belum berstatus <u>Disetujui</u> (Prioritas Desil 1-4).<br><br>Silakan pastikan data warga berstatus Disetujui dan masuk dalam kelompok Desil 1–4 sebelum mengunggah bukti penyaluran.`,
         confirmButtonColor: '#10b981'
     });
 };
@@ -1390,6 +1427,7 @@ window.exportExcelLengkap = function () {
         'C5 (Jumlah Tanggungan)': w.c5_tanggungan || 0, 'C6 (Status Pernikahan: 1=Belum, 2=Menikah, 3=Cerai)': w.c6_status_pernikahan || 1,
         'C7 (Kepemilikan Anak Sekolah)': w.c7_kepemilikan_anak || 0, 'C8 (Tempat Tinggal: 1=Milik, 2=Sewa, 3=Numpang)': w.c8_tempat_tinggal || 1,
         'C9 (Pendidikan: 1=SD, 2=SMP, 3=SMA, 4=PT)': w.c9_pendidikan || 1, 'C10 (Kesehatan: 1=Sehat, 2=Sakit/Disabilitas)': w.c10_kesehatan || 1,
+        'Desil': w.desil || 5,
         'Nominal Bantuan': w.nominal_bantuan || 'Rp 600.000', 'Status Penyaluran': w.status_salur || 'Pending',
         'Tanggal Penyaluran': w.tanggal_salur || '-', 'Status Validasi': w.is_verified ? 'Disetujui' : 'Menunggu',
         'Waktu Pendaftaran': w.created_at || 'Hari ini'
@@ -1449,7 +1487,7 @@ window.smartImportPreview = function (input) {
                 body: JSON.stringify({ data: rawJson })
             });
 
-            input.value = ''; // Reset input agar bisa upload file baru/ulang
+            input.value = ''; // Reset input agar bisa upload ulang
 
             if (res && res.ok) {
                 const result = await res.json();
