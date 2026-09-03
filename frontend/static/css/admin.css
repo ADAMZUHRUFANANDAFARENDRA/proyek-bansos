@@ -1,84 +1,939 @@
-/* =========================================================
-   ADMIN.CSS - TATA LETAK KHUSUS DASBOR PETUGAS/ADMIN
-   UI Modern Phonebook Directory, Voice Radar & Wave Visualizer
-========================================================= */
+/* =============================================================================
+   ADMIN.CSS - TATA LETAK KHUSUS DASBOR PETUGAS/ADMIN & MULTI-DEVICE RESPONSIVE
+   PEMERINTAH KABUPATEN SIDOARJO - DINAS SOSIAL
+   Sistem Pendukung Keputusan (SPK) SAW & BWM Bansos Sidoarjo
+   UI Modern Phonebook Directory, Voice Radar, Wave Visualizer & Cross-Platform
+============================================================================= */
 
-/* --- GRID & LAYOUT UTAMA --- */
-.container { max-width: 1440px; margin: 0 auto; padding: 2.5rem 2rem; }
-.grid-layout { display: grid; grid-template-columns: 450px 1fr; gap: 2rem; align-items: start; }
-@media (max-width: 1100px) { .grid-layout { grid-template-columns: 1fr; } }
+/* =============================================================================
+   1. RESET GLOBAL & SMOOTH TOUCH SCROLLING
+   ============================================================================= */
+*, *::before, *::after {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
 
-/* --- COMMAND CENTER --- */
-#adminCommandCenter { background: #fafafa; border: 1px solid #e0e7ff; }
-.cmd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; padding: 1.5rem; } 
-.cmd-btn { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 1rem; border-radius: var(--radius-sm); font-weight: 600; font-size: 0.95rem; border: none; cursor: pointer; color: white; transition: all 0.25s ease; box-shadow: var(--shadow-sm); } 
-.cmd-btn:hover { transform: translateY(-3px); filter: brightness(1.05); box-shadow: var(--shadow-md); }
+html, body {
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg-body, #f8fafc);
+    color: var(--text-main, #0f172a);
+}
 
-/* --- STATISTIK & KARTU --- */
-.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; } 
-.stat-card { padding: 1.5rem; display: flex; align-items: center; gap: 1.5rem; transition: transform 0.3s ease;} 
-.stat-card:hover { transform: translateY(-5px); }
-.stat-icon { width: 60px; height: 60px; border-radius: var(--radius-md); display: flex; justify-content: center; align-items: center; font-size: 1.75rem; } 
-.stat-blue { background: #eff6ff; color: var(--info); } 
-.stat-green { background: #ecfdf5; color: var(--primary); }
-.stat-card h2 { font-size: 2rem; font-weight: 800; line-height: 1; margin-bottom: 4px; color: var(--text-main);}
-.stat-card p { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin:0;}
+/* =============================================================================
+   2. GRID & LAYOUT UTAMA (CONTAINER DENGAN PADDING AMAN)
+   ============================================================================= */
+.container {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 2.5rem; /* Memberikan ruang napas 2.5rem di kanan dan kiri */
+}
 
-/* --- IDENTITAS PROFIL & ROLE --- */
-.user-profile { display: flex; align-items: center; gap: 1.5rem; }
-.user-name { font-weight: 700; font-size: 0.95rem; text-align: right; color: var(--text-main); } 
-.role-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; margin-top: 4px; border: 1px solid var(--border-color);} 
-.role-admin { background: #e0e7ff; color: var(--admin-color); border-color: #c7d2fe;} 
-.role-petugas { background: #e0f2fe; color: var(--info); border-color: #bae6fd;}
+/* GRID TATA LETAK UTAMA SEJAJAR */
+.grid-layout {
+    display: grid;
+    grid-template-columns: 440px minmax(0, 1fr); /* minmax(0, 1fr) mencegah tabel melebar keluar batas kanan */
+    gap: 1.5rem;
+    align-items: start;
+    width: 100%;
+}
 
-/* --- FILTER TOMBOL --- */
-.filter-btn-group { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px; background: #f8fafc; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 15px; }
-.filter-btn { padding: 6px 14px; font-size: 0.85rem; border-radius: 20px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: 0.2s; background: white; color: var(--text-muted); box-shadow: var(--shadow-sm); }
-.filter-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
-.filter-btn.active { background: var(--primary-light); color: var(--primary-dark); border-color: var(--primary); }
-.filter-btn-danger { color: var(--danger); }
-.filter-btn-danger.active { background: #fef2f2; color: var(--danger); border-color: var(--danger); }
+/* CARD ARSIP DATA WARGA AGAR RAPI & PAS */
+.card {
+    background: #ffffff;
+    border-radius: 18px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+    overflow: hidden;
+    width: 100%;
+}
 
-/* --- ELEMEN PETA & LAYOUT --- */
-.map-wrapper { background: var(--surface); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 8px; margin-bottom: 1rem; box-shadow: var(--shadow-sm); }
-.map-legend-card { background: rgba(255,255,255,0.95); backdrop-filter: blur(4px); padding: 12px; border-radius: var(--radius-sm); box-shadow: var(--shadow-md); line-height: 1.6; font-size: 0.8rem; font-weight: 600; border: 1px solid var(--border-color);}
-.map-legend-card i { width: 14px; height: 14px; float: left; margin-right: 8px; opacity: 0.9; border-radius: 50%; }
-.big-map-area { height: 400px; width: 100%; z-index: 10; position: relative; }
+.card-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
 
-/* --- STRUKTUR MATRIKS & KOMPARASI --- */
-.q-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: var(--bg-body); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 1.5rem; }
-.q-grid .form-group { margin-bottom: 0; }
-.matriks-val { font-family: 'monospace'; font-size: 1rem; color: var(--admin-color); font-weight: 600; background: #e0e7ff; padding: 4px 8px; border-radius: 6px; }
-.minmax-val { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; }
-.val-max { background: #d1fae5; color: var(--primary-dark); border: 1px solid #a7f3d0;}
-.val-min { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;}
+/* HEADER ACTION BUTTONS RAPI DALAM 1 BARIS / WRAP INDAH */
+.header-action-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
 
-.komparasi-grid { display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 15px; padding: 0 1rem; }
-.rank-badge { width: 30px; height: 30px; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; font-weight: 800; font-size: 0.85rem; color: white; box-shadow: var(--shadow-sm); }
-.rank-saw { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
-.rank-wp { background: linear-gradient(135deg, var(--admin-color), #4f46e5); }
+.table-container {
+    padding: 1.25rem;
+    overflow-x: auto;
+    width: 100%;
+    max-width: 100%;
+}
 
-/* --- FAB BULK ACTION --- */
-.fab-bulk { position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%); background: var(--text-main); backdrop-filter: blur(10px); padding: 12px 24px; border-radius: 40px; display: flex; gap: 12px; align-items: center; box-shadow: var(--shadow-float); transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1500; border: 1px solid rgba(255,255,255,0.1);} 
-.fab-bulk.active { bottom: 30px; } 
-.fab-text { color: white; font-weight: 600; margin-right: 10px; font-size: 0.95rem; }
+/* HEADER CARD REKOMENDASI SAW (LEBIH RAPI & ELEGAN) */
+#resultCard .card-header {
+    background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+    border-bottom: 1px solid #bbf7d0;
+    padding: 1.25rem 1.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
 
-/* --- SK BUPATI PRINT MODERN --- */
-#skBupatiPrintArea { display:none; padding: 40px 50px; background: white; font-family: 'Times New Roman', Times, serif; color: #000; font-size: 11pt; line-height: 1.5; }
-.sk-header { text-align: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 25px; }
-.sk-header h1 { margin: 0; font-size: 20pt; font-weight: bold; letter-spacing: 1px; }
-.sk-header h2 { margin: 5px 0 0 0; font-size: 16pt; font-weight: bold; }
-.sk-header p { margin: 5px 0 0 0; font-size: 10pt; }
-.sk-title { text-align: center; margin-bottom: 30px; }
-.sk-title h3 { margin: 0; font-size: 12pt; text-decoration: underline; text-transform: uppercase; }
-.sk-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
-.sk-table th, .sk-table td { border: 1px solid #000; padding: 8px 10px; text-align: left; }
-.sk-table th { background-color: #f2f2f2; font-weight: bold; text-align: center; }
-.sk-signature { width: 300px; float: right; text-align: center; margin-top: 20px; }
+#resultCard .card-title {
+    color: #15803d;
+    font-size: 1.15rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
 
-/* =========================================================
-   DESAIN SEARCH BAR MINIMALIS & MODERN
-========================================================= */
+/* =============================================================================
+   3. PUSAT KENDALI ADMINISTRATOR (COMMAND CENTER)
+   ============================================================================= */
+#adminCommandCenter {
+    background: #fafafa;
+    border: 1px solid #e0e7ff;
+    border-radius: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.cmd-title {
+    color: var(--admin-color, #6366f1);
+    font-weight: 800;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cmd-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    padding: 1.5rem;
+} 
+
+.cmd-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 1rem;
+    border-radius: var(--radius-sm, 8px);
+    font-weight: 700;
+    font-size: 0.92rem;
+    border: none;
+    cursor: pointer;
+    color: white;
+    transition: all 0.25s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+} 
+
+.cmd-btn:hover {
+    transform: translateY(-3px);
+    filter: brightness(1.05);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08);
+}
+
+/* =============================================================================
+   4. 4 GRAFIK STATISTIK REAL-TIME (RAPI, SIMETRIS & TIDAK MENEMPEL)
+   ============================================================================= */
+.chart-row-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;            /* Jarak antar kartu grafik diperlebar */
+    margin: 24px 0;       /* Jarak aman atas dan bawah dari elemen lain */
+    width: 100%;
+}
+
+.chart-box-mini {
+    background: #ffffff;
+    padding: 20px 22px;   /* Padding dalam kartu agar judul dan grafik tidak menempel */
+    border-radius: 18px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+    height: 250px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chart-box-mini:hover {
+    box-shadow: 0 6px 12px -2px rgba(0,0,0,0.08);
+    transform: translateY(-2px);
+}
+
+.chart-box-mini h4 {
+    margin: 0 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f1f5f9; /* Garis pemisah halus di bawah judul grafik */
+    font-size: 0.88rem;
+    color: #334155;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.chart-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 165px;
+    padding: 4px;         /* Memberi jarak kanvas grafik dari batas kartu */
+}
+
+/* =============================================================================
+   5. 4 KARTU METRIK RINGKASAN
+   ============================================================================= */
+.dashboard-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 24px;
+    width: 100%;
+}
+
+.stat-card {
+    background: #ffffff;
+    padding: 1.25rem 1.5rem;
+    border-radius: 18px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    min-height: 115px;
+    transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px -2px rgba(0,0,0,0.08);
+}
+
+.stat-icon {
+    width: 55px;
+    height: 55px;
+    border-radius: var(--radius-md, 12px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.6rem;
+    flex-shrink: 0;
+} 
+
+.stat-blue {
+    background: #eff6ff;
+    color: var(--info, #0ea5e9);
+} 
+
+.stat-green {
+    background: #ecfdf5;
+    color: var(--primary, #009846);
+}
+
+.stat-card h2 {
+    font-size: 1.85rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+    color: var(--text-main, #0f172a);
+}
+
+.stat-card p {
+    font-size: 0.8rem;
+    color: var(--text-muted, #64748b);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
+/* =============================================================================
+   6. IDENTITAS PROFIL, ROLE BADGES & NOTIFIKASI NAVBAR
+   ============================================================================= */
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.user-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-align: right;
+    color: var(--text-main, #0f172a);
+} 
+
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-top: 4px;
+    border: 1px solid var(--border-color, #e2e8f0);
+} 
+
+.role-admin {
+    background: #e0e7ff;
+    color: var(--admin-color, #6366f1);
+    border-color: #c7d2fe;
+} 
+
+.role-petugas {
+    background: #e0f2fe;
+    color: var(--info, #0ea5e9);
+    border-color: #bae6fd;
+}
+
+/* =============================================================================
+   7. FILTER TOMBOL & TOOLBAR TABEL
+   ============================================================================= */
+.filter-btn-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: var(--radius-sm, 8px);
+    border: 1px solid var(--border-color, #e2e8f0);
+    margin-bottom: 15px;
+}
+
+.filter-btn {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    border-radius: 20px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: 0.2s;
+    background: white;
+    color: var(--text-muted, #64748b);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.filter-btn:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+.filter-btn.active {
+    background: var(--primary-light, #e6f9f0);
+    color: var(--primary-dark, #007a37);
+    border-color: var(--primary, #009846);
+}
+
+.filter-btn-danger {
+    color: var(--danger, #ef4444);
+}
+
+.filter-btn-danger.active {
+    background: #fef2f2;
+    color: var(--danger, #ef4444);
+    border-color: var(--danger, #ef4444);
+}
+
+.filter-divider {
+    border-left: 2px solid var(--border-color, #e2e8f0);
+    height: 30px;
+    margin: 0 8px;
+}
+
+/* =============================================================================
+   8. ELEMEN PETA KERENTANAN & GEOTAGGING
+   ============================================================================= */
+.map-wrapper {
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-sm, 8px);
+    padding: 8px;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.map-legend-card {
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(4px);
+    padding: 12px;
+    border-radius: var(--radius-sm, 8px);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08);
+    line-height: 1.6;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.map-legend-card i {
+    width: 14px;
+    height: 14px;
+    float: left;
+    margin-right: 8px;
+    opacity: 0.9;
+    border-radius: 50%;
+}
+
+.big-map-area {
+    height: 400px;
+    width: 100%;
+    z-index: 10;
+    position: relative;
+    border-radius: 12px;
+}
+
+/* =============================================================================
+   9. STRUKTUR MATRIKS & KOMPARASI METODE (SAW vs WP)
+   ============================================================================= */
+.q-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    background: var(--bg-body, #f8fafc);
+    padding: 1.25rem;
+    border-radius: var(--radius-md, 12px);
+    border: 1px solid var(--border-color, #e2e8f0);
+    margin-bottom: 1.5rem;
+}
+
+.q-grid .form-group {
+    margin-bottom: 0;
+}
+
+.matriks-val {
+    font-family: 'monospace';
+    font-size: 1rem;
+    color: var(--admin-color, #6366f1);
+    font-weight: 600;
+    background: #e0e7ff;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.minmax-val {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.val-max {
+    background: #d1fae5;
+    color: var(--primary-dark, #007a37);
+    border: 1px solid #a7f3d0;
+}
+
+.val-min {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+.komparasi-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin-top: 15px;
+    padding: 0 1rem;
+}
+
+.rank-badge {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.rank-saw {
+    background: linear-gradient(135deg, var(--primary, #009846), var(--primary-dark, #007a37));
+}
+
+.rank-wp {
+    background: linear-gradient(135deg, var(--admin-color, #6366f1), #4f46e5);
+}
+
+/* =============================================================================
+   10. FLOATING ACTION BAR (FAB BULK ACTION)
+   ============================================================================= */
+.fab-bulk {
+    position: fixed;
+    bottom: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text-main, #0f172a);
+    backdrop-filter: blur(10px);
+    padding: 12px 24px;
+    border-radius: 40px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    box-shadow: 0 20px 40px -5px rgba(0,0,0,0.15);
+    transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 1500;
+    border: 1px solid rgba(255,255,255,0.1);
+} 
+
+.fab-bulk.active {
+    bottom: 30px;
+} 
+
+.fab-text {
+    color: white;
+    font-weight: 600;
+    margin-right: 10px;
+    font-size: 0.95rem;
+}
+
+/* =============================================================================
+   11. SK BUPATI PRINT DOCUMENT AREA
+   ============================================================================= */
+#skBupatiPrintArea {
+    display: none;
+    padding: 40px 50px;
+    background: white;
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+    font-size: 11pt;
+    line-height: 1.5;
+}
+
+.sk-header {
+    text-align: center;
+    border-bottom: 3px solid #000;
+    padding-bottom: 15px;
+    margin-bottom: 25px;
+}
+
+.sk-header h1 {
+    margin: 0;
+    font-size: 20pt;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.sk-header h2 {
+    margin: 5px 0 0 0;
+    font-size: 16pt;
+    font-weight: bold;
+}
+
+.sk-header p {
+    margin: 5px 0 0 0;
+    font-size: 10pt;
+}
+
+.sk-title {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.sk-title h3 {
+    margin: 0;
+    font-size: 12pt;
+    text-decoration: underline;
+    text-transform: uppercase;
+}
+
+.sk-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 40px;
+}
+
+.sk-table th, .sk-table td {
+    border: 1px solid #000;
+    padding: 8px 10px;
+    text-align: left;
+}
+
+.sk-table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+    text-align: center;
+}
+
+.sk-signature {
+    width: 300px;
+    float: right;
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* =============================================================================
+   12. MODAL OVERLAY & CARD PREMIUM
+   ============================================================================= */
+.modal-blur-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(8px);
+    z-index: 2000;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.modal-card-premium {
+    background: white;
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.8);
+}
+
+/* =============================================================================
+   13. WEBRTC CALL UI MODERN (VOICE & VIDEO CALL)
+   ============================================================================= */
+.call-card-modern {
+    width: 100%;
+    max-width: 420px;
+    background: #0f172a;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 30px 60px -15px rgba(0,0,0,0.85);
+    border: 1px solid #334155;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    animation: scaleUp 0.3s ease-out;
+}
+
+.call-header-modern {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 25px 20px 40px 20px;
+    text-align: center;
+    z-index: 20;
+    background: linear-gradient(to bottom, rgba(15,23,42,0.95) 0%, transparent 100%);
+    pointer-events: none;
+}
+
+.call-header-modern h3 {
+    margin: 0;
+    color: white;
+    font-size: 1.4rem;
+    font-weight: 800;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+}
+
+.call-header-modern p {
+    margin: 5px 0 0 0;
+    color: #a7f3d0;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+
+.call-header-modern div {
+    font-family: monospace;
+    font-size: 1.25rem;
+    color: white;
+    margin-top: 5px;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+
+.video-area-modern {
+    position: relative;
+    width: 100%;
+    height: 60vh;
+    max-height: 550px;
+    background: #000;
+    display: none;
+}
+
+.video-area-modern video#remoteVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.video-area-modern video#localVideo {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 120px;
+    height: 160px;
+    object-fit: cover;
+    border-radius: 18px;
+    border: 2px solid rgba(255,255,255,0.85);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.6);
+    background: #1e293b;
+    transition: 0.3s;
+    z-index: 10;
+}
+
+.video-area-modern video#localVideo.blurred {
+    filter: blur(12px);
+}
+
+.audio-area-modern {
+    width: 100%;
+    height: 50vh;
+    max-height: 400px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #0f172a;
+    position: relative;
+}
+
+.audio-avatar {
+    width: 140px;
+    height: 140px;
+    background: linear-gradient(135deg, var(--info, #0ea5e9), #4f46e5);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 4rem;
+    color: white;
+    position: relative;
+    z-index: 2;
+    box-shadow: 0 0 35px rgba(14, 165, 233, 0.45);
+}
+
+.ripple-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 190px;
+    height: 190px;
+    border: 2px solid var(--info, #0ea5e9);
+    border-radius: 50%;
+    animation: ripple 1.6s infinite ease-out;
+    z-index: 1;
+}
+
+.call-controls-modern {
+    padding: 25px 20px;
+    background: #1e293b;
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    border-top: 1px solid #334155;
+    align-items: center;
+    z-index: 20;
+    position: relative;
+}
+
+.ctrl-btn {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    border: none;
+    background: #334155;
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.ctrl-btn:hover {
+    background: #475569;
+    transform: translateY(-2px);
+}
+
+.ctrl-btn.off {
+    background: #fef2f2;
+    color: #ef4444;
+}
+
+.ctrl-btn.active-blur {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.btn-end {
+    width: 65px;
+    height: 65px;
+    background: #ef4444;
+    font-size: 1.5rem;
+    box-shadow: 0 10px 25px rgba(239, 68, 68, 0.4);
+}
+
+.btn-end:hover {
+    background: #b91c1c;
+    transform: scale(1.1);
+}
+
+/* =============================================================================
+   14. EMOJI BAR & REACTION ANIMATIONS
+   ============================================================================= */
+.emoji-reaction-bar {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15,23,42,0.85);
+    backdrop-filter: blur(8px);
+    padding: 8px 14px;
+    border-radius: 30px;
+    display: flex;
+    gap: 12px;
+    z-index: 30;
+    border: 1px solid rgba(255,255,255,0.15);
+}
+
+.emoji-reaction-bar button {
+    background: none;
+    border: none;
+    font-size: 1.8rem;
+    cursor: pointer;
+    transition: 0.2s;
+    padding: 0;
+    margin: 0;
+    line-height: 1;
+}
+
+.emoji-reaction-bar button:hover {
+    transform: scale(1.3) translateY(-5px);
+}
+
+.call-reaction-display {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 6.5rem;
+    z-index: 40;
+    pointer-events: none;
+    opacity: 0;
+    transition: 0.3s;
+    text-shadow: 0 10px 30px rgba(0,0,0,0.6);
+}
+
+.call-reaction-display.show {
+    animation: popEmoji 2.5s ease-out forwards;
+}
+
+/* =============================================================================
+   15. VIDEO TRIMMER SLIDER (HTML5 CANVAS STUDIO)
+   ============================================================================= */
+.video-trim-container {
+    position: relative;
+    width: 100%;
+    height: 36px;
+    margin-top: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.trim-track {
+    position: absolute;
+    width: 100%;
+    height: 12px;
+    background: #334155;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.trim-active-area {
+    position: absolute;
+    top: 0;
+    left: 0%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #0ea5e9);
+    border-radius: 6px;
+}
+
+.trim-slider {
+    position: absolute;
+    width: 100%;
+    pointer-events: none;
+    appearance: none;
+    background: none;
+    height: 36px;
+    margin: 0;
+}
+
+.trim-slider::-webkit-slider-thumb {
+    pointer-events: all;
+    appearance: none;
+    width: 18px;
+    height: 30px;
+    background: #ffffff;
+    border: 2px solid #0f172a;
+    border-radius: 4px;
+    cursor: ew-resize;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+
+/* =============================================================================
+   16. AUDIO WAVEFORM ANIMASI
+   ============================================================================= */
+.waveform {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 24px;
+}
+
+.wave-bar {
+    width: 3px;
+    height: 8px;
+    background: #dc2626;
+    border-radius: 3px;
+    animation: wave 1s ease-in-out infinite;
+}
+
+.wave-bar:nth-child(2) { animation-delay: 0.15s; }
+.wave-bar:nth-child(3) { animation-delay: 0.30s; }
+.wave-bar:nth-child(4) { animation-delay: 0.45s; }
+.wave-bar:nth-child(5) { animation-delay: 0.60s; }
+
+/* =============================================================================
+   17. KEYFRAME ANIMATIONS
+   ============================================================================= */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+@keyframes wave { 0%, 100% { height: 6px; } 50% { height: 22px; } }
+@keyframes scaleUp { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+@keyframes ripple { 0% { width: 140px; height: 140px; opacity: 1; } 100% { width: 260px; height: 260px; opacity: 0; } }
+@keyframes popEmoji { 0% { opacity: 0; transform: translate(-50%, -20%) scale(0.5); } 20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } 80% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -80%) scale(0.8); } }
+
+/* =============================================================================
+   18. DESAIN SEARCH BAR MINIMALIS & MODERN
+   ============================================================================= */
 .search-chat-wrapper {
     position: relative !important;
     display: flex !important;
@@ -165,9 +1020,9 @@
     100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
-/* =========================================================
-   TATA LETAK BUKU TELEPON HORIZONTAL
-========================================================= */
+/* =============================================================================
+   19. TATA LETAK BUKU TELEPON HORIZONTAL
+   ============================================================================= */
 .chat-category-header {
     position: sticky;
     top: 0;
@@ -273,8 +1128,7 @@
     color: #10b981 !important;
     font-weight: 600 !important;
     display: flex !important;
-    align-items: center !important;
-    gap: 5px !important;
+    align-items: center !gap: 5px !important;
     white-space: nowrap !important;
 }
 
@@ -287,7 +1141,7 @@
     margin-top: 1px;
 }
 
-.hover-action:hover { color: var(--primary); }
+.hover-action:hover { color: var(--primary, #009846); }
 
 .search-match-highlight {
     background: #fef08a;
@@ -300,15 +1154,13 @@
 .chat-empty-search {
     text-align: center;
     padding: 40px 20px;
-    color: var(--text-muted);
+    color: var(--text-muted, #64748b);
     font-size: 0.9rem;
 }
 
-/* =========================================================
-   UI NOTIFIKASI MODERN (TEMA DASBOR HIJAU & PUTIH)
-========================================================= */
-
-/* Pembungkus Lonceng di Navbar */
+/* =============================================================================
+   20. UI NOTIFIKASI MODERN (TEMA DASBOR HIJAU & PUTIH)
+   ============================================================================= */
 .ntf-bell-wrapper {
     position: relative !important;
     display: inline-flex !important;
@@ -319,7 +1171,6 @@
     cursor: pointer !important;
 }
 
-/* Tombol Ikon Lonceng */
 .ntf-bell-btn {
     width: 45px !important;
     height: 45px !important;
@@ -334,18 +1185,17 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     padding: 0 !important;
     box-shadow: 0 2px 5px rgba(0,0,0,0.02) !important;
-    pointer-events: none !important; /* Klik ditangani oleh wrapper */
+    pointer-events: none !important;
 }
 
 .ntf-bell-wrapper:hover .ntf-bell-btn {
     background: #ffffff !important;
-    color: var(--primary) !important;
-    border-color: var(--primary-light) !important;
+    color: var(--primary, #009846) !important;
+    border-color: var(--primary-light, #e6f9f0) !important;
     transform: translateY(-2px) !important;
     box-shadow: 0 6px 12px rgba(16, 185, 129, 0.1) !important;
 }
 
-/* Badge Angka Notifikasi (Melayang Kanan Atas Lonceng) */
 .ntf-badge-number {
     position: absolute !important;
     top: -2px !important;
@@ -368,7 +1218,6 @@
     pointer-events: none !important;
 }
 
-/* Panel Floating Mengambang Elegan */
 .ntf-floating-panel {
     position: fixed !important;
     top: 85px !important;
@@ -409,8 +1258,7 @@
     font-weight: 800 !important;
     color: #0f172a !important;
     display: flex !important;
-    align-items: center !important;
-    gap: 10px !important;
+    align-items: center !gap: 10px !important;
 }
 
 .ntf-tabs {
@@ -437,8 +1285,8 @@
 
 .ntf-tab-btn.active {
     background: #ffffff !important;
-    color: var(--primary-dark) !important;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05), inset 0 0 0 1px var(--primary-light) !important;
+    color: var(--primary-dark, #007a37) !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05), inset 0 0 0 1px var(--primary-light, #e6f9f0) !important;
 }
 
 .ntf-body {
@@ -449,7 +1297,6 @@
     background: #ffffff !important;
 }
 
-/* Judul Pemisah Kategori Notifikasi */
 .ntf-sec-title {
     padding: 8px 20px !important;
     font-size: 0.72rem !important;
@@ -460,14 +1307,12 @@
     top: 0 !important;
     z-index: 5 !important;
     display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
+    align-items: center !gap: 8px !important;
 }
 
 .ntf-sec-urgent { background: #fef2f2 !important; color: #dc2626 !important; border-bottom: 1px solid #fecaca !important; }
 .ntf-sec-regular { background: #f0fdf4 !important; color: #047857 !important; border-bottom: 1px solid #dcfce7 !important; border-top: 1px solid #e2e8f0 !important; }
 
-/* Item List Notifikasi */
 .ntf-item {
     padding: 16px 20px !important;
     border-bottom: 1px solid #f1f5f9 !important;
@@ -484,7 +1329,6 @@
 .ntf-item.urgent { border-left: 4px solid #ef4444 !important; }
 .ntf-item.pinned { background: #fffbeb !important; }
 
-/* Ikon Lingkaran Kiri */
 .ntf-icon {
     width: 40px !important;
     height: 40px !important;
@@ -500,7 +1344,6 @@
 .ntf-icon.warning { background: linear-gradient(135deg, #fef3c7, #fde68a) !important; color: #d97706 !important; }
 .ntf-icon.info { background: linear-gradient(135deg, #e0f2fe, #bae6fd) !important; color: #0284c7 !important; }
 
-/* Label 'N' Mini Merah Menyala */
 .ntf-n-mini {
     display: inline-flex !important;
     align-items: center !important;
@@ -532,11 +1375,9 @@
     color: #94a3b8 !important;
     font-weight: 600 !important;
     display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
+    align-items: center !gap: 6px !important;
 }
 
-/* Tombol Aksi Kanan (Hover) */
 .ntf-actions {
     display: flex !important;
     gap: 4px !important;
@@ -557,7 +1398,9 @@
 }
 .ntf-action-btn:hover { background: #e2e8f0 !important; color: #0f172a !important; }
 
-/* MODAL SPEECH-TO-TEXT RADAR FUTURISTIK */
+/* =============================================================================
+   21. MODAL SPEECH-TO-TEXT RADAR FUTURISTIK & FREKUENSI SUARA
+   ============================================================================= */
 .voice-search-modal {
     position: fixed;
     top: 0;
@@ -640,7 +1483,6 @@
     justify-content: center;
 }
 
-/* --- ANIMASI FREKUENSI NADA SUARA REAL-TIME --- */
 .live-freq-bar {
     display: inline-block;
     border-radius: 4px;
@@ -655,4 +1497,125 @@
     gap: 3px;
     height: 32px;
     flex: 1;
+}
+
+/* =============================================================================
+   22. RESPONSIVE MEDIA QUERIES MULTI-DEVICE & CROSS-PLATFORM
+   ============================================================================= */
+
+/* LAPTOP & DESKTOP SEDANG (1025px - 1366px) */
+@media (max-width: 1366px) {
+    .container { padding: 1.25rem 1.5rem; }
+    .chart-row-4 { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .dashboard-grid-4 { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .grid-layout { grid-template-columns: 380px minmax(0, 1fr); gap: 1.25rem; }
+}
+
+/* TABLET ANDROID & IPAD (768px - 1024px) */
+@media (max-width: 1024px) {
+    .grid-layout {
+        grid-template-columns: 1fr;
+    }
+    .form-pendataan-sticky {
+        position: relative !important;
+        top: 0 !important;
+    }
+    .chart-row-4 {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+    }
+    .dashboard-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+    }
+    .cmd-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .big-map-area {
+        height: 320px !important;
+    }
+}
+
+/* SMARTPHONE ANDROID & IPHONE (320px - 767px) */
+@media (max-width: 767px) {
+    nav {
+        padding: 0.75rem 1rem;
+    }
+    .nav-container {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+    }
+    .user-profile {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .container {
+        padding: 1rem 0.75rem;
+    }
+    .chart-row-4 {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .dashboard-grid-4 {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .cmd-grid {
+        grid-template-columns: 1fr;
+    }
+    .archive-header-wrap {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    .header-action-btns {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    .header-action-btns button, .header-action-btns .btn {
+        width: 100%;
+        min-height: 44px;
+    }
+    .filter-btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .filter-btn-group button {
+        flex: 1 1 calc(50% - 6px);
+        min-height: 38px;
+    }
+    .two-col-grid, .q-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .span-two-cols {
+        grid-column: span 1 !important;
+    }
+    .big-map-area {
+        height: 260px !important;
+    }
+
+    /* Modal Responsive on Mobile */
+    .modal-card-premium {
+        width: 98% !important;
+        max-height: 92vh !important;
+        border-radius: 16px !important;
+    }
+    .modal-chat-card {
+        flex-direction: column !important;
+        height: 94vh !important;
+    }
+    .chat-sidebar-left {
+        width: 100% !important;
+        height: 40% !important;
+    }
+    .chat-main-right {
+        width: 100% !important;
+        height: 60% !important;
+    }
 }

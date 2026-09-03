@@ -2,105 +2,660 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Eksekutif - SPK SAW & BWM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Dashboard Eksekutif - SPK SAW & BWM Pemerintah Kabupaten Sidoarjo</title>
     
-    <!-- LIBRARIES CSS -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- =========================================================================
+         LIBRARIES CSS EKSTERNAL & GOOGLE FONTS
+         ========================================================================= -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
     
-    <!-- CSS INTERNAL -->
+    <!-- =========================================================================
+         CSS INTERNAL MODULAR & EMBEDDED STYLING LENGKAP
+         ========================================================================= -->
     <link rel="stylesheet" href="static/css/style.css">
     <link rel="stylesheet" href="static/css/admin.css">
 
-    <!-- CSS PERBAIKAN UI NAVBAR, TELEPON, & CHAT MODERN -->
     <style>
-        /* PERBAIKAN NAVBAR & NOTIFIKASI */
-        .user-profile { display: flex; align-items: center; gap: 15px; }
-        .notif-wrapper { position: relative; display: flex; justify-content: center; align-items: center; background: var(--bg-body, #f8fafc); border: 1px solid var(--border-color, #e2e8f0); width: 42px; height: 42px; border-radius: 50%; cursor: pointer; transition: 0.3s; }
-        .notif-wrapper:hover { background: #e2e8f0; }
-        .notif-badge { position: absolute; top: -5px; right: -5px; background: var(--danger, #ef4444); color: white; font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 10px; border: 2px solid white; display: none; }
-        #notifPanel { position: absolute; top: 55px; right: 0; width: 340px; background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); border: 1px solid var(--border-color, #e2e8f0); display: none; flex-direction: column; z-index: 9999; overflow: hidden; }
-        
-        /* CALL UI MODERN */
-        .call-card-modern { width: 100%; max-width: 400px; background: #0f172a; border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8); border: 1px solid #334155; display: flex; flex-direction: column; position: relative; animation: scaleUp 0.3s ease-out;}
-        .call-header-modern { position: absolute; top: 0; left: 0; width: 100%; padding: 25px 20px 40px 20px; text-align: center; z-index: 20; background: linear-gradient(to bottom, rgba(15,23,42,0.95) 0%, transparent 100%); pointer-events: none; }
-        .call-header-modern h3 { margin: 0; color: white; font-size: 1.4rem; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
-        .call-header-modern p { margin: 5px 0 0 0; color: #a7f3d0; font-weight: 600; font-size: 0.95rem; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
-        .call-header-modern div { font-family: monospace; font-size: 1.2rem; color: white; margin-top: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
-        
-        .video-area-modern { position: relative; width: 100%; height: 60vh; max-height: 550px; background: #000; display: none; }
-        .video-area-modern video#remoteVideo { width: 100%; height: 100%; object-fit: cover; }
-        .video-area-modern video#localVideo { position: absolute; bottom: 20px; right: 20px; width: 110px; height: 150px; object-fit: cover; border-radius: 16px; border: 2px solid rgba(255,255,255,0.8); box-shadow: 0 8px 16px rgba(0,0,0,0.5); background: #1e293b; transition: 0.3s; z-index: 10;}
-        .video-area-modern video#localVideo.blurred { filter: blur(10px); }
-        
-        .audio-area-modern { width: 100%; height: 50vh; max-height: 400px; display: flex; justify-content: center; align-items: center; background: #0f172a; position: relative; }
-        .audio-avatar { width: 140px; height: 140px; background: linear-gradient(135deg, var(--info, #0ea5e9), #4f46e5); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 4rem; color: white; position: relative; z-index: 2; box-shadow: 0 0 30px rgba(59, 130, 246, 0.4); }
-        .ripple-ring { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 180px; height: 180px; border: 2px solid var(--info, #0ea5e9); border-radius: 50%; animation: ripple 1.5s infinite ease-out; z-index: 1; }
-        
-        .call-controls-modern { padding: 25px 20px; background: #1e293b; display: flex; justify-content: center; gap: 15px; border-top: 1px solid #334155; align-items: center; z-index: 20; position:relative;}
-        .ctrl-btn { width: 55px; height: 55px; border-radius: 50%; border: none; background: #334155; color: white; font-size: 1.2rem; cursor: pointer; transition: 0.2s; display:flex; justify-content:center; align-items:center;}
-        .ctrl-btn:hover { background: #475569; }
-        .ctrl-btn.off { background: #fef2f2; color: #ef4444; }
-        .ctrl-btn.active-blur { background: #d1fae5; color: #059669; }
-        .btn-end { width: 65px; height: 65px; background: #ef4444; font-size: 1.5rem; box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3); }
-        .btn-end:hover { background: #b91c1c; transform: scale(1.1); }
-        
-        /* EMOJI BAR & ANIMASI */
-        .emoji-reaction-bar { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(15,23,42,0.8); backdrop-filter: blur(5px); padding: 8px 12px; border-radius: 30px; display: flex; gap: 10px; z-index: 30; border: 1px solid rgba(255,255,255,0.1); }
-        .emoji-reaction-bar button { background: none; border: none; font-size: 1.8rem; cursor: pointer; transition: 0.2s; padding: 0; margin: 0; line-height: 1; }
-        .emoji-reaction-bar button:hover { transform: scale(1.3) translateY(-5px); }
-        .call-reaction-display { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 6rem; z-index: 40; pointer-events: none; opacity: 0; transition: 0.3s; text-shadow: 0 10px 25px rgba(0,0,0,0.5);}
-        .call-reaction-display.show { animation: popEmoji 2.5s ease-out forwards; }
-        @keyframes popEmoji { 0% { opacity: 0; transform: translate(-50%, -20%) scale(0.5); } 20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } 80% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -80%) scale(0.8); } }
+        /* =====================================================================
+           TEMA GLOBAL & ROOT VARIABEL
+           ===================================================================== */
+        :root {
+            --primary: #009846;
+            --primary-dark: #007a37;
+            --primary-light: #e6f9f0;
+            --secondary: #64748b;
+            --info: #0ea5e9;
+            --info-light: #e0f2fe;
+            --danger: #ef4444;
+            --danger-light: #fee2e2;
+            --warning: #f59e0b;
+            --warning-light: #fef3c7;
+            --accent: #f59e0b;
+            --accent-dark: #d97706;
+            --admin-color: #6366f1;
+            --surface: #ffffff;
+            --bg-body: #f8fafc;
+            --border-color: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.08);
+            --shadow-lg: 0 10px 25px -3px rgba(0,0,0,0.1);
+            --shadow-float: 0 20px 40px -5px rgba(0,0,0,0.15);
+        }
 
-        /* PERBAIKAN UI CHAT MODERN ADMIN */
-        .search-chat-box { display: flex; align-items: center; background: white; border: 1px solid var(--border-color, #e2e8f0); border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
-        .search-chat-box input { border: none; background: transparent; outline: none; width: 100%; margin-left: 10px; font-family: 'Inter', sans-serif; font-size: 0.9rem; color: var(--text-main, #0f172a); }
-        .search-chat-box input::placeholder { color: var(--text-muted, #64748b); }
-        
-        .chat-contact-item { padding: 12px 15px; border-bottom: 1px solid var(--border-color, #e2e8f0); cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 12px; position: relative; }
-        .chat-contact-item:hover { background: var(--bg-body, #f8fafc); }
-        .chat-contact-item.active { background: #e0f2fe; border-left: 4px solid var(--info, #0ea5e9); }
-        .chat-contact-item.pinned { background: #fefce8; border-left: 4px solid var(--accent, #f59e0b); }
-        
-        .contact-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--info, #0ea5e9), #4f46e5); color: white; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 1.1rem; flex-shrink: 0; box-shadow: var(--shadow-sm); }
-        .contact-info { flex: 1; overflow: hidden; }
-        .contact-name { font-weight: 700; color: var(--text-main, #0f172a); font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; justify-content: space-between; }
-        .contact-nik { font-size: 0.75rem; color: var(--primary, #009846); font-weight: 700; margin: 2px 0; }
-        .contact-last-msg { font-size: 0.8rem; color: var(--text-muted, #64748b); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        
-        .chat-header-panel { padding: 14px 20px; border-bottom: 1px solid var(--border-color, #e2e8f0); display: flex; justify-content: space-between; align-items: center; background: var(--surface, #ffffff); flex-shrink: 0; border-radius: 0 var(--radius-xl) 0 0; }
-        .chat-header-profile { display: flex; align-items: center; gap: 12px; }
-        .chat-header-text h3 { margin: 0; font-size: 1.1rem; color: var(--text-main, #0f172a); font-weight: 800; display: flex; align-items: center; gap: 8px;}
-        .chat-header-text p { margin: 2px 0 0 0; font-size: 0.8rem; color: var(--text-muted, #64748b); font-weight: 500; display: flex; gap: 10px;}
-        
-        .btn-sm { padding: 6px 12px !important; font-size: 0.8rem !important; border-radius: 15px !important; }
-        .chat-action-menu { position: relative; display: inline-block; }
-        .chat-action-btn { background: none; border: none; width: 35px; height: 35px; border-radius: 50%; color: var(--text-muted, #64748b); font-size: 1.1rem; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; }
-        .chat-action-btn:hover { background: var(--border-color, #e2e8f0); color: var(--text-main, #0f172a); }
-        .chat-dropdown-content { display: none; position: absolute; right: 0; top: 40px; background-color: var(--surface, #ffffff); min-width: 220px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 1000; border-radius: 12px; border: 1px solid var(--border-color, #e2e8f0); overflow: hidden; animation: scaleUp 0.2s ease-out; }
-        .chat-dropdown-content button { color: var(--text-main, #0f172a); padding: 10px 15px; text-decoration: none; display: flex; align-items: center; gap: 10px; font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; width: 100%; border: none; background: none; cursor: pointer; text-align: left; transition: 0.2s; }
-        .chat-dropdown-content button:hover { background-color: var(--bg-body, #f8fafc); color: var(--info, #0ea5e9); }
-        .chat-dropdown-content button.text-danger:hover { color: var(--danger, #ef4444); background-color: #fef2f2; }
+        /* =====================================================================
+           STRUKTUR TATA LETAK & CONTAINER
+           ===================================================================== */
+        body.page-dashboard {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
 
-        /* MODAL OVERLAY */
-        .modal-blur-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(6px); z-index: 2000; display: none; justify-content: center; align-items: center; padding: 20px; }
-        .modal-card-premium { background: white; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); overflow: hidden; border: 1px solid rgba(255,255,255,0.8); }
-        
-        .q-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
-        .q-grid .form-group { margin-bottom: 0; }
-        .filter-btn.active { background: #10b981 !important; color: white !important; font-weight: 700; }
-        .filter-btn-danger.active { background: #ef4444 !important; color: white !important; font-weight: 700; }
+        .container {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 450px 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        @media (max-width: 1100px) {
+            .grid-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* =====================================================================
+           NAVBAR RESMI TUNGGAL
+           ===================================================================== */
+        nav {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            padding: 0.75rem 2rem;
+        }
+
+        .nav-container {
+            max-width: 1440px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-main);
+            font-weight: 800;
+            font-size: 1.25rem;
+        }
+
+        .logo i {
+            color: var(--primary);
+            font-size: 1.8rem;
+        }
+
+        .logo div span {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .btn-chat-nav {
+            color: var(--accent-dark);
+            border-radius: var(--radius-sm);
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            font-weight: 700;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-chat-nav:hover {
+            background: #fef3c7;
+            transform: translateY(-1px);
+        }
+
+        .notif-wrapper {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: var(--bg-body);
+            border: 1px solid var(--border-color);
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .notif-wrapper:hover {
+            background: #e2e8f0;
+            transform: translateY(-1px);
+        }
+
+        .notif-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--danger);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 10px;
+            border: 2px solid white;
+            display: none;
+        }
+
+        #notifPanel {
+            position: absolute;
+            top: 55px;
+            right: 0;
+            width: 360px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: var(--shadow-float);
+            border: 1px solid var(--border-color);
+            display: none;
+            flex-direction: column;
+            z-index: 9999;
+            overflow: hidden;
+            animation: fadeInDown 0.25s ease-out;
+        }
+
+        .notif-header {
+            padding: 14px 16px;
+            background: var(--bg-body);
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-notif-archive {
+            background: var(--surface);
+            border: 1px solid var(--border-color);
+            padding: 4px 8px;
+            border-radius: 6px;
+            color: var(--info);
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-name {
+            font-weight: 800;
+            font-size: 0.95rem;
+            color: var(--text-main);
+        }
+
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .role-admin {
+            background: #e0e7ff;
+            color: var(--admin-color);
+            border: 1px solid #c7d2fe;
+        }
+
+        .role-petugas {
+            background: #e0f2fe;
+            color: var(--info);
+            border: 1px solid #bae6fd;
+        }
+
+        .btn-logout-nav {
+            color: var(--danger);
+            border: 1px solid var(--border-color);
+            background: white;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-logout-nav:hover {
+            background: #fee2e2;
+            border-color: #fca5a5;
+        }
+
+        /* =====================================================================
+           PUSAT KENDALI ADMINISTRATOR
+           ===================================================================== */
+        #adminCommandCenter {
+            background: #fafafa;
+            border: 1px solid #e0e7ff;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .cmd-title {
+            color: var(--admin-color);
+            font-weight: 800;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cmd-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            padding: 1.5rem;
+        }
+
+        .cmd-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            font-weight: 700;
+            font-size: 0.92rem;
+            border: none;
+            cursor: pointer;
+            color: white;
+            transition: all 0.25s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .cmd-btn:hover {
+            transform: translateY(-3px);
+            filter: brightness(1.05);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* =====================================================================
+           4 GRAFIK STATISTIK REAL-TIME & 4 KARTU METRIK RINGKASAN
+           ===================================================================== */
+        .chart-row-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-top: 16px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 1300px) {
+            .chart-row-4 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .chart-row-4 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-box-mini {
+            background: white;
+            padding: 16px 18px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            height: 230px;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+
+        .chart-box-mini:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .chart-box-mini h4 {
+            margin: 0 0 10px 0;
+            font-size: 0.88rem;
+            color: #475569;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+        }
+
+        .chart-canvas-wrapper {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .dashboard-grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 1300px) {
+            .dashboard-grid-4 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid-4 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .stat-card {
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+            transition: transform 0.3s ease;
+            background: white;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .stat-icon {
+            width: 55px;
+            height: 55px;
+            border-radius: var(--radius-md);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.6rem;
+            flex-shrink: 0;
+        }
+
+        .stat-blue {
+            background: #eff6ff;
+            color: var(--info);
+        }
+
+        .stat-green {
+            background: #ecfdf5;
+            color: var(--primary);
+        }
+
+        .stat-card h2 {
+            font-size: 1.85rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 4px;
+            color: var(--text-main);
+        }
+
+        .stat-card p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0;
+        }
+
+        /* =====================================================================
+           CARD, FORM & ELEMEN TABEL
+           ===================================================================== */
+        .card {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 1.15rem;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 6px;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: all 0.2s;
+            background: white;
+        }
+
+        .form-input:focus, .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 152, 70, 0.15);
+        }
+
+        .btn {
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.88rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 2px 6px rgba(0, 152, 70, 0.25);
+        }
+
+        .btn-primary:hover {
+            filter: brightness(1.05);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: white;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover {
+            background: #f1f5f9;
+        }
+
+        .table-container {
+            padding: 1.25rem;
+            overflow-x: auto;
+        }
+
+        .modern-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .modern-table th {
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 700;
+            padding: 12px 14px;
+            border-bottom: 2px solid var(--border-color);
+            text-align: left;
+        }
+
+        .modern-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        /* =====================================================================
+           MODAL DIALOGS, FILEROBOT & VIDEO CANVAS
+           ===================================================================== */
+        .modal-blur-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(8px);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal-card-premium {
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.8);
+        }
+
+        .badge-green {
+            background: #e6f9f0;
+            color: #15803d;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .badge-blue {
+            background: #e0f2fe;
+            color: #1d4ed8;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .badge-red {
+            background: #fee2e2;
+            color: #dc2626;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .badge-warning {
+            background: #fef3c7;
+            color: #b45309;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
     </style>
 
-    <!-- AUTH FAST CHECK -->
+    <!-- AUTH FAST SECURITY CHECK -->
     <script>
-        let t = localStorage.getItem('token') || localStorage.getItem('bansosToken');
-        if (!t || t === 'undefined' || t === 'null') {
+        let authTk = localStorage.getItem('token') || localStorage.getItem('access_token') || localStorage.getItem('bansosToken');
+        if (!authTk || authTk === 'undefined' || authTk === 'null') {
             localStorage.clear();
             window.location.href = 'login.html';
         }
@@ -108,23 +663,35 @@
 </head>
 <body class="page-dashboard">
 
-    <!-- NAVBAR RESMI TUNGGAL -->
+    <!-- =====================================================================
+         NAVBAR RESMI TUNGGAL
+         ===================================================================== -->
     <nav>
         <div class="nav-container">
-            <a href="#" class="logo"><i class="fas fa-shield-alt"></i><div>Pemkab Sidoarjo<span>Sistem SAW & BWM</span></div></a>
+            <a href="#" class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <div>
+                    Pemkab Sidoarjo
+                    <span>Sistem SAW & BWM</span>
+                </div>
+            </a>
             
             <div class="user-profile">
-                <button onclick="window.openAdminChat()" class="btn btn-secondary" style="color:var(--accent); border-radius:var(--radius-sm);"><i class="fas fa-comments"></i> Chat Warga</button>
+                <button onclick="window.openAdminChat()" class="btn-chat-nav">
+                    <i class="fas fa-comments"></i> Chat Warga
+                </button>
                 
                 <div class="notif-wrapper" onclick="window.toggleNotifPanel(event)">
-                    <i class="fas fa-bell" style="font-size:1.2rem; color:var(--text-muted); transition: color 0.3s;"></i>
+                    <i class="fas fa-bell notif-icon"></i>
                     <span id="notifBadge" class="notif-badge">0</span>
                     <div id="notifPanel" onclick="event.stopPropagation()">
-                        <div style="padding:14px 16px; background:var(--bg-body); border-bottom:1px solid var(--border-color); font-weight:700; color:var(--primary); font-size:0.9rem; display:flex; justify-content:space-between; align-items:center;">
+                        <div class="notif-header">
                             <span><i class="fas fa-history"></i> Riwayat Notifikasi</span>
-                            <button onclick="window.fetchNotifikasiRealtime('arsip')" style="background:var(--surface); border:1px solid var(--border-color); padding:4px 8px; border-radius:6px; color:var(--info); font-size:0.75rem; font-weight:700; cursor:pointer;"><i class="fas fa-archive"></i> Buka Arsip</button>
+                            <button onclick="window.fetchNotifikasiRealtime('arsip')" class="btn-notif-archive">
+                                <i class="fas fa-archive"></i> Buka Arsip
+                            </button>
                         </div>
-                        <div id="notifList" style="max-height:400px; overflow-y:auto; background:white;"></div>
+                        <div id="notifList" class="notif-list-container"></div>
                     </div>
                 </div>
 
@@ -132,50 +699,147 @@
                     <div class="user-name" id="navUsername">Memuat...</div>
                     <div id="navRoleBadge" class="role-badge">Tamu</div>
                 </div>
-                <button onclick="window.logout()" class="btn btn-secondary" style="color:var(--danger); border-color:var(--border-color);"><i class="fas fa-sign-out-alt"></i></button>
+                <button onclick="window.logout()" class="btn-logout-nav" title="Keluar">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
             </div>
         </div>
     </nav>
 
-    <!-- DASHBOARD CONTAINER UTAMA -->
+    <!-- =====================================================================
+         DASHBOARD CONTAINER UTAMA
+         ===================================================================== -->
     <div class="container">
         <!-- PUSAT KENDALI ADMINISTRATOR -->
-        <div id="adminCommandCenter" style="display: none;" class="card">
-            <div class="card-header"><div class="card-title" style="color: var(--admin-color);"><i class="fas fa-chess-king"></i> Pusat Kendali Administrator</div></div>
+        <div id="adminCommandCenter" class="card" style="display: none;">
+            <div class="card-header">
+                <div class="card-title cmd-title">
+                    <i class="fas fa-chess-king"></i> Pusat Kendali Administrator
+                </div>
+            </div>
             <div class="cmd-grid">
-                <button onclick="window.bukaModalPengguna()" class="cmd-btn" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);"><i class="fas fa-users-cog"></i> Kelola Pengguna</button>
-                <button onclick="window.bukaModalBobot()" class="cmd-btn" style="background: linear-gradient(135deg, #6366f1, #4f46e5);"><i class="fas fa-sliders-h"></i> Input Bobot BWM</button>
-                <button onclick="window.hitungSPK()" class="cmd-btn" style="background: linear-gradient(135deg, #10b981, #059669);"><i class="fas fa-calculator"></i> Proses Algoritma SAW</button>
-                <button onclick="window.bukaModalKomparasi()" class="cmd-btn" style="background: linear-gradient(135deg, #f59e0b, #d97706);"><i class="fas fa-balance-scale"></i> Verifikasi Algoritma</button>
-                <button onclick="window.bukaModalLaporanChat()" class="cmd-btn" style="background: linear-gradient(135deg, #f43f5e, #be123c);"><i class="fas fa-shield-virus"></i> Investigasi Laporan</button>
+                <button onclick="window.bukaModalPengguna()" class="cmd-btn" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);">
+                    <i class="fas fa-users-cog"></i> Kelola Pengguna
+                </button>
+                <button onclick="window.bukaModalBobot()" class="cmd-btn" style="background: linear-gradient(135deg, #6366f1, #4f46e5);">
+                    <i class="fas fa-sliders-h"></i> Input Bobot BWM
+                </button>
+                <button onclick="window.hitungSPK()" class="cmd-btn" style="background: linear-gradient(135deg, #10b981, #059669);">
+                    <i class="fas fa-calculator"></i> Proses Algoritma SAW
+                </button>
+                <button onclick="window.bukaModalKomparasi()" class="cmd-btn" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                    <i class="fas fa-balance-scale"></i> Verifikasi Algoritma
+                </button>
+                <button onclick="window.bukaModalLaporanChat()" class="cmd-btn" style="background: linear-gradient(135deg, #f43f5e, #be123c);">
+                    <i class="fas fa-shield-virus"></i> Investigasi Laporan
+                </button>
             </div>
         </div>
 
-        <!-- PETA KERENTANAN GEOGRAFIS KECAMATAN (CHOROPLETH) -->
-        <div class="card" id="distributionMapCard" style="border: 1px solid #bae6fd; transition: 0.5s;">
+        <!-- PETA KERENTANAN GEOGRAFIS KECAMATAN (CHOROPLETH POLIGON) -->
+        <div class="card" id="distributionMapCard" style="border: 1px solid #bae6fd; margin-bottom: 20px;">
             <div class="card-header" style="background-color:#f0f9ff;">
-                <div class="card-title" style="color:var(--info);"><i class="fas fa-map-marked-alt"></i> Peta Kerentanan Geografis (Rata-rata Desil Per Wilayah)</div>
+                <div class="card-title" style="color:var(--info); font-size:1.1rem;">
+                    <i class="fas fa-map-marked-alt"></i> Peta Kerentanan Geografis (Rata-rata Desil Per Wilayah Sidoarjo)
+                </div>
             </div>
-            <div class="big-map-area" id="bigMapContainer" style="height: 380px; width: 100%;"></div>
+            <div class="big-map-area" id="bigMapContainer" style="height: 400px; width: 100%;"></div>
         </div>
 
-        <!-- DASHBOARD STATISTIK & GRAFIK DESIL -->
-        <div class="dashboard-grid">
-            <div class="card stat-card"><div class="stat-icon stat-blue"><i class="fas fa-users"></i></div><div><h2 id="statTotal">0</h2><p>Total Warga Terdaftar</p></div></div>
-            <div class="card stat-card"><div class="stat-icon stat-green"><i class="fas fa-check-circle"></i></div><div><h2 id="statValid" style="color:var(--primary);">0</h2><p>Warga Disetujui (Layak)</p></div></div>
-            <div class="card" style="padding: 15px; display: flex; align-items: center; justify-content: center; min-height: 110px;">
-                <canvas id="wargaStatusChart" style="max-height: 95px; width: 100%;"></canvas>
+        <!-- 4 GRAFIK STATISTIK REAL-TIME (TERPISAH, LENGKAP & LEBIH JELAS) -->
+        <div class="chart-row-4">
+            <div class="chart-box-mini">
+                <h4><i class="fas fa-chart-bar text-primary"></i> 1. Distribusi Desil (D1 - D10)</h4>
+                <div class="chart-canvas-wrapper"><canvas id="chartDesil10"></canvas></div>
+            </div>
+            <div class="chart-box-mini">
+                <h4><i class="fas fa-check-circle text-info"></i> 2. Status Persetujuan Warga</h4>
+                <div class="chart-canvas-wrapper"><canvas id="chartPersetujuan"></canvas></div>
+            </div>
+            <div class="chart-box-mini">
+                <h4><i class="fas fa-box-check text-primary"></i> 3. Status Penyaluran Bansos</h4>
+                <div class="chart-canvas-wrapper"><canvas id="chartPenyaluran"></canvas></div>
+            </div>
+            <div class="chart-box-mini">
+                <h4><i class="fas fa-shield-alt text-danger"></i> 4. Status Mediasi Sengketa</h4>
+                <div class="chart-canvas-wrapper"><canvas id="chartSengketa"></canvas></div>
+            </div>
+        </div>
+
+        <!-- DASHBOARD 4 KARTU METRIK RINGKASAN (TERPADU & JELAS) -->
+        <div class="dashboard-grid-4">
+            <div class="card stat-card">
+                <div class="stat-icon stat-blue"><i class="fas fa-users"></i></div>
+                <div>
+                    <h2 id="statTotal">0</h2>
+                    <p>Total Warga Terdaftar</p>
+                </div>
+            </div>
+            
+            <!-- KARTU STATUS PERSETUJUAN (DIJADIKAN SATU) -->
+            <div class="card stat-card">
+                <div class="stat-icon stat-green"><i class="fas fa-user-check"></i></div>
+                <div style="flex:1;">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                        <h2 id="statValid" style="color:var(--primary); margin:0;">0</h2>
+                        <span style="font-size:0.8rem; color:#64748b; font-weight:700;">dari <span id="statTotalRef">0</span></span>
+                    </div>
+                    <p style="margin-top:2px;">Status Persetujuan Warga</p>
+                    <div style="display:flex; gap:6px; margin-top:6px; font-size:0.75rem; font-weight:700;">
+                        <span class="badge-green" style="padding:2px 8px; font-size:0.7rem;"><i class="fas fa-check"></i> <span id="statValidBadge">0</span> Layak</span>
+                        <span class="badge-red" style="padding:2px 8px; font-size:0.7rem;"><i class="fas fa-clock"></i> <span id="statMenungguBadge">0</span> Menunggu</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KARTU STATUS PENYALURAN (TERPISAH) -->
+            <div class="card stat-card">
+                <div class="stat-icon" style="background:#e0f2fe; color:#0284c7;"><i class="fas fa-hand-holding-usd"></i></div>
+                <div style="flex:1;">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                        <h2 id="statTelahSalur" style="color:#0284c7; margin:0;">0</h2>
+                        <span style="font-size:0.8rem; color:#64748b; font-weight:700;">Telah Salur</span>
+                    </div>
+                    <p style="margin-top:2px;">Realisasi Penyaluran</p>
+                    <div style="display:flex; gap:6px; margin-top:6px; font-size:0.75rem; font-weight:700;">
+                        <span class="badge-blue" style="padding:2px 8px; font-size:0.7rem;"><i class="fas fa-truck"></i> <span id="statBelumSalurBadge">0</span> Belum Salur</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KARTU STATUS SENGKETA (TERPISAH) -->
+            <div class="card stat-card">
+                <div class="stat-icon" style="background:#fee2e2; color:#dc2626;"><i class="fas fa-exclamation-triangle"></i></div>
+                <div style="flex:1;">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                        <h2 id="statSengketa" style="color:#dc2626; margin:0;">0</h2>
+                        <span style="font-size:0.8rem; color:#64748b; font-weight:700;">Kasus</span>
+                    </div>
+                    <p style="margin-top:2px;">Mediasi Laporan Sengketa</p>
+                    <div style="display:flex; gap:6px; margin-top:6px; font-size:0.75rem; font-weight:700;">
+                        <span class="badge-green" style="padding:2px 8px; font-size:0.7rem;"><i class="fas fa-shield-alt"></i> <span id="statBebasSengketaBadge">0</span> Bebas Kasus</span>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div class="grid-layout">
-            <!-- FORM PENDATAAN WARGA (10 KRITERIA LENGKAP TANPA SINGKATAN) -->
+            <!-- =====================================================================
+                 FORM PENDATAAN WARGA (10 KRITERIA LENGKAP)
+                 ===================================================================== -->
             <div>
                 <div class="card" style="position: sticky; top: 90px;">
-                    <div class="card-header"><div class="card-title" style="color:var(--primary-dark);"><i class="fas fa-user-plus"></i> Form Pendataan Warga</div></div>
-                    <form id="bansosForm" onsubmit="window.tambahData(event)">
+                    <div class="card-header">
+                        <div class="card-title" style="color:var(--primary-dark);">
+                            <i class="fas fa-user-plus"></i> Form Pendataan Warga
+                        </div>
+                    </div>
+                    <form id="bansosForm" onsubmit="window.tambahData(event)" style="padding: 1.5rem;">
+                        <!-- AI SCAN KTP OCR -->
                         <div class="form-group" style="background: var(--bg-body); padding: 16px; border-radius: var(--radius-sm); border: 1px dashed var(--primary); box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
-                            <label class="form-label" style="color:var(--primary-dark);"><i class="fas fa-camera"></i> Scan KTP Auto-Fill (AI OCR)</label>
+                            <label class="form-label" style="color:var(--primary-dark); font-weight:800;">
+                                <i class="fas fa-camera"></i> Scan KTP Auto-Fill (AI OCR)
+                            </label>
                             <input type="file" id="ktpUpload" accept="image/*" class="form-input" style="background:white; border-color:var(--primary-light); cursor:pointer;" onchange="window.processOCR(this)">
                         </div>
 
@@ -183,19 +847,37 @@
                             <label class="form-label">Nomor Induk Kependudukan (NIK 16 Digit)</label>
                             <div style="display:flex; gap:10px;">
                                 <input type="number" id="nik" class="form-input" required placeholder="Masukkan 16 digit NIK">
-                                <button type="button" onclick="window.cekDukcapilLokal()" class="btn btn-secondary" style="color:var(--info); border-color:var(--info);" title="Tarik Data dari Dukcapil"><i class="fas fa-search"></i> Cek Dukcapil</button>
+                                <button type="button" onclick="window.cekDukcapilLokal()" class="btn btn-secondary" style="color:var(--info); border-color:var(--info); white-space:nowrap;" title="Tarik Data dari Dukcapil">
+                                    <i class="fas fa-search"></i> Cek Dukcapil
+                                </button>
                             </div>
                         </div>
 
-                        <div class="form-group"><label class="form-label">Nama Lengkap Pemohon</label><input type="text" id="nama" class="form-input" required placeholder="Nama lengkap sesuai KTP"></div>
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                            <div class="form-group"><label class="form-label">No. WhatsApp / HP</label><input type="text" id="no_hp" class="form-input" placeholder="Contoh: 08123456789"></div>
-                            <div class="form-group"><label class="form-label">Alamat Email</label><input type="email" id="email" class="form-input" placeholder="warga@mail.com"></div>
+                        <div class="form-group">
+                            <label class="form-label">Nama Lengkap Pemohon</label>
+                            <input type="text" id="nama" class="form-input" required placeholder="Nama lengkap sesuai KTP">
                         </div>
 
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                            <div class="form-group"><label class="form-label">Tempat Lahir</label><input type="text" id="tempatLahir" class="form-input" placeholder="Kabupaten/Kota"></div>
-                            <div class="form-group"><label class="form-label">Tanggal Lahir</label><input type="date" id="tglLahir" class="form-input"></div>
+                            <div class="form-group">
+                                <label class="form-label">No. WhatsApp / HP</label>
+                                <input type="text" id="no_hp" class="form-input" placeholder="Contoh: 08123456789">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Alamat Email</label>
+                                <input type="email" id="email" class="form-input" placeholder="warga@mail.com">
+                            </div>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                            <div class="form-group">
+                                <label class="form-label">Tempat Lahir</label>
+                                <input type="text" id="tempatLahir" class="form-input" placeholder="Sidoarjo">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tanggal Lahir</label>
+                                <input type="date" id="tglLahir" class="form-input">
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -203,42 +885,49 @@
                             <textarea id="alamat" class="form-input" rows="2" placeholder="Nama jalan, RT/RW, Dusun, Desa, Kecamatan..." onblur="window.cariAlamatDiPeta(this.value)"></textarea>
                         </div>
                         
+                        <!-- GEOTAGGING PRESISI -->
                         <div class="form-group">
-                            <label class="form-label" style="color:var(--info);"><i class="fas fa-map-pin"></i> Kunci Geotagging Presisi Rumah (Otomatis Isi Alamat)</label>
-                            <div class="map-wrapper">
-                                <div id="formCoordMap" class="map-box-area" style="height: 300px;"></div>
+                            <label class="form-label" style="color:var(--info); font-weight:800;">
+                                <i class="fas fa-map-pin"></i> Kunci Geotagging Presisi Rumah (Otomatis Isi Alamat)
+                            </label>
+                            <div class="map-wrapper" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
+                                <div id="formCoordMap" class="map-box-area" style="height: 280px; width:100%;"></div>
                             </div>
                             <div style="display:flex; gap:8px; margin-top:8px;">
-                                <input type="text" id="lat" class="form-input" placeholder="Garis Lintang (Lat)" readonly style="background:var(--bg-body); text-align:center;">
-                                <input type="text" id="lng" class="form-input" placeholder="Garis Bujur (Lng)" readonly style="background:var(--bg-body); text-align:center;">
-                                <button type="button" onclick="window.ambilLokasiGPS()" class="btn btn-secondary" style="color:var(--info); border-color:var(--info);" title="Kunci GPS Gawai Saat Ini"><i class="fas fa-crosshairs"></i> GPS</button>
+                                <input type="text" id="lat" class="form-input" placeholder="Latitude" readonly style="background:var(--bg-body); text-align:center;">
+                                <input type="text" id="lng" class="form-input" placeholder="Longitude" readonly style="background:var(--bg-body); text-align:center;">
+                                <button type="button" onclick="window.ambilLokasiGPS()" class="btn btn-secondary" style="color:var(--info); border-color:var(--info);" title="Kunci GPS Gawai">
+                                    <i class="fas fa-crosshairs"></i> GPS
+                                </button>
                             </div>
                         </div>
 
-                        <!-- KUESIONER 10 KRITERIA LENGKAP -->
-                        <label class="form-label" style="margin-top:15px; font-weight:800; color:var(--text-main);"><i class="fas fa-list-ol text-primary"></i> Kuesioner Kelayakan Kriteria (10 Indikator BWM-SAW)</label>
-                        <div class="q-grid">
+                        <!-- KUESIONER 10 KRITERIA BWM-SAW -->
+                        <label class="form-label" style="margin-top:15px; font-weight:800; color:var(--text-main);">
+                            <i class="fas fa-list-ol text-primary"></i> Kuesioner Kelayakan Kriteria (10 Indikator BWM-SAW)
+                        </label>
+                        <div class="q-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; background:var(--bg-body); padding:16px; border-radius:12px; border:1px solid var(--border-color);">
                             <div class="form-group">
-                                <label class="form-label">C1. Kondisi Ekonomi / Penghasilan Bulanan (Rp)</label>
+                                <label class="form-label">C1. Kondisi Ekonomi (Rp/Bulan)</label>
                                 <input type="number" id="c1" class="form-input" value="1500000" placeholder="Contoh: 1500000">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">C2. Estimasi Nilai Kepemilikan Aset (Rp)</label>
+                                <label class="form-label">C2. Estimasi Nilai Aset (Rp)</label>
                                 <input type="number" id="c2" class="form-input" value="5000000" placeholder="Contoh: 5000000">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">C3. Usia / Umur Kepala Keluarga (Tahun)</label>
+                                <label class="form-label">C3. Usia Kepala Keluarga (Thn)</label>
                                 <input type="number" id="c3" class="form-input" value="45" placeholder="Contoh: 48">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">C4. Jenis Kelamin Kepala Keluarga</label>
+                                <label class="form-label">C4. Jenis Kelamin</label>
                                 <select id="c4" class="form-select">
                                     <option value="1">Laki-laki (1)</option>
                                     <option value="2">Perempuan (2)</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">C5. Jumlah Tanggungan Keluarga (Jiwa)</label>
+                                <label class="form-label">C5. Jumlah Tanggungan (Jiwa)</label>
                                 <input type="number" id="c5" class="form-input" value="3" placeholder="Contoh: 4">
                             </div>
                             <div class="form-group">
@@ -250,11 +939,11 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">C7. Kepemilikan Anak Usia Sekolah</label>
+                                <label class="form-label">C7. Kepemilikan Anak Sekolah</label>
                                 <input type="number" id="c7" class="form-input" value="2" placeholder="Jumlah anak">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">C8. Status Kepemilikan Tempat Tinggal</label>
+                                <label class="form-label">C8. Status Tempat Tinggal</label>
                                 <select id="c8" class="form-select">
                                     <option value="1">Milik Sendiri (1)</option>
                                     <option value="2">Sewa / Kontrak (2)</option>
@@ -271,7 +960,7 @@
                                 </select>
                             </div>
                             <div class="form-group" style="grid-column: span 2;">
-                                <label class="form-label">C10. Status Kesehatan / Riwayat Penyakit</label>
+                                <label class="form-label">C10. Status Kesehatan</label>
                                 <select id="c10" class="form-select">
                                     <option value="1" selected>Sehat (1)</option>
                                     <option value="2">Sakit Menahun / Disabilitas Fisik (2)</option>
@@ -279,41 +968,81 @@
                             </div>
                         </div>
 
-                        <div class="form-group"><label class="form-label">Catatan Lapangan Tambahan</label><textarea id="catatan" class="form-input" rows="1" placeholder="Catatan kondisi spesifik keluarga..."></textarea></div>
-                        <button type="submit" class="btn btn-primary" style="width:100%; padding: 14px;"><i class="fas fa-save"></i> Simpan Data Manual</button>
+                        <div class="form-group" style="margin-top:15px;">
+                            <label class="form-label">Catatan Lapangan Tambahan</label>
+                            <textarea id="catatan" class="form-input" rows="1" placeholder="Catatan kondisi spesifik keluarga..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width:100%; padding: 14px; font-size: 1rem;">
+                            <i class="fas fa-save"></i> Simpan Data Manual
+                        </button>
                     </form>
                 </div>
             </div>
 
-            <!-- ARSIP DATA & HASIL REKOMENDASI SPK -->
+            <!-- =====================================================================
+                 ARSIP DATA & HASIL REKOMENDASI SPK
+                 ===================================================================== -->
             <div>
                 <div class="card">
+                    <!-- HEADER ARSIP DATA WARGA -->
                     <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
-                        <div class="card-title" style="color:var(--text-main);"><i class="fas fa-folder-open" style="color:var(--accent)"></i> Arsip Data Warga</div>
-                        <div style="display:flex; gap:8px; flex-wrap: wrap;">
-                            <button onclick="window.loadDashboardData()" class="btn btn-secondary" title="Refresh Data"><i class="fas fa-sync-alt"></i></button>
-                            <button onclick="window.exportExcelLengkap()" class="btn btn-secondary" style="color:var(--primary-dark);" title="Ekspor Seluruh Kolom ke Excel"><i class="fas fa-file-excel"></i> Ekspor Excel</button>
-                            <button onclick="document.getElementById('fileImport').click()" class="btn btn-secondary" style="color:var(--admin-color);" title="Import dari Excel"><i class="fas fa-file-import"></i> Impor Excel</button>
-                            <input type="file" id="fileImport" style="display:none;" accept=".xlsx, .xls" onchange="window.smartImportPreview(this)">
-                            <button onclick="window.syncBPS()" class="btn btn-secondary" style="color:var(--info);" title="Tarik Sinkronisasi BPS"><i class="fas fa-cloud-download-alt"></i> BPS</button>
-                            <button onclick="window.verifyAllData()" class="btn btn-primary" title="Setujui Data Sekaligus"><i class="fas fa-check-double"></i> Setujui Semua</button>
-                            <button onclick="window.hapusSemuaWarga()" class="btn" style="background:#fee2e2; color:#dc2626;" title="Hapus Seluruh Data Warga"><i class="fas fa-trash-alt"></i> Hapus Semua</button>
+                        <div class="card-title" style="color:var(--text-main);">
+                            <i class="fas fa-folder-open" style="color:var(--accent)"></i> Arsip Data Warga
+                        </div>
+                        
+                        <!-- ACTION BUTTONS TOOLBAR -->
+                        <div class="header-action-btns">
+                            <button type="button" onclick="window.loadDashboardData(true)" class="btn btn-secondary" title="Refresh Data"><i class="fas fa-sync-alt"></i></button>
+                            <button type="button" onclick="window.exportExcelLengkap()" class="btn btn-secondary text-primary-btn" title="Ekspor Seluruh Kolom ke Excel"><i class="fas fa-file-excel"></i> Ekspor Excel</button>
+                            <button type="button" onclick="document.getElementById('fileImport').click()" class="btn btn-secondary text-admin-btn" title="Import dari Excel"><i class="fas fa-file-import"></i> Impor Excel</button>
+                            <input type="file" id="fileImport" style="display:none;" accept=".xlsx, .xls, .csv" onchange="window.smartImportPreview(this)">
+                            <button type="button" onclick="window.syncBPS()" class="btn btn-secondary text-info-btn" title="Tarik Sinkronisasi BPS"><i class="fas fa-cloud-download-alt"></i> BPS</button>
+                            
+                            <!-- TOMBOL SETUJUI SEMUA -->
+                            <button type="button" id="btnVerifyAll" onclick="window.verifyAllData(event)" class="btn btn-primary btn-verify-all" title="Konfirmasi & Setujui Seluruh Data Warga">
+                                <i class="fas fa-check-double"></i> Setujui Semua
+                            </button>
+
+                            <!-- TOMBOL BATALKAN SEMUA -->
+                            <button type="button" id="btnUnverifyAll" onclick="window.unverifyAllData(event)" class="btn btn-warning btn-unverify-all" style="background:#fffbeb; color:#b45309; border:1px solid #fde68a;" title="Batalkan Seluruh Persetujuan Warga">
+                                <i class="fas fa-undo-alt"></i> Batalkan Semua
+                            </button>
+                            
+                            <button type="button" onclick="window.hapusSemuaWarga()" class="btn btn-delete-all" style="background:#fee2e2; color:#dc2626;" title="Hapus Seluruh Data Warga"><i class="fas fa-trash-alt"></i> Hapus Semua</button>
                         </div>
                     </div>
+
                     <div class="table-container">
-                        <div class="filter-btn-group" style="align-items:center;">
+                        <!-- FILTER & PENGURUTAN LENGKAP -->
+                        <div class="filter-btn-group" style="display:flex; gap:8px; flex-wrap:wrap; padding:12px; background:#f8fafc; border-radius:12px; border:1px solid var(--border-color); margin-bottom:15px; align-items:center;">
                             <button class="filter-btn active filter-kategori" onclick="window.applyFilter('all', this)"><i class="fas fa-border-all"></i> Semua</button>
-                            <button class="filter-btn filter-kategori" onclick="window.applyFilter('layak', this)"><i class="fas fa-medal" style="color:var(--primary);"></i> Layak Bansos</button>
-                            <button class="filter-btn filter-kategori" onclick="window.applyFilter('menerima', this)"><i class="fas fa-box-open" style="color:var(--info);"></i> Telah Menerima</button>
+                            <button class="filter-btn filter-kategori" onclick="window.applyFilter('layak', this)"><i class="fas fa-check-circle text-primary"></i> Disetujui</button>
+                            <button class="filter-btn filter-kategori" onclick="window.applyFilter('menerima', this)"><i class="fas fa-box-open text-info"></i> Telah Menerima</button>
                             <button class="filter-btn filter-btn-danger filter-kategori" onclick="window.applyFilter('bermasalah', this)"><i class="fas fa-exclamation-triangle"></i> Bermasalah</button>
-                            <div style="border-left: 2px solid var(--border-color); height: 30px; margin: 0 10px;"></div>
-                            <button class="filter-btn" onclick="window.applySort('nik_asc', this)"><i class="fas fa-sort-numeric-down"></i> Urutkan NIK</button>
-                            <button class="filter-btn" onclick="window.applySort('terbaru', this)"><i class="fas fa-sort-amount-down"></i> Terbaru</button>
-                            <button class="filter-btn" onclick="window.applySort('terlama', this)"><i class="fas fa-sort-amount-up"></i> Terlama</button>
-                            <button class="filter-btn" onclick="window.applySort('az', this)"><i class="fas fa-sort-alpha-down"></i> A-Z</button>
+                            
+                            <div style="border-left: 2px solid var(--border-color); height: 28px; margin: 0 4px;"></div>
+                            
+                            <!-- PENGURUTAN NIK (TERKECIL - TERBESAR) -->
+                            <button class="filter-btn" id="btnSortNik" onclick="window.toggleSortNik()"><i class="fas fa-sort-numeric-down"></i> Urutkan NIK</button>
+                            
+                            <!-- PENGURUTAN WAKTU PENDAFTARAN -->
+                            <button class="filter-btn" id="btnSortTerbaru" onclick="window.applySort('terbaru', this)"><i class="fas fa-sort-amount-down"></i> Terbaru</button>
+                            <button class="filter-btn" id="btnSortTerlama" onclick="window.applySort('terlama', this)"><i class="fas fa-sort-amount-up"></i> Terlama</button>
+                            
+                            <!-- PENGURUTAN NAMA A-Z / Z-A -->
+                            <button class="filter-btn" id="btnSortAz" onclick="window.toggleSortAz(this)"><i class="fas fa-sort-alpha-down"></i> A - Z</button>
+
+                            <div style="border-left: 2px solid var(--border-color); height: 28px; margin: 0 4px;"></div>
+                            
+                            <!-- CARI DATA WARGA BERDASARKAN TANGGAL DAFTAR (BISA DIKETIK LANGSUNG) -->
+                            <div style="display:inline-flex; align-items:center; gap:6px; background:white; padding:4px 12px; border-radius:20px; border:1px solid var(--border-color); font-size:0.82rem; font-weight:600;">
+                                <i class="fas fa-calendar-alt text-primary"></i> Tgl Daftar:
+                                <input type="text" id="filterTglDaftar" placeholder="Contoh: 02/09/2026" oninput="window.filterByTanggalDaftar(this.value)" style="border:none; outline:none; font-family:'Inter'; font-size:0.82rem; background:transparent; width:130px;">
+                                <button type="button" onclick="document.getElementById('filterTglDaftar').value=''; window.filterByTanggalDaftar('');" style="background:none; border:none; cursor:pointer; color:#94a3b8;" title="Reset Filter Tanggal"><i class="fas fa-times-circle"></i></button>
+                            </div>
                         </div>
 
-                        <!-- TABEL ARSIP DENGAN 6 KOLOM TEPAT -->
+                        <!-- TABEL ARSIP -->
                         <table id="dataTable" class="modern-table">
                             <thead>
                                 <tr>
@@ -321,7 +1050,7 @@
                                     <th>Nomor NIK</th>
                                     <th>Identitas Warga</th>
                                     <th>Waktu Pendaftaran</th>
-                                    <th style="text-align:center;">Validasi / Kelayakan</th>
+                                    <th style="text-align:center;">Validasi</th>
                                     <th style="text-align:center;">Aksi</th>
                                 </tr>
                             </thead>
@@ -333,7 +1062,9 @@
                 <!-- HASIL REKOMENDASI SPK -->
                 <div class="card hidden" id="resultCard" style="display:none; border: 1px solid var(--primary-light); box-shadow: 0 10px 25px rgba(16, 185, 129, 0.15);">
                     <div class="card-header" style="background: linear-gradient(to right, #ecfdf5, #ffffff);">
-                        <div class="card-title" style="color: var(--primary-dark); font-size: 1.25rem;"><i class="fas fa-trophy" style="color:var(--accent); font-size: 1.5rem;"></i> Hasil Rekomendasi SAW & BWM (Prioritas Desil 1–5)</div>
+                        <div class="card-title" style="color: var(--primary-dark); font-size: 1.25rem;">
+                            <i class="fas fa-trophy" style="color:var(--accent); font-size: 1.5rem;"></i> Hasil Rekomendasi SAW & BWM (Prioritas Desil 1–4)
+                        </div>
                         <div style="display:flex; gap:8px;">
                             <button type="button" onclick="window.bukaModalMatriksKerja()" class="btn btn-secondary" style="color:var(--admin-color); border-color: #c7d2fe; background: white;"><i class="fas fa-table"></i> Lihat Matriks Kerja</button>
                             <button type="button" onclick="window.exportSPKPDF()" class="btn btn-primary" style="background: linear-gradient(135deg, var(--danger), #be123c); box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);"><i class="fas fa-file-pdf"></i> Cetak SK Bupati</button>
@@ -358,7 +1089,38 @@
         </div>
     </div>
 
-    <!-- MODAL MANAJEMEN PENGGUNA -->
+    <!-- =====================================================================
+         MODAL RINCIAN SELURUH WARGA WILAYAH (PETA KLIK)
+         ===================================================================== -->
+    <div id="modalWilayahDetail" class="modal-blur-overlay">
+        <div class="modal-card-premium card" style="width:95%; max-width:1150px; height:88%; display: flex; flex-direction: column; overflow: hidden; padding: 0;">
+            <div class="card-header" style="background:#f0f9ff; padding:1.2rem; flex-shrink:0;">
+                <div class="card-title" style="color:var(--info); font-size:1.2rem;"><i class="fas fa-map-pin"></i> Rincian Seluruh Penerima Bansos Wilayah: <span id="modalWilayahTitle" style="color:#0f172a;"></span></div>
+                <button onclick="window.closeModal('modalWilayahDetail')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button>
+            </div>
+            <div style="flex:1; overflow-y:auto; padding:20px; background:var(--bg-body);">
+                <table class="modern-table">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Identitas & NIK</th>
+                            <th>TTL & Alamat Lengkap</th>
+                            <th style="text-align:center;">Desil</th>
+                            <th>Penyaluran Terakhir</th>
+                            <th>Nominal / Bentuk Bantuan</th>
+                            <th style="text-align:center;">Bukti Foto</th>
+                            <th style="text-align:center;">Titik Lokasi GPS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="wilayahDetailTbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL MANAJEMEN PENGGUNA
+         ===================================================================== -->
     <div id="modalPengguna" class="modal-blur-overlay">
         <div class="modal-card-premium card" style="width:95%; max-width:800px; max-height:85vh; display: flex; flex-direction: column; overflow: hidden; padding: 0;">
             <div class="card-header" style="flex-shrink:0;">
@@ -400,7 +1162,9 @@
         </div>
     </div>
 
-    <!-- UI PANGGILAN MASUK & AKTIF -->
+    <!-- =====================================================================
+         UI PANGGILAN MASUK & AKTIF WEBRTC
+         ===================================================================== -->
     <div id="incomingCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); backdrop-filter:blur(10px); z-index:9999999; justify-content:center; align-items:center; flex-direction:column;">
         <div style="text-align:center; animation: scaleUp 0.3s ease-out;">
             <div style="width: 120px; height: 120px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 3.5rem; color: white; margin: 0 auto 30px auto; box-shadow: 0 0 30px rgba(16, 185, 129, 0.6); position: relative;">
@@ -438,7 +1202,9 @@
         </div>
     </div>
 
-    <!-- MODAL CUSTOM EXPORT BUILDER -->
+    <!-- =====================================================================
+         MODAL CUSTOM EXPORT BUILDER
+         ===================================================================== -->
     <div id="modalExportBuilder" class="modal-blur-overlay">
         <div class="modal-card-premium card" style="width:500px; padding:24px;">
             <div class="card-header"><div class="card-title"><i class="fas fa-filter" style="color:var(--info);"></i> Custom Export Excel</div><button onclick="window.closeModal('modalExportBuilder')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button></div>
@@ -451,7 +1217,9 @@
         </div>
     </div>
 
-    <!-- MODAL IMPORT PREVIEW -->
+    <!-- =====================================================================
+         MODAL IMPORT PREVIEW
+         ===================================================================== -->
     <div id="modalImportPreview" class="modal-blur-overlay">
         <div class="modal-card-premium card" style="width:95%; max-width:900px; height:85%; padding:24px; display:flex; flex-direction:column;">
             <div class="card-header" style="flex-shrink:0;"><div class="card-title" style="color:var(--admin-color);"><i class="fas fa-magic"></i> Validasi Pra-Import Data</div><button onclick="window.closeModal('modalImportPreview')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button></div>
@@ -460,7 +1228,9 @@
         </div>
     </div>
 
-    <!-- MODAL EDIT WARGA DENGAN 10 KRITERIA LENGKAP -->
+    <!-- =====================================================================
+         MODAL EDIT WARGA DENGAN 10 KRITERIA LENGKAP
+         ===================================================================== -->
     <div id="modalEdit" class="modal-blur-overlay">
         <div class="modal-card-premium card" style="width:600px; max-height:85vh; display:flex; flex-direction:column;">
             <div class="card-header" style="flex-shrink:0;"><div class="card-title" style="color:var(--accent);"><i class="fas fa-edit"></i> Edit Data Warga</div><button onclick="window.closeModal('modalEdit')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button></div>
@@ -497,7 +1267,9 @@
         </div>
     </div>
 
-    <!-- MODAL BOBOT BWM -->
+    <!-- =====================================================================
+         MODAL BOBOT BWM
+         ===================================================================== -->
     <div id="modalBobot" class="modal-blur-overlay">
         <div class="modal-card-premium card" style="width:450px; padding:24px;">
             <div class="card-header"><div class="card-title" style="color:var(--admin-color)"><i class="fas fa-sliders-h"></i> Input Bobot BWM</div><button onclick="window.closeModal('modalBobot')" style="background:none;border:none;font-size:1.2rem; cursor:pointer; color:var(--text-muted);">×</button></div>
@@ -505,7 +1277,9 @@
         </div>
     </div>
 
-    <!-- MODAL DETAIL MATRIKS KERJA -->
+    <!-- =====================================================================
+         MODAL DETAIL MATRIKS KERJA
+         ===================================================================== -->
     <div id="modalDetail" class="modal-blur-overlay">
         <div class="modal-card-premium card" style="width:95%; max-width:1100px; height:85%; display: flex; flex-direction: column; overflow: hidden; padding: 0;">
             <div class="card-header" style="background: linear-gradient(135deg, #1e293b, #0f172a); color: white; border: none; padding: 1.5rem; flex-shrink: 0;"><div class="card-title" style="color: white; font-size: 1.25rem;"><i class="fas fa-cogs" style="color:var(--info);"></i> Matriks Kerja Normalisasi Algoritma</div><button onclick="window.closeModal('modalDetail')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:white; opacity: 0.8;"><i class="fas fa-times"></i></button></div>
@@ -513,7 +1287,9 @@
         </div>
     </div>
 
-    <!-- MODAL KOMPARASI SAW VS WP -->
+    <!-- =====================================================================
+         MODAL KOMPARASI SAW VS WP
+         ===================================================================== -->
     <div id="modalKomparasi" class="modal-blur-overlay">
         <div class="modal-card-premium card" style="width:95%; max-width:1200px; height:88%; display: flex; flex-direction: column; overflow: hidden; padding: 0;">
             <div class="card-header" style="background: linear-gradient(135deg, #fffbeb, #fef3c7); border-bottom: 1px solid #fde68a; padding: 1.5rem; flex-shrink: 0;">
@@ -542,7 +1318,9 @@
         </div>
     </div>
 
-    <!-- SK BUPATI PRINT AREA (PDF) -->
+    <!-- =====================================================================
+         SK BUPATI PRINT AREA (PDF)
+         ===================================================================== -->
     <div id="skBupatiPrintArea" style="display:none; padding: 50px 60px; background: white; font-family: 'Times New Roman', Times, serif; color: #000; font-size: 11pt; line-height: 1.5; position: relative;">
         <div class="sk-header" style="text-align: center; border-bottom: 4px double #000; padding-bottom: 15px; margin-bottom: 25px;">
             <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
@@ -572,7 +1350,9 @@
         </table>
     </div>
 
-    <!-- WADAH RAHASIA UNTUK CETAK VERIFIKASI ALGORITMA -->
+    <!-- =====================================================================
+         WADAH RAHASIA UNTUK CETAK VERIFIKASI ALGORITMA
+         ===================================================================== -->
     <div id="hiddenPrintVerifikasi" style="display:none; padding: 40px; background: white; font-family: 'Inter', sans-serif; color: #000;">
         <div style="text-align: center; border-bottom: 3px solid #000; padding-bottom: 10px; margin-bottom: 20px;">
             <h2 style="margin:0;">LAPORAN VERIFIKASI ALGORITMA (UJI BEDA)</h2>
@@ -582,7 +1362,9 @@
         <div id="printTableContainer"></div>
     </div>
 
-    <!-- MODAL INVESTIGASI LAPORAN CHAT WARGA -->
+    <!-- =====================================================================
+         MODAL INVESTIGASI LAPORAN CHAT WARGA
+         ===================================================================== -->
     <div id="modalLaporanChat" class="modal-blur-overlay">
         <div class="modal-card-premium card" style="width:95%; max-width:1000px; height:85%; display: flex; flex-direction: column; overflow: hidden; padding: 0;">
             <div class="card-header" style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border-bottom: 1px solid #fca5a5; padding: 1.5rem; flex-shrink: 0;">
@@ -595,7 +1377,9 @@
         </div>
     </div>
 
-    <!-- EDITOR STUDIO GAMBAR -->
+    <!-- =====================================================================
+         EDITOR STUDIO GAMBAR (FILEROBOT)
+         ===================================================================== -->
     <div id="imageEditorModal" class="modal-blur-overlay">
         <div style="width: 100%; height: 100vh; position: relative;">
             <div style="position: absolute; top: 15px; right: 85px; z-index: 46000; background: white; padding: 6px 12px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 8px;">
@@ -607,7 +1391,9 @@
         </div>
     </div>
 
-    <!-- EDITOR STUDIO VIDEO -->
+    <!-- =====================================================================
+         EDITOR STUDIO VIDEO (HTML5 CANVAS)
+         ===================================================================== -->
     <div id="videoEditorModal" class="modal-blur-overlay" style="flex-direction: column;">
         <div class="card" style="width: 95%; max-width: 900px; background: #0f172a; padding: 0; overflow: hidden; display: flex; flex-direction: column; height: 90vh; border: 1px solid #334155; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8);">
             <div style="padding: 15px 25px; background: #1e293b; color: white; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; flex-shrink: 0;">
@@ -648,7 +1434,9 @@
         </div>
     </div>
 
-    <!-- MODAL CHAT ADMIN -->
+    <!-- =====================================================================
+         MODAL CHAT ADMIN (TWO-PANEL LIVE CHAT & DISPUTE RESOLUTION)
+         ===================================================================== -->
     <div id="modalAdminChat" class="modal-blur-overlay">
         <div class="modal-card-premium card" style="width:95%; max-width:1200px; height:92vh; padding:0; display:flex; flex-direction:row; overflow:visible; background:var(--bg-body); border-radius:var(--radius-xl);">
             <!-- PANEL KIRI: DAFTAR KONTAK & BUKU KONTAK -->
@@ -743,7 +1531,9 @@
         </div>
     </div>
 
-    <!-- MODAL ALIHKAN ADMIN (TRANSFER CHAT) -->
+    <!-- =====================================================================
+         MODAL ALIHKAN ADMIN (TRANSFER CHAT)
+         ===================================================================== -->
     <div id="modalAlihkanAdmin" class="modal-blur-overlay" style="z-index: 100000;">
         <div class="modal-card-premium card" style="width:450px; padding:24px;">
             <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
@@ -763,7 +1553,9 @@
         </div>
     </div>
 
-    <!-- MODAL LAPORKAN RIWAYAT CHAT KE INVESTIGASI -->
+    <!-- =====================================================================
+         MODAL LAPORKAN RIWAYAT CHAT KE INVESTIGASI
+         ===================================================================== -->
     <div id="modalLaporRiwayat" class="modal-blur-overlay" style="z-index: 100000;">
         <div class="modal-card-premium card" style="width:500px; padding:24px;">
             <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
@@ -784,7 +1576,9 @@
         </div>
     </div>
 
-    <!-- ELEMEN MENGAPUNG (FAB) DAN MEDIA LIGHTBOX -->
+    <!-- =====================================================================
+         ELEMEN MENGAPUNG (FAB) DAN MEDIA LIGHTBOX
+         ===================================================================== -->
     <div id="fabBulk" class="fab-bulk"><div class="fab-text"><span id="bulkCount">0</span> Baris Terpilih</div><button onclick="window.bulkProcess('verify')" class="btn btn-primary" style="padding:6px 14px; border-radius:20px; font-size: 0.85rem;"><i class="fas fa-check-double"></i> Verifikasi</button><button onclick="window.bulkProcess('delete')" class="btn" style="background:var(--danger); color:white; padding:6px 14px; border-radius:20px; font-size: 0.85rem;"><i class="fas fa-trash"></i> Hapus</button></div>
     
     <div id="mediaLightbox" class="modal-blur-overlay" style="z-index: 999999 !important; flex-direction: column;" onclick="window.closeLightbox(event)"><div style="position: absolute; top: 20px; right: 30px; font-size: 2.5rem; color: white; cursor: pointer; transition: 0.2s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='white'" class="close-lightbox-btn">&times;</div><div id="lightboxContent" style="max-width: 90%; max-height: 85vh; display: flex; justify-content: center; align-items: center;"></div></div>
@@ -792,7 +1586,9 @@
     <!-- Audio Telepon Admin -->
     <audio id="ringtoneAudio" src="https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg" loop style="display:none;"></audio>
 
-    <!-- SCRIPTS LIBRARIES EKSTERNAL (RENDER SECARA LENGKAP) -->
+    <!-- =====================================================================
+         SCRIPTS LIBRARIES EKSTERNAL
+         ===================================================================== -->
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -805,8 +1601,10 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.scaleflex.it/plugins/filerobot-image-editor/3.12.17/filerobot-image-editor.min.js"></script>
 
-    <!-- SCRIPTS APLIKASI KITA -->
-    <script src="static/js/global.js?v=11.0"></script>
-    <script src="static/js/admin.js?v=11.0"></script>
+    <!-- =====================================================================
+         SCRIPTS APLIKASI KITA
+         ===================================================================== -->
+    <script src="static/js/global.js?v=12.0"></script>
+    <script src="static/js/admin.js?v=12.0"></script>
 </body>
 </html>
