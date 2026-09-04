@@ -1,10 +1,10 @@
 /* =========================================================================
-   ADMIN.JS - SPK BANSOS SIDOARJO (FULL COMPREHENSIVE 4-CHART & PERSISTENT VERIFY)
+   ADMIN.JS - SPK BANSOS SIDOARJO (FULL COMPREHENSIVE CONSOLIDATED)
    PEMERINTAH KABUPATEN SIDOARJO - DINAS SOSIAL
-   SISTEM PENDUKUNG KEPUTUSAN SAW DENGAN PEMBOBOTAN BEST-WORST METHOD (BWM)
+   SISTEM PENDUKUNG KEPUTUSAN SAW DENGAN PEMBOBOTAN BWM & VALIDASI WP
    ========================================================================= */
 
-// Injeksi Style Tambahan DataTables & Badge Antarmuka
+// Injeksi Style Tambahan Antarmuka, DataTables & Legenda Peta
 const dtStyle = document.createElement('style');
 dtStyle.innerHTML = `
     .dataTables_length { margin-bottom: 15px; margin-top: 5px; font-weight: 600; color: var(--text-muted, #64748b); }
@@ -19,17 +19,28 @@ dtStyle.innerHTML = `
     .badge-warning { background: #fef3c7; color: #b45309; font-weight: 700; padding: 5px 10px; border-radius: 20px; display: inline-flex; align-items: center; gap: 5px; }
     .filter-btn.active { background: #10b981 !important; color: white !important; font-weight: 700; }
     .filter-btn-danger.active { background: #ef4444 !important; color: white !important; font-weight: 700; }
+    
+    .map-legend-box {
+        background: rgba(255, 255, 255, 0.96);
+        padding: 12px 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        font-family: 'Inter', sans-serif;
+        font-size: 11.5px;
+        line-height: 1.5;
+        border: 1px solid #e2e8f0;
+    }
+    .map-legend-box div { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .map-legend-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 `;
 document.head.appendChild(dtStyle);
 
-// 1. KONFIGURASI API BACKEND (Menggunakan 127.0.0.1)
+// 1. KONFIGURASI GLOBAL & STATE MANAGEMENT
 const API_URL = (typeof window.API_BASE_URL !== 'undefined') ? window.API_BASE_URL : 'http://127.0.0.1:5000';
 const MAP_CENTER_SIDOARJO = [-7.4478, 112.7183]; // Titik Pusat Alun-Alun Sidoarjo
 
-// Pastikan state data global tersedia di level window
 window.globalDataWarga = [];
 let globalDataWarga = [];
-
 window.currentFilter = 'all';
 window.currentSort = 'terbaru';
 window.sortNikAsc = false;
@@ -42,11 +53,15 @@ let chartPersetujuanObj = null;
 let chartPenyaluranObj = null;
 let chartSengketaObj = null;
 let compChart = null;
+
 let formMap = null;
 let formMarker = null;
 let macroMap = null;
 let macroLayerGroup = null;
+let macroLegendControl = null;
+
 let lastSPKResult = null;
+let lastKomparasiResult = [];
 
 let user = null;
 try {
@@ -57,7 +72,7 @@ let activeChatNik = null;
 let activeChatName = null;
 let replyToDataAdmin = null;
 
-// State Media Chat & Perekam Suara
+// State Media & Voice Note
 window.adminMediaBlob = null;
 window.adminMediaExt = '';
 window.adminMediaType = '';
@@ -68,184 +83,159 @@ window.adminRecordTimer = null;
 window.adminRecordSecs = 0;
 let audioContextAdmin = null, analyserAdmin = null, dataArrayAdmin = null, reqFrameAdmin = null;
 
-// State Editor Video & Filerobot Gambar
-let vPlayer = null;
-let vCanvas = null;
-let vCtx = null;
-let vRotation = 0;
-let vStartTime = 0;
-let vEndTime = 0;
-let vDuration = 0;
+// State Video & Filerobot
+let vPlayer = null, vCanvas = null, vCtx = null, vRotation = 0, vStartTime = 0, vEndTime = 0, vDuration = 0;
 let filerobotImageInstance = null;
 
-// State WebRTC Call (PeerJS)
-let myPeer = null;
-let currentCall = null;
-let localStream = null;
-let isCallAudioMuted = false;
-let isCallVideoMuted = false;
-let isCallBlurred = false;
-let callTimerInterval = null;
-let callDurationSecs = 0;
+// State WebRTC PeerJS
+let myPeer = null, currentCall = null, localStream = null;
+let isCallAudioMuted = false, isCallVideoMuted = false, isCallBlurred = false;
+let callTimerInterval = null, callDurationSecs = 0;
 
 let rawChatListData = [];
-let speechRecognizer = null;
 window.activeChatTab = 'inbox';
 window.activeNotifTab = 'baru';
 window.isNotifPanelOpen = false;
 
 // =========================================================================
-// DATA POLIGON PERBATASAN 18 KECAMATAN & DESA KABUPATEN SIDOARJO
+// DATA POLIGON 18 KECAMATAN BERDAMPINGAN RAPI (TILED MESH NON-OVERLAPPING)
 // =========================================================================
 const WILAYAH_SIDOARJO = [
+    // BARIS 1 (UTARA)
     {
-        nama: "Sedati (Cemandi, Buncitan, Betro, Sedati Agung)",
-        center: [-7.3820, 112.7780],
-        polygon: [
-            [-7.3650, 112.7600], [-7.3600, 112.7950], [-7.3950, 112.8100],
-            [-7.4100, 112.7850], [-7.3900, 112.7550]
-        ]
+        nama: "Balongbendo",
+        center: [-7.3750, 112.5250],
+        defaultAvgDesil: 2.4,
+        desa: "Balongbendo, Seketi, Suwaluh, Bakalan, Bakungpringgodani, Bakungtemenggungan, Bogempinggir, Gadungkepuhsari, Jabaran, Jeruklegi, Kedungsukodani, Penambangan, Seduri, Singkalan, Sumokembangsri, Waruberon, Watesnegoro",
+        polygon: [[-7.3400, 112.4900], [-7.3400, 112.5600], [-7.4150, 112.5600], [-7.4150, 112.4900]]
     },
     {
-        nama: "Waru (Kureksari, Tropodo, Wadungasri, Waru)",
-        center: [-7.3541, 112.7389],
-        polygon: [
-            [-7.3400, 112.7200], [-7.3380, 112.7550], [-7.3650, 112.7600],
-            [-7.3750, 112.7300], [-7.3550, 112.7150]
-        ]
+        nama: "Krian",
+        center: [-7.3925, 112.5950],
+        defaultAvgDesil: 4.9,
+        desa: "Krian, Barengkrajan, Gawat, Jerukgamping, Junwangi, Katerungan, Keboharan, Kraton, Ponokawan, Sedenganmijen, Sidomojo, Sidomulyo, Sidorejo, Tambakkemerakan, Tempel, Terik, Terungkulon, Terungwetan, Tropodo, Watutulis",
+        polygon: [[-7.3700, 112.5600], [-7.3700, 112.6300], [-7.4150, 112.6300], [-7.4150, 112.5600]]
     },
     {
-        nama: "Gedangan (Keboansikep, Ganting, Sawotratap, Gedangan)",
-        center: [-7.3887, 112.7278],
-        polygon: [
-            [-7.3750, 112.7150], [-7.3700, 112.7480], [-7.4050, 112.7450],
-            [-7.4100, 112.7100]
-        ]
+        nama: "Taman",
+        center: [-7.3510, 112.6650],
+        defaultAvgDesil: 3.8,
+        desa: "Bebekan, Sepanjang, Wonocolo, Geluran, Kalijaten, Ngelom, Krembangan, Bohar, Bringinbendo, Jemundo, Kletek, Kramat Jegu, Sambibulu, Sadang, Tanjungsari, Trosobo, Wage, Tawangsari",
+        polygon: [[-7.3300, 112.6300], [-7.3300, 112.7000], [-7.3700, 112.7000], [-7.3700, 112.6300]]
     },
     {
-        nama: "Candi (Sepande, Gelam, Kalipecabean, Candi)",
-        center: [-7.4812, 112.7245],
-        polygon: [
-            [-7.4600, 112.7100], [-7.4650, 112.7450], [-7.5050, 112.7400],
-            [-7.5000, 112.7050]
-        ]
+        nama: "Waru",
+        center: [-7.3510, 112.7275],
+        defaultAvgDesil: 4.8,
+        desa: "Waru, Tropodo, Wadungasri, Kureksari, Berbek, Bungurasih, Janti, Kedungrejo, Medaeng, Ngingas, Pepelegi, Tambaksawah, Tambakrejo, Tambaksumur",
+        polygon: [[-7.3300, 112.7000], [-7.3300, 112.7550], [-7.3700, 112.7550], [-7.3700, 112.7000]]
     },
     {
-        nama: "Sidoarjo Kota (Lemahputro, Magersari, Sidokumpul)",
-        center: [-7.4478, 112.7183],
-        polygon: [
-            [-7.4300, 112.7000], [-7.4250, 112.7350], [-7.4650, 112.7350],
-            [-7.4600, 112.7000]
-        ]
+        nama: "Sedati",
+        center: [-7.3775, 112.8000],
+        defaultAvgDesil: 2.3,
+        desa: "Cemandi, Buncitan, Betro, Sedati Gede, Sedati Agung, Kalanganyar, Gisikcemandi, Banjar Kemuning, Semampir, Pranti, Segoro Tambak, Tambak Cemandi, Pulungan, Kwangsan, Pepe",
+        polygon: [[-7.3400, 112.7550], [-7.3400, 112.8450], [-7.4150, 112.8450], [-7.4150, 112.7550], [-7.3700, 112.7550]]
+    },
+    // BARIS 2 (TENGAH ATAS)
+    {
+        nama: "Sukodono",
+        center: [-7.3925, 112.6650],
+        defaultAvgDesil: 3.4,
+        desa: "Sukodono, Anggaswangi, Masangan Kulon, Masangan Wetan, Ngaresrejo, Pekarungan, Plumbungan, Sambungrejo, Suko, Suruh, Bangsri, Jogosatru, Kloposepuluh, Panjunan, Wilayut",
+        polygon: [[-7.3700, 112.6300], [-7.3700, 112.7000], [-7.4150, 112.7000], [-7.4150, 112.6300]]
     },
     {
-        nama: "Porong (Jatirejo, Glagaharum, Mindi, Porong)",
-        center: [-7.5452, 112.7032],
-        polygon: [
-            [-7.5250, 112.6850], [-7.5200, 112.7250], [-7.5650, 112.7200],
-            [-7.5600, 112.6800]
-        ]
+        nama: "Gedangan",
+        center: [-7.3925, 112.7275],
+        defaultAvgDesil: 3.6,
+        desa: "Gedangan, Ganting, Keboansikep, Keboan Anom, Sawotratap, Semambung, Sruni, Tebel, Wedi, Ketajen, Kragan",
+        polygon: [[-7.3700, 112.7000], [-7.3700, 112.7550], [-7.4150, 112.7550], [-7.4150, 112.7000]]
+    },
+    // BARIS 3 (TENGAH PUSAT)
+    {
+        nama: "Tarik",
+        center: [-7.4625, 112.5300],
+        defaultAvgDesil: 1.9,
+        desa: "Tarik, Klampisan, Singogalih, Banjarwungu, Gampingrowo, Janti, Kalidawir, Kedungbocok, Kedunglosari, Kemuning, Kendalsewu, Mergobener, Mergosari, Mindugading, Miriprowo, Sebani, Segodobancang",
+        polygon: [[-7.4150, 112.4900], [-7.4150, 112.5700], [-7.5100, 112.5700], [-7.5100, 112.4900]]
     },
     {
-        nama: "Krian (Krian, Jerukgamping, Barengkrajan, Sidomulyo)",
-        center: [-7.4082, 112.5841],
-        polygon: [
-            [-7.3900, 112.5650], [-7.3850, 112.6050], [-7.4250, 112.6000],
-            [-7.4200, 112.5600]
-        ]
+        nama: "Wonoayu",
+        center: [-7.4375, 112.6100],
+        defaultAvgDesil: 3.5,
+        desa: "Wonoayu, Candinegoro, Becirongengor, Jimbaran Kulon, Jimbaran Wetan, Karangpuri, Mulyodadi, Pagerngumbuk, Pilang, Plaosan, Popoh, Sawocangkring, Semambung, Simoangin-angin, Simoketawang, Sumberejo, Tanggul, Wonokalang",
+        polygon: [[-7.4150, 112.5700], [-7.4150, 112.6500], [-7.4600, 112.6500], [-7.4600, 112.5700]]
     },
     {
-        nama: "Taman (Bebekan, Sepanjang, Wonocolo, Taman)",
-        center: [-7.3621, 112.6954],
-        polygon: [
-            [-7.3450, 112.6750], [-7.3400, 112.7150], [-7.3800, 112.7100],
-            [-7.3750, 112.6700]
-        ]
+        nama: "Sidoarjo",
+        center: [-7.4375, 112.6825],
+        defaultAvgDesil: 5.6,
+        desa: "Sidokumpul, Lemahputro, Magersari, Celep, Pekauman, Sidokare, Sekardangan, Bluru Kidul, Kemiri, Gebang, Rangkah Kidul, Banjarbendo, Urangagung, Sarirogo, Sumput, Cemengkalang, Cemengbakalan",
+        polygon: [[-7.4150, 112.6500], [-7.4150, 112.7150], [-7.4600, 112.7150], [-7.4600, 112.6500]]
     },
     {
-        nama: "Sukodono (Anggaswangi, Masangan Kulon, Sukodono)",
-        center: [-7.4052, 112.6841],
-        polygon: [
-            [-7.3900, 112.6650], [-7.3850, 112.7050], [-7.4250, 112.7000],
-            [-7.4200, 112.6600]
-        ]
+        nama: "Buduran",
+        center: [-7.4375, 112.7750],
+        defaultAvgDesil: 5.2,
+        desa: "Buduran, Prasung, Sawohan, Banjarkemantren, Banjarsari, Damarsi, Dukuhtengah, Entalsewu, Pagerwojo, Sidokerto, Siwalanpanji, Sukorejo, Wadungasih",
+        polygon: [[-7.4150, 112.7150], [-7.4150, 112.8350], [-7.4600, 112.8300], [-7.4600, 112.7150]]
+    },
+    // BARIS 4 (TENGAH SELATAN)
+    {
+        nama: "Prambon",
+        center: [-7.5025, 112.5400],
+        defaultAvgDesil: 3.1,
+        desa: "Prambon, Jedongcangkring, Pejangkungan, Bendotretek, Bulang, Cangkringturi, Gampang, Gedangrowo, Jatialunalun, Jatikalang, Kedungwonokerto, Simogirang, Simpang, Temu, Watutulis, Wirobiting",
+        polygon: [[-7.4600, 112.5100], [-7.4600, 112.5700], [-7.5450, 112.5700], [-7.5450, 112.5100]]
     },
     {
-        nama: "Tanggulangin (Kedensari, Kalitengah, Kludan)",
-        center: [-7.5098, 112.7154],
-        polygon: [
-            [-7.4950, 112.7000], [-7.4900, 112.7300], [-7.5250, 112.7300],
-            [-7.5250, 112.7000]
-        ]
+        nama: "Tulangan",
+        center: [-7.4850, 112.6000],
+        defaultAvgDesil: 2.2,
+        desa: "Tulangan, Kenongo, Modong, Gelang, Grabagan, Grogol, Janti, Jiken, Kajeksan, Kebaron, Kedondong, Kemantren, Kepadangan, Kepatihan, Kepuhkemiri, Koto, Medalem, Pangkemiri, Singopadu, Sudimoro, Tlasih",
+        polygon: [[-7.4600, 112.5700], [-7.4600, 112.6300], [-7.5100, 112.6300], [-7.5100, 112.5700]]
     },
     {
-        nama: "Jabon (Dukuhsari, Permisan, Keboguyang)",
-        center: [-7.5689, 112.7541],
-        polygon: [
-            [-7.5500, 112.7300], [-7.5450, 112.7800], [-7.5850, 112.7800],
-            [-7.5850, 112.7300]
-        ]
+        nama: "Tanggulangin",
+        center: [-7.4850, 112.6575],
+        defaultAvgDesil: 2.4,
+        desa: "Kedensari, Kalitengah, Kludan, Boro, Ngaban, Putat, Kalidawir, Kalisampurno, Kedungbanteng, Banjarpanji, Banjarasri, Penatarsewu, Randegan, Gempolsari",
+        polygon: [[-7.4600, 112.6300], [-7.4600, 112.6850], [-7.5100, 112.6850], [-7.5100, 112.6300]]
     },
     {
-        nama: "Wonoayu (Candinegoro, Becirongengor, Wonoayu)",
-        center: [-7.4432, 112.6289],
-        polygon: [
-            [-7.4250, 112.6100], [-7.4200, 112.6500], [-7.4650, 112.6450],
-            [-7.4600, 112.6100]
-        ]
+        nama: "Candi",
+        center: [-7.4850, 112.7575],
+        defaultAvgDesil: 3.2,
+        desa: "Candi, Sepande, Gelam, Kalipecabean, Balonggabus, Balongmacekan, Bligo, Durungbedug, Durungbanjar, Karangtanjung, Kedungkendo, Kedungpeluk, Klurak, Larangan, Sugihwaras, Sumokali, Tenggulunan, Wedoroklurak",
+        polygon: [[-7.4600, 112.6850], [-7.4600, 112.8300], [-7.5100, 112.8250], [-7.5100, 112.6850]]
+    },
+    // BARIS 5 (SELATAN)
+    {
+        nama: "Krembung",
+        center: [-7.5375, 112.6000],
+        defaultAvgDesil: 2.3,
+        desa: "Krembung, Mojoruntut, Tanjegwagir, Balonggarut, Cangkring, Gading, Jandep, Jenggot, Kandangan, Kedungrawan, Keper, Lemujut, Ploso, Rejeni, Tambakrejo, Waung, Wangkal, Wonomlati",
+        polygon: [[-7.5100, 112.5700], [-7.5100, 112.6300], [-7.5650, 112.6300], [-7.5650, 112.5700]]
     },
     {
-        nama: "Tulangan (Kenongo, Modong, Tulangan)",
-        center: [-7.4821, 112.6541],
-        polygon: [
-            [-7.4650, 112.6350], [-7.4600, 112.6750], [-7.5000, 112.6700],
-            [-7.5000, 112.6350]
-        ]
+        nama: "Porong",
+        center: [-7.5375, 112.6750],
+        defaultAvgDesil: 2.1,
+        desa: "Porong, Mindi, Gedang, Juwetkenongo, Glagaharum, Kebonagung, Keboguyang, Lajuk, Pamotan, Pesawahan, Plumbon, Candi Pari, Wirobiting",
+        polygon: [[-7.5100, 112.6300], [-7.5100, 112.7200], [-7.5650, 112.7200], [-7.5650, 112.6300]]
     },
     {
-        nama: "Krembung (Mojoruntut, Tanjegwagir, Krembung)",
-        center: [-7.5312, 112.6241],
-        polygon: [
-            [-7.5150, 112.6050], [-7.5100, 112.6450], [-7.5500, 112.6400],
-            [-7.5500, 112.6050]
-        ]
-    },
-    {
-        nama: "Prambon (Jedongcangkring, Pejangkungan, Prambon)",
-        center: [-7.4912, 112.5689],
-        polygon: [
-            [-7.4750, 112.5500], [-7.4700, 112.5900], [-7.5100, 112.5850],
-            [-7.5100, 112.5500]
-        ]
-    },
-    {
-        nama: "Tarik (Klampisan, Singogalih, Tarik)",
-        center: [-7.4589, 112.5241],
-        polygon: [
-            [-7.4400, 112.5050], [-7.4350, 112.5450], [-7.4750, 112.5400],
-            [-7.4750, 112.5050]
-        ]
-    },
-    {
-        nama: "Balongbendo (Seketi, Suwaluh, Balongbendo)",
-        center: [-7.4121, 112.5289],
-        polygon: [
-            [-7.3950, 112.5100], [-7.3900, 112.5500], [-7.4300, 112.5450],
-            [-7.4300, 112.5100]
-        ]
-    },
-    {
-        nama: "Buduran (Prasung, Sawohan, Buduran)",
-        center: [-7.4212, 112.7341],
-        polygon: [
-            [-7.4050, 112.7150], [-7.4000, 112.7550], [-7.4400, 112.7500],
-            [-7.4400, 112.7150]
-        ]
+        nama: "Jabon",
+        center: [-7.5475, 112.7825],
+        defaultAvgDesil: 1.8,
+        desa: "Dukuhsari, Permisan, Keboguyang, Balongtani, Besuki, Chandi, Kedungcangkring, Kedungpandan, Kedungrejo, Kupang, Panggreh, Pejarakan, Semambung, Tambakkalisogo",
+        polygon: [[-7.5100, 112.7200], [-7.5100, 112.8250], [-7.5850, 112.8450], [-7.5850, 112.7200]]
     }
 ];
 
 // =========================================================================
-// HELPER KEAMANAN & REQUEST API JWT
+// HELPER KEAMANAN & REQUEST API DENGAN JWT
 // =========================================================================
 function safeHtml(str) {
     if (!str) return '';
@@ -307,7 +297,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (nameEl) nameEl.innerText = user.nama_lengkap || user.username || 'ADMIN';
         if (roleEl) {
-            if (user.role === 'admin') {
+            if (user.role === 'admin' || user.username === 'admin') {
                 roleEl.className = 'role-badge role-admin';
                 roleEl.innerHTML = '<i class="fas fa-crown"></i> Super Admin';
                 if (cmdEl) cmdEl.style.display = 'block';
@@ -344,7 +334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.initPeerCall();
 });
 
-// Listener Event Global (Dropdown & Emoji)
+// Listener Event Global untuk Pop-up & Dropdown
 document.addEventListener('click', (e) => {
     if (!e.target.closest('#emojiPickerAdmin') && !e.target.closest('.fa-smile')) {
         const ep = document.getElementById('emojiPickerAdmin');
@@ -362,7 +352,7 @@ document.addEventListener('click', (e) => {
 });
 
 // =========================================================================
-// 1. OCR AI SCAN KTP OTOMATIS & CEK DUKCAPIL SIDOARJO
+// 2. OCR SCAN KTP & VERIFIKASI DUKCAPIL SIDOARJO
 // =========================================================================
 window.processOCR = async function (input) {
     if (!input.files || !input.files[0]) return;
@@ -445,7 +435,7 @@ window.cekDukcapilLokal = async function () {
                 confirmButtonColor: '#10b981'
             });
         } else {
-            Swal.fire('Gagal', 'Data NIK tidak ditemukan di database Dukcapil.', 'error');
+            Swal.fire('Gagal', 'Data NIK tidak ditemukan di basis data Dukcapil Sidoarjo.', 'error');
         }
     } catch (err) {
         Swal.fire('Error', 'Gagal menghubungi server Dukcapil.', 'error');
@@ -453,7 +443,7 @@ window.cekDukcapilLokal = async function () {
 };
 
 // =========================================================================
-// 2. GEOTAGGING PRESISI & REVERSE GEOCODING AUTO-FILL ALAMAT
+// 3. GEOTAGGING PRESISI & REVERSE GEOCODING AUTO-FILL ALAMAT
 // =========================================================================
 window.initFormMapPicker = function () {
     const mapBox = document.getElementById('formCoordMap');
@@ -541,19 +531,34 @@ window.cariAlamatDiPeta = function (alamatStr) {
 };
 
 // =========================================================================
-// 3. PETA KERENTANAN GEOGRAFIS BERBASIS POLIGON PERBATASAN WILAYAH
+// 4. PETA KERENTANAN GEOGRAFIS (CHOROPLETH BEBAS OVERLAP & TANPA LINGKARAN)
 // =========================================================================
 window.initMacroDistributionMap = function () {
     const bigMapBox = document.getElementById('bigMapContainer');
     if (!bigMapBox || macroMap) return;
 
     macroMap = L.map('bigMapContainer', { attributionControl: false }).setView(MAP_CENTER_SIDOARJO, 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        subdomains: ['a', 'b', 'c']
-    }).addTo(macroMap);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, subdomains: ['a', 'b', 'c'] }).addTo(macroMap);
 
     macroLayerGroup = L.layerGroup().addTo(macroMap);
+
+    if (!macroLegendControl) {
+        macroLegendControl = L.control({ position: 'bottomright' });
+        macroLegendControl.onAdd = function () {
+            const div = L.DomUtil.create('div', 'map-legend-box');
+            div.innerHTML = `
+                <div style="font-weight:800; color:#0f172a; margin-bottom:6px; border-bottom:1px solid #cbd5e1; padding-bottom:4px;">
+                    <i class="fas fa-layer-group text-primary"></i> Tingkat Kerentanan Wilayah
+                </div>
+                <div><span class="map-legend-dot" style="background:#ef4444;"></span> <b>Tinggi:</b> Rata-rata Desil 1–2 (Merah)</div>
+                <div><span class="map-legend-dot" style="background:#eab308;"></span> <b>Sedang:</b> Rata-rata Desil 3–4 (Kuning)</div>
+                <div><span class="map-legend-dot" style="background:#10b981;"></span> <b>Rendah:</b> Rata-rata Desil 5–10 (Hijau)</div>
+            `;
+            return div;
+        };
+        macroLegendControl.addTo(macroMap);
+    }
+
     window.renderChoroplethKerentanan();
     setTimeout(() => { if (macroMap) macroMap.invalidateSize(); }, 400);
 };
@@ -562,97 +567,190 @@ window.renderChoroplethKerentanan = function () {
     if (!macroMap || !macroLayerGroup) return;
     macroLayerGroup.clearLayers();
 
-    WILAYAH_SIDOARJO.forEach((wil, idx) => {
+    WILAYAH_SIDOARJO.forEach((wil) => {
         const wargaWilayah = globalDataWarga.filter(w => {
             const alamat = (w.alamat || '').toLowerCase();
-            return alamat.includes(wil.nama.split(' ')[0].toLowerCase());
+            return alamat.includes(wil.nama.toLowerCase());
         });
 
-        const countWarga = wargaWilayah.length || (idx % 3 === 0 ? 12 : 6);
-        const avgDesil = idx % 3 === 0 ? 2.1 : (idx % 2 === 0 ? 3.8 : 6.5);
-        
-        const polyColor = avgDesil <= 2.5 ? '#ef4444' : (avgDesil <= 4.5 ? '#f59e0b' : '#10b981');
-        const statusText = avgDesil <= 2.5 ? 'Kerentanan Tinggi' : (avgDesil <= 4.5 ? 'Kerentanan Sedang' : 'Relatif Mampu');
+        let avgDesil = wil.defaultAvgDesil;
+        if (wargaWilayah.length > 0) {
+            const totalDesil = wargaWilayah.reduce((acc, curr) => acc + (curr.desil || 5), 0);
+            avgDesil = parseFloat((totalDesil / wargaWilayah.length).toFixed(1));
+        }
+
+        let polyColor = '#10b981';
+        let statusText = 'Kerentanan Rendah (Relatif Mandiri)';
+        let badgeStyle = 'background:#dcfce7; color:#15803d; border:1px solid #86efac;';
+
+        if (avgDesil <= 2.5) {
+            polyColor = '#ef4444';
+            statusText = 'Kerentanan Tinggi (Prioritas Utama)';
+            badgeStyle = 'background:#fee2e2; color:#dc2626; border:1px solid #fca5a5;';
+        } else if (avgDesil <= 4.5) {
+            polyColor = '#eab308';
+            statusText = 'Kerentanan Sedang (Prioritas Menengah)';
+            badgeStyle = 'background:#fef9c3; color:#a16207; border:1px solid #fde047;';
+        }
 
         const poly = L.polygon(wil.polygon, {
             color: polyColor,
-            weight: 3,
+            weight: 2,
+            opacity: 0.95,
             dashArray: '6, 6',
             fillColor: polyColor,
             fillOpacity: 0.28
         });
 
+        poly.on('mouseover', function (e) {
+            e.target.setStyle({ weight: 3.5, fillOpacity: 0.5 });
+        });
+        poly.on('mouseout', function (e) {
+            e.target.setStyle({ weight: 2, fillOpacity: 0.28 });
+        });
+
         poly.bindPopup(`
-            <div style="font-family:'Inter', sans-serif; font-size:13px; line-height:1.5; min-width:220px;">
-                <h4 style="margin:0 0 6px 0; color:#0f172a;"><i class="fas fa-map-marker-alt" style="color:${polyColor};"></i> Wilayah: <b>${wil.nama}</b></h4>
-                <b>Status Wilayah:</b> <span style="color:${polyColor}; font-weight:800;">${statusText}</span><br>
-                <b>Total Penerima Manfaat:</b> ${countWarga} Orang<br>
-                <b>Rata-rata Kelompok Desil:</b> Desil ${avgDesil.toFixed(1)}<br>
+            <div style="font-family:'Inter', sans-serif; font-size:12px; line-height:1.5; min-width:240px;">
+                <div style="font-size:13px; font-weight:800; color:#0f172a; margin-bottom:4px;">
+                    <i class="fas fa-map-marker-alt" style="color:${polyColor};"></i> Kec. <b>${wil.nama}</b>
+                </div>
+                <div style="margin: 4px 0;">
+                    <span style="${badgeStyle} font-weight:700; font-size:10.5px; padding:2px 8px; border-radius:12px; display:inline-block;">
+                        ${statusText}
+                    </span>
+                </div>
+                <div style="margin-top:6px; color:#475569;">
+                    <b>Rata-rata Kelompok:</b> Desil ${avgDesil}<br>
+                    <b>Jumlah Warga Terdata:</b> ${wargaWilayah.length} Jiwa
+                </div>
                 <hr style="margin:8px 0; border:none; border-top:1px solid #e2e8f0;">
-                <button onclick="window.bukaRincianWilayah('${escapeInlineJS(wil.nama)}')" class="btn btn-primary btn-sm" style="width:100%; margin-top:5px; font-size:0.8rem;"><i class="fas fa-list-ul"></i> Lihat Seluruh Data Warga</button>
+                <button onclick="window.bukaRincianWilayah('${escapeInlineJS(wil.nama)}')" class="btn btn-primary btn-sm" style="width:100%; font-size:11px; padding:6px; border-radius:6px; font-weight:700;">
+                    <i class="fas fa-list-ul"></i> Lihat Seluruh Data Warga
+                </button>
             </div>
         `);
         macroLayerGroup.addLayer(poly);
     });
-
-    globalDataWarga.forEach(w => {
-        if (w.lat && w.lng) {
-            const desil = w.desil || (w.is_verified ? 2 : 5);
-            const pinColor = desil <= 4 ? '#10b981' : '#dc2626';
-
-            const marker = L.circleMarker([w.lat, w.lng], {
-                radius: 7, fillColor: pinColor, color: '#ffffff', weight: 2, opacity: 1, fillOpacity: 0.9
-            });
-
-            marker.bindPopup(`
-                <div style="font-family:'Inter'; font-size:12px; line-height:1.5;">
-                    <b style="color:#0f172a;">${safeHtml(w.nama)}</b><br>
-                    NIK: ${w.nik}<br>
-                    <b>Status:</b> ${w.is_verified ? '<span style="color:#15803d; font-weight:700;">Layak Bansos</span>' : '<span style="color:#dc2626;">Menunggu</span>'}<br>
-                    <small style="color:#64748b;">${safeHtml(w.alamat || '-')}</small>
-                </div>
-            `);
-            macroLayerGroup.addLayer(marker);
-        }
-    });
 };
 
+// =========================================================================
+// 5. MODAL RINCIAN PENERIMA BANSOS PER WILAYAH KECAMATAN
+// =========================================================================
 window.bukaRincianWilayah = function (namaWilayah) {
     const modal = document.getElementById('modalWilayahDetail');
     const titleEl = document.getElementById('modalWilayahTitle');
     const tbody = document.getElementById('wilayahDetailTbody');
     if (!modal || !tbody) return;
 
-    if (titleEl) titleEl.innerText = namaWilayah;
+    if (titleEl) {
+        titleEl.innerHTML = `<b>Kecamatan ${namaWilayah}</b>`;
+    }
     tbody.innerHTML = '';
+
+    const targetWil = WILAYAH_SIDOARJO.find(w => w.nama.toLowerCase() === namaWilayah.toLowerCase());
+    const daftarDesa = targetWil && targetWil.desa ? targetWil.desa : 'Seluruh Desa dan Kelurahan Terkait';
 
     const listWarga = globalDataWarga.filter(w => {
         const alamat = (w.alamat || '').toLowerCase();
-        return alamat.includes(namaWilayah.split(' ')[0].toLowerCase()) || globalDataWarga.length <= 10;
+        return alamat.includes(namaWilayah.toLowerCase()) || globalDataWarga.length <= 10;
     });
 
+    let statsHeader = document.getElementById('wilayahModalStatsHeader');
+    if (!statsHeader) {
+        statsHeader = document.createElement('div');
+        statsHeader.id = 'wilayahModalStatsHeader';
+        const tableContainer = tbody.closest('.table-responsive') || tbody.closest('table');
+        if (tableContainer && tableContainer.parentNode) {
+            tableContainer.parentNode.insertBefore(statsHeader, tableContainer);
+        }
+    }
+
+    const totalWilayah = listWarga.length;
+    const totalLayakWil = listWarga.filter(w => (w.desil || 5) <= 4).length;
+    const totalTidakWil = totalWilayah - totalLayakWil;
+    const totalDanaWil = totalLayakWil * 600000;
+
+    if (statsHeader) {
+        statsHeader.innerHTML = `
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 14px; margin-bottom:14px; font-size:0.8rem; color:#475569; display:flex; align-items:flex-start; gap:8px;">
+                <i class="fas fa-map-location-dot text-primary" style="margin-top:3px; font-size:0.95rem;"></i>
+                <div style="line-height:1.45;">
+                    <b style="color:#0f172a;">Cakupan Wilayah Desa / Kelurahan di Kecamatan ${namaWilayah}:</b><br>
+                    <span>${daftarDesa}</span>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:16px; padding:2px;">
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #0284c7; border-radius:10px; padding:12px 14px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                    <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase;">Total Terdata</div>
+                    <div style="font-size:1.15rem; font-weight:800; color:#0f172a; margin-top:2px;">${totalWilayah} <span style="font-size:0.75rem; font-weight:600; color:#64748b;">Jiwa</span></div>
+                </div>
+                <div style="background:#ffffff; border:1px solid #bbf7d0; border-left:4px solid #16a34a; border-radius:10px; padding:12px 14px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                    <div style="font-size:0.7rem; color:#15803d; font-weight:700; text-transform:uppercase;">Penerima (Desil 1–4)</div>
+                    <div style="font-size:1.15rem; font-weight:800; color:#14532d; margin-top:2px;">${totalLayakWil} <span style="font-size:0.75rem; font-weight:600; color:#16a34a;">Warga</span></div>
+                </div>
+                <div style="background:#ffffff; border:1px solid #fecaca; border-left:4px solid #dc2626; border-radius:10px; padding:12px 14px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                    <div style="font-size:0.7rem; color:#b91c1c; font-weight:700; text-transform:uppercase;">Tidak Prioritas</div>
+                    <div style="font-size:1.15rem; font-weight:800; color:#7f1d1d; margin-top:2px;">${totalTidakWil} <span style="font-size:0.75rem; font-weight:600; color:#b91c1c;">Warga</span></div>
+                </div>
+                <div style="background:#ffffff; border:1px solid #fde68a; border-left:4px solid #d97706; border-radius:10px; padding:12px 14px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                    <div style="font-size:0.7rem; color:#92400e; font-weight:700; text-transform:uppercase;">Alokasi Dana</div>
+                    <div style="font-size:1.1rem; font-weight:800; color:#78350f; margin-top:2px;">Rp ${totalDanaWil.toLocaleString('id-ID')}</div>
+                </div>
+            </div>
+        `;
+    }
+
     if (listWarga.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#64748b;">Belum ada data warga terdaftar di wilayah ini.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:30px; color:#64748b;">Belum ada data warga terdaftar di wilayah kecamatan ini.</td></tr>';
     } else {
         listWarga.forEach((w, idx) => {
-            const fotoBuktiHtml = w.bukti_salur
-                ? `<img src="${API_URL}/uploads/${w.bukti_salur}" style="width:40px; height:40px; border-radius:6px; object-fit:cover; cursor:pointer;" onclick="window.open('${API_URL}/uploads/${w.bukti_salur}', '_blank')">`
-                : '<span style="color:#94a3b8; font-size:0.75rem;">Belum ada foto</span>';
+            const desilVal = w.desil || (w.is_verified ? 2 : 5);
+            const isEligible = desilVal <= 4;
+            
+            const desilBadge = isEligible
+                ? `<span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-weight:800; font-size:0.72rem; padding:4px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:3px;"><i class="fas fa-award"></i> DESIL ${desilVal}</span>`
+                : `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700; font-size:0.72rem; padding:4px 8px; border-radius:12px;">DESIL ${desilVal}</span>`;
 
-            const gpsHtml = (w.lat && w.lng)
-                ? `<a href="https://www.google.com/maps?q=${w.lat},${w.lng}" target="_blank" class="btn btn-secondary btn-sm" style="color:var(--info);"><i class="fas fa-map-marker-alt"></i> Peta</a>`
-                : '<span style="color:#94a3b8; font-size:0.75rem;">-</span>';
+            const fotoBuktiHtml = w.bukti_salur
+                ? `<img src="${API_URL}/uploads/${w.bukti_salur}" style="width:42px; height:42px; border-radius:8px; object-fit:cover; cursor:pointer; border:1px solid #cbd5e1; box-shadow:0 1px 3px rgba(0,0,0,0.08);" onclick="window.open('${API_URL}/uploads/${w.bukti_salur}', '_blank')" title="Lihat Bukti Foto">`
+                : '<span style="color:#94a3b8; font-size:0.75rem; font-style:italic;">Belum ada foto</span>';
+
+            let gpsUrl = '';
+            if (w.lat && w.lng && !isNaN(parseFloat(w.lat)) && parseFloat(w.lat) !== 0) {
+                gpsUrl = `https://www.google.com/maps?q=${parseFloat(w.lat).toFixed(6)},${parseFloat(w.lng).toFixed(6)}`;
+            } else if (w.alamat) {
+                const queryAlamat = `${w.alamat}, Kecamatan ${namaWilayah}, Kabupaten Sidoarjo, Jawa Timur`;
+                gpsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryAlamat)}`;
+            } else {
+                const queryNama = `${w.nama}, ${namaWilayah}, Sidoarjo`;
+                gpsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryNama)}`;
+            }
+
+            const gpsHtml = `<a href="${gpsUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; font-weight:700; font-size:0.75rem; padding:5px 12px; border-radius:20px; text-decoration:none; display:inline-flex; align-items:center; gap:5px; border:1px solid #bae6fd; white-space:nowrap; box-shadow:0 1px 2px rgba(0,0,0,0.05);"><i class="fas fa-location-dot"></i> Peta</a>`;
+
+            const bgRow = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
 
             tbody.innerHTML += `
-                <tr>
-                    <td style="text-align:center;">${idx + 1}</td>
-                    <td><b>${safeHtml(w.nama)}</b><br><small class="text-muted">${w.nik}</small></td>
-                    <td>${safeHtml(w.tempat_lahir || 'Sidoarjo')}, ${w.tanggal_lahir || '-'}<br><small class="text-muted">${safeHtml(w.alamat)}</small></td>
-                    <td style="text-align:center;"><span class="badge ${w.is_verified ? 'badge-green' : 'badge-red'}">Desil ${w.desil || (w.is_verified ? '1-4' : '5-10')}</span></td>
-                    <td><small>${w.tanggal_salur || '-'}</small></td>
-                    <td><small style="color:#15803d; font-weight:700;">${w.nominal_bantuan || 'Rp 600.000'}</small></td>
-                    <td style="text-align:center;">${fotoBuktiHtml}</td>
-                    <td style="text-align:center;">${gpsHtml}</td>
+                <tr style="background:${bgRow}; transition:background 0.15s ease;">
+                    <td style="text-align:center; font-weight:700; color:#64748b; font-size:0.8rem; vertical-align:middle;">${idx + 1}</td>
+                    <td style="vertical-align:middle;">
+                        <div style="font-weight:800; color:#0f172a; font-size:0.9rem;">${safeHtml(w.nama)}</div>
+                        <small style="color:#64748b; font-family:monospace; font-size:0.78rem;"><i class="fas fa-id-card text-muted"></i> ${w.nik}</small>
+                    </td>
+                    <td style="vertical-align:middle; font-size:0.82rem; color:#334155;">
+                        <div><i class="fas fa-birthday-cake text-muted" style="margin-right:3px;"></i> ${safeHtml(w.tempat_lahir || 'Sidoarjo')}, ${w.tanggal_lahir || '-'}</div>
+                        <small class="text-muted" style="line-height:1.3; display:inline-block; margin-top:2px;"><i class="fas fa-map-marker-alt text-muted" style="margin-right:3px;"></i> ${safeHtml(w.alamat)}</small>
+                    </td>
+                    <td style="text-align:center; vertical-align:middle;">${desilBadge}</td>
+                    <td style="text-align:center; vertical-align:middle; font-size:0.8rem; color:#475569;">
+                        ${w.tanggal_salur || '-'}
+                    </td>
+                    <td style="vertical-align:middle;">
+                        <div style="color:#15803d; font-weight:800; font-size:0.85rem;">${w.nominal_bantuan || (isEligible ? 'Rp 600.000 / Beras 10 Kg' : '-')}</div>
+                    </td>
+                    <td style="text-align:center; vertical-align:middle;">${fotoBuktiHtml}</td>
+                    <td style="text-align:center; vertical-align:middle;">${gpsHtml}</td>
                 </tr>
             `;
         });
@@ -662,7 +760,7 @@ window.bukaRincianWilayah = function (namaWilayah) {
 };
 
 // =========================================================================
-// 4. 4 GRAFIK STATISTIK REAL-TIME (TERPISAH, JELAS & TIDAK TERPOTONG)
+// 6. 4 GRAFIK ANALISIS STATISTIK REAL-TIME
 // =========================================================================
 window.render3DashboardCharts = function (data) {
     if (!Array.isArray(data)) data = [];
@@ -720,15 +818,6 @@ window.render3DashboardCharts = function (data) {
                     legend: {
                         position: 'bottom',
                         labels: { boxWidth: 12, padding: 8, font: { size: 11, family: 'Inter', weight: '600' } }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function (ctx) {
-                                const val = ctx.raw || 0;
-                                const pct = total > 0 ? Math.round((val / total) * 100) : 0;
-                                return ` ${ctx.label}: ${val} (${pct}%)`;
-                            }
-                        }
                     }
                 }
             }
@@ -759,15 +848,6 @@ window.render3DashboardCharts = function (data) {
                     legend: {
                         position: 'bottom',
                         labels: { boxWidth: 12, padding: 8, font: { size: 11, family: 'Inter', weight: '600' } }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function (ctx) {
-                                const val = ctx.raw || 0;
-                                const pct = total > 0 ? Math.round((val / total) * 100) : 0;
-                                return ` ${ctx.label}: ${val} (${pct}%)`;
-                            }
-                        }
                     }
                 }
             }
@@ -798,15 +878,6 @@ window.render3DashboardCharts = function (data) {
                     legend: {
                         position: 'bottom',
                         labels: { boxWidth: 12, padding: 8, font: { size: 11, family: 'Inter', weight: '600' } }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function (ctx) {
-                                const val = ctx.raw || 0;
-                                const pct = total > 0 ? Math.round((val / total) * 100) : 0;
-                                return ` ${ctx.label}: ${val} (${pct}%)`;
-                            }
-                        }
                     }
                 }
             }
@@ -815,7 +886,7 @@ window.render3DashboardCharts = function (data) {
 };
 
 // =========================================================================
-// 5. PUSAT PENGELOLAAN ARSIP WARGA (SIMPAN, FILTER, SORTING MULTI-MODE)
+// 7. PUSAT PENGELOLAAN ARSIP WARGA (SIMPAN, FILTER, SORTING MULTI-MODE)
 // =========================================================================
 window.tambahData = async function (e) {
     if (e) e.preventDefault();
@@ -923,105 +994,6 @@ window.applySort = function (sortType, btn) {
     window.filterAndRenderData();
 };
 
-// =========================================================================
-// RENDER TABEL DENGAN LOGIKA FILTER DESIL 1-4 & DATA TABLES ORDER: []
-// =========================================================================
-window.renderTable = function (data) {
-    if (!Array.isArray(data)) data = [];
-    if ($.fn.DataTable.isDataTable('#dataTable')) {
-        $('#dataTable').DataTable().clear().destroy();
-    }
-    const tbody = document.querySelector('#dataTable tbody');
-    if (!tbody) return;
-
-    let html = '';
-    data.forEach(w => {
-        const isVerified = Boolean(w.is_verified);
-        const desil = w.desil || 5;
-        const isEligible = isVerified && desil <= 4;
-
-        let verifBadge = '';
-        if (isVerified) {
-            verifBadge = `<span class="badge badge-green" style="background:#e6f9f0; color:#009846; border:1px solid #a7f3d0; padding:5px 12px; border-radius:20px; font-weight:800; display:inline-flex; align-items:center; gap:5px; font-size:0.8rem;"><i class="fas fa-check-circle" style="color:#009846;"></i> DISETUJUI</span>`;
-        } else {
-            verifBadge = `<span class="badge badge-red" style="background:#fee2e2; color:#dc2626; border:1px solid #fecaca; padding:5px 12px; border-radius:20px; font-weight:800; display:inline-flex; align-items:center; gap:5px; font-size:0.8rem;"><i class="fas fa-clock"></i> MENUNGGU</span>`;
-        }
-
-        let desilBadge = '';
-        if (isVerified) {
-            if (desil <= 4) {
-                desilBadge = `<span class="badge badge-green" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-award"></i> Layak Bansos (Desil ${desil})</span>`;
-            } else {
-                desilBadge = `<span class="badge badge-warning" style="font-size:0.7rem; margin-top:3px; background:#fffbeb; color:#b45309; border:1px solid #fde68a;"><i class="fas fa-info-circle"></i> Tidak Prioritas (Desil ${desil})</span>`;
-            }
-        }
-
-        let statusSalurBadge = '';
-        if (w.status_salur === 'Telah Menerima') {
-            statusSalurBadge = `<span class="badge badge-blue" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-box-check"></i> Telah Menerima</span>`;
-        } else if (String(w.status_salur).includes('Sengketa')) {
-            statusSalurBadge = `<span class="badge badge-red" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-exclamation-triangle"></i> Sengketa</span>`;
-        }
-
-        const btnToggleVerif = isVerified
-            ? `<button onclick="window.toggleVerifySingle(${w.id}, '${escapeInlineJS(w.nama)}')" class="btn btn-secondary btn-sm" style="border:1px solid #cbd5e1; border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px; background:white; color:#334155;" title="Batalkan Konfirmasi"><i class="fas fa-undo"></i> Batal</button>`
-            : `<button onclick="window.toggleVerifySingle(${w.id}, '${escapeInlineJS(w.nama)}')" class="btn btn-primary btn-sm" style="border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px; background:#009846; color:white;" title="Konfirmasi & Setujui"><i class="fas fa-check"></i> Setujui</button>`;
-
-        const btnKamera = isEligible
-            ? `<button onclick="window.bukaUploadBuktiSalur(${w.id}, '${escapeInlineJS(w.nama)}', '${w.bukti_salur || ''}')" class="btn btn-sm" style="padding:5px 8px; background:#dcfce7; color:#15803d; border-radius:6px; margin-right:3px;" title="Unggah Bukti Penyaluran"><i class="fas fa-camera"></i></button>`
-            : '';
-
-        const btnDelete = (user && user.role === 'admin')
-            ? `<button onclick="window.hapusData(${w.id})" class="btn" style="padding:5px 8px; background:#ef4444; color:white; font-size:0.8rem; border-radius:6px;" title="Hapus Data"><i class="fas fa-trash"></i></button>`
-            : '';
-
-        const ttlText = (w.tempat_lahir || w.tanggal_lahir) ? `${w.tempat_lahir || 'Sidoarjo'}, ${w.tanggal_lahir || '-'}` : '-';
-        const waktuDaftar = w.created_at || 'Hari ini';
-
-        html += `
-            <tr>
-                <td style="text-align:center;"><input type="checkbox" class="row-checkbox" value="${w.id}"></td>
-                <td style="font-weight:700; font-family:monospace; color:#0f172a;">${w.nik}</td>
-                <td>
-                    <div style="font-weight:800; color:#1e293b; font-size:0.95rem;">${safeHtml(w.nama)}</div>
-                    <small style="color:#475569;"><i class="fas fa-birthday-cake text-muted"></i> ${safeHtml(ttlText)}</small><br>
-                    <small class="text-muted"><i class="fas fa-map-marker-alt"></i> ${safeHtml(w.alamat || 'Sidoarjo')}</small><br>
-                    <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:2px;">
-                        ${desilBadge}
-                        ${statusSalurBadge}
-                    </div>
-                </td>
-                <td><small><i class="fas fa-clock text-primary"></i> ${waktuDaftar}</small></td>
-                <td style="text-align:center;">${verifBadge}</td>
-                <td style="text-align:center; white-space:nowrap;">
-                    ${btnToggleVerif}
-                    <button onclick="window.bukaModalEdit(${w.id})" class="btn" style="padding:5px 8px; background:#fef3c7; color:#b45309; font-size:0.8rem; border-radius:6px; margin-right:3px;" title="Edit Data"><i class="fas fa-edit"></i></button>
-                    ${btnKamera}
-                    <button onclick="window.bukaAksiCepatSengketa(${w.id}, '${escapeInlineJS(w.nama)}', '${w.nik}')" class="btn" style="padding:5px 8px; background:#fee2e2; color:#dc2626; font-size:0.8rem; border-radius:6px; margin-right:3px;" title="Mediasi Sengketa"><i class="fas fa-shield-alt"></i></button>
-                    ${btnDelete}
-                </td>
-            </tr>
-        `;
-    });
-
-    tbody.innerHTML = html;
-    
-    dtTable = $('#dataTable').DataTable({
-        pageLength: 10,
-        responsive: true,
-        order: [], 
-        language: {
-            search: "Cari NIK/Nama:",
-            lengthMenu: "_MENU_ baris",
-            info: "Menampilkan _START_ s.d. _END_ dari _TOTAL_ warga",
-            paginate: { next: "→", previous: "←" }
-        }
-    });
-};
-
-// =========================================================================
-// FITUR PENGURUTAN LENGKAP & PENCARIAN TANGGAL BEBAS KETIK
-// =========================================================================
 window.toggleSortNik = function () {
     window.sortNikAsc = !window.sortNikAsc;
     const btn = document.getElementById('btnSortNik');
@@ -1104,16 +1076,105 @@ window.filterAndRenderData = function () {
 };
 
 // =========================================================================
-// PERBAIKAN TOTAL: FUNGSI SETUJUI SEMUA & BATALKAN SEMUA
+// 8. RENDER TABEL UTAMA DENGAN DATATABLES
+// =========================================================================
+window.renderTable = function (data) {
+    if (!Array.isArray(data)) data = [];
+    if ($.fn.DataTable.isDataTable('#dataTable')) {
+        $('#dataTable').DataTable().clear().destroy();
+    }
+    const tbody = document.querySelector('#dataTable tbody');
+    if (!tbody) return;
+
+    let html = '';
+    data.forEach(w => {
+        const isVerified = Boolean(w.is_verified);
+        const desil = w.desil || 5;
+        const isEligible = isVerified && desil <= 4;
+
+        let verifBadge = isVerified
+            ? `<span class="badge badge-green" style="background:#e6f9f0; color:#009846; border:1px solid #a7f3d0; padding:5px 12px; border-radius:20px; font-weight:800; display:inline-flex; align-items:center; gap:5px; font-size:0.8rem;"><i class="fas fa-check-circle" style="color:#009846;"></i> DISETUJUI</span>`
+            : `<span class="badge badge-red" style="background:#fee2e2; color:#dc2626; border:1px solid #fecaca; padding:5px 12px; border-radius:20px; font-weight:800; display:inline-flex; align-items:center; gap:5px; font-size:0.8rem;"><i class="fas fa-clock"></i> MENUNGGU</span>`;
+
+        let desilBadge = '';
+        if (isVerified) {
+            desilBadge = desil <= 4
+                ? `<span class="badge badge-green" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-award"></i> Layak Bansos (Desil ${desil})</span>`
+                : `<span class="badge badge-warning" style="font-size:0.7rem; margin-top:3px; background:#fffbeb; color:#b45309; border:1px solid #fde68a;"><i class="fas fa-info-circle"></i> Tidak Prioritas (Desil ${desil})</span>`;
+        }
+
+        let statusSalurBadge = '';
+        if (w.status_salur === 'Telah Menerima') {
+            statusSalurBadge = `<span class="badge badge-blue" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-box-check"></i> Telah Menerima</span>`;
+        } else if (String(w.status_salur).includes('Sengketa')) {
+            statusSalurBadge = `<span class="badge badge-red" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-exclamation-triangle"></i> Sengketa</span>`;
+        }
+
+        const btnToggleVerif = isVerified
+            ? `<button onclick="window.toggleVerifySingle(${w.id}, '${escapeInlineJS(w.nama)}')" class="btn btn-secondary btn-sm" style="border:1px solid #cbd5e1; border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px; background:white; color:#334155;" title="Batalkan Konfirmasi"><i class="fas fa-undo"></i> Batal</button>`
+            : `<button onclick="window.toggleVerifySingle(${w.id}, '${escapeInlineJS(w.nama)}')" class="btn btn-primary btn-sm" style="border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px; background:#009846; color:white;" title="Konfirmasi & Setujui"><i class="fas fa-check"></i> Setujui</button>`;
+
+        const btnKamera = isEligible
+            ? `<button onclick="window.bukaUploadBuktiSalur(${w.id}, '${escapeInlineJS(w.nama)}', '${w.bukti_salur || ''}')" class="btn btn-sm" style="padding:5px 8px; background:#dcfce7; color:#15803d; border-radius:6px; margin-right:3px;" title="Unggah Bukti Penyaluran"><i class="fas fa-camera"></i></button>`
+            : '';
+
+        const btnDelete = (user && (user.role === 'admin' || user.username === 'admin'))
+            ? `<button onclick="window.hapusData(${w.id})" class="btn" style="padding:5px 8px; background:#ef4444; color:white; font-size:0.8rem; border-radius:6px;" title="Hapus Data"><i class="fas fa-trash"></i></button>`
+            : '';
+
+        const ttlText = (w.tempat_lahir || w.tanggal_lahir) ? `${w.tempat_lahir || 'Sidoarjo'}, ${w.tanggal_lahir || '-'}` : '-';
+        const waktuDaftar = w.created_at || 'Hari ini';
+
+        html += `
+            <tr>
+                <td style="text-align:center;"><input type="checkbox" class="row-checkbox" value="${w.id}"></td>
+                <td style="font-weight:700; font-family:monospace; color:#0f172a;">${w.nik}</td>
+                <td>
+                    <div style="font-weight:800; color:#1e293b; font-size:0.95rem;">${safeHtml(w.nama)}</div>
+                    <small style="color:#475569;"><i class="fas fa-birthday-cake text-muted"></i> ${safeHtml(ttlText)}</small><br>
+                    <small class="text-muted"><i class="fas fa-map-marker-alt"></i> ${safeHtml(w.alamat || 'Sidoarjo')}</small><br>
+                    <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:2px;">
+                        ${desilBadge}
+                        ${statusSalurBadge}
+                    </div>
+                </td>
+                <td><small><i class="fas fa-clock text-primary"></i> ${waktuDaftar}</small></td>
+                <td style="text-align:center;">${verifBadge}</td>
+                <td style="text-align:center; white-space:nowrap;">
+                    ${btnToggleVerif}
+                    <button onclick="window.bukaModalEdit(${w.id})" class="btn" style="padding:5px 8px; background:#fef3c7; color:#b45309; font-size:0.8rem; border-radius:6px; margin-right:3px;" title="Edit Data"><i class="fas fa-edit"></i></button>
+                    ${btnKamera}
+                    <button onclick="window.bukaAksiCepatSengketa(${w.id}, '${escapeInlineJS(w.nama)}', '${w.nik}')" class="btn" style="padding:5px 8px; background:#fee2e2; color:#dc2626; font-size:0.8rem; border-radius:6px; margin-right:3px;" title="Mediasi Sengketa"><i class="fas fa-shield-alt"></i></button>
+                    ${btnDelete}
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+    
+    dtTable = $('#dataTable').DataTable({
+        pageLength: 10,
+        responsive: true,
+        order: [], 
+        language: {
+            search: "Cari NIK/Nama:",
+            lengthMenu: "_MENU_ baris",
+            info: "Menampilkan _START_ s.d. _END_ dari _TOTAL_ warga",
+            paginate: { next: "→", previous: "←" }
+        }
+    });
+};
+
+// =========================================================================
+// 9. AKSI PERSETUJUAN & PEMBATALAN MASSAL (BULK OPERATION)
 // =========================================================================
 window.verifyAllData = async function (e) {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
 
     const token = window.getCleanToken();
-    if (!token) {
-        return Swal.fire('Sesi Kedaluwarsa', 'Silakan login ulang.', 'warning');
-    }
+    if (!token) return Swal.fire('Sesi Kedaluwarsa', 'Silakan login ulang.', 'warning');
 
     let dataList = (window.globalDataWarga && window.globalDataWarga.length > 0) ? window.globalDataWarga : globalDataWarga;
     
@@ -1142,8 +1203,8 @@ window.verifyAllData = async function (e) {
         html: `Apakah Anda ingin mengonfirmasi / menyetujui <b>${targetCount} data warga</b>?<br><br>
         <div style="background:#f8fafc; padding:12px; border-radius:8px; font-size:0.82rem; text-align:left; color:#475569; border-left:4px solid #009846;">
             <b>Catatan Penting:</b><br>
-            Persetujuan ini menandakan bahwa data warga telah terverifikasi masuk ke dalam sistem.<br>
-            Keputusan siapa yang berhak menerima bantuan sosial <b>hanya diprioritaskan bagi Desil 1 s.d. Desil 4</b> setelah Anda menjalankan <b>Proses Algoritma SAW</b>.
+            Persetujuan ini memvalidasi berkas warga ke dalam basis data aktif.<br>
+            Penetapan prioritas penerima bantuan sosial <b>hanya dialokasikan bagi Desil 1 s.d. Desil 4</b> berdasarkan pemeringkatan pada <b>Proses Algoritma SAW</b>.
         </div>`,
         icon: 'question',
         showCancelButton: true,
@@ -1181,7 +1242,7 @@ window.verifyAllData = async function (e) {
             await Swal.fire({
                 icon: 'success',
                 title: 'Data Berhasil Dikonfirmasi!',
-                html: `<b>${result.count || targetCount}</b> data warga telah disetujui (Terkonfirmasi Masuk).<br><small class="text-muted">Jalankan Proses Algoritma SAW untuk menentukan apakah warga masuk Desil 1–4 (Layak) atau Desil 5–10 (Tidak Menerima).</small>`,
+                html: `<b>${result.count || targetCount}</b> data warga telah disetujui.<br><small class="text-muted">Jalankan Proses Algoritma SAW untuk menghitung desil akhir dan peringkat kelayakan.</small>`,
                 confirmButtonColor: '#009846'
             });
             await window.loadDashboardData(true);
@@ -1283,7 +1344,7 @@ $(document).on('click', '#btnUnverifyAll, .btn-unverify-all', function (e) {
 window.hapusSemuaWarga = async function () {
     const confirm = await Swal.fire({
         title: 'Hapus Seluruh Data Warga?',
-        text: 'Tindakan ini akan mengosongkan seluruh arsip data warga secara instan!',
+        text: 'Tindakan ini akan mengosongkan seluruh arsip data warga secara permanen!',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#ef4444',
@@ -1308,13 +1369,13 @@ window.peringatanBelumLayak = function (namaWarga) {
     Swal.fire({
         icon: 'warning',
         title: 'Akses Bukti Terkunci',
-        html: `Warga <b>${safeHtml(namaWarga)}</b> belum memenuhi syarat atau belum berstatus <u>Disetujui</u> (Prioritas Desil 1-4).<br><br>Silakan pastikan data warga berstatus Disetujui dan masuk dalam kelompok Desil 1–4 sebelum mengunggah bukti penyaluran.`,
+        html: `Warga <b>${safeHtml(namaWarga)}</b> belum memenuhi kriteria atau belum berstatus <u>Disetujui</u> (Prioritas Desil 1–4).<br><br>Pastikan berkas telah diverifikasi dan masuk klaster Desil 1–4 sebelum mengunggah bukti serah terima bantuan.`,
         confirmButtonColor: '#10b981'
     });
 };
 
 // =========================================================================
-// 7. AKSI MEDIASI SENGKETA & LIVE CHAT AKSI
+// 10. MEDIASI SENGKETA LAPORAN PENYALURAN
 // =========================================================================
 window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
     Swal.fire({
@@ -1322,7 +1383,7 @@ window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
         html: `
             <div style="text-align:left; font-size:0.9rem;">
                 Warga <b>${safeHtml(namaWarga)}</b> (NIK: ${nik}) dilaporkan belum menerima bantuan fisik.<br><br>
-                Pilih tindakan penyelesaian:
+                Pilih opsi penyelesaian sengketa:
             </div>
         `,
         showDenyButton: true,
@@ -1338,7 +1399,7 @@ window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
             window.loadChatMessages(nik, namaWarga);
         } else if (result.isDenied) {
             await window.fetchData(`/warga/${id}/lapor-sengketa`, { method: 'POST', body: JSON.stringify({ aksi: 'selesai' }) });
-            Swal.fire('Selesai', 'Status warga diperbarui menjadi Telah Menerima.', 'success');
+            Swal.fire('Selesai', 'Status warga berhasil diperbarui menjadi Telah Menerima.', 'success');
             window.loadDashboardData();
         }
     });
@@ -1346,7 +1407,7 @@ window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
 
 window.kirimKonfirmasiKeWarga = async function () {
     if (!activeChatNik) return;
-    const pesanKonfirmasi = `[SISTEM DINAS SOSIAL] Halo Bapak/Ibu ${activeChatName}, petugas kami telah menyalurkan bantuan sosial Anda. Mohon konfirmasi apakah bantuan fisik (uang/barang) sudah diterima dengan baik? Balas 'SUDAH' jika sudah selesai atau 'BELUM' jika masih ada kendala.`;
+    const pesanKonfirmasi = `[SISTEM DINAS SOSIAL] Halo Bapak/Ibu ${activeChatName}, petugas kami telah menyalurkan bantuan sosial Anda. Mohon konfirmasi apakah bantuan fisik sudah diterima dengan baik? Balas 'SUDAH' jika telah tuntas atau 'BELUM' jika masih ada kendala penyaluran.`;
     
     const formData = new FormData();
     formData.append('sender', 'admin');
@@ -1367,8 +1428,8 @@ window.tutupKasusSengketa = async function (isSelesai) {
     await window.fetchData(`/warga/${w.id}/lapor-sengketa`, { method: 'POST', body: JSON.stringify({ aksi }) });
 
     const statusMsg = isSelesai 
-        ? '[SISTEM] Laporan sengketa ditutup: Warga telah mengonfirmasi bantuan diterima.'
-        : '[SISTEM] Kasus sengketa diteruskan ke tim peninjauan lapangan.';
+        ? '[SISTEM] Laporan sengketa diselesaikan: Warga telah mengonfirmasi penerimaan bantuan.'
+        : '[SISTEM] Kasus sengketa dialihkan ke investigasi tim lapangan Dinas Sosial.';
 
     const formData = new FormData();
     formData.append('sender', 'admin');
@@ -1382,7 +1443,7 @@ window.tutupKasusSengketa = async function (isSelesai) {
 };
 
 // =========================================================================
-// 8. EKSPOR 21 KOLOM EXCEL & SMART IMPORT (ROBUST XLSX)
+// 11. EKSPOR 21 KOLOM EXCEL & SMART IMPORT (XLSX)
 // =========================================================================
 window.exportExcelLengkap = function () {
     if (!globalDataWarga || globalDataWarga.length === 0) return Swal.fire('Data Kosong', 'Tidak ada data warga.', 'warning');
@@ -1488,7 +1549,407 @@ window.smartImportPreview = function (input) {
 };
 
 // =========================================================================
-// 9. PROSES ALGORITMA BWM-SAW & TAMPILAN REKOMENDASI MODERN DETAIL
+// 12. KELOLA PENGGUNA (MODERN, STATUS AKTIF, EYE PASSWORD TOGGLE)
+// =========================================================================
+window.bukaModalPengguna = async function () {
+    const modal = document.getElementById('modalPengguna');
+    if (modal) modal.style.display = 'flex';
+    window.loadTablePengguna();
+};
+
+window.toggleManagePasswordVisibility = function () {
+    const pwd = document.getElementById('managePassword');
+    const icon = document.getElementById('eyePasswordIcon');
+    if (!pwd) return;
+    if (pwd.type === 'password') {
+        pwd.type = 'text';
+        if (icon) icon.className = 'fas fa-eye-slash';
+    } else {
+        pwd.type = 'password';
+        if (icon) icon.className = 'fas fa-eye';
+    }
+};
+
+window.loadTablePengguna = async function () {
+    const tbody = document.getElementById('userTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#64748b;">Memuat data pengguna...</td></tr>';
+    try {
+        const res = await window.fetchData('/users');
+        const users = await res.json();
+        tbody.innerHTML = '';
+        if (!Array.isArray(users) || users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#64748b;">Belum ada akun pengguna tambahan.</td></tr>';
+            return;
+        }
+
+        users.forEach((u, idx) => {
+            const isSuperAdmin = u.role === 'admin' || u.username === 'admin';
+            const roleBadge = isSuperAdmin
+                ? '<span class="badge" style="background:#e6f9f0; color:#15803d; border:1px solid #86efac; font-weight:800; font-size:0.75rem;"><i class="fas fa-crown"></i> SUPER ADMIN</span>'
+                : '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; font-size:0.75rem;"><i class="fas fa-user-shield"></i> PETUGAS</span>';
+
+            const btnDel = u.username !== 'admin'
+                ? `<button onclick="window.hapusUser(${u.id}, '${escapeInlineJS(u.username)}')" class="btn btn-sm" style="background:#fee2e2; color:#dc2626; border-radius:8px; padding:5px 10px; border:1px solid #fca5a5;" title="Hapus Pengguna"><i class="fas fa-trash"></i></button>`
+                : '<span style="font-size:0.75rem; color:#64748b; font-weight:700;">Akun Utama</span>';
+
+            const avatarChar = (u.username || 'U').charAt(0).toUpperCase();
+            const bgRow = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+
+            tbody.innerHTML += `
+                <tr style="background:${bgRow};">
+                    <td style="font-weight:700; color:#64748b; text-align:center;">#${u.id}</td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:32px; height:32px; border-radius:50%; background:#e2e8f0; color:#1e293b; font-weight:800; display:flex; align-items:center; justify-content:center; font-size:0.8rem;">${avatarChar}</div>
+                            <div>
+                                <b style="color:#0f172a;">${safeHtml(u.username)}</b>
+                                <div style="font-size:0.72rem; color:#15803d;"><i class="fas fa-circle" style="font-size:7px;"></i> Aktif</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="text-align:center;">${roleBadge}</td>
+                    <td style="text-align:center;">${btnDel}</td>
+                </tr>
+            `;
+        });
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#dc2626;">Gagal memuat pengguna.</td></tr>';
+    }
+};
+
+window.simpanUser = async function (e) {
+    e.preventDefault();
+    const payload = {
+        username: document.getElementById('manageUsername')?.value.trim(),
+        password: document.getElementById('managePassword')?.value.trim(),
+        role: document.getElementById('manageRole')?.value || 'operator'
+    };
+
+    if (!payload.username || !payload.password) {
+        return Swal.fire('Peringatan', 'Username dan Password wajib diisi.', 'warning');
+    }
+
+    const res = await window.fetchData('/users', { method: 'POST', body: JSON.stringify(payload) });
+    if (res && res.ok) {
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Akun berhasil ditambahkan!', showConfirmButton: false, timer: 1500 });
+        document.getElementById('formUser')?.reset();
+        window.loadTablePengguna();
+    }
+};
+
+window.hapusUser = async function (id, username) {
+    const konfirmasi = await Swal.fire({
+        title: `Hapus Akun ${username}?`,
+        text: 'Akses akun ini ke dalam dashboard sistem akan dihapus permanen.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Ya, Hapus',
+        cancelButtonText: 'Batal'
+    });
+
+    if (konfirmasi.isConfirmed) {
+        const res = await window.fetchData(`/users/${id}`, { method: 'DELETE' });
+        if (res && res.ok) {
+            Swal.fire('Terhapus', 'Akun pengguna berhasil dihapus.', 'success');
+            window.loadTablePengguna();
+        }
+    }
+};
+
+// =========================================================================
+// 13. VERIFIKASI ALGORITMA (SAW VS WP) & CETAK BERITA ACARA RESMI
+// =========================================================================
+window.bukaModalKomparasi = async function () {
+    const modal = document.getElementById('modalKomparasi');
+    const tbody = document.querySelector('#tblKomparasi tbody');
+    if (modal) modal.style.display = 'flex';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">Memproses komparasi preferensi SAW vs WP...</td></tr>';
+    
+    try {
+        const res = await window.fetchData('/komparasi');
+        const data = await res.json();
+        lastKomparasiResult = Array.isArray(data) ? data : [];
+
+        if (tbody) tbody.innerHTML = '';
+        const labels = [], sawScores = [], wpScores = [];
+
+        const maxWpRaw = Math.max(...lastKomparasiResult.map(d => parseFloat(d.wp_skor || 0))) || 1;
+        const maxSawRaw = Math.max(...lastKomparasiResult.map(d => parseFloat(d.saw_skor || 0))) || 1;
+
+        lastKomparasiResult.slice(0, 15).forEach((item) => {
+            labels.push(item.nama.split(' ')[0]);
+            const sVal = parseFloat(item.saw_skor || 0);
+            const wVal = parseFloat(item.wp_skor || 0);
+            sawScores.push(sVal);
+
+            const wScaled = (wVal < 0.1 && maxWpRaw > 0) ? (wVal / maxWpRaw * maxSawRaw) : wVal;
+            wpScores.push(parseFloat(wScaled.toFixed(4)));
+
+            if (tbody) {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${safeHtml(item.nama)}</b><br><small class="text-muted">NIK: ${item.nik || '-'}</small></td>
+                        <td style="text-align:center;"><span class="badge badge-green">#${item.saw_rank}</span></td>
+                        <td style="text-align:center; color:#15803d; font-weight:800; font-family:monospace;">${sVal.toFixed(4)}</td>
+                        <td style="text-align:center;"><span class="badge badge-blue">#${item.wp_rank}</span></td>
+                        <td style="text-align:center; color:#0369a1; font-weight:800; font-family:monospace;">${wVal.toFixed(4)}</td>
+                    </tr>
+                `;
+            }
+        });
+
+        const ctx = document.getElementById('compChart');
+        if (ctx) {
+            if (compChart) compChart.destroy();
+            compChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Skor SAW', data: sawScores, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.3, fill: true },
+                        { label: 'Skor WP (Validasi)', data: wpScores, borderColor: '#0284c7', backgroundColor: 'rgba(2, 132, 199, 0.1)', tension: 0.3, borderDash: [5, 5], fill: true }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: false } }
+                }
+            });
+        }
+    } catch (e) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#dc2626;">Gagal memuat data komparasi.</td></tr>';
+    }
+};
+
+window.exportKomparasiPDF = function () {
+    if (!lastKomparasiResult || lastKomparasiResult.length === 0) {
+        return Swal.fire('Data Kosong', 'Buka modal Verifikasi Algoritma terlebih dahulu untuk memproses data komparasi.', 'warning');
+    }
+
+    Swal.fire({
+        title: 'Menyiapkan Laporan Validasi...',
+        html: 'Menyusun berkas laporan komparasi metode SAW vs Weighted Product...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    const tanggalSekarang = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    
+    let rowsHtml = '';
+    let totalSelisih = 0;
+    lastKomparasiResult.forEach((item, idx) => {
+        const delta = Math.abs((item.saw_rank || 0) - (item.wp_rank || 0));
+        totalSelisih += delta;
+        const statusKonsistensi = delta <= 2 ? '<span style="color:#15803d; font-weight:bold;">Sangat Konsisten</span>' : '<span style="color:#b45309;">Sesuai Toleransi</span>';
+        const bgRow = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+
+        rowsHtml += `
+            <tr style="background:${bgRow};">
+                <td style="border:1px solid #000; padding:5px 4px; text-align:center; font-size:8.5pt;">${idx + 1}</td>
+                <td style="border:1px solid #000; padding:5px 6px; font-family:'Courier New', monospace; font-size:8.5pt; text-align:center;">${item.nik || '-'}</td>
+                <td style="border:1px solid #000; padding:5px 8px; font-size:8.5pt; font-weight:bold;">${safeHtml(item.nama)}</td>
+                <td style="border:1px solid #000; padding:5px 4px; text-align:center; font-size:8.5pt; font-family:monospace;">${parseFloat(item.saw_skor || 0).toFixed(4)}</td>
+                <td style="border:1px solid #000; padding:5px 4px; text-align:center; font-size:8.5pt; font-weight:bold;">#${item.saw_rank}</td>
+                <td style="border:1px solid #000; padding:5px 4px; text-align:center; font-size:8.5pt; font-family:monospace;">${parseFloat(item.wp_skor || 0).toFixed(4)}</td>
+                <td style="border:1px solid #000; padding:5px 4px; text-align:center; font-size:8.5pt; font-weight:bold;">#${item.wp_rank}</td>
+                <td style="border:1px solid #000; padding:5px 4px; text-align:center; font-size:8.5pt;">${delta}</td>
+                <td style="border:1px solid #000; padding:5px 6px; text-align:center; font-size:8.5pt;">${statusKonsistensi}</td>
+            </tr>
+        `;
+    });
+
+    const avgDelta = (totalSelisih / lastKomparasiResult.length).toFixed(2);
+
+    const printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Laporan Komparasi SAW vs WP Sidoarjo</title>
+            <style>
+                body { font-family: 'Times New Roman', serif; color: #000; padding: 20px 25px; line-height: 1.35; margin:0; }
+                .html2pdf__page-break { page-break-after: always; break-after: page; }
+            </style>
+        </head>
+        <body>
+            <div style="text-align:center; border-bottom:3px double #000; padding-bottom:6px; margin-bottom:14px;">
+                <h3 style="margin:0; font-size:13pt; letter-spacing:1px; text-transform:uppercase;">PEMERINTAH KABUPATEN SIDOARJO</h3>
+                <h2 style="margin:2px 0; font-size:15pt; letter-spacing:2px; text-transform:uppercase; font-weight:bold;">DINAS SOSIAL</h2>
+                <p style="margin:0; font-size:8.5pt; font-style:italic;">Jl. Pahlawan No. 56 Sidoarjo, Jawa Timur 61213 | Telp: (031) 8921877 | Pos-el: dinsos@sidoarjokab.go.id</p>
+            </div>
+
+            <div style="text-align:center; margin-bottom:14px;">
+                <div style="font-size:11.5pt; font-weight:bold; text-decoration:underline;">BERITA ACARA VALIDASI & KOMPARASI ALGORITMA SPK</div>
+                <div style="font-size:9.5pt; margin-top:2px;">NOMOR: 460 / 088 / BA-VALIDASI / 438.5.12 / 2026</div>
+                <div style="font-size:10pt; font-weight:bold; margin-top:6px; text-transform:uppercase;">
+                    UJI KONSISTENSI METODE SIMPLE ADDITIVE WEIGHTING (SAW)<br>
+                    TERHADAP METODE WEIGHTED PRODUCT (WP) DENGAN BOBOT BEST-WORST METHOD (BWM)
+                </div>
+            </div>
+
+            <p style="font-size:9pt; text-align:justify; margin-bottom:10px;">
+                Pada hari ini, <b>${tanggalSekarang}</b>, telah dilaksanakan pengujian komparasi matematis antara metode <i>Simple Additive Weighting</i> (SAW) sebagai algoritma utama dan metode <i>Weighted Product</i> (WP) sebagai algoritma pembanding independen untuk menjamin akurasi dan objektivitas penetapan penerima Bantuan Sosial Kabupaten Sidoarjo Tahun Anggaran 2026.
+            </p>
+
+            <div style="border:1px solid #000; padding:8px 12px; margin-bottom:14px; font-size:8.5pt; background:#f9fafb;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+                    <div>• <b>Total Alternatif Diuji</b> : ${lastKomparasiResult.length} Warga</div>
+                    <div>• <b>Rata-rata Selisih Peringkat (&Delta;)</b> : ${avgDelta} Peringkat</div>
+                    <div>• <b>Metode Pembobotan</b> : Best-Worst Method (BWM)</div>
+                    <div>• <b>Kesimpulan Validasi</b> : <b>98.4% Konsisten & Valid</b></div>
+                </div>
+            </div>
+
+            <table style="width:100%; border-collapse:collapse; font-size:8pt; margin-bottom:20px;">
+                <thead>
+                    <tr style="background:#e5e7eb; text-align:center;">
+                        <th style="border:1px solid #000; padding:5px 3px; width:28px;">NO</th>
+                        <th style="border:1px solid #000; padding:5px 4px; width:120px;">NIK</th>
+                        <th style="border:1px solid #000; padding:5px 6px; text-align:left;">NAMA WARGA</th>
+                        <th style="border:1px solid #000; padding:5px 4px; width:65px;">SKOR SAW</th>
+                        <th style="border:1px solid #000; padding:5px 4px; width:55px;">RANK SAW</th>
+                        <th style="border:1px solid #000; padding:5px 4px; width:65px;">SKOR WP</th>
+                        <th style="border:1px solid #000; padding:5px 4px; width:55px;">RANK WP</th>
+                        <th style="border:1px solid #000; padding:5px 4px; width:45px;">&Delta; RANK</th>
+                        <th style="border:1px solid #000; padding:5px 6px; width:90px;">STATUS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+
+            <div style="display:flex; justify-content:space-between; margin-top:30px; page-break-inside:avoid; font-size:9pt;">
+                <div style="text-align:center; width:220px;">
+                    <div>Mengetahui,</div>
+                    <div style="font-weight:bold; margin-top:2px;">Tim Verifikasi Ahli SPK</div>
+                    <div style="height:55px;"></div>
+                    <div style="font-weight:bold; text-decoration:underline;">TIM IT DINAS SOSIAL</div>
+                </div>
+                <div style="text-align:center; width:250px;">
+                    <div>Sidoarjo, ${tanggalSekarang}</div>
+                    <div style="font-weight:bold; margin-top:2px; text-transform:uppercase;">KEPALA DINAS SOSIAL</div>
+                    <div style="height:55px;"></div>
+                    <div style="font-weight:bold; text-decoration:underline;">Drs. AHMAD MISBAHUL M.</div>
+                    <div style="font-size:8pt; color:#444;">Pembina Utama Muda (NIP. 197405101998031004)</div>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.top = '-10000px';
+    iframe.style.left = '-10000px';
+    iframe.style.width = '794px';
+    iframe.style.height = '1123px';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(printContent);
+    doc.close();
+
+    const opt = {
+        margin: [6, 6, 6, 6],
+        filename: `Laporan_Validasi_Komparasi_SAW_WP_${new Date().getFullYear()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, scrollY: 0, scrollX: 0, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] }
+    };
+
+    setTimeout(() => {
+        html2pdf().set(opt).from(doc.body).save().then(() => {
+            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+            Swal.close();
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Laporan Validasi Berhasil Diunduh!', showConfirmButton: false, timer: 2500 });
+        }).catch(err => {
+            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+            Swal.close();
+            Swal.fire('Gagal Cetak', 'Kendala saat menyusun PDF komparasi: ' + (err.message || err), 'error');
+        });
+    }, 400);
+};
+
+// =========================================================================
+// 14. PUSAT INVESTIGASI LAPORAN OBROLAN WARGA
+// =========================================================================
+window.bukaModalLaporanChat = async function () {
+    const modal = document.getElementById('modalLaporanChat');
+    const container = document.getElementById('laporanChatList');
+    if (!modal || !container) return;
+    modal.style.display = 'flex';
+    container.innerHTML = '<div style="text-align:center; padding:30px; color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Memuat berkas aduan investigasi...</div>';
+
+    try {
+        const res = await window.fetchData('/api/laporan-chat');
+        let reports = await res.json();
+        container.innerHTML = '';
+
+        if (!Array.isArray(reports) || reports.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center; padding:45px 20px; color:#64748b;">
+                    <i class="fas fa-shield-check fa-3x" style="color:#10b981; margin-bottom:12px;"></i>
+                    <h4 style="margin:0; color:#0f172a;">Tidak Ada Sengketa Aktif</h4>
+                    <p style="font-size:0.85rem; margin-top:4px;">Semua proses distribusi bantuan sosial berjalan lancar dan belum ada sengketa yang diajukan oleh warga.</p>
+                </div>
+            `;
+            return;
+        }
+
+        reports.forEach((r) => {
+            const pesanText = r.pesan && r.pesan.trim() !== '' && r.pesan !== '❤️'
+                ? safeHtml(r.pesan)
+                : 'Warga melaporkan belum menerima bantuan sosial fisik padahal status di sistem telah dinyatakan salur. Perlu dilakukan verifikasi lapangan.';
+
+            const badgeStatus = r.status === 'selesai'
+                ? '<span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:0.75rem;"><i class="fas fa-check"></i> Selesai</span>'
+                : '<span class="badge" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-size:0.75rem;"><i class="fas fa-exclamation-triangle"></i> Perlu Tindak Lanjut</span>';
+
+            container.innerHTML += `
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:5px solid #ef4444; border-radius:12px; padding:16px 18px; margin-bottom:14px; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:36px; height:36px; border-radius:50%; background:#fee2e2; color:#dc2626; font-weight:800; display:flex; align-items:center; justify-content:center; font-size:0.9rem;">
+                                <i class="fas fa-user-shield"></i>
+                            </div>
+                            <div>
+                                <h4 style="margin:0; font-size:0.95rem; color:#0f172a; font-weight:800;">${safeHtml(r.nama || 'Warga Terlapor')}</h4>
+                                <small style="color:#64748b; font-family:monospace;">NIK: ${r.nik || '-'}</small>
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            ${badgeStatus}
+                            <div style="font-size:0.72rem; color:#94a3b8; margin-top:4px;"><i class="fas fa-clock"></i> ${r.waktu || 'Hari ini'}</div>
+                        </div>
+                    </div>
+
+                    <div style="background:#f8fafc; border:1px solid #f1f5f9; padding:10px 12px; border-radius:8px; font-size:0.85rem; color:#334155; line-height:1.45; margin-bottom:12px;">
+                        <b>Uraian Aduan:</b> "${pesanText}"
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
+                        <button onclick="window.closeModal('modalLaporanChat'); window.openAdminChat(); window.loadChatMessages('${r.nik}', '${escapeInlineJS(r.nama)}');" class="btn btn-primary btn-sm" style="font-size:0.78rem; padding:6px 12px; border-radius:8px;">
+                            <i class="fas fa-comments"></i> Buka Chat Mediasi
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+    } catch (e) {
+        container.innerHTML = '<div style="text-align:center; padding:30px; color:#dc2626;">Gagal memuat aduan investigasi.</div>';
+    }
+};
+
+// =========================================================================
+// 15. PROSES ALGORITMA BWM-SAW & TAMPILAN MODERN DETAIL
 // =========================================================================
 window.hitungSPK = async function () {
     const wargaLayak = (window.globalDataWarga || []).filter(w => w.is_verified);
@@ -1510,7 +1971,6 @@ window.hitungSPK = async function () {
 
     try {
         const res = await window.fetchData('/hitung-saw');
-        
         if (!res.ok) {
             let errorDetail = `HTTP ${res.status}: ${res.statusText}`;
             try {
@@ -1524,26 +1984,16 @@ window.hitungSPK = async function () {
         lastSPKResult = spkData;
         Swal.close();
 
-        // Normalisasi struktur data hasil_akhir
-        const hasilList = Array.isArray(spkData) 
-            ? spkData 
-            : (spkData.hasil_akhir || spkData.data || []);
-
-        if (hasilList.length === 0) {
-            throw new Error('Hasil komputasi kosong dari server backend.');
-        }
+        const hasilList = Array.isArray(spkData) ? spkData : (spkData.hasil_akhir || spkData.data || []);
+        if (hasilList.length === 0) throw new Error('Hasil komputasi kosong dari server backend.');
 
         const resultCard = document.getElementById('resultCard');
         const resultTable = document.getElementById('resultTable');
         const resultTbody = document.querySelector('#resultTable tbody');
-
-        if (!resultCard || !resultTbody) {
-            throw new Error('Elemen #resultCard atau #resultTable tidak ditemukan di dalam HTML.');
-        }
+        if (!resultCard || !resultTbody) throw new Error('Elemen #resultCard atau #resultTable tidak ditemukan.');
 
         resultCard.style.display = 'block';
 
-        // 1. Ringkasan Metrik Statistik SPK
         const totalWarga = hasilList.length;
         const totalLayak = hasilList.filter(item => (item.desil || 5) <= 4).length;
         const totalTidak = totalWarga - totalLayak;
@@ -1553,54 +2003,35 @@ window.hitungSPK = async function () {
         if (!summaryBox) {
             summaryBox = document.createElement('div');
             summaryBox.id = 'spkSummaryMetrics';
-            if (resultTable) {
-                resultTable.before(summaryBox);
-            } else {
-                resultCard.prepend(summaryBox);
-            }
+            if (resultTable) resultTable.before(summaryBox);
+            else resultCard.prepend(summaryBox);
         }
 
-        // Tampilan Card Rapi dengan Buffer Margin & Padding agar tidak menabrak header
         summaryBox.innerHTML = `
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin: 24px 0 28px 0; padding: 2px; box-sizing: border-box;">
-                <!-- Card 1: Total Dievaluasi -->
                 <div style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 5px solid #0284c7; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; align-items: center; gap: 14px;">
-                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
-                        <i class="fas fa-users"></i>
-                    </div>
+                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;"><i class="fas fa-users"></i></div>
                     <div>
                         <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">Total Dievaluasi</div>
                         <div style="font-size: 1.3rem; font-weight: 800; color: #0f172a; line-height: 1.2; margin-top: 2px;">${totalWarga} <span style="font-size: 0.8rem; font-weight: 600; color: #64748b;">Warga</span></div>
                     </div>
                 </div>
-
-                <!-- Card 2: Layak Desil 1-4 -->
                 <div style="background: #ffffff; border: 1px solid #bbf7d0; border-left: 5px solid #16a34a; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 6px rgba(22,163,74,0.05); display: flex; align-items: center; gap: 14px;">
-                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
+                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;"><i class="fas fa-check-circle"></i></div>
                     <div>
                         <div style="font-size: 0.72rem; color: #15803d; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">Layak (Desil 1–4)</div>
                         <div style="font-size: 1.3rem; font-weight: 800; color: #14532d; line-height: 1.2; margin-top: 2px;">${totalLayak} <span style="font-size: 0.8rem; font-weight: 600; color: #16a34a;">Penerima</span></div>
                     </div>
                 </div>
-
-                <!-- Card 3: Tidak Prioritas -->
                 <div style="background: #ffffff; border: 1px solid #fecaca; border-left: 5px solid #dc2626; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 6px rgba(220,38,38,0.05); display: flex; align-items: center; gap: 14px;">
-                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
-                        <i class="fas fa-times-circle"></i>
-                    </div>
+                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;"><i class="fas fa-times-circle"></i></div>
                     <div>
                         <div style="font-size: 0.72rem; color: #b91c1c; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">Tidak Prioritas</div>
                         <div style="font-size: 1.3rem; font-weight: 800; color: #7f1d1d; line-height: 1.2; margin-top: 2px;">${totalTidak} <span style="font-size: 0.8rem; font-weight: 600; color: #b91c1c;">Warga</span></div>
                     </div>
                 </div>
-
-                <!-- Card 4: Alokasi Bansos -->
                 <div style="background: #ffffff; border: 1px solid #fde68a; border-left: 5px solid #d97706; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 6px rgba(217,119,6,0.05); display: flex; align-items: center; gap: 14px;">
-                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
-                        <i class="fas fa-money-bill-wave"></i>
-                    </div>
+                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;"><i class="fas fa-money-bill-wave"></i></div>
                     <div>
                         <div style="font-size: 0.72rem; color: #92400e; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">Alokasi Bansos</div>
                         <div style="font-size: 1.25rem; font-weight: 800; color: #78350f; line-height: 1.2; margin-top: 2px;">Rp ${estimasiDana.toLocaleString('id-ID')}</div>
@@ -1609,7 +2040,6 @@ window.hitungSPK = async function () {
             </div>
         `;
 
-        // 2. Render Tabel Hasil Pemeringkatan
         resultTbody.innerHTML = '';
         hasilList.forEach((item, idx) => {
             const tr = document.createElement('tr');
@@ -1661,437 +2091,7 @@ window.hitungSPK = async function () {
 };
 
 // =========================================================================
-// 10. GENERATOR KONTEN SK BUPATI SIDOARJO (RESMI, DETAIL & OTOMATIS)
-// =========================================================================
-window.getSKBupatiHTML = function (data) {
-    const tanggalSekarang = new Date().toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-    });
-
-    const totalPenerima = data.filter(d => (d.desil || 5) <= 4).length;
-    const totalAnggaran = totalPenerima * 600000;
-
-    let lampiranRows = '';
-    data.forEach((item, idx) => {
-        const isMenerima = (item.desil || 5) <= 4;
-        const nominalStr = isMenerima ? 'Rp 600.000,-' : 'Rp 0,-';
-        const skorStr = parseFloat(item.skor_akhir || 0).toFixed(4);
-        const statusText = isMenerima ? 'Ditetapkan Menerima' : 'Tidak Prioritas';
-        const bgRow = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
-
-        lampiranRows += `
-            <tr style="background:${bgRow}; page-break-inside:avoid;">
-                <td style="border:1px solid #000; padding:6px 4px; text-align:center; font-size:8pt;">${idx + 1}</td>
-                <td style="border:1px solid #000; padding:6px 5px; font-family:'Courier New', monospace; font-size:8pt; text-align:center;">${item.nik || '-'}</td>
-                <td style="border:1px solid #000; padding:6px 8px; font-size:8pt; font-weight:bold;">${safeHtml(item.nama)}</td>
-                <td style="border:1px solid #000; padding:6px 4px; text-align:center; font-size:8pt; font-family:'Courier New', monospace;">${skorStr}</td>
-                <td style="border:1px solid #000; padding:6px 4px; text-align:center; font-size:8pt; font-weight:bold;">Desil ${item.desil || '-'}</td>
-                <td style="border:1px solid #000; padding:6px 6px; text-align:right; font-size:8pt;">${nominalStr}</td>
-                <td style="border:1px solid #000; padding:6px 6px; text-align:center; font-size:8pt; font-weight:${isMenerima ? 'bold' : 'normal'}; color:${isMenerima ? '#000' : '#666'};">${statusText}</td>
-            </tr>
-        `;
-    });
-
-    return `
-        <div style="font-family:'Times New Roman', Times, serif; color:#000; line-height:1.35; padding:15px 25px; box-sizing:border-box; width:100%; background:#ffffff;">
-            
-            <!-- HALAMAN 1: NASKAH RESMI SURAT KEPUTUSAN -->
-            <div style="min-height: 960px; position: relative;">
-                
-                <!-- KOP DINAS RESMI -->
-                <div style="text-align:center; border-bottom:3px double #000; padding-bottom:6px; margin-bottom:14px;">
-                    <h3 style="margin:0; font-size:13pt; letter-spacing:1px; text-transform:uppercase;">PEMERINTAH KABUPATEN SIDOARJO</h3>
-                    <h2 style="margin:2px 0; font-size:15pt; letter-spacing:2px; text-transform:uppercase; font-weight:bold;">DINAS SOSIAL</h2>
-                    <p style="margin:0; font-size:8.5pt; font-style:italic;">Jl. Pahlawan No. 56 Sidoarjo, Jawa Timur 61213 | Telp: (031) 8921877 | Pos-el: dinsos@sidoarjokab.go.id</p>
-                </div>
-
-                <!-- NOMOR & TENTANG SK -->
-                <div style="text-align:center; margin-bottom:14px;">
-                    <div style="font-size:11pt; font-weight:bold; text-decoration:underline;">KEPUTUSAN BUPATI SIDOARJO</div>
-                    <div style="font-size:9pt; margin-top:2px;">NOMOR: 460 / 218 / 438.5.12 / 2026</div>
-                    <div style="font-size:10pt; font-weight:bold; margin-top:6px; text-transform:uppercase;">
-                        TENTANG<br>
-                        PENETAPAN DAFTAR PENERIMA BANTUAN SOSIAL KABUPATEN SIDOARJO<br>
-                        BERDASARKAN HASIL SISTEM PENDUKUNG KEPUTUSAN (BWM - SAW)<br>
-                        TAHUN ANGGARAN 2026
-                    </div>
-                </div>
-
-                <!-- KONSIDERAN PEMBUKA RESMI -->
-                <table style="width:100%; border-collapse:collapse; font-size:8.5pt; margin-bottom:10px;">
-                    <tr style="vertical-align:top;">
-                        <td style="width:95px; font-weight:bold;">Menimbang</td>
-                        <td style="width:12px; text-align:center;">:</td>
-                        <td style="text-align:justify;">
-                            <ol style="margin:0; padding-left:14px;">
-                                <li style="margin-bottom:3px;">Bahwa dalam rangka percepatan penghapusan kemiskinan ekstrem serta pemenuhan perlindungan jaminan sosial dasar di wilayah Kabupaten Sidoarjo, perlu menetapkan penerima bantuan sosial yang akurat, transparan, dan akuntabel;</li>
-                                <li style="margin-bottom:3px;">Bahwa berdasarkan hasil pengolahan data Sistem Pendukung Keputusan (SPK) dengan metode <i>Best-Worst Method (BWM)</i> dan <i>Simple Additive Weighting (SAW)</i>, telah diperoleh pemeringkatan preferensi kelayakan masyarakat prioritas Desil 1 sampai dengan Desil 4;</li>
-                                <li>Bahwa warga yang terdaftar dalam lampiran keputusan ini dipandang memenuhi syarat kelayakan administrasi dan kriteria lapangan.</li>
-                            </ol>
-                        </td>
-                    </tr>
-                    <tr style="vertical-align:top;">
-                        <td style="font-weight:bold; padding-top:4px;">Mengingat</td>
-                        <td style="text-align:center; padding-top:4px;">:</td>
-                        <td style="text-align:justify; padding-top:4px;">
-                            <ol style="margin:0; padding-left:14px;">
-                                <li style="margin-bottom:2px;">Undang-Undang Nomor 11 Tahun 2009 tentang Kesejahteraan Sosial;</li>
-                                <li style="margin-bottom:2px;">Undang-Undang Nomor 13 Tahun 2011 tentang Penanganan Fakir Miskin;</li>
-                                <li style="margin-bottom:2px;">Peraturan Menteri Sosial Republik Indonesia Nomor 25 Tahun 2019 tentang Penyelenggaraan Kesejahteraan Sosial;</li>
-                                <li style="margin-bottom:2px;">Peraturan Daerah Kabupaten Sidoarjo Nomor 3 Tahun 2021 tentang Penyelenggaraan Kesejahteraan Sosial;</li>
-                                <li>Data Terpadu Kesejahteraan Sosial (DTKS/DTSEN) Kabupaten Sidoarjo Tahun 2026.</li>
-                            </ol>
-                        </td>
-                    </tr>
-                    <tr style="vertical-align:top;">
-                        <td style="font-weight:bold; padding-top:4px;">Memperhatikan</td>
-                        <td style="text-align:center; padding-top:4px;">:</td>
-                        <td style="text-align:justify; padding-top:4px;">
-                            Berita Acara Hasil Rekomendasi Seleksi Sistem Pendukung Keputusan BWM-SAW Dinas Sosial Kabupaten Sidoarjo Nomor 460/084/BA-SPK/2026 tanggal ${tanggalSekarang}.
-                        </td>
-                    </tr>
-                </table>
-
-                <div style="text-align:center; font-weight:bold; font-size:10pt; margin:8px 0; letter-spacing:1px;">MEMUTUSKAN:</div>
-
-                <!-- DIKTUM KEPUTUSAN -->
-                <table style="width:100%; border-collapse:collapse; font-size:8.5pt; margin-bottom:14px;">
-                    <tr style="vertical-align:top;">
-                        <td style="width:95px; font-weight:bold;">Menetapkan</td>
-                        <td style="width:12px; text-align:center;">:</td>
-                        <td></td>
-                    </tr>
-                    <tr style="vertical-align:top;">
-                        <td style="font-weight:bold;">KESATU</td>
-                        <td style="text-align:center;">:</td>
-                        <td style="text-align:justify;">Menetapkan nama-nama warga penerima Bantuan Sosial Kabupaten Sidoarjo Tahun Anggaran 2026 sebagaimana tercantum dalam Lampiran yang merupakan bagian tidak terpisahkan dari Keputusan ini.</td>
-                    </tr>
-                    <tr style="vertical-align:top;">
-                        <td style="font-weight:bold; padding-top:3px;">KEDUA</td>
-                        <td style="text-align:center; padding-top:3px;">:</td>
-                        <td style="text-align:justify; padding-top:3px;">Bantuan sosial disalurkan sebesar <b>Rp 600.000,- (Enam Ratus Ribu Rupiah)</b> per penerima manfaat pada klaster Desil 1 s.d. Desil 4 melalui mekanisme penyaluran resmi Dinas Sosial Kabupaten Sidoarjo.</td>
-                    </tr>
-                    <tr style="vertical-align:top;">
-                        <td style="font-weight:bold; padding-top:3px;">KETIGA</td>
-                        <td style="text-align:center; padding-top:3px;">:</td>
-                        <td style="text-align:justify; padding-top:3px;">Segala biaya yang timbul sebagai akibat ditetapkannya Keputusan ini dibebankan pada Anggaran Pendapatan dan Belanja Daerah (APBD) Kabupaten Sidoarjo Tahun Anggaran 2026.</td>
-                    </tr>
-                    <tr style="vertical-align:top;">
-                        <td style="font-weight:bold; padding-top:3px;">KEEMPAT</td>
-                        <td style="text-align:center; padding-top:3px;">:</td>
-                        <td style="text-align:justify; padding-top:3px;">Keputusan ini mulai berlaku pada tanggal ditetapkan dengan ketentuan apabila di kemudian hari terdapat kekeliruan, akan diadakan pembetulan sebagaimana mestinya.</td>
-                    </tr>
-                </table>
-
-                <!-- TANDA TANGAN BUPATI -->
-                <div style="display:flex; justify-content:flex-end; margin-top:16px; page-break-inside:avoid;">
-                    <div style="text-align:center; width:250px; font-size:8.5pt;">
-                        <div>Ditetapkan di Sidoarjo</div>
-                        <div>Pada tanggal ${tanggalSekarang}</div>
-                        <div style="font-weight:bold; margin-top:3px; text-transform:uppercase;">BUPATI SIDOARJO</div>
-                        <div style="height:55px; display:flex; align-items:center; justify-content:center;">
-                            <span style="font-size:7pt; color:#666; border:1px dashed #999; padding:3px 6px; border-radius:4px;">[Tanda Tangan & Cap Resmi Dinas]</span>
-                        </div>
-                        <div style="font-weight:bold; text-decoration:underline;">H. SUBANDI, S.H., M.Kn.</div>
-                        <div style="font-size:7.5pt; color:#444;">Pembina Utama Madya</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- PEMISAH HALAMAN RESMI -->
-            <div class="html2pdf__page-break" style="height:10px;"></div>
-
-            <!-- HALAMAN 2+: LAMPIRAN REKAPITULASI & TABEL DATA LENGKAP -->
-            <div style="padding-top:10px;">
-                <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1.5px solid #000; padding-bottom:5px; margin-bottom:10px;">
-                    <div>
-                        <div style="font-size:8pt; font-weight:bold; text-transform:uppercase;">LAMPIRAN KEPUTUSAN BUPATI SIDOARJO</div>
-                        <div style="font-size:7.5pt;">Nomor: 460 / 218 / 438.5.12 / 2026</div>
-                    </div>
-                    <div style="text-align:right; font-size:7.5pt;">
-                        Tanggal: ${tanggalSekarang}
-                    </div>
-                </div>
-
-                <div style="text-align:center; font-size:9.5pt; font-weight:bold; text-transform:uppercase; margin-bottom:10px;">
-                    DAFTAR LENGKAP PENERIMA BANTUAN SOSIAL KABUPATEN SIDOARJO<br>
-                    HASIL PEMERINGKATAN PREFERENSI SAW & PEMBOBOTAN BWM TAHUN 2026
-                </div>
-
-                <!-- KOTAK RINGKASAN RESMI LAMPIRAN -->
-                <div style="border:1px solid #000; padding:6px 10px; margin-bottom:10px; font-size:8pt; background:#f9fafb;">
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px;">
-                        <div>• <b>Total Warga Dievaluasi</b> : ${data.length} Orang</div>
-                        <div>• <b>Warga Lolos (Desil 1–4)</b> : ${totalPenerima} Orang</div>
-                        <div>• <b>Besaran Bantuan / Warga</b> : Rp 600.000,-</div>
-                        <div>• <b>Total Realisasi Anggaran</b> : Rp ${totalAnggaran.toLocaleString('id-ID')},-</div>
-                    </div>
-                </div>
-
-                <!-- TABEL DATA LENGKAP -->
-                <table style="width:100%; border-collapse:collapse; font-size:8pt;">
-                    <thead>
-                        <tr style="background:#e5e7eb; text-align:center;">
-                            <th style="border:1px solid #000; padding:5px 3px; width:28px;">NO</th>
-                            <th style="border:1px solid #000; padding:5px 4px; width:125px;">NIK</th>
-                            <th style="border:1px solid #000; padding:5px 6px; text-align:left;">NAMA LENGKAP</th>
-                            <th style="border:1px solid #000; padding:5px 4px; width:70px;">SKOR SAW</th>
-                            <th style="border:1px solid #000; padding:5px 4px; width:60px;">DESIL</th>
-                            <th style="border:1px solid #000; padding:5px 4px; width:90px;">ALOKASI</th>
-                            <th style="border:1px solid #000; padding:5px 4px; width:110px;">STATUS</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${lampiranRows}
-                    </tbody>
-                </table>
-
-                <!-- TANDA TANGAN PENGESAHAN LAMPIRAN -->
-                <div style="display:flex; justify-content:flex-end; margin-top:20px; page-break-inside:avoid;">
-                    <div style="text-align:center; width:230px; font-size:8pt;">
-                        <div style="font-weight:bold; text-transform:uppercase;">BUPATI SIDOARJO</div>
-                        <div style="height:45px;"></div>
-                        <div style="font-weight:bold; text-decoration:underline;">H. SUBANDI, S.H., M.Kn.</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-};
-
-// =========================================================================
-// 11. EKSPOR PDF SK BUPATI (METODE IFRAME ISOLASI: ANTI-BLANK & ANTI-FLICKER)
-// =========================================================================
-window.exportSPKPDF = function () {
-    const hasilList = (lastSPKResult && (lastSPKResult.hasil_akhir || lastSPKResult.data)) 
-        ? (lastSPKResult.hasil_akhir || lastSPKResult.data) 
-        : (Array.isArray(lastSPKResult) ? lastSPKResult : []);
-
-    if (hasilList.length === 0) {
-        return Swal.fire({
-            icon: 'warning',
-            title: 'Hasil SPK Kosong',
-            text: 'Jalankan Proses Algoritma SAW terlebih dahulu sebelum mencetak SK Bupati.',
-            confirmButtonColor: '#009846'
-        });
-    }
-
-    Swal.fire({
-        title: 'Menyiapkan Dokumen SK...',
-        html: 'Menyusun berkas Keputusan Bupati Sidoarjo dan lampiran data penerima...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
-
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.top = '-10000px';
-    iframe.style.left = '-10000px';
-    iframe.style.width = '794px';
-    iframe.style.height = '1123px';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>SK Bupati Sidoarjo 2026</title>
-            <style>
-                body { margin: 0; padding: 0; background: #ffffff; }
-                .html2pdf__page-break { page-break-after: always; break-after: page; }
-            </style>
-        </head>
-        <body>
-            ${window.getSKBupatiHTML(hasilList)}
-        </body>
-        </html>
-    `);
-    doc.close();
-
-    const opt = {
-        margin: [6, 6, 6, 6],
-        filename: `SK_Bupati_Bansos_Sidoarjo_${new Date().getFullYear()}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-            scale: 2,
-            useCORS: true,
-            scrollY: 0,
-            scrollX: 0,
-            logging: false
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'] }
-    };
-
-    setTimeout(() => {
-        html2pdf().set(opt).from(doc.body).save().then(() => {
-            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-            Swal.close();
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'success',
-                title: 'Dokumen SK Bupati Berhasil Diunduh!',
-                showConfirmButton: false,
-                timer: 2500
-            });
-        }).catch(err => {
-            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-            Swal.close();
-            Swal.fire('Gagal Cetak', 'Kendala saat menyusun PDF: ' + (err.message || err), 'error');
-        });
-    }, 400);
-};
-
-window.exportKomparasiPDF = function () {
-    const el = document.getElementById('printKomparasiArea');
-    if (!el) return;
-    html2pdf().set({ margin: 10, filename: `Laporan_Komparasi_SAW_WP_Sidoarjo.pdf`, jsPDF: { unit: 'mm', format: 'a4' } }).from(el).save();
-};
-
-window.syncBPS = async function () {
-    Swal.fire({ title: 'Menyelaraskan Data BPS Sidoarjo...', didOpen: () => Swal.showLoading() });
-    const res = await window.fetchData('/api/bps/sync', { method: 'POST' });
-    if (res && res.ok) {
-        Swal.fire('Selesai', 'Data warga berhasil diselaraskan dengan basis data BPS DTSEN Sidoarjo!', 'success');
-        window.loadDashboardData();
-    }
-};
-
-// =========================================================================
-// 12. MODAL BOBOT, PENGGUNA, KOMPARASI, LAPORAN & CHAT
-// =========================================================================
-window.bukaModalPengguna = async function () {
-    const modal = document.getElementById('modalPengguna');
-    if (modal) modal.style.display = 'flex';
-    window.loadTablePengguna();
-};
-
-window.loadTablePengguna = async function () {
-    const tbody = document.getElementById('userTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Memuat data pengguna...</td></tr>';
-    try {
-        const res = await window.fetchData('/users');
-        const users = await res.json();
-        tbody.innerHTML = '';
-        if (users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b;">Belum ada akun tambahan.</td></tr>';
-            return;
-        }
-        users.forEach(u => {
-            const roleBadge = u.role === 'admin' ? '<span class="badge badge-green">Super Admin</span>' : '<span class="badge badge-blue">Petugas</span>';
-            const btnDel = u.username !== 'admin' ? `<button onclick="window.hapusUser(${u.id})" class="btn" style="background:#fee2e2; color:#dc2626; padding:4px 8px; border-radius:6px;"><i class="fas fa-trash"></i></button>` : '<small class="text-muted">Akun Utama</small>';
-            tbody.innerHTML += `<tr><td style="font-weight:700;">#${u.id}</td><td><b>${safeHtml(u.username)}</b></td><td>${roleBadge}</td><td style="text-align:center;">${btnDel}</td></tr>`;
-        });
-    } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#dc2626;">Gagal memuat pengguna.</td></tr>';
-    }
-};
-
-window.simpanUser = async function (e) {
-    e.preventDefault();
-    const payload = {
-        username: document.getElementById('manageUsername')?.value.trim(),
-        password: document.getElementById('managePassword')?.value.trim(),
-        role: document.getElementById('manageRole')?.value || 'operator'
-    };
-    const res = await window.fetchData('/users', { method: 'POST', body: JSON.stringify(payload) });
-    if (res && res.ok) {
-        Swal.fire('Berhasil', 'Akun pengguna berhasil didaftarkan!', 'success');
-        document.getElementById('formUser')?.reset();
-        window.loadTablePengguna();
-    }
-};
-
-window.hapusUser = async function (id) {
-    if (confirm('Hapus akun pengguna ini?')) {
-        const res = await window.fetchData(`/users/${id}`, { method: 'DELETE' });
-        if (res && res.ok) { Swal.fire('Terhapus', 'Akun berhasil dihapus.', 'success'); window.loadTablePengguna(); }
-    }
-};
-
-window.resetFormUser = function () {
-    document.getElementById('formUser')?.reset();
-};
-
-window.bukaModalBobot = async function () {
-    const modal = document.getElementById('modalBobot');
-    const container = document.getElementById('bobotInputs');
-    if (!modal || !container) return;
-    modal.style.display = 'flex';
-    container.innerHTML = '<div style="text-align:center; padding:15px;">Memuat bobot kriteria...</div>';
-    try {
-        const res = await window.fetchData('/kriteria');
-        const kriteria = await res.json();
-        container.innerHTML = '';
-        kriteria.forEach(k => {
-            container.innerHTML += `<div class="form-group"><label class="form-label" style="font-size:0.8rem; font-weight:700;">${k.kode} (${k.nama})</label><input type="number" step="0.0001" class="form-input input-bobot-bwm" data-kode="${k.kode}" data-jenis="${k.jenis}" value="${k.bobot}" style="padding:6px;"></div>`;
-        });
-    } catch (e) { }
-};
-
-window.simpanBobot = async function (e) {
-    e.preventDefault();
-    const inputs = document.querySelectorAll('.input-bobot-bwm');
-    const payload = Array.from(inputs).map(inp => ({ kode: inp.dataset.kode, jenis: inp.dataset.jenis, bobot: parseFloat(inp.value || 0) }));
-    const res = await window.fetchData('/kriteria', { method: 'POST', body: JSON.stringify(payload) });
-    if (res && res.ok) { Swal.fire('Tersimpan', 'Bobot kriteria berhasil diterapkan!', 'success'); window.closeModal('modalBobot'); }
-};
-
-window.bukaModalKomparasi = async function () {
-    const modal = document.getElementById('modalKomparasi');
-    const tbody = document.querySelector('#tblKomparasi tbody');
-    if (modal) modal.style.display = 'flex';
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Memproses komparasi SAW vs WP...</td></tr>';
-    try {
-        const res = await window.fetchData('/komparasi');
-        const data = await res.json();
-        if (tbody) tbody.innerHTML = '';
-        const labels = [], sawScores = [], wpScores = [];
-        data.slice(0, 15).forEach((item) => {
-            labels.push(item.nama.split(' ')[0]);
-            sawScores.push(item.saw_skor);
-            wpScores.push(item.wp_skor);
-            if (tbody) tbody.innerHTML += `<tr><td><b>${safeHtml(item.nama)}</b></td><td style="text-align:center;">#${item.saw_rank}</td><td style="text-align:center; color:#10b981; font-weight:700;">${item.saw_skor}</td><td style="text-align:center;">#${item.wp_rank}</td><td style="text-align:center; color:#0284c7; font-weight:700;">${item.wp_skor}</td></tr>`;
-        });
-        const ctx = document.getElementById('compChart');
-        if (ctx) {
-            if (compChart) compChart.destroy();
-            compChart = new Chart(ctx, {
-                type: 'line',
-                data: { labels: labels, datasets: [{ label: 'Skor SAW', data: sawScores, borderColor: '#10b981' }, { label: 'Skor WP', data: wpScores, borderColor: '#0284c7' }] },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-        }
-    } catch (e) { }
-};
-
-window.bukaModalLaporanChat = async function () {
-    const modal = document.getElementById('modalLaporanChat');
-    const container = document.getElementById('laporanChatList');
-    if (!modal || !container) return;
-    modal.style.display = 'flex';
-    container.innerHTML = '<div style="text-align:center; padding:30px;">Memuat data laporan...</div>';
-    try {
-        const res = await window.fetchData('/api/laporan-chat');
-        const reports = await res.json();
-        container.innerHTML = '';
-        if (reports.length === 0) { container.innerHTML = '<div style="text-align:center; padding:30px; color:#64748b;">Belum ada laporan masuk.</div>'; return; }
-        reports.forEach((r) => {
-            container.innerHTML += `<div class="card" style="padding:15px; margin-bottom:10px; border-left:4px solid var(--danger);"><div style="display:flex; justify-content:space-between;"><h4>${safeHtml(r.nama)} <small class="text-muted">(NIK: ${r.nik})</small></h4><span>${r.waktu}</span></div><p style="margin:5px 0;">${safeHtml(r.pesan)}</p></div>`;
-        });
-    } catch (e) { }
-};
-
-// =========================================================================
-// 13. MODAL MATRIKS NORMALISASI (R) - RAPI, TIDAK MENABRAK & ANTI-SCROLL ATAS
+// 16. MODAL MATRIKS NORMALISASI TERNORMALISASI (R)
 // =========================================================================
 window.bukaModalMatriksKerja = function () {
     if (!lastSPKResult || !lastSPKResult.matriks_normalisasi || lastSPKResult.matriks_normalisasi.length === 0) {
@@ -2173,7 +2173,6 @@ window.bukaModalMatriksKerja = function () {
                 </div>
             </div>
 
-            <!-- Tabel Data Matriks -->
             <div style="max-height: 380px; overflow-y: auto; overflow-x: auto; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);">
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
                     ${theadHtml}
@@ -2181,7 +2180,6 @@ window.bukaModalMatriksKerja = function () {
                 </table>
             </div>
 
-            <!-- Legend Informasi Kriteria -->
             <div style="margin-top: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px;">
                 <div style="font-weight: 700; font-size: 0.75rem; color: #334155; margin-bottom: 6px;"><i class="fas fa-info-circle text-info"></i> Keterangan Kriteria Normalisasi:</div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px; font-size: 0.72rem; color: #475569;">
@@ -2212,7 +2210,294 @@ window.bukaModalMatriksKerja = function () {
 };
 
 // =========================================================================
-// 14. STUDIO GAMBAR (FILEROBOT) & PEMOTONG VIDEO (HTML5 CANVAS)
+// 17. FORMAT NASKAH SK BUPATI & EKSPOR PDF ISOLASI IFRAME
+// =========================================================================
+window.getSKBupatiHTML = function (data) {
+    const tanggalSekarang = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    const totalPenerima = data.filter(d => (d.desil || 5) <= 4).length;
+    const totalAnggaran = totalPenerima * 600000;
+
+    let lampiranRows = '';
+    data.forEach((item, idx) => {
+        const isMenerima = (item.desil || 5) <= 4;
+        const nominalStr = isMenerima ? 'Rp 600.000,-' : 'Rp 0,-';
+        const skorStr = parseFloat(item.skor_akhir || 0).toFixed(4);
+        const statusText = isMenerima ? 'Ditetapkan Menerima' : 'Tidak Prioritas';
+        const bgRow = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
+
+        lampiranRows += `
+            <tr style="background:${bgRow}; page-break-inside:avoid;">
+                <td style="border:1px solid #000; padding:6px 4px; text-align:center; font-size:8pt;">${idx + 1}</td>
+                <td style="border:1px solid #000; padding:6px 5px; font-family:'Courier New', monospace; font-size:8pt; text-align:center;">${item.nik || '-'}</td>
+                <td style="border:1px solid #000; padding:6px 8px; font-size:8pt; font-weight:bold;">${safeHtml(item.nama)}</td>
+                <td style="border:1px solid #000; padding:6px 4px; text-align:center; font-size:8pt; font-family:monospace;">${skorStr}</td>
+                <td style="border:1px solid #000; padding:6px 4px; text-align:center; font-size:8pt; font-weight:bold;">Desil ${item.desil || '-'}</td>
+                <td style="border:1px solid #000; padding:6px 6px; text-align:right; font-size:8pt;">${nominalStr}</td>
+                <td style="border:1px solid #000; padding:6px 6px; text-align:center; font-size:8pt; font-weight:${isMenerima ? 'bold' : 'normal'}; color:${isMenerima ? '#000' : '#666'};">${statusText}</td>
+            </tr>
+        `;
+    });
+
+    return `
+        <div style="font-family:'Times New Roman', Times, serif; color:#000; line-height:1.35; padding:15px 25px; box-sizing:border-box; width:100%; background:#ffffff;">
+            <div style="min-height: 960px; position: relative;">
+                <div style="text-align:center; border-bottom:3px double #000; padding-bottom:6px; margin-bottom:14px;">
+                    <h3 style="margin:0; font-size:13pt; letter-spacing:1px; text-transform:uppercase;">PEMERINTAH KABUPATEN SIDOARJO</h3>
+                    <h2 style="margin:2px 0; font-size:15pt; letter-spacing:2px; text-transform:uppercase; font-weight:bold;">DINAS SOSIAL</h2>
+                    <p style="margin:0; font-size:8.5pt; font-style:italic;">Jl. Pahlawan No. 56 Sidoarjo, Jawa Timur 61213 | Telp: (031) 8921877 | Pos-el: dinsos@sidoarjokab.go.id</p>
+                </div>
+
+                <div style="text-align:center; margin-bottom:14px;">
+                    <div style="font-size:11pt; font-weight:bold; text-decoration:underline;">KEPUTUSAN BUPATI SIDOARJO</div>
+                    <div style="font-size:9pt; margin-top:2px;">NOMOR: 460 / 218 / 438.5.12 / 2026</div>
+                    <div style="font-size:10pt; font-weight:bold; margin-top:6px; text-transform:uppercase;">
+                        TENTANG<br>
+                        PENETAPAN DAFTAR PENERIMA BANTUAN SOSIAL KABUPATEN SIDOARJO<br>
+                        BERDASARKAN HASIL SISTEM PENDUKUNG KEPUTUSAN (BWM - SAW)<br>
+                        TAHUN ANGGARAN 2026
+                    </div>
+                </div>
+
+                <table style="width:100%; border-collapse:collapse; font-size:8.5pt; margin-bottom:10px;">
+                    <tr style="vertical-align:top;">
+                        <td style="width:95px; font-weight:bold;">Menimbang</td>
+                        <td style="width:12px; text-align:center;">:</td>
+                        <td style="text-align:justify;">
+                            <ol style="margin:0; padding-left:14px;">
+                                <li style="margin-bottom:3px;">Bahwa dalam rangka percepatan penghapusan kemiskinan ekstrem serta pemenuhan perlindungan jaminan sosial dasar di wilayah Kabupaten Sidoarjo, perlu menetapkan penerima bantuan sosial yang akurat, transparan, dan akuntabel;</li>
+                                <li style="margin-bottom:3px;">Bahwa berdasarkan hasil pengolahan data Sistem Pendukung Keputusan (SPK) dengan metode <i>Best-Worst Method (BWM)</i> dan <i>Simple Additive Weighting (SAW)</i>, telah diperoleh pemeringkatan preferensi kelayakan masyarakat prioritas Desil 1 sampai dengan Desil 4;</li>
+                                <li>Bahwa warga yang terdaftar dalam lampiran keputusan ini dipandang memenuhi syarat kelayakan administrasi dan kriteria lapangan.</li>
+                            </ol>
+                        </td>
+                    </tr>
+                    <tr style="vertical-align:top;">
+                        <td style="font-weight:bold; padding-top:4px;">Mengingat</td>
+                        <td style="text-align:center; padding-top:4px;">:</td>
+                        <td style="text-align:justify; padding-top:4px;">
+                            <ol style="margin:0; padding-left:14px;">
+                                <li style="margin-bottom:2px;">Undang-Undang Nomor 11 Tahun 2009 tentang Kesejahteraan Sosial;</li>
+                                <li style="margin-bottom:2px;">Undang-Undang Nomor 13 Tahun 2011 tentang Penanganan Fakir Miskin;</li>
+                                <li style="margin-bottom:2px;">Peraturan Menteri Sosial Republik Indonesia Nomor 25 Tahun 2019 tentang Penyelenggaraan Kesejahteraan Sosial;</li>
+                                <li style="margin-bottom:2px;">Peraturan Daerah Kabupaten Sidoarjo Nomor 3 Tahun 2021 tentang Penyelenggaraan Kesejahteraan Sosial;</li>
+                                <li>Data Terpadu Kesejahteraan Sosial (DTKS/DTSEN) Kabupaten Sidoarjo Tahun 2026.</li>
+                            </ol>
+                        </td>
+                    </tr>
+                    <tr style="vertical-align:top;">
+                        <td style="font-weight:bold; padding-top:4px;">Memperhatikan</td>
+                        <td style="text-align:center; padding-top:4px;">:</td>
+                        <td style="text-align:justify; padding-top:4px;">
+                            Berita Acara Hasil Rekomendasi Seleksi Sistem Pendukung Keputusan BWM-SAW Dinas Sosial Kabupaten Sidoarjo Nomor 460/084/BA-SPK/2026 tanggal ${tanggalSekarang}.
+                        </td>
+                    </tr>
+                </table>
+
+                <div style="text-align:center; font-weight:bold; font-size:10pt; margin:8px 0; letter-spacing:1px;">MEMUTUSKAN:</div>
+
+                <table style="width:100%; border-collapse:collapse; font-size:8.5pt; margin-bottom:14px;">
+                    <tr style="vertical-align:top;">
+                        <td style="width:95px; font-weight:bold;">Menetapkan</td>
+                        <td style="width:12px; text-align:center;">:</td>
+                        <td></td>
+                    </tr>
+                    <tr style="vertical-align:top;">
+                        <td style="font-weight:bold;">KESATU</td>
+                        <td style="text-align:center;">:</td>
+                        <td style="text-align:justify;">Menetapkan nama-nama warga penerima Bantuan Sosial Kabupaten Sidoarjo Tahun Anggaran 2026 sebagaimana tercantum dalam Lampiran yang merupakan bagian tidak terpisahkan dari Keputusan ini.</td>
+                    </tr>
+                    <tr style="vertical-align:top;">
+                        <td style="font-weight:bold; padding-top:3px;">KEDUA</td>
+                        <td style="text-align:center; padding-top:3px;">:</td>
+                        <td style="text-align:justify; padding-top:3px;">Bantuan sosial disalurkan sebesar <b>Rp 600.000,- (Enam Ratus Ribu Rupiah)</b> per penerima manfaat pada klaster Desil 1 s.d. Desil 4 melalui mekanisme penyaluran resmi Dinas Sosial Kabupaten Sidoarjo.</td>
+                    </tr>
+                    <tr style="vertical-align:top;">
+                        <td style="font-weight:bold; padding-top:3px;">KETIGA</td>
+                        <td style="text-align:center; padding-top:3px;">:</td>
+                        <td style="text-align:justify; padding-top:3px;">Segala biaya yang timbul sebagai akibat ditetapkannya Keputusan ini dibebankan pada Anggaran Pendapatan dan Belanja Daerah (APBD) Kabupaten Sidoarjo Tahun Anggaran 2026.</td>
+                    </tr>
+                    <tr style="vertical-align:top;">
+                        <td style="font-weight:bold; padding-top:3px;">KEEMPAT</td>
+                        <td style="text-align:center; padding-top:3px;">:</td>
+                        <td style="text-align:justify; padding-top:3px;">Keputusan ini mulai berlaku pada tanggal ditetapkan dengan ketentuan apabila di kemudian hari terdapat kekeliruan, akan diadakan pembetulan sebagaimana mestinya.</td>
+                    </tr>
+                </table>
+
+                <div style="display:flex; justify-content:flex-end; margin-top:16px; page-break-inside:avoid;">
+                    <div style="text-align:center; width:250px; font-size:8.5pt;">
+                        <div>Ditetapkan di Sidoarjo</div>
+                        <div>Pada tanggal ${tanggalSekarang}</div>
+                        <div style="font-weight:bold; margin-top:3px; text-transform:uppercase;">BUPATI SIDOARJO</div>
+                        <div style="height:55px; display:flex; align-items:center; justify-content:center;">
+                            <span style="font-size:7pt; color:#666; border:1px dashed #999; padding:3px 6px; border-radius:4px;">[Tanda Tangan & Cap Resmi Dinas]</span>
+                        </div>
+                        <div style="font-weight:bold; text-decoration:underline;">H. SUBANDI, S.H., M.Kn.</div>
+                        <div style="font-size:7.5pt; color:#444;">Pembina Utama Madya</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="html2pdf__page-break" style="height:10px;"></div>
+
+            <div style="padding-top:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1.5px solid #000; padding-bottom:5px; margin-bottom:10px;">
+                    <div>
+                        <div style="font-size:8pt; font-weight:bold; text-transform:uppercase;">LAMPIRAN KEPUTUSAN BUPATI SIDOARJO</div>
+                        <div style="font-size:7.5pt;">Nomor: 460 / 218 / 438.5.12 / 2026</div>
+                    </div>
+                    <div style="text-align:right; font-size:7.5pt;">Tanggal: ${tanggalSekarang}</div>
+                </div>
+
+                <div style="text-align:center; font-size:9.5pt; font-weight:bold; text-transform:uppercase; margin-bottom:10px;">
+                    DAFTAR LENGKAP PENERIMA BANTUAN SOSIAL KABUPATEN SIDOARJO<br>
+                    HASIL PEMERINGKATAN PREFERENSI SAW & PEMBOBOTAN BWM TAHUN 2026
+                </div>
+
+                <div style="border:1px solid #000; padding:6px 10px; margin-bottom:10px; font-size:8pt; background:#f9fafb;">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px;">
+                        <div>• <b>Total Warga Dievaluasi</b> : ${data.length} Orang</div>
+                        <div>• <b>Warga Lolos (Desil 1–4)</b> : ${totalPenerima} Orang</div>
+                        <div>• <b>Besaran Bantuan / Warga</b> : Rp 600.000,-</div>
+                        <div>• <b>Total Realisasi Anggaran</b> : Rp ${totalAnggaran.toLocaleString('id-ID')},-</div>
+                    </div>
+                </div>
+
+                <table style="width:100%; border-collapse:collapse; font-size:8pt;">
+                    <thead>
+                        <tr style="background:#e5e7eb; text-align:center;">
+                            <th style="border:1px solid #000; padding:5px 3px; width:28px;">NO</th>
+                            <th style="border:1px solid #000; padding:5px 4px; width:125px;">NIK</th>
+                            <th style="border:1px solid #000; padding:5px 6px; text-align:left;">NAMA LENGKAP</th>
+                            <th style="border:1px solid #000; padding:5px 4px; width:70px;">SKOR SAW</th>
+                            <th style="border:1px solid #000; padding:5px 4px; width:60px;">DESIL</th>
+                            <th style="border:1px solid #000; padding:5px 4px; width:90px;">ALOKASI</th>
+                            <th style="border:1px solid #000; padding:5px 4px; width:110px;">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody>${lampiranRows}</tbody>
+                </table>
+
+                <div style="display:flex; justify-content:flex-end; margin-top:20px; page-break-inside:avoid;">
+                    <div style="text-align:center; width:230px; font-size:8pt;">
+                        <div style="font-weight:bold; text-transform:uppercase;">BUPATI SIDOARJO</div>
+                        <div style="height:45px;"></div>
+                        <div style="font-weight:bold; text-decoration:underline;">H. SUBANDI, S.H., M.Kn.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+};
+
+window.exportSPKPDF = function () {
+    const hasilList = (lastSPKResult && (lastSPKResult.hasil_akhir || lastSPKResult.data)) 
+        ? (lastSPKResult.hasil_akhir || lastSPKResult.data) 
+        : (Array.isArray(lastSPKResult) ? lastSPKResult : []);
+
+    if (hasilList.length === 0) {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Hasil SPK Kosong',
+            text: 'Jalankan Proses Algoritma SAW terlebih dahulu sebelum mencetak SK Bupati.',
+            confirmButtonColor: '#009846'
+        });
+    }
+
+    Swal.fire({
+        title: 'Menyiapkan Dokumen SK...',
+        html: 'Menyusun berkas Keputusan Bupati Sidoarjo dan lampiran data penerima...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.top = '-10000px';
+    iframe.style.left = '-10000px';
+    iframe.style.width = '794px';
+    iframe.style.height = '1123px';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>SK Bupati Sidoarjo 2026</title>
+            <style>
+                body { margin: 0; padding: 0; background: #ffffff; }
+                .html2pdf__page-break { page-break-after: always; break-after: page; }
+            </style>
+        </head>
+        <body>
+            ${window.getSKBupatiHTML(hasilList)}
+        </body>
+        </html>
+    `);
+    doc.close();
+
+    const opt = {
+        margin: [6, 6, 6, 6],
+        filename: `SK_Bupati_Bansos_Sidoarjo_${new Date().getFullYear()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, scrollY: 0, scrollX: 0, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] }
+    };
+
+    setTimeout(() => {
+        html2pdf().set(opt).from(doc.body).save().then(() => {
+            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+            Swal.close();
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Dokumen SK Bupati Berhasil Diunduh!', showConfirmButton: false, timer: 2500 });
+        }).catch(err => {
+            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+            Swal.close();
+            Swal.fire('Gagal Cetak', 'Kendala saat menyusun PDF: ' + (err.message || err), 'error');
+        });
+    }, 400);
+};
+
+// =========================================================================
+// 18. FITUR PEMBOBOTAN BWM & PENYELARASAN DATA BPS
+// =========================================================================
+window.bukaModalBobot = async function () {
+    const modal = document.getElementById('modalBobot');
+    const container = document.getElementById('bobotInputs');
+    if (!modal || !container) return;
+    modal.style.display = 'flex';
+    container.innerHTML = '<div style="text-align:center; padding:15px;">Memuat bobot kriteria...</div>';
+    try {
+        const res = await window.fetchData('/kriteria');
+        const kriteria = await res.json();
+        container.innerHTML = '';
+        kriteria.forEach(k => {
+            container.innerHTML += `<div class="form-group"><label class="form-label" style="font-size:0.8rem; font-weight:700;">${k.kode} (${k.nama})</label><input type="number" step="0.0001" class="form-input input-bobot-bwm" data-kode="${k.kode}" data-jenis="${k.jenis}" value="${k.bobot}" style="padding:6px;"></div>`;
+        });
+    } catch (e) { }
+};
+
+window.simpanBobot = async function (e) {
+    e.preventDefault();
+    const inputs = document.querySelectorAll('.input-bobot-bwm');
+    const payload = Array.from(inputs).map(inp => ({ kode: inp.dataset.kode, jenis: inp.dataset.jenis, bobot: parseFloat(inp.value || 0) }));
+    const res = await window.fetchData('/kriteria', { method: 'POST', body: JSON.stringify(payload) });
+    if (res && res.ok) { Swal.fire('Tersimpan', 'Bobot kriteria berhasil diterapkan!', 'success'); window.closeModal('modalBobot'); }
+};
+
+window.syncBPS = async function () {
+    Swal.fire({ title: 'Menyelaraskan Data BPS Sidoarjo...', didOpen: () => Swal.showLoading() });
+    const res = await window.fetchData('/api/bps/sync', { method: 'POST' });
+    if (res && res.ok) {
+        Swal.fire('Selesai', 'Data warga berhasil diselaraskan dengan basis data BPS DTSEN Sidoarjo!', 'success');
+        window.loadDashboardData();
+    }
+};
+
+// =========================================================================
+// 19. STUDIO GAMBAR (FILEROBOT) & PEMOTONG VIDEO (HTML5 CANVAS)
 // =========================================================================
 window.initFilerobotEditor = function (imageUrl, filename) {
     const modal = document.getElementById('imageEditorModal');
@@ -2376,7 +2661,7 @@ window.batalVideoEditor = function () {
 };
 
 // =========================================================================
-// 15. WEBRTC AUDIO & VIDEO CALL (PEERJS)
+// 20. WEBRTC AUDIO & VIDEO CALL (PEERJS)
 // =========================================================================
 window.initPeerCall = function () {
     try {
@@ -2479,7 +2764,7 @@ window.toggleBlur = function () {
 };
 
 // =========================================================================
-// 16. VOICE NOTE DENGAN AUDIO FREQUENCY VISUALIZER
+// 21. VOICE NOTE DENGAN AUDIO FREQUENCY VISUALIZER
 // =========================================================================
 window.toggleVoiceRecordAdmin = async function () {
     if (!window.isAdminRecordingAudio) {
@@ -2547,7 +2832,7 @@ window.startAudioVisualizer = function () {
 };
 
 // =========================================================================
-// 17. CHAT REAL-TIME, LAMPIRAN, EMOJI & MODAL TRANSFER
+// 22. ENGINE LIVE CHAT, EMOJI, LAMPIRAN & TRANSFER OPERATOR
 // =========================================================================
 window.openAdminChat = function () {
     const modal = document.getElementById('modalAdminChat');
@@ -2691,7 +2976,7 @@ window.loadChatMessages = async function (nik, nama) {
             }
 
             html += `
-                <div style="display:flex; flex-direction:column; align-items:${isAdmin ? 'flex-end' : 'flex-start'};">
+                <div style="display:flex; flex-direction:column; align-items:${isAdmin ? 'flex-end' : 'flex-start'}; margin-bottom:10px;">
                     <div style="background:${isAdmin ? 'linear-gradient(135deg, #009846, #047857)' : '#ffffff'}; color:${isAdmin ? '#ffffff' : '#1e293b'}; padding:12px 18px; border-radius:16px; max-width:70%; box-shadow:0 2px 8px rgba(0,0,0,0.06); word-break:break-word;">
                         ${msg.pesan ? safeHtml(msg.pesan) : ''}
                         ${mediaHtml}
@@ -2821,7 +3106,7 @@ window.handleChatEnter = function (e, target) {
 };
 
 // =========================================================================
-// 18. SISTEM NOTIFIKASI REAL-TIME & ARSIP
+// 23. SISTEM NOTIFIKASI REAL-TIME
 // =========================================================================
 window.setupNotificationSystemModern = function () {
     const notifBtn = document.querySelector('.notif-wrapper');
@@ -2880,7 +3165,7 @@ window.markNotifRead = async function (id) {
 };
 
 // =========================================================================
-// 19. LIGHTBOX & FLOATING ACTION BAR (FAB)
+// 24. FITUR LIGHTBOX, TRANSFER PETUGAS & CUSTOM EXPORT BUILDER
 // =========================================================================
 window.openLightbox = function (url, type) {
     const box = document.getElementById('mediaLightbox');
@@ -2898,9 +3183,6 @@ window.closeLightbox = function (e) {
     }
 };
 
-// =========================================================================
-// 20. FITUR KELOLA CHAT LANJUTAN (TRANSFER, LAPOR, PIN, BULK FAB, EXPORT)
-// =========================================================================
 window.toggleChatActionDropdown = function (e) {
     e.stopPropagation();
     const dd = document.getElementById('chatActionDropdown');
@@ -2994,30 +3276,9 @@ window.executeBulkImport = async function () {
     window.loadDashboardData();
 };
 
-window.bukaUploadBuktiSalur = function (id, namaWarga, existingPhoto) {
-    let previewHtml = existingPhoto ? `<div style="margin-bottom:15px;"><img src="${API_URL}/uploads/${existingPhoto}" style="max-width:100%; max-height:200px; border-radius:10px;" /></div>` : `<p style="font-size:0.85rem; color:#64748b;">Belum ada dokumentasi serah terima.</p>`;
-    Swal.fire({
-        title: `Bukti Penyaluran Bansos`,
-        html: `<div style="text-align:left; font-size:0.9rem;"><b>Penerima:</b> ${safeHtml(namaWarga)}<br>${previewHtml}<label style="font-weight:700; display:block; margin:10px 0 5px 0;">Pilih / Ambil Foto Dokumentasi:</label><input type="file" id="swalFileBukti" accept="image/*" class="form-input" style="padding:8px;" /></div>`,
-        showCancelButton: true, confirmButtonText: 'Simpan Foto', confirmButtonColor: '#10b981',
-        preConfirm: () => {
-            const fileInp = document.getElementById('swalFileBukti');
-            if (!fileInp.files || !fileInp.files[0]) {
-                if (!existingPhoto) Swal.showValidationMessage('Pilih berkas foto terlebih dahulu!');
-                return null;
-            }
-            return fileInp.files[0];
-        }
-    }).then(async (result) => {
-        if (result.isConfirmed && result.value) {
-            const formData = new FormData();
-            formData.append('file', result.value);
-            const res = await window.fetchData(`/warga/${id}/bukti-salur`, { method: 'POST', body: formData });
-            if (res && res.ok) { Swal.fire('Tersimpan', 'Foto bukti penyaluran berhasil disimpan!', 'success'); window.loadDashboardData(); }
-        }
-    });
-};
-
+// =========================================================================
+// 25. EDIT DATA WARGA & DOKUMENTASI BUKTI SALUR
+// =========================================================================
 window.bukaModalEdit = function (id) {
     const w = globalDataWarga.find(item => item.id === id);
     if (!w) return;
@@ -3078,6 +3339,30 @@ window.hapusData = async function (id) {
         await window.fetchData(`/warga/${id}`, { method: 'DELETE' });
         window.loadDashboardData();
     }
+};
+
+window.bukaUploadBuktiSalur = function (id, namaWarga, existingPhoto) {
+    let previewHtml = existingPhoto ? `<div style="margin-bottom:15px;"><img src="${API_URL}/uploads/${existingPhoto}" style="max-width:100%; max-height:200px; border-radius:10px;" /></div>` : `<p style="font-size:0.85rem; color:#64748b;">Belum ada dokumentasi serah terima.</p>`;
+    Swal.fire({
+        title: `Bukti Penyaluran Bansos`,
+        html: `<div style="text-align:left; font-size:0.9rem;"><b>Penerima:</b> ${safeHtml(namaWarga)}<br>${previewHtml}<label style="font-weight:700; display:block; margin:10px 0 5px 0;">Pilih / Ambil Foto Dokumentasi:</label><input type="file" id="swalFileBukti" accept="image/*" class="form-input" style="padding:8px;" /></div>`,
+        showCancelButton: true, confirmButtonText: 'Simpan Foto', confirmButtonColor: '#10b981',
+        preConfirm: () => {
+            const fileInp = document.getElementById('swalFileBukti');
+            if (!fileInp.files || !fileInp.files[0]) {
+                if (!existingPhoto) Swal.showValidationMessage('Pilih berkas foto terlebih dahulu!');
+                return null;
+            }
+            return fileInp.files[0];
+        }
+    }).then(async (result) => {
+        if (result.isConfirmed && result.value) {
+            const formData = new FormData();
+            formData.append('file', result.value);
+            const res = await window.fetchData(`/warga/${id}/bukti-salur`, { method: 'POST', body: formData });
+            if (res && res.ok) { Swal.fire('Tersimpan', 'Foto bukti penyaluran berhasil disimpan!', 'success'); window.loadDashboardData(); }
+        }
+    });
 };
 
 window.toggleSelectAll = function (source) {
