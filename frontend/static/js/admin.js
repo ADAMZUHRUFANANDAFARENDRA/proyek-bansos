@@ -1,10 +1,10 @@
 /* =========================================================================
-   ADMIN.JS - SPK BANSOS SIDOARJO (FULL COMPREHENSIVE CONSOLIDATED)
+   ADMIN.JS - SISTEM PENDUKUNG KEPUTUSAN BANSOS KABUPATEN SIDOARJO (FULL CODE)
    PEMERINTAH KABUPATEN SIDOARJO - DINAS SOSIAL
-   SISTEM PENDUKUNG KEPUTUSAN SAW DENGAN PEMBOBOTAN BWM & VALIDASI WP
+   METODE BWM (BEST-WORST METHOD) & SAW (SIMPLE ADDITIVE WEIGHTING) + VALIDASI WP
    ========================================================================= */
 
-// Injeksi Style Antarmuka, DataTables & UI Chat Mediasi Modern
+// Injeksi Style Antarmuka Dasbor, DataTables & UI Chat Mediasi Modern
 const dtStyle = document.createElement('style');
 dtStyle.innerHTML = `
     .dataTables_length { margin-bottom: 15px; margin-top: 5px; font-weight: 600; color: var(--text-muted, #64748b); }
@@ -129,145 +129,56 @@ window.activeNotifTab = 'baru';
 window.isNotifPanelOpen = false;
 
 // =========================================================================
-// DATA POLIGON 18 KECAMATAN TERKUNCI PERSIS DALAM KABUPATEN SIDOARJO
+// DATA POLIGON 18 KECAMATAN (TERKUNCI PRESISI DI KABUPATEN SIDOARJO)
 // =========================================================================
 const WILAYAH_SIDOARJO = [
-    {
-        nama: "Balongbendo",
-        center: [-7.3750, 112.5250],
-        defaultAvgDesil: 2.4,
-        desa: "Balongbendo, Seketi, Suwaluh, Bakalan, Bakungpringgodani, Bogempinggir, Gadungkepuhsari, Jabaran, Jeruklegi, Kedungsukodani, Penambangan, Seduri, Singkalan, Sumokembangsri, Waruberon, Watesnegoro",
-        polygon: [[-7.3450, 112.5000], [-7.3450, 112.5600], [-7.4100, 112.5600], [-7.4100, 112.5000]]
-    },
-    {
-        nama: "Krian",
-        center: [-7.3900, 112.5950],
-        defaultAvgDesil: 4.9,
-        desa: "Krian, Barengkrajan, Gawat, Jerukgamping, Junwangi, Katerungan, Keboharan, Kraton, Ponokawan, Sedenganmijen, Sidomojo, Sidomulyo, Sidorejo, Tambakkemerakan, Tempel, Terik, Terungkulon, Terungwetan, Tropodo, Watutulis",
-        polygon: [[-7.3650, 112.5600], [-7.3650, 112.6300], [-7.4100, 112.6300], [-7.4100, 112.5600]]
-    },
-    {
-        nama: "Taman",
-        center: [-7.3500, 112.6650],
-        defaultAvgDesil: 3.8,
-        desa: "Bebekan, Sepanjang, Wonocolo, Geluran, Kalijaten, Ngelom, Krembangan, Bohar, Bringinbendo, Jemundo, Kletek, Kramat Jegu, Sambibulu, Sadang, Tanjungsari, Trosobo, Wage, Tawangsari",
-        polygon: [[-7.3350, 112.6300], [-7.3350, 112.7000], [-7.3700, 112.7000], [-7.3700, 112.6300]]
-    },
-    {
-        nama: "Waru",
-        center: [-7.3500, 112.7275],
-        defaultAvgDesil: 4.8,
-        desa: "Waru, Tropodo, Wadungasri, Kureksari, Berbek, Bungurasih, Janti, Kedungrejo, Medaeng, Ngingas, Pepelegi, Tambaksawah, Tambakrejo, Tambaksumur",
-        polygon: [[-7.3350, 112.7000], [-7.3350, 112.7550], [-7.3700, 112.7550], [-7.3700, 112.7000]]
-    },
-    {
-        nama: "Sedati",
-        center: [-7.3750, 112.7950],
-        defaultAvgDesil: 2.3,
-        desa: "Cemandi, Buncitan, Betro, Sedati Gede, Sedati Agung, Kalanganyar, Gisikcemandi, Banjar Kemuning, Semampir, Pranti, Segoro Tambak, Tambak Cemandi, Pulungan, Kwangsan, Pepe",
-        polygon: [[-7.3400, 112.7550], [-7.3400, 112.8350], [-7.4100, 112.8350], [-7.4100, 112.7550], [-7.3700, 112.7550]]
-    },
-    {
-        nama: "Sukodono",
-        center: [-7.3900, 112.6650],
-        defaultAvgDesil: 3.4,
-        desa: "Sukodono, Anggaswangi, Masangan Kulon, Masangan Wetan, Ngaresrejo, Pekarungan, Plumbungan, Sambungrejo, Suko, Suruh, Bangsri, Jogosatru, Kloposepuluh, Panjunan, Wilayut",
-        polygon: [[-7.3700, 112.6300], [-7.3700, 112.7000], [-7.4100, 112.7000], [-7.4100, 112.6300]]
-    },
-    {
-        nama: "Gedangan",
-        center: [-7.3900, 112.7275],
-        defaultAvgDesil: 3.6,
-        desa: "Gedangan, Ganting, Keboansikep, Keboan Anom, Sawotratap, Semambung, Sruni, Tebel, Wedi, Ketajen, Kragan",
-        polygon: [[-7.3700, 112.7000], [-7.3700, 112.7550], [-7.4100, 112.7550], [-7.4100, 112.7000]]
-    },
-    {
-        nama: "Tarik",
-        center: [-7.4550, 112.5300],
-        defaultAvgDesil: 1.9,
-        desa: "Tarik, Klampisan, Singogalih, Banjarwungu, Gampingrowo, Janti, Kalidawir, Kedungbocok, Kedunglosari, Kemuning, Kendalsewu, Mergobener, Mergosari, Mindugading, Miriprowo, Sebani, Segodobancang",
-        polygon: [[-7.4100, 112.5000], [-7.4100, 112.5650], [-7.5000, 112.5650], [-7.5000, 112.5000]]
-    },
-    {
-        nama: "Wonoayu",
-        center: [-7.4350, 112.6050],
-        defaultAvgDesil: 3.5,
-        desa: "Wonoayu, Candinegoro, Becirongengor, Jimbaran Kulon, Jimbaran Wetan, Karangpuri, Mulyodadi, Pagerngumbuk, Pilang, Plaosan, Popoh, Sawocangkring, Semambung, Simoangin-angin, Simoketawang, Sumberejo, Tanggul, Wonokalang",
-        polygon: [[-7.4100, 112.5650], [-7.4100, 112.6450], [-7.4600, 112.6450], [-7.4600, 112.5650]]
-    },
-    {
-        nama: "Sidoarjo",
-        center: [-7.4350, 112.6800],
-        defaultAvgDesil: 5.6,
-        desa: "Sidokumpul, Lemahputro, Magersari, Celep, Pekauman, Sidokare, Sekardangan, Bluru Kidul, Kemiri, Gebang, Rangkah Kidul, Banjarbendo, Urangagung, Sarirogo, Sumput, Cemengkalang, Cemengbakalan",
-        polygon: [[-7.4100, 112.6450], [-7.4100, 112.7150], [-7.4600, 112.7150], [-7.4600, 112.6450]]
-    },
-    {
-        nama: "Buduran",
-        center: [-7.4350, 112.7750],
-        defaultAvgDesil: 5.2,
-        desa: "Buduran, Prasung, Sawohan, Banjarkemantren, Banjarsari, Damarsi, Dukuhtengah, Entalsewu, Pagerwojo, Sidokerto, Siwalanpanji, Sukorejo, Wadungasih",
-        polygon: [[-7.4100, 112.7150], [-7.4100, 112.8350], [-7.4600, 112.8300], [-7.4600, 112.7150]]
-    },
-    {
-        nama: "Prambon",
-        center: [-7.4950, 112.5350],
-        defaultAvgDesil: 3.1,
-        desa: "Prambon, Jedongcangkring, Pejangkungan, Bendotretek, Bulang, Cangkringturi, Gampang, Gedangrowo, Jatialunalun, Jatikalang, Kedungwonokerto, Simogirang, Simpang, Temu, Watutulis, Wirobiting",
-        polygon: [[-7.4600, 112.5050], [-7.4600, 112.5650], [-7.5300, 112.5650], [-7.5300, 112.5050]]
-    },
-    {
-        nama: "Tulangan",
-        center: [-7.4850, 112.6050],
-        defaultAvgDesil: 2.2,
-        desa: "Tulangan, Kenongo, Modong, Gelang, Grabagan, Grogol, Janti, Jiken, Kajeksan, Kebaron, Kedondong, Kemantren, Kepadangan, Kepatihan, Kepuhkemiri, Koto, Medalem, Pangkemiri, Singopadu, Sudimoro, Tlasih",
-        polygon: [[-7.4600, 112.5650], [-7.4600, 112.6450], [-7.5100, 112.6450], [-7.5100, 112.5650]]
-    },
-    {
-        nama: "Tanggulangin",
-        center: [-7.4850, 112.6800],
-        defaultAvgDesil: 2.4,
-        desa: "Kedensari, Kalitengah, Kludan, Boro, Ngaban, Putat, Kalidawir, Kalisampurno, Kedungbanteng, Banjarpanji, Banjarasri, Penatarsewu, Randegan, Gempolsari",
-        polygon: [[-7.4600, 112.6450], [-7.4600, 112.7150], [-7.5100, 112.7150], [-7.5100, 112.6450]]
-    },
-    {
-        nama: "Candi",
-        center: [-7.4850, 112.7725],
-        defaultAvgDesil: 3.2,
-        desa: "Candi, Sepande, Gelam, Kalipecabean, Balonggabus, Balongmacekan, Bligo, Durungbedug, Durungbanjar, Karangtanjung, Kedungkendo, Kedungpeluk, Klurak, Larangan, Sugihwaras, Sumokali, Tenggulunan, Wedoroklurak",
-        polygon: [[-7.4600, 112.7150], [-7.4600, 112.8300], [-7.5100, 112.8250], [-7.5100, 112.7150]]
-    },
-    {
-        nama: "Krembung",
-        center: [-7.5250, 112.6050],
-        defaultAvgDesil: 2.3,
-        desa: "Krembung, Mojoruntut, Tanjegwagir, Balonggarut, Cangkring, Gading, Jandep, Jenggot, Kandangan, Kedungrawan, Keper, Lemujut, Ploso, Rejeni, Tambakrejo, Waung, Wangkal, Wonomlati",
-        polygon: [[-7.5100, 112.5650], [-7.5100, 112.6450], [-7.5450, 112.6450], [-7.5450, 112.5650]]
-    },
-    {
-        nama: "Porong",
-        center: [-7.5250, 112.6800],
-        defaultAvgDesil: 2.1,
-        desa: "Porong, Mindi, Gedang, Juwetkenongo, Glagaharum, Kebonagung, Keboguyang, Lajuk, Pamotan, Pesawahan, Plumbon, Candi Pari, Wirobiting",
-        polygon: [[-7.5100, 112.6450], [-7.5100, 112.7150], [-7.5450, 112.7150], [-7.5450, 112.6450]]
-    },
-    {
-        nama: "Jabon",
-        center: [-7.5280, 112.7725],
-        defaultAvgDesil: 1.8,
-        desa: "Dukuhsari, Permisan, Keboguyang, Balongtani, Besuki, Chandi, Kedungcangkring, Kedungpandan, Kedungrejo, Kupang, Panggreh, Pejarakan, Semambung, Tambakkalisogo",
-        polygon: [[-7.5100, 112.7150], [-7.5100, 112.8300], [-7.5480, 112.8300], [-7.5480, 112.7150]]
-    }
+    { nama: "Balongbendo", center: [-7.3750, 112.5350], defaultAvgDesil: 2.4, desa: "Balongbendo, Seketi, Suwaluh, Bakalan, Bakungpringgodani, Bogempinggir, Gadungkepuhsari, Jabaran, Jeruklegi, Kedungsukodani, Penambangan, Seduri, Singkalan, Sumokembangsri, Waruberon, Watesnegoro", polygon: [[-7.3500, 112.5050], [-7.3500, 112.5650], [-7.4050, 112.5650], [-7.4050, 112.5050]] },
+    { nama: "Krian", center: [-7.3880, 112.5975], defaultAvgDesil: 4.9, desa: "Krian, Barengkrajan, Gawat, Jerukgamping, Junwangi, Katerungan, Keboharan, Kraton, Ponokawan, Sedenganmijen, Sidomojo, Sidomulyo, Sidorejo, Tambakkemerakan, Tempel, Terik, Terungkulon, Terungwetan, Tropodo, Watutulis", polygon: [[-7.3650, 112.5650], [-7.3650, 112.6300], [-7.4100, 112.6300], [-7.4100, 112.5650]] },
+    { nama: "Taman", center: [-7.3580, 112.6625], defaultAvgDesil: 3.8, desa: "Bebekan, Sepanjang, Wonocolo, Geluran, Kalijaten, Ngelom, Krembangan, Bohar, Bringinbendo, Jemundo, Kletek, Kramat Jegu, Sambibulu, Sadang, Tanjungsari, Trosobo, Wage, Tawangsari", polygon: [[-7.3400, 112.6300], [-7.3400, 112.6950], [-7.3850, 112.6950], [-7.3850, 112.6300]] },
+    { nama: "Waru", center: [-7.3580, 112.7250], defaultAvgDesil: 4.8, desa: "Waru, Tropodo, Wadungasri, Kureksari, Berbek, Bungurasih, Janti, Kedungrejo, Medaeng, Ngingas, Pepelegi, Tambaksawah, Tambakrejo, Tambaksumur", polygon: [[-7.3400, 112.6950], [-7.3400, 112.7550], [-7.3800, 112.7550], [-7.3800, 112.6950]] },
+    { nama: "Sedati", center: [-7.3780, 112.7975], defaultAvgDesil: 2.3, desa: "Cemandi, Buncitan, Betro, Sedati Gede, Sedati Agung, Kalanganyar, Gisikcemandi, Banjar Kemuning, Semampir, Pranti, Segoro Tambak, Tambak Cemandi, Pulungan, Kwangsan, Pepe", polygon: [[-7.3450, 112.7550], [-7.3450, 112.8400], [-7.4100, 112.8400], [-7.4100, 112.7550]] },
+    { nama: "Sukodono", center: [-7.4050, 112.6625], defaultAvgDesil: 3.4, desa: "Sukodono, Anggaswangi, Masangan Kulon, Masangan Wetan, Ngaresrejo, Pekarungan, Plumbungan, Sambungrejo, Suko, Suruh, Bangsri, Jogosatru, Kloposepuluh, Panjunan, Wilayut", polygon: [[-7.3850, 112.6300], [-7.3850, 112.6950], [-7.4250, 112.6950], [-7.4250, 112.6300]] },
+    { nama: "Gedangan", center: [-7.4000, 112.7250], defaultAvgDesil: 3.6, desa: "Gedangan, Ganting, Keboansikep, Keboan Anom, Sawotratap, Semambung, Sruni, Tebel, Wedi, Ketajen, Kragan", polygon: [[-7.3800, 112.6950], [-7.3800, 112.7550], [-7.4200, 112.7550], [-7.4200, 112.6950]] },
+    { nama: "Tarik", center: [-7.4350, 112.5350], defaultAvgDesil: 1.9, desa: "Tarik, Klampisan, Singogalih, Banjarwungu, Gampingrowo, Janti, Kalidawir, Kedungbocok, Kedunglosari, Kemuning, Kendalsewu, Mergobener, Mergosari, Mindugading, Miriprowo, Sebani, Segodobancang", polygon: [[-7.4050, 112.5050], [-7.4050, 112.5650], [-7.4650, 112.5650], [-7.4650, 112.5050]] },
+    { nama: "Wonoayu", center: [-7.4350, 112.6000], defaultAvgDesil: 3.5, desa: "Wonoayu, Candinegoro, Becirongengor, Jimbaran Kulon, Jimbaran Wetan, Karangpuri, Mulyodadi, Pagerngumbuk, Pilang, Plaosan, Popoh, Sawocangkring, Semambung, Simoangin-angin, Simoketawang, Sumberejo, Tanggul, Wonokalang", polygon: [[-7.4100, 112.5650], [-7.4100, 112.6350], [-7.4600, 112.6350], [-7.4600, 112.5650]] },
+    { nama: "Sidoarjo", center: [-7.4450, 112.6750], defaultAvgDesil: 5.6, desa: "Sidokumpul, Lemahputro, Magersari, Celep, Pekauman, Sidokare, Sekardangan, Bluru Kidul, Kemiri, Gebang, Rangkah Kidul, Banjarbendo, Urangagung, Sarirogo, Sumput, Cemengkalang, Cemengbakalan", polygon: [[-7.4250, 112.6350], [-7.4250, 112.7150], [-7.4650, 112.7150], [-7.4650, 112.6350]] },
+    { nama: "Buduran", center: [-7.4350, 112.7700], defaultAvgDesil: 5.2, desa: "Buduran, Prasung, Sawohan, Banjarkemantren, Banjarsari, Damarsi, Dukuhtengah, Entalsewu, Pagerwojo, Sidokerto, Siwalanpanji, Sukorejo, Wadungasih", polygon: [[-7.4100, 112.7150], [-7.4100, 112.8250], [-7.4600, 112.8250], [-7.4600, 112.7150]] },
+    { nama: "Prambon", center: [-7.4850, 112.5450], defaultAvgDesil: 3.1, desa: "Prambon, Jedongcangkring, Pejangkungan, Bendotretek, Bulang, Cangkringturi, Gampang, Gedangrowo, Jatialunalun, Jatikalang, Kedungwonokerto, Simogirang, Simpang, Temu, Watutulis, Wirobiting", polygon: [[-7.4650, 112.5150], [-7.4650, 112.5750], [-7.5050, 112.5750], [-7.5050, 112.5150]] },
+    { nama: "Tulangan", center: [-7.4825, 112.6100], defaultAvgDesil: 2.2, desa: "Tulangan, Kenongo, Modong, Gelang, Grabagan, Grogol, Janti, Jiken, Kajeksan, Kebaron, Kedondong, Kemantren, Kepadangan, Kepatihan, Kepuhkemiri, Koto, Medalem, Pangkemiri, Singopadu, Sudimoro, Tlasih", polygon: [[-7.4600, 112.5750], [-7.4600, 112.6450], [-7.5050, 112.6450], [-7.5050, 112.5750]] },
+    { nama: "Tanggulangin", center: [-7.4850, 112.6800], defaultAvgDesil: 2.4, desa: "Kedensari, Kalitengah, Kludan, Boro, Ngaban, Putat, Kalidawir, Kalisampurno, Kedungbanteng, Banjarpanji, Banjarasri, Penatarsewu, Randegan, Gempolsari", polygon: [[-7.4650, 112.6450], [-7.4650, 112.7150], [-7.5050, 112.7150], [-7.5050, 112.6450]] },
+    { nama: "Candi", center: [-7.4825, 112.7700], defaultAvgDesil: 3.2, desa: "Candi, Sepande, Gelam, Kalipecabean, Balonggabus, Balongmacekan, Bligo, Durungbedug, Durungbanjar, Karangtanjung, Kedungkendo, Kedungpeluk, Klurak, Larangan, Sugihwaras, Sumokali, Tenggulunan, Wedoroklurak", polygon: [[-7.4600, 112.7150], [-7.4600, 112.8250], [-7.5050, 112.8250], [-7.5050, 112.7150]] },
+    { nama: "Krembung", center: [-7.5225, 112.5875], defaultAvgDesil: 2.3, desa: "Krembung, Mojoruntut, Tanjegwagir, Balonggarut, Cangkring, Gading, Jandep, Jenggot, Kandangan, Kedungrawan, Keper, Lemujut, Ploso, Rejeni, Tambakrejo, Waung, Wangkal, Wonomlati", polygon: [[-7.5050, 112.5500], [-7.5050, 112.6250], [-7.5400, 112.6250], [-7.5400, 112.5500]] },
+    { nama: "Porong", center: [-7.5250, 112.6700], defaultAvgDesil: 2.1, desa: "Porong, Mindi, Gedang, Juwetkenongo, Glagaharum, Kebonagung, Keboguyang, Lajuk, Pamotan, Pesawahan, Plumbon, Candi Pari, Wirobiting", polygon: [[-7.5050, 112.6250], [-7.5050, 112.7150], [-7.5450, 112.7150], [-7.5450, 112.6250]] },
+    { nama: "Jabon", center: [-7.5250, 112.7750], defaultAvgDesil: 1.8, desa: "Dukuhsari, Permisan, Keboguyang, Balongtani, Besuki, Chandi, Kedungcangkring, Kedungpandan, Kedungrejo, Kupang, Panggreh, Pejarakan, Semambung, Tambakkalisogo", polygon: [[-7.5050, 112.7150], [-7.5050, 112.8350], [-7.5450, 112.8350], [-7.5450, 112.7150]] }
 ];
 
+// =========================================================================
+// DATA POLIGON PER DESA (18 KECAMATAN SE-KABUPATEN SIDOARJO)
+// =========================================================================
 const DETAIL_DESA_SIDOARJO = [
-    { nama: "Desa Cemandi (Sedati)", desil: 1, color: "#ef4444", polygon: [[-7.3700, 112.7800], [-7.3700, 112.8250], [-7.3950, 112.8250], [-7.3950, 112.7800]] },
-    { nama: "Desa Sedati Gede", desil: 2, color: "#ef4444", polygon: [[-7.3700, 112.7550], [-7.3700, 112.7800], [-7.3950, 112.7800], [-7.3950, 112.7550]] },
-    { nama: "Kelurahan Kureksari (Waru)", desil: 4, color: "#eab308", polygon: [[-7.3500, 112.7250], [-7.3500, 112.7550], [-7.3700, 112.7550], [-7.3700, 112.7250]] },
-    { nama: "Kelurahan Sidokumpul (Kota)", desil: 6, color: "#10b981", polygon: [[-7.4250, 112.6850], [-7.4250, 112.7150], [-7.4500, 112.7150], [-7.4500, 112.6850]] },
-    { nama: "Desa Dukuhsari (Jabon)", desil: 1, color: "#ef4444", polygon: [[-7.5150, 112.7300], [-7.5150, 112.7800], [-7.5450, 112.7800], [-7.5450, 112.7300]] },
-    { nama: "Desa Kedensari (Tanggulangin)", desil: 2, color: "#ef4444", polygon: [[-7.4700, 112.6600], [-7.4700, 112.7000], [-7.5000, 112.7000], [-7.5000, 112.6600]] },
-    { nama: "Desa Sepande (Candi)", desil: 3, color: "#eab308", polygon: [[-7.4700, 112.7150], [-7.4700, 112.7600], [-7.5000, 112.7600], [-7.5000, 112.7150]] }
+    { nama: "Kel. Kureksari", kec: "Waru", desil: 4, polygon: [[-7.3400, 112.6950], [-7.3400, 112.7250], [-7.3600, 112.7250], [-7.3600, 112.6950]] },
+    { nama: "Desa Tropodo", kec: "Waru", desil: 5, polygon: [[-7.3400, 112.7250], [-7.3400, 112.7550], [-7.3600, 112.7550], [-7.3600, 112.7250]] },
+    { nama: "Desa Berbek", kec: "Waru", desil: 4, polygon: [[-7.3600, 112.6950], [-7.3600, 112.7250], [-7.3800, 112.7250], [-7.3800, 112.6950]] },
+    { nama: "Desa Pepelegi", kec: "Waru", desil: 6, polygon: [[-7.3600, 112.7250], [-7.3600, 112.7550], [-7.3800, 112.7550], [-7.3800, 112.7250]] },
+    { nama: "Kel. Sepanjang", kec: "Taman", desil: 4, polygon: [[-7.3400, 112.6300], [-7.3400, 112.6625], [-7.3620, 112.6625], [-7.3620, 112.6300]] },
+    { nama: "Desa Wage", kec: "Taman", desil: 5, polygon: [[-7.3400, 112.6625], [-7.3400, 112.6950], [-7.3620, 112.6950], [-7.3620, 112.6625]] },
+    { nama: "Desa Trosobo", kec: "Taman", desil: 3, polygon: [[-7.3620, 112.6300], [-7.3620, 112.6625], [-7.3850, 112.6625], [-7.3850, 112.6300]] },
+    { nama: "Desa Cemandi", kec: "Sedati", desil: 1, polygon: [[-7.3450, 112.7550], [-7.3450, 112.7975], [-7.3800, 112.7975], [-7.3800, 112.7550]] },
+    { nama: "Desa Sedati Gede", kec: "Sedati", desil: 2, polygon: [[-7.3450, 112.7975], [-7.3450, 112.8400], [-7.3800, 112.8400], [-7.3800, 112.7975]] },
+    { nama: "Desa Sukodono", kec: "Sukodono", desil: 3, polygon: [[-7.3850, 112.6300], [-7.3850, 112.6625], [-7.4050, 112.6625], [-7.4050, 112.6300]] },
+    { nama: "Desa Gedangan", kec: "Gedangan", desil: 4, polygon: [[-7.3800, 112.6950], [-7.3800, 112.7250], [-7.4000, 112.7250], [-7.4000, 112.6950]] },
+    { nama: "Kel. Sidokumpul", kec: "Sidoarjo", desil: 6, polygon: [[-7.4250, 112.6350], [-7.4250, 112.6750], [-7.4450, 112.6750], [-7.4450, 112.6350]] },
+    { nama: "Kel. Lemahputro", kec: "Sidoarjo", desil: 5, polygon: [[-7.4250, 112.6750], [-7.4250, 112.7150], [-7.4450, 112.7150], [-7.4450, 112.6750]] },
+    { nama: "Desa Buduran", kec: "Buduran", desil: 5, polygon: [[-7.4100, 112.7150], [-7.4100, 112.7700], [-7.4350, 112.7700], [-7.4350, 112.7150]] },
+    { nama: "Desa Wonoayu", kec: "Wonoayu", desil: 4, polygon: [[-7.4100, 112.5650], [-7.4100, 112.6000], [-7.4350, 112.6000], [-7.4350, 112.5650]] },
+    { nama: "Desa Tarik", kec: "Tarik", desil: 2, polygon: [[-7.4050, 112.5050], [-7.4050, 112.5350], [-7.4350, 112.5350], [-7.4350, 112.5050]] },
+    { nama: "Desa Prambon", kec: "Prambon", desil: 3, polygon: [[-7.4650, 112.5150], [-7.4650, 112.5450], [-7.4850, 112.5450], [-7.4850, 112.5150]] },
+    { nama: "Desa Tulangan", kec: "Tulangan", desil: 2, polygon: [[-7.4600, 112.5750], [-7.4600, 112.6100], [-7.4825, 112.6100], [-7.4825, 112.5750]] },
+    { nama: "Desa Kedensari", kec: "Tanggulangin", desil: 2, polygon: [[-7.4650, 112.6450], [-7.4650, 112.6800], [-7.4850, 112.6800], [-7.4850, 112.6450]] },
+    { nama: "Desa Candi", kec: "Candi", desil: 4, polygon: [[-7.4600, 112.7150], [-7.4600, 112.7700], [-7.4825, 112.7700], [-7.4825, 112.7150]] },
+    { nama: "Desa Krembung", kec: "Krembung", desil: 2, polygon: [[-7.5050, 112.5500], [-7.5050, 112.5875], [-7.5225, 112.5875], [-7.5225, 112.5500]] },
+    { nama: "Kel. Porong", kec: "Porong", desil: 2, polygon: [[-7.5050, 112.6250], [-7.5050, 112.6700], [-7.5250, 112.6700], [-7.5250, 112.6250]] },
+    { nama: "Desa Dukuhsari", kec: "Jabon", desil: 1, polygon: [[-7.5050, 112.7150], [-7.5050, 112.7750], [-7.5250, 112.7750], [-7.5250, 112.7150]] }
 ];
 
 // =========================================================================
@@ -556,14 +467,26 @@ window.cariAlamatDiPeta = function (alamatStr) {
 };
 
 // =========================================================================
-// 4. PETA KERENTANAN GEOGRAFIS DENGAN MODE SWITCH (KECAMATAN VS DESA)
+// 4. INIT PETA & MODE SWITCH INDEPENDEN (KECAMATAN VS DESA TANPA BERTABRAKAN)
 // =========================================================================
 window.initMacroDistributionMap = function () {
     const bigMapBox = document.getElementById('bigMapContainer');
     if (!bigMapBox || macroMap) return;
 
-    macroMap = L.map('bigMapContainer', { attributionControl: false }).setView(MAP_CENTER_SIDOARJO, 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, subdomains: ['a', 'b', 'c'] }).addTo(macroMap);
+    macroMap = L.map('bigMapContainer', { 
+        attributionControl: false,
+        maxBounds: [
+            [-7.6000, 112.4500], 
+            [-7.3000, 112.9000]  
+        ],
+        maxBoundsViscosity: 1.0,
+        minZoom: 10
+    }).setView(MAP_CENTER_SIDOARJO, 11);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+        maxZoom: 18, 
+        subdomains: ['a', 'b', 'c'] 
+    }).addTo(macroMap);
 
     macroLayerGroup = L.layerGroup().addTo(macroMap);
 
@@ -572,8 +495,8 @@ window.initMacroDistributionMap = function () {
         macroModeSwitchControl.onAdd = function () {
             const div = L.DomUtil.create('div', 'map-mode-box');
             div.innerHTML = `
-                <button onclick="window.togglePetaDetailMode()" class="btn btn-sm" style="background:#ffffff; color:#0f172a; font-weight:800; border:1px solid #cbd5e1; box-shadow:0 3px 10px rgba(0,0,0,0.12); padding:7px 12px; border-radius:8px; display:flex; align-items:center; gap:6px; cursor:pointer;">
-                    <i class="fas fa-layer-group text-primary"></i> <span id="lblModePeta">${window.petaModeDetailDesa ? 'Mode: Detail Desa' : 'Mode: Kecamatan'}</span>
+                <button onclick="window.togglePetaDetailMode()" class="btn btn-sm" style="background:#ffffff; color:#0f172a; font-weight:800; border:1.5px solid #cbd5e1; box-shadow:0 3px 10px rgba(0,0,0,0.12); padding:7px 12px; border-radius:8px; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <i class="fas fa-layer-group text-primary"></i> <span id="lblModePeta">${window.petaModeDetailDesa ? 'Mode: Peta Per Desa' : 'Mode: Peta Per Kecamatan'}</span>
                 </button>
             `;
             return div;
@@ -587,7 +510,7 @@ window.initMacroDistributionMap = function () {
             const div = L.DomUtil.create('div', 'map-legend-box');
             div.innerHTML = `
                 <div style="font-weight:800; color:#0f172a; margin-bottom:6px; border-bottom:1px solid #cbd5e1; padding-bottom:4px;">
-                    <i class="fas fa-layer-group text-primary"></i> Tingkat Kerentanan Wilayah
+                    <i class="fas fa-layer-group text-primary"></i> <span id="legendTitleText">Kerentanan Wilayah</span>
                 </div>
                 <div><span class="map-legend-dot" style="background:#ef4444;"></span> <b>Tinggi:</b> Desil 1–2 (Merah)</div>
                 <div><span class="map-legend-dot" style="background:#eab308;"></span> <b>Sedang:</b> Desil 3–4 (Kuning)</div>
@@ -604,8 +527,13 @@ window.initMacroDistributionMap = function () {
 
 window.togglePetaDetailMode = function () {
     window.petaModeDetailDesa = !window.petaModeDetailDesa;
+    
     const lbl = document.getElementById('lblModePeta');
-    if (lbl) lbl.innerText = window.petaModeDetailDesa ? 'Mode: Detail Desa' : 'Mode: Kecamatan';
+    if (lbl) lbl.innerText = window.petaModeDetailDesa ? 'Mode: Peta Per Desa' : 'Mode: Peta Per Kecamatan';
+
+    const legTitle = document.getElementById('legendTitleText');
+    if (legTitle) legTitle.innerText = window.petaModeDetailDesa ? 'Kerentanan Per Desa' : 'Kerentanan Per Kecamatan';
+
     window.renderChoroplethKerentanan();
 };
 
@@ -615,21 +543,65 @@ window.renderChoroplethKerentanan = function () {
 
     if (window.petaModeDetailDesa) {
         DETAIL_DESA_SIDOARJO.forEach(d => {
+            const wargaDesa = globalDataWarga.filter(w => {
+                const alamat = (w.alamat || '').toLowerCase();
+                const namaDesa = d.nama.toLowerCase().replace('desa ', '').replace('kel. ', '').trim();
+                return alamat.includes(namaDesa);
+            });
+
+            let desilVal = d.desil;
+            if (wargaDesa.length > 0) {
+                const sumDesil = wargaDesa.reduce((acc, curr) => acc + (curr.desil || 5), 0);
+                desilVal = parseFloat((sumDesil / wargaDesa.length).toFixed(1));
+            }
+
+            let polyColor = '#10b981';
+            let statusText = 'Kerentanan Rendah';
+            let badgeStyle = 'background:#dcfce7; color:#15803d; border:1px solid #86efac;';
+
+            if (desilVal <= 2.5) {
+                polyColor = '#ef4444';
+                statusText = 'Prioritas Tinggi (Desil 1–2)';
+                badgeStyle = 'background:#fee2e2; color:#dc2626; border:1px solid #fca5a5;';
+            } else if (desilVal <= 4.5) {
+                polyColor = '#eab308';
+                statusText = 'Prioritas Sedang (Desil 3–4)';
+                badgeStyle = 'background:#fef9c3; color:#a16207; border:1px solid #fde047;';
+            }
+
             const poly = L.polygon(d.polygon, {
-                color: d.color,
-                weight: 2,
+                color: polyColor,
+                weight: 1.8,
+                opacity: 0.95,
                 dashArray: '3, 3',
-                fillColor: d.color,
+                fillColor: polyColor,
                 fillOpacity: 0.45
             });
+
+            poly.on('mouseover', function (e) { e.target.setStyle({ weight: 3, fillOpacity: 0.65 }); });
+            poly.on('mouseout', function (e) { e.target.setStyle({ weight: 1.8, fillOpacity: 0.45 }); });
+
             poly.bindPopup(`
-                <div style="font-family:'Inter'; font-size:12px; line-height:1.4;">
-                    <b style="color:#0f172a;">${d.nama}</b><br>
-                    Tingkat Kerentanan: <span style="color:${d.color}; font-weight:800;">Desil ${d.desil}</span>
+                <div style="font-family:'Inter', sans-serif; font-size:12px; line-height:1.4; min-width:210px;">
+                    <div style="font-size:13px; font-weight:800; color:#0f172a; margin-bottom:2px;">
+                        <i class="fas fa-landmark" style="color:${polyColor};"></i> <b>${d.nama}</b>
+                    </div>
+                    <small style="color:#64748b; font-weight:600;">Kecamatan ${d.kec}, Kab. Sidoarjo</small>
+                    <div style="margin: 6px 0;">
+                        <span style="${badgeStyle} font-weight:700; font-size:10px; padding:2px 8px; border-radius:10px; display:inline-block;">
+                            ${statusText}
+                        </span>
+                    </div>
+                    <div style="color:#334155; font-size:11px;">
+                        <b>Status Wilayah:</b> Desil ${desilVal}<br>
+                        <b>Warga Terdata:</b> ${wargaDesa.length} Jiwa
+                    </div>
                 </div>
             `);
+
             macroLayerGroup.addLayer(poly);
         });
+        return; 
     }
 
     WILAYAH_SIDOARJO.forEach((wil) => {
@@ -662,17 +634,13 @@ window.renderChoroplethKerentanan = function () {
             color: polyColor,
             weight: 2,
             opacity: 0.95,
-            dashArray: '6, 6',
+            dashArray: '5, 5',
             fillColor: polyColor,
-            fillOpacity: window.petaModeDetailDesa ? 0.12 : 0.28
+            fillOpacity: 0.28
         });
 
-        poly.on('mouseover', function (e) {
-            e.target.setStyle({ weight: 3.5, fillOpacity: 0.5 });
-        });
-        poly.on('mouseout', function (e) {
-            e.target.setStyle({ weight: 2, fillOpacity: window.petaModeDetailDesa ? 0.12 : 0.28 });
-        });
+        poly.on('mouseover', function (e) { e.target.setStyle({ weight: 3.5, fillOpacity: 0.52 }); });
+        poly.on('mouseout', function (e) { e.target.setStyle({ weight: 2, fillOpacity: 0.28 }); });
 
         poly.bindPopup(`
             <div style="font-family:'Inter', sans-serif; font-size:12px; line-height:1.5; min-width:240px;">
@@ -694,6 +662,7 @@ window.renderChoroplethKerentanan = function () {
                 </button>
             </div>
         `);
+
         macroLayerGroup.addLayer(poly);
     });
 };
@@ -1679,7 +1648,7 @@ window.loadTablePengguna = async function () {
             `;
         });
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:color:#dc2626;">Gagal memuat pengguna.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#dc2626;">Gagal memuat pengguna.</td></tr>';
     }
 };
 
@@ -1725,7 +1694,7 @@ window.hapusUser = async function (id, username) {
 };
 
 // =========================================================================
-// 13. VERIFIKASI ALGORITMA (SAW VS WP) & CETAK BERITA ACARA RESMI ANTI-POTONG
+// 13. VERIFIKASI ALGORITMA (SAW VS WP) & CETAK BERITA ACARA RESMI
 // =========================================================================
 window.bukaModalKomparasi = async function () {
     const modal = document.getElementById('modalKomparasi');
@@ -1804,176 +1773,99 @@ window.exportKomparasiPDF = function () {
 
     const tanggalSekarang = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
     
-    let rowsHtml = '';
     let totalSelisih = 0;
-    lastKomparasiResult.forEach((item, idx) => {
-        const delta = Math.abs((item.saw_rank || 0) - (item.wp_rank || 0));
-        totalSelisih += delta;
-        const statusKonsistensi = delta <= 2 
-            ? '<b>Sangat Konsisten</b>' 
-            : '<span>Sesuai Toleransi</span>';
-        const bgRow = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
+    lastKomparasiResult.forEach(item => {
+        totalSelisih += Math.abs((item.saw_rank || 0) - (item.wp_rank || 0));
+    });
+    const avgDelta = (totalSelisih / lastKomparasiResult.length).toFixed(2);
 
-        rowsHtml += `
-            <tr style="background:${bgRow}; page-break-inside:avoid !important; break-inside:avoid !important;">
-                <td style="border:1.2px solid #000000; padding:5px 2px; text-align:center; font-size:8pt; font-weight:bold;">${idx + 1}</td>
-                <td style="border:1.2px solid #000000; padding:5px 3px; font-family:'Courier New', monospace; font-size:8pt; text-align:center; font-weight:bold;">${item.nik || '-'}</td>
-                <td style="border:1.2px solid #000000; padding:5px 6px; font-size:8pt; font-weight:bold;">${safeHtml(item.nama)}</td>
-                <td style="border:1.2px solid #000000; padding:5px 2px; text-align:center; font-size:8pt; font-family:monospace; font-weight:bold;">${parseFloat(item.saw_skor || 0).toFixed(4)}</td>
-                <td style="border:1.2px solid #000000; padding:5px 2px; text-align:center; font-size:8pt; font-weight:bold;">#${item.saw_rank}</td>
-                <td style="border:1.2px solid #000000; padding:5px 2px; text-align:center; font-size:8pt; font-family:monospace; font-weight:bold;">${parseFloat(item.wp_skor || 0).toFixed(4)}</td>
-                <td style="border:1.2px solid #000000; padding:5px 2px; text-align:center; font-size:8pt; font-weight:bold;">#${item.wp_rank}</td>
-                <td style="border:1.2px solid #000000; padding:5px 2px; text-align:center; font-size:8pt; font-weight:bold;">${delta}</td>
-                <td style="border:1.2px solid #000000; padding:5px 4px; text-align:center; font-size:7.5pt;">${statusKonsistensi}</td>
-            </tr>
+    const pagedChunks = chunkDataList(lastKomparasiResult, 18, 26, 16);
+    let fullHtml = '';
+    let globalRowIndex = 1;
+
+    pagedChunks.forEach((chunk, pageIndex) => {
+        const isFirstPage = (pageIndex === 0);
+        const isLastPage = (pageIndex === pagedChunks.length - 1);
+
+        let rowsHtml = '';
+        chunk.forEach((item, idx) => {
+            const delta = Math.abs((item.saw_rank || 0) - (item.wp_rank || 0));
+            const statusKonsistensi = delta <= 2 
+                ? '<b>Sangat Konsisten</b>' 
+                : '<span>Sesuai Toleransi</span>';
+            const rowClass = (idx % 2 === 0) ? '' : 'class="bg-alt"';
+
+            rowsHtml += `
+                <tr ${rowClass}>
+                    <td style="text-align:center; font-weight:bold;">${globalRowIndex++}</td>
+                    <td style="font-family:'Courier New', monospace; text-align:center; font-weight:bold;">${item.nik || '-'}</td>
+                    <td style="text-align:left; padding-left:5px; font-weight:bold;">${safeHtml(item.nama)}</td>
+                    <td style="text-align:center; font-family:monospace; font-weight:bold;">${parseFloat(item.saw_skor || 0).toFixed(4)}</td>
+                    <td style="text-align:center; font-weight:bold;">#${item.saw_rank}</td>
+                    <td style="text-align:center; font-family:monospace; font-weight:bold;">${parseFloat(item.wp_skor || 0).toFixed(4)}</td>
+                    <td style="text-align:center; font-weight:bold;">#${item.wp_rank}</td>
+                    <td style="text-align:center; font-weight:bold;">${delta}</td>
+                    <td style="text-align:center;">${statusKonsistensi}</td>
+                </tr>
+            `;
+        });
+
+        fullHtml += `
+            <div class="pdf-page">
+                ${isFirstPage ? `
+                    ${buildKopSurat()}
+                    <div class="judul-surat">
+                        <div class="nama-naskah">BERITA ACARA VALIDASI & KOMPARASI ALGORITMA SPK</div>
+                        <div class="nomor-surat">NOMOR: 460 / 088 / BA-VALIDASI / 438.5.12 / 2026</div>
+                        <div class="perihal-surat">
+                            UJI KONSISTENSI METODE SIMPLE ADDITIVE WEIGHTING (SAW)<br>
+                            TERHADAP METODE WEIGHTED PRODUCT (WP) DENGAN BOBOT BEST-WORST METHOD (BWM)
+                        </div>
+                    </div>
+                    <p style="font-size:7.5pt; text-align:justify; margin:0 0 5px 0;">
+                        Pada hari ini, <b>${tanggalSekarang}</b>, telah dilaksanakan pengujian komparasi matematis antara metode <i>Simple Additive Weighting</i> (SAW) sebagai algoritma utama dan metode <i>Weighted Product</i> (WP) sebagai algoritma pembanding independen guna menjamin akurasi dan objektivitas penetapan penerima Bantuan Sosial Kabupaten Sidoarjo Tahun Anggaran 2026.
+                    </p>
+                    <div class="statistik-box">
+                        <div class="statistik-grid">
+                            <div>• <b>Total Alternatif Diuji</b> : ${lastKomparasiResult.length} Warga</div>
+                            <div>• <b>Rata-rata Selisih Peringkat (&Delta;)</b> : ${avgDelta} Peringkat</div>
+                            <div>• <b>Metode Pembobotan</b> : Best-Worst Method (BWM)</div>
+                            <div>• <b>Kesimpulan Validasi</b> : <b>98.4% Konsisten & Valid</b></div>
+                        </div>
+                    </div>
+                ` : `
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #000; padding-bottom:2px; margin-bottom:5px; font-size:7.2pt; font-weight:bold;">
+                        <span>LANJUTAN BERITA ACARA VALIDASI ALGORITMA SPK</span>
+                        <span>HALAMAN ${pageIndex + 1} DARI ${pagedChunks.length}</span>
+                    </div>
+                `}
+
+                <table class="pdf-table">
+                    <thead>
+                        <tr>
+                            <th style="width:5%;">NO</th>
+                            <th style="width:20%;">NIK</th>
+                            <th style="width:23%; text-align:left; padding-left:5px;">NAMA WARGA</th>
+                            <th style="width:9%;">SKOR SAW</th>
+                            <th style="width:7%;">RANK SAW</th>
+                            <th style="width:9%;">SKOR WP</th>
+                            <th style="width:7%;">RANK WP</th>
+                            <th style="width:6%;">&Delta; RANK</th>
+                            <th style="width:14%;">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+
+                ${isLastPage ? buildTtdKomparasi(tanggalSekarang) : ''}
+            </div>
+            ${!isLastPage ? '<div class="html2pdf__page-break"></div>' : ''}
         `;
     });
 
-    const avgDelta = (totalSelisih / lastKomparasiResult.length).toFixed(2);
-
-    const printContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>Laporan Komparasi SAW vs WP Sidoarjo</title>
-            <style>
-                * { box-sizing: border-box; }
-                body { 
-                    font-family: 'Times New Roman', serif; 
-                    color: #000000 !important; 
-                    padding: 0; 
-                    margin: 0 auto; 
-                    width: 700px; 
-                    line-height: 1.25; 
-                    background: #ffffff;
-                    -webkit-font-smoothing: antialiased;
-                }
-                table { 
-                    width: 100%; 
-                    border-collapse: collapse; 
-                    table-layout: fixed; 
-                    margin-top: 6px; 
-                }
-                thead { display: table-header-group; }
-                tr { page-break-inside: avoid !important; break-inside: avoid !important; }
-                th, td { 
-                    border: 1.2px solid #000000; 
-                    color: #000000 !important; 
-                    word-wrap: break-word; 
-                    overflow: hidden; 
-                }
-                th { 
-                    background-color: #d1d5db !important; 
-                    font-weight: bold; 
-                    text-align: center; 
-                    font-size: 8pt; 
-                    padding: 5px 2px;
-                }
-                .avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
-            </style>
-        </head>
-        <body>
-            <div class="avoid-break" style="text-align:center; border-bottom:2.5px double #000000; padding-bottom:4px; margin-bottom:8px;">
-                <h3 style="margin:0; font-size:12pt; letter-spacing:1px; text-transform:uppercase; font-weight:bold;">PEMERINTAH KABUPATEN SIDOARJO</h3>
-                <h2 style="margin:2px 0; font-size:14pt; letter-spacing:1.5px; text-transform:uppercase; font-weight:bold;">DINAS SOSIAL</h2>
-                <p style="margin:0; font-size:7.5pt; font-style:italic;">Jl. Pahlawan No. 56 Sidoarjo, Jawa Timur 61213 | Telp: (031) 8921877 | Pos-el: dinsos@sidoarjokab.go.id</p>
-            </div>
-
-            <div class="avoid-break" style="text-align:center; margin-bottom:8px;">
-                <div style="font-size:10.5pt; font-weight:bold; text-decoration:underline;">BERITA ACARA VALIDASI & KOMPARASI ALGORITMA SPK</div>
-                <div style="font-size:8pt; margin-top:1px; font-weight:bold;">NOMOR: 460 / 088 / BA-VALIDASI / 438.5.12 / 2026</div>
-                <div style="font-size:8.5pt; font-weight:bold; margin-top:2px; text-transform:uppercase;">
-                    UJI KONSISTENSI METODE SIMPLE ADDITIVE WEIGHTING (SAW)<br>
-                    TERHADAP METODE WEIGHTED PRODUCT (WP) DENGAN BOBOT BEST-WORST METHOD (BWM)
-                </div>
-            </div>
-
-            <p class="avoid-break" style="font-size:8pt; text-align:justify; margin:0 0 6px 0;">
-                Pada hari ini, <b>${tanggalSekarang}</b>, telah dilaksanakan pengujian komparasi matematis antara metode <i>Simple Additive Weighting</i> (SAW) sebagai algoritma utama dan metode <i>Weighted Product</i> (WP) sebagai algoritma pembanding independen guna menjamin akurasi dan objektivitas penetapan penerima Bantuan Sosial Kabupaten Sidoarjo Tahun Anggaran 2026.
-            </p>
-
-            <div class="avoid-break" style="border:1.2px solid #000000; padding:6px 10px; margin-bottom:8px; font-size:8pt; background:#f9fafb;">
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:3px;">
-                    <div>• <b>Total Alternatif Diuji</b> : ${lastKomparasiResult.length} Warga</div>
-                    <div>• <b>Rata-rata Selisih Peringkat (&Delta;)</b> : ${avgDelta} Peringkat</div>
-                    <div>• <b>Metode Pembobotan</b> : Best-Worst Method (BWM)</div>
-                    <div>• <b>Kesimpulan Validasi</b> : <b>98.4% Konsisten & Valid</b></div>
-                </div>
-            </div>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width:28px;">NO</th>
-                        <th style="width:110px;">NIK</th>
-                        <th style="width:160px; text-align:left; padding-left:6px;">NAMA WARGA</th>
-                        <th style="width:58px;">SKOR SAW</th>
-                        <th style="width:48px;">RANK SAW</th>
-                        <th style="width:58px;">SKOR WP</th>
-                        <th style="width:48px;">RANK WP</th>
-                        <th style="width:44px;">&Delta; RANK</th>
-                        <th style="width:146px;">STATUS</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rowsHtml}
-                </tbody>
-            </table>
-
-            <div class="avoid-break" style="display:flex; justify-content:space-between; margin-top:16px; font-size:8pt;">
-                <div style="text-align:center; width:220px;">
-                    <div>Mengetahui,</div>
-                    <div style="font-weight:bold; margin-top:2px;">Tim Verifikasi Ahli SPK</div>
-                    <div style="height:45px;"></div>
-                    <div style="font-weight:bold; text-decoration:underline;">TIM IT DINAS SOSIAL</div>
-                </div>
-                <div style="text-align:center; width:250px;">
-                    <div>Sidoarjo, ${tanggalSekarang}</div>
-                    <div style="font-weight:bold; margin-top:2px; text-transform:uppercase;">KEPALA DINAS SOSIAL</div>
-                    <div style="height:45px;"></div>
-                    <div style="font-weight:bold; text-decoration:underline;">Drs. AHMAD MISBAHUL M.</div>
-                    <div style="font-size:7.5pt; font-weight:bold;">Pembina Utama Muda (NIP. 197405101998031004)</div>
-                </div>
-            </div>
-        </body>
-        </html>
-    `;
-
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.top = '-10000px';
-    iframe.style.left = '-10000px';
-    iframe.style.width = '794px';
-    iframe.style.height = '1123px';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(printContent);
-    doc.close();
-
-    const opt = {
-        margin: [10, 10, 10, 10],
-        filename: `Laporan_Validasi_Komparasi_SAW_WP_${new Date().getFullYear()}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2.2, useCORS: true, scrollY: 0, scrollX: 0, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', '.avoid-break'] }
-    };
-
-    setTimeout(() => {
-        html2pdf().set(opt).from(doc.body).save().then(() => {
-            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-            Swal.close();
-            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Laporan Validasi Berhasil Diunduh!', showConfirmButton: false, timer: 2500 });
-        }).catch(err => {
-            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-            Swal.close();
-            Swal.fire('Gagal Cetak', 'Kendala saat menyusun PDF komparasi: ' + (err.message || err), 'error');
-        });
-    }, 400);
+    renderIsolatedPdf(`Laporan_Validasi_Komparasi_SAW_WP_${new Date().getFullYear()}.pdf`, fullHtml);
 };
 
 // =========================================================================
@@ -2308,170 +2200,161 @@ window.bukaModalMatriksKerja = function () {
 };
 
 // =========================================================================
-// 17. FORMAT NASKAH SK BUPATI & EKSPOR PDF (HALAMAN 1 UTUH & TABEL RAPI)
+// 17. FORMAT NASKAH SK BUPATI & EKSPOR PDF
 // =========================================================================
 window.getSKBupatiHTML = function (data) {
     const tanggalSekarang = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
     const totalPenerima = data.filter(d => (d.desil || 5) <= 4).length;
     const totalAnggaran = totalPenerima * 600000;
 
-    let lampiranRows = '';
-    data.forEach((item, idx) => {
-        const isMenerima = (item.desil || 5) <= 4;
-        const nominalStr = isMenerima ? 'Rp 600.000,-' : 'Rp 0,-';
-        const skorStr = parseFloat(item.skor_akhir || 0).toFixed(4);
-        const statusText = isMenerima ? 'Ditetapkan Menerima' : 'Tidak Prioritas';
-        const bgRow = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
+    let fullHtml = `
+        <div class="pdf-page">
+            ${buildKopSurat()}
 
-        lampiranRows += `
-            <tr style="background:${bgRow}; page-break-inside:avoid !important; break-inside:avoid !important;">
-                <td style="border:1.2px solid #000000; padding:4px 2px; text-align:center; font-size:8pt; font-weight:bold;">${idx + 1}</td>
-                <td style="border:1.2px solid #000000; padding:4px 3px; font-family:'Courier New', monospace; font-size:8pt; text-align:center; font-weight:bold;">${item.nik || '-'}</td>
-                <td style="border:1.2px solid #000000; padding:4px 6px; font-size:8pt; font-weight:bold;">${safeHtml(item.nama)}</td>
-                <td style="border:1.2px solid #000000; padding:4px 2px; text-align:center; font-size:8pt; font-family:monospace; font-weight:bold;">${skorStr}</td>
-                <td style="border:1.2px solid #000000; padding:4px 2px; text-align:center; font-size:8pt; font-weight:bold;">Desil ${item.desil || '-'}</td>
-                <td style="border:1.2px solid #000000; padding:4px 4px; text-align:right; font-size:8pt; font-weight:bold;">${nominalStr}</td>
-                <td style="border:1.2px solid #000000; padding:4px 4px; text-align:center; font-size:8pt; font-weight:bold;">${statusText}</td>
-            </tr>
-        `;
-    });
-
-    return `
-        <div style="font-family:'Times New Roman', Times, serif; color:#000000 !important; line-height:1.2; padding:0; box-sizing:border-box; width:700px; background:#ffffff; margin:0 auto; -webkit-font-smoothing: antialiased;">
-            
-            <!-- HALAMAN 1: NASKAH SK BUPATI LENGKAP DALAM 1 LEMBAR -->
-            <div style="box-sizing:border-box; height:1020px; max-height:1040px; position:relative; overflow:hidden;">
-                <div style="text-align:center; border-bottom:2.5px double #000000; padding-bottom:3px; margin-bottom:6px;">
-                    <h3 style="margin:0; font-size:11.5pt; letter-spacing:1px; text-transform:uppercase; font-weight:bold;">PEMERINTAH KABUPATEN SIDOARJO</h3>
-                    <h2 style="margin:1px 0; font-size:13.5pt; letter-spacing:1.5px; text-transform:uppercase; font-weight:bold;">DINAS SOSIAL</h2>
-                    <p style="margin:0; font-size:7pt; font-style:italic;">Jl. Pahlawan No. 56 Sidoarjo, Jawa Timur 61213 | Telp: (031) 8921877 | Pos-el: dinsos@sidoarjokab.go.id</p>
-                </div>
-
-                <div style="text-align:center; margin-bottom:6px;">
-                    <div style="font-size:9.5pt; font-weight:bold; text-decoration:underline;">KEPUTUSAN BUPATI SIDOARJO</div>
-                    <div style="font-size:7.5pt; margin-top:1px; font-weight:bold;">NOMOR: 460 / 218 / 438.5.12 / 2026</div>
-                    <div style="font-size:8pt; font-weight:bold; margin-top:2px; text-transform:uppercase;">
-                        TENTANG<br>
-                        PENETAPAN DAFTAR PENERIMA BANTUAN SOSIAL KABUPATEN SIDOARJO<br>
-                        BERDASARKAN HASIL SISTEM PENDUKUNG KEPUTUSAN (BWM - SAW)<br>
-                        TAHUN ANGGARAN 2026
-                    </div>
-                </div>
-
-                <table style="width:100%; border-collapse:collapse; font-size:7.5pt; margin-bottom:3px; border:none;">
-                    <tr style="vertical-align:top;">
-                        <td style="width:75px; font-weight:bold; border:none; padding:1px 0;">Menimbang</td>
-                        <td style="width:10px; text-align:center; border:none; padding:1px 0;">:</td>
-                        <td style="text-align:justify; border:none; padding:1px 0;">
-                            <ol style="margin:0; padding-left:12px;">
-                                <li style="margin-bottom:1px;">Bahwa dalam rangka percepatan penanganan kemiskinan dan pemenuhan perlindungan jaminan sosial dasar, perlu menetapkan penerima bantuan sosial yang akurat, transparan, dan akuntabel;</li>
-                                <li style="margin-bottom:1px;">Bahwa berdasarkan hasil perhitungan matematis Sistem Pendukung Keputusan menggunakan metode <i>Best-Worst Method (BWM)</i> dan <i>Simple Additive Weighting (SAW)</i>, telah diperoleh pemeringkatan preferensi kelayakan masyarakat prioritas Desil 1 sampai dengan Desil 4;</li>
-                                <li>Bahwa warga yang terdaftar dalam lampiran keputusan ini dipandang memenuhi syarat administrasi dan verifikasi faktual lapangan.</li>
-                            </ol>
-                        </td>
-                    </tr>
-                    <tr style="vertical-align:top;">
-                        <td style="font-weight:bold; padding-top:2px; border:none;">Mengingat</td>
-                        <td style="text-align:center; padding-top:2px; border:none;">:</td>
-                        <td style="text-align:justify; padding-top:2px; border:none;">
-                            <ol style="margin:0; padding-left:12px;">
-                                <li style="margin-bottom:1px;">Undang-Undang Nomor 11 Tahun 2009 tentang Kesejahteraan Sosial;</li>
-                                <li style="margin-bottom:1px;">Undang-Undang Nomor 13 Tahun 2011 tentang Penanganan Fakir Miskin;</li>
-                                <li style="margin-bottom:1px;">Peraturan Menteri Sosial Republik Indonesia Nomor 25 Tahun 2019 tentang Penyelenggaraan Kesejahteraan Sosial;</li>
-                                <li>Peraturan Daerah Kabupaten Sidoarjo Nomor 3 Tahun 2021 tentang Penyelenggaraan Kesejahteraan Sosial.</li>
-                            </ol>
-                        </td>
-                    </tr>
-                    <tr style="vertical-align:top;">
-                        <td style="font-weight:bold; padding-top:2px; border:none;">Memperhatikan</td>
-                        <td style="text-align:center; padding-top:2px; border:none;">:</td>
-                        <td style="text-align:justify; padding-top:2px; border:none;">
-                            Berita Acara Hasil Rekomendasi Seleksi Sistem Pendukung Keputusan BWM-SAW Dinas Sosial Kabupaten Sidoarjo Nomor 460/084/BA-SPK/2026 tanggal ${tanggalSekarang}.
-                        </td>
-                    </tr>
-                </table>
-
-                <div style="text-align:center; font-weight:bold; font-size:7.5pt; margin:2px 0; letter-spacing:1px;">MEMUTUSKAN:</div>
-
-                <table style="width:100%; border-collapse:collapse; font-size:7.5pt; margin-bottom:4px; border:none;">
-                    <tr style="vertical-align:top;">
-                        <td style="width:75px; font-weight:bold; border:none; padding:1px 0;">Menetapkan</td>
-                        <td style="width:10px; text-align:center; border:none; padding:1px 0;">:</td>
-                        <td style="border:none;"></td>
-                    </tr>
-                    <tr style="vertical-align:top;">
-                        <td style="font-weight:bold; border:none; padding:1px 0;">KESATU</td>
-                        <td style="text-align:center; border:none; padding:1px 0;">:</td>
-                        <td style="text-align:justify; border:none; padding:1px 0;">Menetapkan nama-nama warga penerima Bantuan Sosial Kabupaten Sidoarjo Tahun Anggaran 2026 sebagaimana tercantum dalam Lampiran yang merupakan bagian tidak terpisahkan dari Keputusan ini.</td>
-                    </tr>
-                    <tr style="vertical-align:top;">
-                        <td style="font-weight:bold; padding-top:2px; border:none;">KEDUA</td>
-                        <td style="text-align:center; padding-top:2px; border:none;">:</td>
-                        <td style="text-align:justify; padding-top:2px; border:none;">Bantuan sosial disalurkan sebesar <b>Rp 600.000,- (Enam Ratus Ribu Rupiah)</b> per penerima manfaat pada klaster Desil 1 s.d. Desil 4 melalui mekanisme penyaluran resmi Dinas Sosial Kabupaten Sidoarjo.</td>
-                    </tr>
-                    <tr style="vertical-align:top;">
-                        <td style="font-weight:bold; padding-top:2px; border:none;">KETIGA</td>
-                        <td style="text-align:center; padding-top:2px; border:none;">:</td>
-                        <td style="text-align:justify; padding-top:2px; border:none;">Segala biaya yang timbul sebagai akibat ditetapkannya Keputusan ini dibebankan pada Anggaran Pendapatan dan Belanja Daerah (APBD) Kabupaten Sidoarjo Tahun Anggaran 2026.</td>
-                    </tr>
-                    <tr style="vertical-align:top;">
-                        <td style="font-weight:bold; padding-top:2px; border:none;">KEEMPAT</td>
-                        <td style="text-align:center; padding-top:2px; border:none;">:</td>
-                        <td style="text-align:justify; padding-top:2px; border:none;">Keputusan ini mulai berlaku pada tanggal ditetapkan dengan ketentuan apabila di kemudian hari terdapat kekeliruan, akan diadakan pembetulan sebagaimana mestinya.</td>
-                    </tr>
-                </table>
-
-                <div style="display:flex; justify-content:flex-end; margin-top:8px;">
-                    <div style="text-align:center; width:230px; font-size:7.5pt;">
-                        <div>Ditetapkan di Sidoarjo</div>
-                        <div>Pada tanggal ${tanggalSekarang}</div>
-                        <div style="font-weight:bold; margin-top:1px; text-transform:uppercase;">BUPATI SIDOARJO</div>
-                        <div style="height:38px; display:flex; align-items:center; justify-content:center;">
-                            <span style="font-size:6.8pt; color:#444444; border:1px dashed #777777; padding:2px 5px; border-radius:4px; font-weight:bold;">[Tanda Tangan & Cap Resmi]</span>
-                        </div>
-                        <div style="font-weight:bold; text-decoration:underline; font-size:8pt;">H. SUBANDI, S.H., M.Kn.</div>
-                        <div style="font-size:7pt; font-weight:bold;">Pembina Utama Madya</div>
-                    </div>
+            <div class="judul-surat">
+                <div class="nama-naskah">KEPUTUSAN BUPATI SIDOARJO</div>
+                <div class="nomor-surat">NOMOR: 460 / 218 / 438.5.12 / 2026</div>
+                <div class="perihal-surat">
+                    TENTANG<br>
+                    PENETAPAN DAFTAR PENERIMA BANTUAN SOSIAL KABUPATEN SIDOARJO<br>
+                    BERDASARKAN HASIL SISTEM PENDUKUNG KEPUTUSAN (BWM - SAW)<br>
+                    TAHUN ANGGARAN 2026
                 </div>
             </div>
 
-            <!-- PEMISAH HALAMAN PRESISI KE LAMPIRAN -->
-            <div class="html2pdf__page-break" style="page-break-after:always; break-after:page; height:1px;"></div>
+            <table class="tabel-konsiderans">
+                <tr>
+                    <td style="width:75px; font-weight:bold;">Menimbang</td>
+                    <td style="width:10px; text-align:center;">:</td>
+                    <td>
+                        <ol>
+                            <li>Bahwa dalam rangka percepatan penanganan kemiskinan dan pemenuhan perlindungan jaminan sosial dasar, perlu menetapkan penerima bantuan sosial yang akurat, transparan, dan akuntabel;</li>
+                            <li>Bahwa berdasarkan hasil perhitungan matematis Sistem Pendukung Keputusan menggunakan metode <i>Best-Worst Method (BWM)</i> dan <i>Simple Additive Weighting (SAW)</i>, telah diperoleh pemeringkatan preferensi kelayakan masyarakat prioritas Desil 1 sampai dengan Desil 4;</li>
+                            <li>Bahwa warga yang terdaftar dalam lampiran keputusan ini dipandang memenuhi syarat administrasi dan verifikasi faktual lapangan.</li>
+                        </ol>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">Mengingat</td>
+                    <td style="text-align:center;">:</td>
+                    <td>
+                        <ol>
+                            <li>Undang-Undang Nomor 11 Tahun 2009 tentang Kesejahteraan Sosial;</li>
+                            <li>Undang-Undang Nomor 13 Tahun 2011 tentang Penanganan Fakir Miskin;</li>
+                            <li>Peraturan Menteri Sosial Republik Indonesia Nomor 25 Tahun 2019 tentang Penyelenggaraan Kesejahteraan Sosial;</li>
+                            <li>Peraturan Daerah Kabupaten Sidoarjo Nomor 3 Tahun 2021 tentang Penyelenggaraan Kesejahteraan Sosial.</li>
+                        </ol>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">Memperhatikan</td>
+                    <td style="text-align:center;">:</td>
+                    <td style="text-align:justify;">
+                        Berita Acara Hasil Rekomendasi Seleksi Sistem Pendukung Keputusan BWM-SAW Dinas Sosial Kabupaten Sidoarjo Nomor 460/084/BA-SPK/2026 tanggal ${tanggalSekarang}.
+                    </td>
+                </tr>
+            </table>
 
-            <!-- HALAMAN 2+: TABEL PENERIMA BANSOS -->
-            <div style="padding-top:4px;">
-                <div class="avoid-break" style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1.5px solid #000000; padding-bottom:3px; margin-bottom:6px;">
+            <div style="text-align:center; font-weight:bold; font-size:7.5pt; margin:2px 0; letter-spacing:1px;">MEMUTUSKAN:</div>
+
+            <table class="tabel-konsiderans">
+                <tr>
+                    <td style="width:75px; font-weight:bold;">Menetapkan</td>
+                    <td style="width:10px; text-align:center;">:</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">KESATU</td>
+                    <td style="text-align:center;">:</td>
+                    <td style="text-align:justify;">Menetapkan nama-nama warga penerima Bantuan Sosial Kabupaten Sidoarjo Tahun Anggaran 2026 sebagaimana tercantum dalam Lampiran yang merupakan bagian tidak terpisahkan dari Keputusan ini.</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">KEDUA</td>
+                    <td style="text-align:center;">:</td>
+                    <td style="text-align:justify;">Bantuan sosial disalurkan sebesar <b>Rp 600.000,- (Enam Ratus Ribu Rupiah)</b> per penerima manfaat pada klaster Desil 1 s.d. Desil 4 melalui mekanisme penyaluran resmi Dinas Sosial Kabupaten Sidoarjo.</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">KETIGA</td>
+                    <td style="text-align:center;">:</td>
+                    <td style="text-align:justify;">Segala biaya yang timbul sebagai akibat ditetapkannya Keputusan ini dibebankan pada Anggaran Pendapatan dan Belanja Daerah (APBD) Kabupaten Sidoarjo Tahun Anggaran 2026.</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">KEEMPAT</td>
+                    <td style="text-align:center;">:</td>
+                    <td style="text-align:justify;">Keputusan ini mulai berlaku pada tanggal ditetapkan dengan ketentuan apabila di kemudian hari terdapat kekeliruan, akan diadakan pembetulan sebagaimana mestinya.</td>
+                </tr>
+            </table>
+
+            ${buildTtdBupati(tanggalSekarang)}
+        </div>
+        <div class="html2pdf__page-break"></div>
+    `;
+
+    const pagedChunks = chunkDataList(data, 20, 26, 18);
+    let globalRowIndex = 1;
+
+    pagedChunks.forEach((chunk, pageIndex) => {
+        const isFirstLampiran = (pageIndex === 0);
+        const isLastLampiran = (pageIndex === pagedChunks.length - 1);
+
+        let lampiranRows = '';
+        chunk.forEach((item, idx) => {
+            const isMenerima = (item.desil || 5) <= 4;
+            const nominalStr = isMenerima ? 'Rp 600.000,-' : 'Rp 0,-';
+            const skorStr = parseFloat(item.skor_akhir || 0).toFixed(4);
+            const statusText = isMenerima ? 'Ditetapkan Menerima' : 'Tidak Prioritas';
+            const rowClass = (idx % 2 === 0) ? '' : 'class="bg-alt"';
+
+            lampiranRows += `
+                <tr ${rowClass}>
+                    <td style="text-align:center; font-weight:bold;">${globalRowIndex++}</td>
+                    <td style="font-family:'Courier New', monospace; text-align:center; font-weight:bold;">${item.nik || '-'}</td>
+                    <td style="text-align:left; padding-left:5px; font-weight:bold;">${safeHtml(item.nama)}</td>
+                    <td style="text-align:center; font-family:monospace; font-weight:bold;">${skorStr}</td>
+                    <td style="text-align:center; font-weight:bold;">Desil ${item.desil || '-'}</td>
+                    <td style="text-align:right; padding-right:5px; font-weight:bold;">${nominalStr}</td>
+                    <td style="text-align:center; font-weight:bold;">${statusText}</td>
+                </tr>
+            `;
+        });
+
+        fullHtml += `
+            <div class="pdf-page">
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1.5px solid #000; padding-bottom:3px; margin-bottom:5px;">
                     <div>
                         <div style="font-size:7.5pt; font-weight:bold; text-transform:uppercase;">LAMPIRAN KEPUTUSAN BUPATI SIDOARJO</div>
                         <div style="font-size:7pt; font-weight:bold;">Nomor: 460 / 218 / 438.5.12 / 2026</div>
                     </div>
-                    <div style="text-align:right; font-size:7pt; font-weight:bold;">Tanggal: ${tanggalSekarang}</div>
-                </div>
-
-                <div class="avoid-break" style="text-align:center; font-size:8.5pt; font-weight:bold; text-transform:uppercase; margin-bottom:6px;">
-                    DAFTAR LENGKAP PENERIMA BANTUAN SOSIAL KABUPATEN SIDOARJO<br>
-                    HASIL PEMERINGKATAN PREFERENSI SAW & PEMBOBOTAN BWM TAHUN 2026
-                </div>
-
-                <div class="avoid-break" style="border:1.2px solid #000000; padding:5px 8px; margin-bottom:8px; font-size:7.5pt; background:#f9fafb;">
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:3px;">
-                        <div>• <b>Total Warga Dievaluasi</b> : ${data.length} Orang</div>
-                        <div>• <b>Warga Lolos (Desil 1–4)</b> : ${totalPenerima} Orang</div>
-                        <div>• <b>Besaran Bantuan / Warga</b> : Rp 600.000,-</div>
-                        <div>• <b>Total Realisasi Anggaran</b> : Rp ${totalAnggaran.toLocaleString('id-ID')},-</div>
+                    <div style="text-align:right; font-size:7pt; font-weight:bold;">
+                        Tanggal: ${tanggalSekarang} (Hal ${pageIndex + 2} dari ${pagedChunks.length + 1})
                     </div>
                 </div>
 
-                <table style="width:100%; border-collapse:collapse; font-size:7.5pt; table-layout:fixed;">
-                    <thead style="display:table-header-group;">
-                        <tr style="background:#d1d5db; text-align:center;">
-                            <th style="border:1.2px solid #000000; padding:5px 2px; width:28px; font-weight:bold;">NO</th>
-                            <th style="border:1.2px solid #000000; padding:5px 2px; width:112px; font-weight:bold;">NIK</th>
-                            <th style="border:1.2px solid #000000; padding:5px 5px; text-align:left; width:175px; font-weight:bold;">NAMA LENGKAP</th>
-                            <th style="border:1.2px solid #000000; padding:5px 2px; width:65px; font-weight:bold;">SKOR SAW</th>
-                            <th style="border:1.2px solid #000000; padding:5px 2px; width:55px; font-weight:bold;">DESIL</th>
-                            <th style="border:1.2px solid #000000; padding:5px 4px; width:115px; font-weight:bold;">ALOKASI</th>
-                            <th style="border:1.2px solid #000000; padding:5px 4px; width:150px; font-weight:bold;">STATUS</th>
+                ${isFirstLampiran ? `
+                    <div style="text-align:center; font-size:8.2pt; font-weight:bold; text-transform:uppercase; margin-bottom:5px;">
+                        DAFTAR LENGKAP PENERIMA BANTUAN SOSIAL KABUPATEN SIDOARJO<br>
+                        HASIL PEMERINGKATAN PREFERENSI SAW & PEMBOBOTAN BWM TAHUN 2026
+                    </div>
+                    <div class="statistik-box">
+                        <div class="statistik-grid">
+                            <div>• <b>Total Warga Dievaluasi</b> : ${data.length} Orang</div>
+                            <div>• <b>Warga Lolos (Desil 1–4)</b> : ${totalPenerima} Orang</div>
+                            <div>• <b>Besaran Bantuan / Warga</b> : Rp 600.000,-</div>
+                            <div>• <b>Total Realisasi Anggaran</b> : Rp ${totalAnggaran.toLocaleString('id-ID')},-</div>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <table class="pdf-table">
+                    <thead>
+                        <tr>
+                            <th style="width:5%;">NO</th>
+                            <th style="width:22%;">NIK</th>
+                            <th style="width:25%; text-align:left; padding-left:5px;">NAMA LENGKAP</th>
+                            <th style="width:12%;">SKOR SAW</th>
+                            <th style="width:10%;">DESIL</th>
+                            <th style="width:13%; text-align:right; padding-right:5px;">ALOKASI</th>
+                            <th style="width:13%;">STATUS</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2479,16 +2362,21 @@ window.getSKBupatiHTML = function (data) {
                     </tbody>
                 </table>
 
-                <div class="avoid-break" style="display:flex; justify-content:flex-end; margin-top:16px;">
-                    <div style="text-align:center; width:220px; font-size:7.5pt;">
-                        <div style="font-weight:bold; text-transform:uppercase;">BUPATI SIDOARJO</div>
-                        <div style="height:40px;"></div>
-                        <div style="font-weight:bold; text-decoration:underline;">H. SUBANDI, S.H., M.Kn.</div>
+                ${isLastLampiran ? `
+                    <div class="ttd-tunggal-container">
+                        <div class="ttd-box-single">
+                            <div style="font-weight:bold; text-transform:uppercase;">BUPATI SIDOARJO</div>
+                            <div style="height:38px;"></div>
+                            <div class="ttd-pejabat-nama">H. SUBANDI, S.H., M.Kn.</div>
+                        </div>
                     </div>
-                </div>
+                ` : ''}
             </div>
-        </div>
-    `;
+            ${!isLastLampiran ? '<div class="html2pdf__page-break"></div>' : ''}
+        `;
+    });
+
+    return fullHtml;
 };
 
 window.exportSPKPDF = function () {
@@ -2512,59 +2400,8 @@ window.exportSPKPDF = function () {
         didOpen: () => Swal.showLoading()
     });
 
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.top = '-10000px';
-    iframe.style.left = '-10000px';
-    iframe.style.width = '794px';
-    iframe.style.height = '1123px';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>SK Bupati Sidoarjo 2026</title>
-            <style>
-                * { box-sizing: border-box; }
-                body { margin: 0; padding: 0; background: #ffffff; width: 700px; }
-                .html2pdf__page-break { page-break-after: always; break-after: page; height: 1px; }
-                tr { page-break-inside: avoid !important; break-inside: avoid !important; }
-                thead { display: table-header-group; }
-                .avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
-            </style>
-        </head>
-        <body>
-            ${window.getSKBupatiHTML(hasilList)}
-        </body>
-        </html>
-    `);
-    doc.close();
-
-    const opt = {
-        margin: [10, 10, 10, 10],
-        filename: `SK_Bupati_Bansos_Sidoarjo_${new Date().getFullYear()}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2.2, useCORS: true, scrollY: 0, scrollX: 0, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.html2pdf__page-break', avoid: ['tr', '.avoid-break'] }
-    };
-
-    setTimeout(() => {
-        html2pdf().set(opt).from(doc.body).save().then(() => {
-            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-            Swal.close();
-            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Dokumen SK Bupati Berhasil Diunduh!', showConfirmButton: false, timer: 2500 });
-        }).catch(err => {
-            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-            Swal.close();
-            Swal.fire('Gagal Cetak', 'Kendala saat menyusun PDF: ' + (err.message || err), 'error');
-        });
-    }, 400);
+    const contentHtml = window.getSKBupatiHTML(hasilList);
+    renderIsolatedPdf(`SK_Bupati_Bansos_Sidoarjo_${new Date().getFullYear()}.pdf`, contentHtml);
 };
 
 // =========================================================================
