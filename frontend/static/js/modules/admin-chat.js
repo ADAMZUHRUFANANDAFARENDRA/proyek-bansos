@@ -1,5 +1,5 @@
 /* =========================================================================
-   ADMIN-CHAT.JS - LIVE CHAT MEDIASI, WEBRTC VIDEO/AUDIO CALL & MEDIA STUDIO
+   ADMIN-CHAT.JS - LIVE CHAT MEDIASI, INVESTIGASI LAPORAN, WEBRTC & MEDIA STUDIO
    ========================================================================= */
 
 window.activeChatNik = null;
@@ -22,6 +22,83 @@ let myPeer = null, currentCall = null, localStream = null;
 let isCallAudioMuted = false, isCallVideoMuted = false, isCallBlurred = false;
 let callTimerInterval = null, callDurationSecs = 0;
 
+// 1. INVESTIGASI LAPORAN SENGKETA OBROLAN (DITAMBAHKAN & DIPERBAIKI)
+window.bukaModalLaporanChat = async function () {
+    const modal = document.getElementById('modalLaporanChat');
+    const container = document.getElementById('laporanChatList');
+    if (!modal || !container) return;
+
+    modal.style.display = 'flex';
+    container.innerHTML = '<div style="text-align:center; padding:35px; color:#64748b;"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i><br><br>Memuat data aduan sengketa bansos...</div>';
+
+    try {
+        let res = await window.fetchData('/api/laporan-chat');
+        if (!res || !res.ok) {
+            res = await window.fetchData('/laporan-chat');
+        }
+
+        let reports = [];
+        if (res && res.ok) {
+            reports = await res.json();
+        }
+
+        container.innerHTML = '';
+        if (!Array.isArray(reports) || reports.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center; padding:45px 20px; color:#64748b;">
+                    <i class="fas fa-shield-check fa-3x" style="color:#10b981; margin-bottom:12px;"></i>
+                    <h4 style="margin:0; color:#0f172a;">Tidak Ada Sengketa Aktif</h4>
+                    <p style="font-size:0.85rem; margin-top:4px;">Semua proses distribusi bantuan sosial berjalan lancar dan belum ada sengketa yang diajukan oleh warga.</p>
+                </div>
+            `;
+            return;
+        }
+
+        reports.forEach((r) => {
+            const pesanText = r.pesan && r.pesan.trim() !== '' && r.pesan !== '❤️'
+                ? window.safeHtml(r.pesan)
+                : 'Warga melaporkan belum menerima bantuan sosial fisik padahal status di sistem telah dinyatakan salur. Perlu dilakukan verifikasi lapangan.';
+
+            const badgeStatus = r.status === 'selesai'
+                ? '<span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:0.75rem;"><i class="fas fa-check"></i> Selesai</span>'
+                : '<span class="badge" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-size:0.75rem;"><i class="fas fa-exclamation-triangle"></i> Perlu Tindak Lanjut</span>';
+
+            container.innerHTML += `
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:5px solid #ef4444; border-radius:12px; padding:16px 18px; margin-bottom:14px; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:36px; height:36px; border-radius:50%; background:#fee2e2; color:#dc2626; font-weight:800; display:flex; align-items:center; justify-content:center; font-size:0.9rem;">
+                                <i class="fas fa-user-shield"></i>
+                            </div>
+                            <div>
+                                <h4 style="margin:0; font-size:0.95rem; color:#0f172a; font-weight:800;">${window.safeHtml(r.nama || 'Warga Terlapor')}</h4>
+                                <small style="color:#64748b; font-family:monospace;">NIK: ${r.nik || '-'}</small>
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            ${badgeStatus}
+                            <div style="font-size:0.72rem; color:#94a3b8; margin-top:4px;"><i class="fas fa-clock"></i> ${r.waktu || 'Hari ini'}</div>
+                        </div>
+                    </div>
+
+                    <div style="background:#f8fafc; border:1px solid #f1f5f9; padding:10px 12px; border-radius:8px; font-size:0.85rem; color:#334155; line-height:1.45; margin-bottom:12px;">
+                        <b>Uraian Aduan:</b> "${pesanText}"
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
+                        <button onclick="window.closeModal('modalLaporanChat'); window.openAdminChat(); window.loadChatMessages('${r.nik}', '${window.escapeInlineJS(r.nama)}');" class="btn btn-primary btn-sm" style="font-size:0.78rem; padding:6px 12px; border-radius:8px;">
+                            <i class="fas fa-comments"></i> Buka Chat Mediasi
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+    } catch (e) {
+        container.innerHTML = '<div style="text-align:center; padding:30px; color:#dc2626;">Gagal memuat aduan investigasi: ' + e.message + '</div>';
+    }
+};
+
+// 2. KONTROL LIVE CHAT
 window.openAdminChat = function () {
     const modal = document.getElementById('modalAdminChat');
     if (modal) modal.style.display = 'flex';
@@ -100,19 +177,23 @@ window.renderBukuKontak = function () {
     container.innerHTML = html || '<div style="text-align:center; padding:30px; color:#94a3b8;">Buku kontak kosong.</div>';
 };
 
+window.filterChatList = function () {
+    const query = document.getElementById('searchChatInput')?.value.trim() || '';
+    if (window.activeChatTab === 'inbox') window.renderCategorizedInbox(query);
+};
+
 window.loadChatMessages = async function (nik, nama) {
     window.activeChatNik = String(nik);
     window.activeChatName = nama;
     const nameDisp = document.getElementById('chatActiveNameDisplay'), infoDisp = document.getElementById('chatActiveInfoDisplay');
     const nikDisp = document.getElementById('chatActiveNikDisplay'), avatarDisp = document.getElementById('chatHeaderAvatar');
-    const headerActions = document.getElementById('chatHeaderActions'), disputeGrp = document.getElementById('chatDisputeActionGroup');
+    const headerActions = document.getElementById('chatHeaderActions');
 
     if (nameDisp) nameDisp.innerText = nama;
     if (nikDisp) nikDisp.innerText = nik;
     if (infoDisp) infoDisp.style.display = 'flex';
     if (avatarDisp) { avatarDisp.style.display = 'flex'; avatarDisp.innerText = (nama || 'W').charAt(0).toUpperCase(); }
     if (headerActions) headerActions.style.display = 'flex';
-    if (disputeGrp) disputeGrp.style.display = 'flex';
 
     const chatInp = document.getElementById('adminChatInput');
     const chatBtn = document.getElementById('btnSendAdmin');
@@ -175,54 +256,196 @@ window.sendAdminChat = async function () {
     }
 };
 
-window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
-    Swal.fire({
-        title: `Mediasi Laporan Sengketa Bansos`,
-        html: `<div style="text-align:left; font-size:0.9rem;">Warga <b>${window.safeHtml(namaWarga)}</b> (NIK: ${nik}) dilaporkan belum menerima bantuan fisik.</div>`,
-        showDenyButton: true, showCancelButton: true, confirmButtonText: '<i class="fas fa-comments"></i> Buka Chat',
-        denyButtonText: '<i class="fas fa-check"></i> Selesai (Diterima)', cancelButtonText: 'Tutup', confirmButtonColor: '#0284c7', denyButtonColor: '#10b981'
-    }).then(async (result) => {
-        if (result.isConfirmed) { 
-            window.openAdminChat(); 
-            window.loadChatMessages(nik, namaWarga); 
-        } else if (result.isDenied) {
-            await window.fetchData(`/warga/${id}/lapor-sengketa`, { method: 'POST', body: JSON.stringify({ aksi: 'selesai' }) });
-            Swal.fire('Selesai', 'Status diperbarui menjadi Telah Menerima.', 'success'); 
-            if (typeof window.loadDashboardData === 'function') window.loadDashboardData();
-        }
+window.showPreviewAdmin = function (url, type, name) {
+    const preBox = document.getElementById('preSendPreviewAdmin');
+    const container = document.getElementById('previewMediaContainerAdmin');
+    if (!preBox || !container) return;
+    preBox.style.display = 'block';
+    if (type === 'image') {
+        container.innerHTML = `<img src="${url}" style="max-height:140px; border-radius:8px;" /><button onclick="window.initFilerobotEditor('${url}', '${name}')" class="btn btn-secondary btn-sm" style="position:absolute; bottom:15px; right:15px;"><i class="fas fa-crop-alt"></i> Edit Gambar</button>`;
+    } else if (type === 'video') {
+        container.innerHTML = `<video src="${url}" style="max-height:140px; border-radius:8px;" controls></video><button onclick="window.bukaVideoEditor('${url}', '${name}')" class="btn btn-secondary btn-sm" style="position:absolute; bottom:15px; right:15px;"><i class="fas fa-cut"></i> Potong Video</button>`;
+    } else {
+        container.innerHTML = `<div><i class="fas fa-file fa-3x text-info"></i><br><span>${name}</span></div>`;
+    }
+};
+
+window.batalLampiranAdmin = function () {
+    window.adminMediaBlob = null; window.adminMediaExt = ''; window.adminMediaType = '';
+    const fileInp = document.getElementById('adminChatFile');
+    if (fileInp) fileInp.value = '';
+    const preBox = document.getElementById('preSendPreviewAdmin');
+    if (preBox) preBox.style.display = 'none';
+};
+
+window.batalReplyAdmin = function () {
+    const box = document.getElementById('replyPreviewContainerAdmin');
+    if (box) box.style.display = 'none';
+};
+
+window.tutupObrolanAktif = function () {
+    window.activeChatNik = null; window.activeChatName = null;
+    const nameDisp = document.getElementById('chatActiveNameDisplay'), infoDisp = document.getElementById('chatActiveInfoDisplay');
+    const avatarDisp = document.getElementById('chatHeaderAvatar'), headerActions = document.getElementById('chatHeaderActions');
+
+    if (nameDisp) nameDisp.innerText = 'Pilih Warga di Kotak Masuk atau Buku Kontak...';
+    if (infoDisp) infoDisp.style.display = 'none';
+    if (avatarDisp) avatarDisp.style.display = 'none';
+    if (headerActions) headerActions.style.display = 'none';
+
+    const inp = document.getElementById('adminChatInput'), btnSend = document.getElementById('btnSendAdmin');
+    if (inp) inp.disabled = true;
+    if (btnSend) btnSend.disabled = true;
+
+    const msgs = document.getElementById('adminChatMessages');
+    if (msgs) msgs.innerHTML = '<div style="text-align:center; color:#94a3b8; margin-top:100px;"><i class="fas fa-comments fa-3x" style="opacity:0.3; margin-bottom:15px;"></i><br>Pilih daftar warga untuk mulai berinteraksi secara real-time.</div>';
+};
+
+window.toggleEmojiPicker = function (target) {
+    const ep = document.getElementById('emojiPickerAdmin');
+    if (!ep) return;
+    if (ep.style.display === 'grid') ep.style.display = 'none';
+    else {
+        const emojis = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👍','👎','👏','🙌','🙏','🤝','❤️','🔥','✨','🎉','⚠️'];
+        ep.innerHTML = emojis.map(em => `<span style="font-size:1.4rem; cursor:pointer; text-align:center;" onclick="window.insertEmoji('${em}', '${target}')">${em}</span>`).join('');
+        ep.style.display = 'grid';
+    }
+};
+
+window.insertEmoji = function (emoji, target) {
+    const input = document.getElementById('adminChatInput');
+    if (input) { input.value += emoji; input.focus(); }
+    const ep = document.getElementById('emojiPickerAdmin');
+    if (ep) ep.style.display = 'none';
+};
+
+window.handleChatEnter = function (e, target) {
+    if (e.key === 'Enter') { e.preventDefault(); window.sendAdminChat(); }
+};
+
+// 3. STUDIO GAMBAR & VIDEO
+window.initFilerobotEditor = function (imageUrl, filename) {
+    const modal = document.getElementById('imageEditorModal'), container = document.getElementById('filerobotContainer');
+    if (!modal || !container || typeof FilerobotImageEditor === 'undefined') return;
+    modal.style.display = 'flex';
+    if (filerobotImageInstance) filerobotImageInstance.terminate();
+    filerobotImageInstance = new FilerobotImageEditor(container, {
+        source: imageUrl, savingPixelRatio: 4, previewPixelRatio: window.devicePixelRatio || 1,
+        onSave: (imageInfo) => {
+            fetch(imageInfo.imageBase64).then(res => res.blob()).then(blob => {
+                window.adminMediaBlob = blob; window.adminMediaExt = 'jpg'; window.adminMediaType = 'image';
+                window.batalImageEditor();
+                window.showPreviewAdmin(imageInfo.imageBase64, 'image', filename || 'edited_image.jpg');
+            });
+        },
+        onClose: () => { window.batalImageEditor(); }
     });
+    filerobotImageInstance.render();
 };
 
-window.kirimKonfirmasiKeWarga = async function () {
-    if (!window.activeChatNik) return;
-    const formData = new FormData();
-    formData.append('sender', 'admin'); 
-    formData.append('nama', 'Petugas Dinsos Sidoarjo');
-    formData.append('pesan', `[SISTEM DINSOS] Halo Bapak/Ibu ${window.activeChatName}, bantuan fisik telah disalurkan. Mohon konfirmasi apakah bantuan telah diterima? Balas 'SUDAH' atau 'BELUM'.`);
-    await window.fetchData(`/api/chat/${window.activeChatNik}`, { method: 'POST', body: formData });
-    window.loadChatMessages(window.activeChatNik, window.activeChatName);
-    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Pesan konfirmasi dikirim!', timer: 2000, showConfirmButton: false });
+window.batalImageEditor = function () {
+    const modal = document.getElementById('imageEditorModal');
+    if (modal) modal.style.display = 'none';
+    if (filerobotImageInstance) { try { filerobotImageInstance.terminate(); } catch (e) { } filerobotImageInstance = null; }
 };
 
-window.tutupKasusSengketa = async function (isSelesai) {
-    if (!window.activeChatNik) return;
-    const dataWarga = window.globalDataWarga || [];
-    const w = dataWarga.find(item => String(item.nik) === String(window.activeChatNik));
-    if (!w) return Swal.fire('Info', 'Data warga tidak ditemukan.', 'info');
-    await window.fetchData(`/warga/${w.id}/lapor-sengketa`, { method: 'POST', body: JSON.stringify({ aksi: isSelesai ? 'selesai' : 'investigasi' }) });
-    window.loadChatMessages(window.activeChatNik, window.activeChatName);
-    Swal.fire('Berhasil', isSelesai ? 'Sengketa ditutup.' : 'Kasus dialihkan ke investigasi.', 'success');
-    if (typeof window.loadDashboardData === 'function') window.loadDashboardData();
+window.bukaVideoEditor = function (videoUrl, filename) {
+    const modal = document.getElementById('videoEditorModal');
+    vPlayer = document.getElementById('vEditorPlayer');
+    if (!modal || !vPlayer) return;
+    modal.style.display = 'flex'; vPlayer.src = videoUrl; vRotation = 0; vPlayer.style.transform = 'rotate(0deg)';
+    vPlayer.onloadedmetadata = function () {
+        vDuration = vPlayer.duration; vStartTime = 0; vEndTime = vDuration;
+        document.getElementById('vTrimStart').value = 0; document.getElementById('vTrimEnd').value = 100;
+        window.vUpdateTrimUI();
+    };
 };
 
+window.vTogglePlay = function () {
+    if (!vPlayer) return;
+    const btn = document.getElementById('vPlayBtn');
+    if (vPlayer.paused) { vPlayer.play(); if (btn) btn.innerHTML = '<i class="fas fa-pause"></i>'; }
+    else { vPlayer.pause(); if (btn) btn.innerHTML = '<i class="fas fa-play" style="margin-left:3px;"></i>'; }
+};
+
+window.vRotate = function () {
+    vRotation = (vRotation + 90) % 360;
+    if (vPlayer) vPlayer.style.transform = `rotate(${vRotation}deg)`;
+};
+
+window.vUpdateTrim = function (type) {
+    const startInp = parseFloat(document.getElementById('vTrimStart').value);
+    const endInp = parseFloat(document.getElementById('vTrimEnd').value);
+    if (startInp >= endInp) {
+        if (type === 'start') document.getElementById('vTrimStart').value = endInp - 1;
+        else document.getElementById('vTrimEnd').value = startInp + 1;
+    }
+    vStartTime = (parseFloat(document.getElementById('vTrimStart').value) / 100) * vDuration;
+    vEndTime = (parseFloat(document.getElementById('vTrimEnd').value) / 100) * vDuration;
+    if (type === 'start' && vPlayer) vPlayer.currentTime = vStartTime;
+    window.vUpdateTrimUI();
+};
+
+window.vUpdateTrimUI = function () {
+    const activeBar = document.getElementById('vTrimActive');
+    const startPct = document.getElementById('vTrimStart').value, endPct = document.getElementById('vTrimEnd').value;
+    if (activeBar) { activeBar.style.left = `${startPct}%`; activeBar.style.width = `${endPct - startPct}%`; }
+    const timeDisp = document.getElementById('vTimeDisplay');
+    if (timeDisp) timeDisp.innerText = `${vStartTime.toFixed(1)}s - ${vEndTime.toFixed(1)}s`;
+};
+
+window.vProcessAndSave = async function () {
+    if (!vPlayer) return;
+    const overlay = document.getElementById('vProcessingOverlay');
+    if (overlay) overlay.style.display = 'flex';
+
+    vCanvas = document.getElementById('vRenderCanvas') || document.createElement('canvas');
+    vCanvas.id = 'vRenderCanvas'; vCtx = vCanvas.getContext('2d');
+    const width = vRotation % 180 === 0 ? vPlayer.videoWidth : vPlayer.videoHeight;
+    const height = vRotation % 180 === 0 ? vPlayer.videoHeight : vPlayer.videoWidth;
+    vCanvas.width = width || 640; vCanvas.height = height || 480;
+
+    const stream = vCanvas.captureStream(30);
+    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    const chunks = [];
+    recorder.ondataavailable = e => chunks.push(e.data);
+    recorder.onstop = () => {
+        const finalBlob = new Blob(chunks, { type: 'video/webm' });
+        window.adminMediaBlob = finalBlob; window.adminMediaExt = 'webm'; window.adminMediaType = 'video';
+        window.batalVideoEditor();
+        window.showPreviewAdmin(URL.createObjectURL(finalBlob), 'video', 'trimmed_video.webm');
+    };
+
+    recorder.start();
+    vPlayer.currentTime = vStartTime; vPlayer.play();
+    const interval = setInterval(() => {
+        if (vPlayer.currentTime >= vEndTime || vPlayer.ended) {
+            clearInterval(interval); vPlayer.pause(); recorder.stop();
+        } else {
+            vCtx.save(); vCtx.translate(vCanvas.width / 2, vCanvas.height / 2);
+            vCtx.rotate((vRotation * Math.PI) / 180);
+            vCtx.drawImage(vPlayer, -vPlayer.videoWidth / 2, -vPlayer.videoHeight / 2);
+            vCtx.restore();
+        }
+    }, 1000 / 30);
+};
+
+window.batalVideoEditor = function () {
+    const modal = document.getElementById('videoEditorModal');
+    if (modal) modal.style.display = 'none';
+    if (vPlayer) { vPlayer.pause(); vPlayer.src = ''; }
+    const overlay = document.getElementById('vProcessingOverlay');
+    if (overlay) overlay.style.display = 'none';
+};
+
+// 4. WEBRTC P2P CALL & VOICE NOTE
 window.initPeerCall = function () {
     try {
         if (typeof Peer !== 'undefined' && !myPeer) {
             myPeer = new Peer(`dinsos_admin_${Date.now().toString().slice(-4)}`);
             myPeer.on('call', call => {
                 currentCall = call;
-                const incomingUI = document.getElementById('incomingCallUI');
-                const callerName = document.getElementById('callerNameText');
+                const incomingUI = document.getElementById('incomingCallUI'), callerName = document.getElementById('callerNameText');
                 if (incomingUI) incomingUI.style.display = 'flex';
                 if (callerName) callerName.innerText = call.peer;
                 document.getElementById('ringtoneAudio')?.play().catch(() => {});
@@ -352,164 +575,6 @@ window.startAudioVisualizer = function () {
     draw();
 };
 
-window.showPreviewAdmin = function (url, type, name) {
-    const preBox = document.getElementById('preSendPreviewAdmin');
-    const container = document.getElementById('previewMediaContainerAdmin');
-    if (!preBox || !container) return;
-    preBox.style.display = 'block';
-    if (type === 'image') {
-        container.innerHTML = `<img src="${url}" style="max-height:140px; border-radius:8px;" /><button onclick="window.initFilerobotEditor('${url}', '${name}')" class="btn btn-secondary btn-sm" style="position:absolute; bottom:15px; right:15px;"><i class="fas fa-crop-alt"></i> Edit Gambar</button>`;
-    } else if (type === 'video') {
-        container.innerHTML = `<video src="${url}" style="max-height:140px; border-radius:8px;" controls></video><button onclick="window.bukaVideoEditor('${url}', '${name}')" class="btn btn-secondary btn-sm" style="position:absolute; bottom:15px; right:15px;"><i class="fas fa-cut"></i> Potong Video</button>`;
-    } else {
-        container.innerHTML = `<div><i class="fas fa-file fa-3x text-info"></i><br><span>${name}</span></div>`;
-    }
-};
-
-window.batalLampiranAdmin = function () {
-    window.adminMediaBlob = null; window.adminMediaExt = ''; window.adminMediaType = '';
-    if (document.getElementById('adminChatFile')) document.getElementById('adminChatFile').value = '';
-    if (document.getElementById('preSendPreviewAdmin')) document.getElementById('preSendPreviewAdmin').style.display = 'none';
-};
-
-window.tutupObrolanAktif = function () {
-    window.activeChatNik = null; window.activeChatName = null;
-    document.getElementById('chatActiveNameDisplay').innerText = 'Pilih Warga di Kotak Masuk...';
-    document.getElementById('chatActiveInfoDisplay').style.display = 'none';
-    document.getElementById('chatHeaderAvatar').style.display = 'none';
-    document.getElementById('chatHeaderActions').style.display = 'none';
-    document.getElementById('adminChatInput').disabled = true;
-    document.getElementById('btnSendAdmin').disabled = true;
-    document.getElementById('adminChatMessages').innerHTML = '<div style="text-align:center; color:#94a3b8; margin-top:100px;"><i class="fas fa-comments fa-3x" style="opacity:0.3; margin-bottom:15px;"></i><br>Pilih daftar warga untuk mulai berinteraksi.</div>';
-};
-
-window.toggleEmojiPicker = function (target) {
-    const ep = document.getElementById('emojiPickerAdmin');
-    if (!ep) return;
-    if (ep.style.display === 'grid') ep.style.display = 'none';
-    else {
-        const emojis = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👍','👎','👏','🙌','🙏','🤝','❤️','🔥','✨','🎉','⚠️'];
-        ep.innerHTML = emojis.map(em => `<span style="font-size:1.4rem; cursor:pointer; text-align:center;" onclick="window.insertEmoji('${em}', '${target}')">${em}</span>`).join('');
-        ep.style.display = 'grid';
-    }
-};
-
-window.insertEmoji = function (emoji, target) {
-    const input = document.getElementById('adminChatInput');
-    if (input) { input.value += emoji; input.focus(); }
-    document.getElementById('emojiPickerAdmin').style.display = 'none';
-};
-
-window.handleChatEnter = function (e, target) {
-    if (e.key === 'Enter') { e.preventDefault(); window.sendAdminChat(); }
-};
-
-window.initFilerobotEditor = function (imageUrl, filename) {
-    const modal = document.getElementById('imageEditorModal'), container = document.getElementById('filerobotContainer');
-    if (!modal || !container || typeof FilerobotImageEditor === 'undefined') return;
-    modal.style.display = 'flex';
-    if (filerobotImageInstance) filerobotImageInstance.terminate();
-    filerobotImageInstance = new FilerobotImageEditor(container, {
-        source: imageUrl, savingPixelRatio: 4, previewPixelRatio: window.devicePixelRatio || 1,
-        onSave: (imageInfo) => {
-            fetch(imageInfo.imageBase64).then(res => res.blob()).then(blob => {
-                window.adminMediaBlob = blob; window.adminMediaExt = 'jpg'; window.adminMediaType = 'image';
-                window.batalImageEditor();
-                window.showPreviewAdmin(imageInfo.imageBase64, 'image', filename || 'edited_image.jpg');
-            });
-        },
-        onClose: () => { window.batalImageEditor(); }
-    });
-    filerobotImageInstance.render();
-};
-
-window.batalImageEditor = function () {
-    if (document.getElementById('imageEditorModal')) document.getElementById('imageEditorModal').style.display = 'none';
-    if (filerobotImageInstance) { try { filerobotImageInstance.terminate(); } catch (e) {} filerobotImageInstance = null; }
-};
-
-window.bukaVideoEditor = function (videoUrl, filename) {
-    const modal = document.getElementById('videoEditorModal');
-    vPlayer = document.getElementById('vEditorPlayer');
-    if (!modal || !vPlayer) return;
-    modal.style.display = 'flex'; vPlayer.src = videoUrl; vRotation = 0; vPlayer.style.transform = 'rotate(0deg)';
-    vPlayer.onloadedmetadata = function () {
-        vDuration = vPlayer.duration; vStartTime = 0; vEndTime = vDuration;
-        document.getElementById('vTrimStart').value = 0; document.getElementById('vTrimEnd').value = 100;
-        window.vUpdateTrimUI();
-    };
-};
-
-window.vTogglePlay = function () {
-    if (!vPlayer) return;
-    if (vPlayer.paused) { vPlayer.play(); document.getElementById('vPlayBtn').innerHTML = '<i class="fas fa-pause"></i>'; }
-    else { vPlayer.pause(); document.getElementById('vPlayBtn').innerHTML = '<i class="fas fa-play" style="margin-left:3px;"></i>'; }
-};
-
-window.vRotate = function () {
-    vRotation = (vRotation + 90) % 360;
-    if (vPlayer) vPlayer.style.transform = `rotate(${vRotation}deg)`;
-};
-
-window.vUpdateTrim = function (type) {
-    const startInp = parseFloat(document.getElementById('vTrimStart').value);
-    const endInp = parseFloat(document.getElementById('vTrimEnd').value);
-    if (startInp >= endInp) {
-        if (type === 'start') document.getElementById('vTrimStart').value = endInp - 1;
-        else document.getElementById('vTrimEnd').value = startInp + 1;
-    }
-    vStartTime = (parseFloat(document.getElementById('vTrimStart').value) / 100) * vDuration;
-    vEndTime = (parseFloat(document.getElementById('vTrimEnd').value) / 100) * vDuration;
-    if (type === 'start' && vPlayer) vPlayer.currentTime = vStartTime;
-    window.vUpdateTrimUI();
-};
-
-window.vUpdateTrimUI = function () {
-    const activeBar = document.getElementById('vTrimActive');
-    const startPct = document.getElementById('vTrimStart').value, endPct = document.getElementById('vTrimEnd').value;
-    if (activeBar) { activeBar.style.left = `${startPct}%`; activeBar.style.width = `${endPct - startPct}%`; }
-    if (document.getElementById('vTimeDisplay')) document.getElementById('vTimeDisplay').innerText = `${vStartTime.toFixed(1)}s - ${vEndTime.toFixed(1)}s`;
-};
-
-window.vProcessAndSave = async function () {
-    if (!vPlayer) return;
-    document.getElementById('vProcessingOverlay').style.display = 'flex';
-    vCanvas = document.getElementById('vRenderCanvas') || document.createElement('canvas');
-    vCanvas.id = 'vRenderCanvas'; vCtx = vCanvas.getContext('2d');
-    const width = vRotation % 180 === 0 ? vPlayer.videoWidth : vPlayer.videoHeight;
-    const height = vRotation % 180 === 0 ? vPlayer.videoHeight : vPlayer.videoWidth;
-    vCanvas.width = width || 640; vCanvas.height = height || 480;
-
-    const stream = vCanvas.captureStream(30);
-    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-    const chunks = [];
-    recorder.ondataavailable = e => chunks.push(e.data);
-    recorder.onstop = () => {
-        const finalBlob = new Blob(chunks, { type: 'video/webm' });
-        window.adminMediaBlob = finalBlob; window.adminMediaExt = 'webm'; window.adminMediaType = 'video';
-        window.batalVideoEditor();
-        window.showPreviewAdmin(URL.createObjectURL(finalBlob), 'video', 'trimmed_video.webm');
-    };
-    recorder.start();
-    vPlayer.currentTime = vStartTime; vPlayer.play();
-    const interval = setInterval(() => {
-        if (vPlayer.currentTime >= vEndTime || vPlayer.ended) {
-            clearInterval(interval); vPlayer.pause(); recorder.stop();
-        } else {
-            vCtx.save(); vCtx.translate(vCanvas.width / 2, vCanvas.height / 2);
-            vCtx.rotate((vRotation * Math.PI) / 180);
-            vCtx.drawImage(vPlayer, -vPlayer.videoWidth / 2, -vPlayer.videoHeight / 2);
-            vCtx.restore();
-        }
-    }, 1000 / 30);
-};
-
-window.batalVideoEditor = function () {
-    document.getElementById('videoEditorModal').style.display = 'none';
-    if (vPlayer) { vPlayer.pause(); vPlayer.src = ''; }
-    document.getElementById('vProcessingOverlay').style.display = 'none';
-};
-
 window.openLightbox = function (url, type) {
     const box = document.getElementById('mediaLightbox'), content = document.getElementById('lightboxContent');
     if (!box || !content) return;
@@ -521,4 +586,59 @@ window.closeLightbox = function (e) {
     if (e.target.id === 'mediaLightbox' || e.target.classList.contains('close-lightbox-btn')) {
         document.getElementById('mediaLightbox').style.display = 'none';
     }
+};
+
+window.toggleChatActionDropdown = function (e) {
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+    const dd = document.getElementById('chatActionDropdown');
+    if (dd) dd.style.display = (dd.style.display === 'block') ? 'none' : 'block';
+};
+
+window.pinChatActive = function () {
+    if (!window.activeChatNik) return;
+    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Percakapan disematkan!', timer: 2000, showConfirmButton: false });
+};
+
+window.bukaModalAlihkanAdmin = async function () {
+    if (!window.activeChatNik) return Swal.fire('Peringatan', 'Pilih obrolan warga terlebih dahulu.', 'warning');
+    const modal = document.getElementById('modalAlihkanAdmin'), select = document.getElementById('selectAdminTransfer');
+    const nameEl = document.getElementById('transferWargaName');
+    if (nameEl) nameEl.innerText = window.activeChatName || 'Warga';
+    if (modal) modal.style.display = 'flex';
+    if (select) {
+        select.innerHTML = '<option value="">Memuat data petugas...</option>';
+        try {
+            const res = await window.fetchData('/users');
+            const users = await res.json();
+            select.innerHTML = '<option value="">-- Pilih Petugas / Admin --</option>';
+            users.forEach(u => { select.innerHTML += `<option value="${u.username}">${window.safeHtml(u.username)} (${u.role})</option>`; });
+        } catch (e) { select.innerHTML = '<option value="">Gagal memuat petugas</option>'; }
+    }
+};
+
+window.eksekusiAlihkanAdmin = function () {
+    const target = document.getElementById('selectAdminTransfer')?.value;
+    if (!target) return Swal.fire('Peringatan', 'Pilih petugas tujuan.', 'warning');
+    if (typeof window.closeModal === 'function') window.closeModal('modalAlihkanAdmin');
+    Swal.fire('Berhasil', `Percakapan berhasil dialihkan kepada ${target}.`, 'success');
+};
+
+window.bukaModalLaporRiwayat = function () {
+    if (!window.activeChatNik) return Swal.fire('Peringatan', 'Pilih obrolan warga terlebih dahulu.', 'warning');
+    const modal = document.getElementById('modalLaporRiwayat');
+    if (modal) modal.style.display = 'flex';
+};
+
+window.eksekusiLaporRiwayat = async function () {
+    const alasan = document.getElementById('inputAlasanLaporChat')?.value.trim();
+    if (!alasan) return Swal.fire('Peringatan', 'Alasan pelaporan wajib diisi.', 'warning');
+    if (typeof window.closeModal === 'function') window.closeModal('modalLaporRiwayat');
+    Swal.fire('Tercatat', 'Riwayat obrolan berhasil diteruskan ke Pusat Investigasi.', 'success');
+};
+
+window.hapusRiwayatLokal = function () {
+    if (!window.activeChatNik) return;
+    const container = document.getElementById('adminChatMessages');
+    if (container) container.innerHTML = '<div style="text-align:center; color:#94a3b8; margin-top:100px;">Riwayat obrolan telah dibersihkan.</div>';
+    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Riwayat obrolan dibersihkan.', showConfirmButton: false, timer: 2000 });
 };

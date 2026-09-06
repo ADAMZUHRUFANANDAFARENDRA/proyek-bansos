@@ -4,7 +4,9 @@
 
 window.lastSPKResult = null;
 window.lastKomparasiResult = [];
+window.compChartInstance = null; // Deklarasi instans grafik terpusat
 
+// 1. PROSES ALGORITMA BWM - SAW
 window.hitungSPK = async function () {
     const wargaLayak = (window.globalDataWarga || []).filter(w => w.is_verified);
     if (wargaLayak.length === 0) {
@@ -24,9 +26,13 @@ window.hitungSPK = async function () {
     });
 
     try {
-        const res = await window.fetchData('/hitung-saw');
-        if (!res.ok) {
-            let errorDetail = `HTTP ${res.status}: ${res.statusText}`;
+        let res = await window.fetchData('/hitung-saw');
+        if (!res || !res.ok) {
+            res = await window.fetchData('/api/hitung-saw');
+        }
+
+        if (!res || !res.ok) {
+            let errorDetail = `HTTP ${res ? res.status : 'Error'}`;
             try {
                 const errJson = await res.json();
                 if (errJson.message) errorDetail = errJson.message;
@@ -36,6 +42,9 @@ window.hitungSPK = async function () {
 
         const spkData = await res.json();
         window.lastSPKResult = spkData;
+        if (window.BansosApp && window.BansosApp.State) {
+            window.BansosApp.State.setSPKResult(spkData);
+        }
         Swal.close();
 
         const hasilList = Array.isArray(spkData) ? spkData : (spkData.hasil_akhir || spkData.data || []);
@@ -44,7 +53,7 @@ window.hitungSPK = async function () {
         const resultCard = document.getElementById('resultCard');
         const resultTable = document.getElementById('resultTable');
         const resultTbody = document.querySelector('#resultTable tbody');
-        if (!resultCard || !resultTbody) throw new Error('Elemen #resultCard atau #resultTable tidak ditemukan.');
+        if (!resultCard || !resultTbody) throw new Error('Elemen tabel hasil SPK tidak ditemukan di halaman.');
 
         resultCard.style.display = 'block';
 
@@ -96,16 +105,27 @@ window.hitungSPK = async function () {
 
             tr.innerHTML = `
                 <td style="text-align:center; vertical-align:middle;">${rankBadge}</td>
-                <td style="vertical-align:middle;"><div style="font-weight:800; color:#1e293b; font-size:0.92rem;">${window.safeHtml(item.nama)}</div><small style="color:#64748b; font-family:monospace; font-size:0.78rem;">NIK: ${item.nik || '-'}</small></td>
+                <td style="vertical-align:middle;">
+                    <div style="font-weight:800; color:#1e293b; font-size:0.92rem;">${window.safeHtml(item.nama)}</div>
+                    <small style="color:#64748b; font-family:monospace; font-size:0.78rem;">NIK: ${item.nik || '-'}</small>
+                </td>
                 <td style="vertical-align:middle; min-width:120px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
                         <span style="font-weight:800; font-family:monospace; color:#0f172a; font-size:0.88rem;">${skorNum.toFixed(4)}</span>
                         <small style="color:#64748b; font-size:0.7rem;">${skorPct}%</small>
                     </div>
-                    <div style="background:#e2e8f0; height:6px; border-radius:4px; overflow:hidden;"><div style="background:${isLayakDesil ? '#009846' : '#94a3b8'}; width:${skorPct}%; height:100%;"></div></div>
+                    <div style="background:#e2e8f0; height:6px; border-radius:4px; overflow:hidden;">
+                        <div style="background:${isLayakDesil ? '#009846' : '#94a3b8'}; width:${skorPct}%; height:100%;"></div>
+                    </div>
                 </td>
-                <td style="text-align:center; vertical-align:middle;"><span class="badge" style="background:${isLayakDesil ? '#dcfce7' : '#f1f5f9'}; color:${isLayakDesil ? '#15803d' : '#64748b'}; font-weight:800; font-size:0.75rem; border:1px solid ${isLayakDesil ? '#86efac' : '#cbd5e1'};">DESIL ${item.desil || '-'}</span></td>
-                <td style="text-align:center; vertical-align:middle;">${isLayakDesil ? `<span class="badge badge-green" style="font-size:0.78rem;"><i class="fas fa-check-circle"></i> Menerima Bansos</span>` : `<span class="badge badge-red" style="font-size:0.78rem;"><i class="fas fa-times-circle"></i> Tidak Menerima</span>`}</td>
+                <td style="text-align:center; vertical-align:middle;">
+                    <span class="badge" style="background:${isLayakDesil ? '#dcfce7' : '#f1f5f9'}; color:${isLayakDesil ? '#15803d' : '#64748b'}; font-weight:800; font-size:0.75rem; border:1px solid ${isLayakDesil ? '#86efac' : '#cbd5e1'};">
+                        DESIL ${item.desil || '-'}
+                    </span>
+                </td>
+                <td style="text-align:center; vertical-align:middle;">
+                    ${isLayakDesil ? `<span class="badge badge-green" style="font-size:0.78rem;"><i class="fas fa-check-circle"></i> Menerima Bansos</span>` : `<span class="badge badge-red" style="font-size:0.78rem;"><i class="fas fa-times-circle"></i> Tidak Menerima</span>`}
+                </td>
             `;
             resultTbody.appendChild(tr);
         });
@@ -117,6 +137,97 @@ window.hitungSPK = async function () {
     }
 };
 
+// 2. VERIFIKASI ALGORITMA (SAW VS WP) - DIPERBAIKI PENUH
+window.bukaModalKomparasi = async function () {
+    const modal = document.getElementById('modalKomparasi');
+    const tbody = document.querySelector('#tblKomparasi tbody');
+    if (modal) modal.style.display = 'flex';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:25px; color:#64748b;"><i class="fas fa-spinner fa-spin text-primary"></i> Memproses komparasi preferensi SAW vs WP...</td></tr>';
+
+    try {
+        let res = await window.fetchData('/komparasi');
+        if (!res || !res.ok) {
+            res = await window.fetchData('/api/komparasi');
+        }
+
+        if (!res || !res.ok) {
+            let errorText = 'Koneksi ke endpoint komparasi gagal.';
+            try {
+                const errJson = await res.json();
+                if (errJson && errJson.message) errorText = errJson.message;
+            } catch (_) {}
+            throw new Error(errorText);
+        }
+
+        const data = await res.json();
+        window.lastKomparasiResult = Array.isArray(data) ? data : (data.data || data.hasil || []);
+
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (window.lastKomparasiResult.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; color:#64748b;">Belum ada data alternatif warga yang disetujui. Silakan setujui data warga dan klik "Proses Algoritma SAW" terlebih dahulu.</td></tr>';
+            if (window.compChartInstance) {
+                window.compChartInstance.destroy();
+                window.compChartInstance = null;
+            }
+            return;
+        }
+
+        const labels = [], sawScores = [], wpScores = [];
+        const maxWpRaw = Math.max(...window.lastKomparasiResult.map(d => parseFloat(d.wp_skor || 0))) || 1;
+        const maxSawRaw = Math.max(...window.lastKomparasiResult.map(d => parseFloat(d.saw_skor || 0))) || 1;
+
+        window.lastKomparasiResult.slice(0, 15).forEach((item) => {
+            labels.push((item.nama || 'Warga').split(' ')[0]);
+            const sVal = parseFloat(item.saw_skor || 0);
+            const wVal = parseFloat(item.wp_skor || 0);
+            sawScores.push(sVal);
+
+            const wScaled = (wVal < 0.1 && maxWpRaw > 0) ? (wVal / maxWpRaw * maxSawRaw) : wVal;
+            wpScores.push(parseFloat(wScaled.toFixed(4)));
+
+            tbody.innerHTML += `
+                <tr>
+                    <td><b>${window.safeHtml(item.nama)}</b><br><small class="text-muted">NIK: ${item.nik || '-'}</small></td>
+                    <td style="text-align:center;"><span class="badge badge-green">#${item.saw_rank}</span></td>
+                    <td style="text-align:center; color:#15803d; font-weight:800; font-family:monospace;">${sVal.toFixed(4)}</td>
+                    <td style="text-align:center;"><span class="badge badge-blue">#${item.wp_rank}</span></td>
+                    <td style="text-align:center; color:#0369a1; font-weight:800; font-family:monospace;">${wVal.toFixed(4)}</td>
+                </tr>
+            `;
+        });
+
+        // Inisialisasi Grafik Chart.js Tanpa Konflik Scope Variabel
+        const ctx = document.getElementById('compChart');
+        if (ctx && typeof Chart !== 'undefined') {
+            if (window.compChartInstance) {
+                window.compChartInstance.destroy();
+            }
+            window.compChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Skor SAW', data: sawScores, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.3, fill: true },
+                        { label: 'Skor WP (Validasi)', data: wpScores, borderColor: '#0284c7', backgroundColor: 'rgba(2, 132, 199, 0.1)', tension: 0.3, borderDash: [5, 5], fill: true }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: false } }
+                }
+            });
+        }
+    } catch (e) {
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:25px; color:#dc2626;"><b>Gagal memuat data komparasi:</b> ${e.message}</td></tr>`;
+        }
+    }
+};
+
+// 3. MATRIKS NORMALISASI TERNORMALISASI (R)
 window.bukaModalMatriksKerja = function () {
     if (!window.lastSPKResult || !window.lastSPKResult.matriks_normalisasi || window.lastSPKResult.matriks_normalisasi.length === 0) {
         return Swal.fire({ icon: 'info', title: 'Data Belum Tersedia', text: 'Silakan jalankan "Proses Algoritma SAW" terlebih dahulu.', confirmButtonColor: '#009846' });
@@ -153,6 +264,7 @@ window.bukaModalMatriksKerja = function () {
     });
 };
 
+// 4. BOBOT KRITERIA BWM & SYNC BPS
 window.bukaModalBobot = async function () {
     const modal = document.getElementById('modalBobot'), container = document.getElementById('bobotInputs');
     if (!modal || !container) return;
@@ -173,9 +285,9 @@ window.simpanBobot = async function (e) {
     const inputs = document.querySelectorAll('.input-bobot-bwm');
     const payload = Array.from(inputs).map(inp => ({ kode: inp.dataset.kode, jenis: inp.dataset.jenis, bobot: parseFloat(inp.value || 0) }));
     const res = await window.fetchData('/kriteria', { method: 'POST', body: JSON.stringify(payload) });
-    if (res && res.ok) { 
-        Swal.fire('Tersimpan', 'Bobot kriteria berhasil diterapkan!', 'success'); 
-        if (typeof window.closeModal === 'function') window.closeModal('modalBobot'); 
+    if (res && res.ok) {
+        Swal.fire('Tersimpan', 'Bobot kriteria berhasil diterapkan!', 'success');
+        if (typeof window.closeModal === 'function') window.closeModal('modalBobot');
     }
 };
 
@@ -185,68 +297,5 @@ window.syncBPS = async function () {
     if (res && res.ok) {
         Swal.fire('Selesai', 'Data warga berhasil diselaraskan dengan basis data BPS DTSEN Sidoarjo!', 'success');
         if (typeof window.loadDashboardData === 'function') window.loadDashboardData();
-    }
-};
-
-window.bukaModalKomparasi = async function () {
-    const modal = document.getElementById('modalKomparasi');
-    const tbody = document.querySelector('#tblKomparasi tbody');
-    if (modal) modal.style.display = 'flex';
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">Memproses komparasi preferensi SAW vs WP...</td></tr>';
-    
-    try {
-        const res = await window.fetchData('/komparasi');
-        const data = await res.json();
-        window.lastKomparasiResult = Array.isArray(data) ? data : [];
-
-        if (tbody) tbody.innerHTML = '';
-        const labels = [], sawScores = [], wpScores = [];
-
-        const maxWpRaw = Math.max(...window.lastKomparasiResult.map(d => parseFloat(d.wp_skor || 0))) || 1;
-        const maxSawRaw = Math.max(...window.lastKomparasiResult.map(d => parseFloat(d.saw_skor || 0))) || 1;
-
-        window.lastKomparasiResult.slice(0, 15).forEach((item) => {
-            labels.push(item.nama.split(' ')[0]);
-            const sVal = parseFloat(item.saw_skor || 0);
-            const wVal = parseFloat(item.wp_skor || 0);
-            sawScores.push(sVal);
-
-            const wScaled = (wVal < 0.1 && maxWpRaw > 0) ? (wVal / maxWpRaw * maxSawRaw) : wVal;
-            wpScores.push(parseFloat(wScaled.toFixed(4)));
-
-            if (tbody) {
-                tbody.innerHTML += `
-                    <tr>
-                        <td><b>${window.safeHtml(item.nama)}</b><br><small class="text-muted">NIK: ${item.nik || '-'}</small></td>
-                        <td style="text-align:center;"><span class="badge badge-green">#${item.saw_rank}</span></td>
-                        <td style="text-align:center; color:#15803d; font-weight:800; font-family:monospace;">${sVal.toFixed(4)}</td>
-                        <td style="text-align:center;"><span class="badge badge-blue">#${item.wp_rank}</span></td>
-                        <td style="text-align:center; color:#0369a1; font-weight:800; font-family:monospace;">${wVal.toFixed(4)}</td>
-                    </tr>
-                `;
-            }
-        });
-
-        const ctx = document.getElementById('compChart');
-        if (ctx) {
-            if (window.compChart) window.compChart.destroy();
-            window.compChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Skor SAW', data: sawScores, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.3, fill: true },
-                        { label: 'Skor WP (Validasi)', data: wpScores, borderColor: '#0284c7', backgroundColor: 'rgba(2, 132, 199, 0.1)', tension: 0.3, borderDash: [5, 5], fill: true }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: false } }
-                }
-            });
-        }
-    } catch (e) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#dc2626;">Gagal memuat data komparasi.</td></tr>';
     }
 };
