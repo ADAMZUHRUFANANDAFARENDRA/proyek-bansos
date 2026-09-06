@@ -1587,24 +1587,32 @@
     <audio id="ringtoneAudio" src="https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg" loop style="display:none;"></audio>
 
     <!-- =====================================================================
-         SCRIPTS LIBRARIES EKSTERNAL
+         SCRIPTS & MODUL SISTEM
          ===================================================================== -->
-    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- 1. Pustaka Pihak Ketiga -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.scaleflex.it/plugins/filerobot-image-editor/3.12.17/filerobot-image-editor.min.js"></script>
 
-    <!-- =====================================================================
-         SCRIPTS APLIKASI KITA
-         ===================================================================== -->
-    <script src="static/js/global.js?v=12.0"></script>
-    <script src="static/js/admin.js?v=12.0"></script>
+    <!-- 2. Core (State & Jaringan) -->
+    <script src="static/js/core/state.js"></script>
+    <script src="static/js/core/api.js"></script>
+
+    <!-- 3. Modul Fitur Mandiri -->
+    <script src="static/js/modules/admin-map.js"></script>
+    <script src="static/js/modules/admin-spk.js"></script>
+    <script src="static/js/modules/admin-print.js"></script>
+    <script src="static/js/modules/admin-chat.js"></script>
+
+    <!-- 4. Orchestrator Utama -->
+    <script src="static/js/admin.js"></script>
 </body>
 </html>
