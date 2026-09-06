@@ -1,6 +1,31 @@
-Flask==2.3.2
-Flask-SQLAlchemy==3.0.3
+# =========================================================================
+# REQUIREMENTS.TXT - DEPENDENSI BACKEND SPK BANSOS SIDOARJO
+# Lokasi: backend/requirements.txt
+# =========================================================================
+
+# 1. Framework Inti & WSGI Server
+Flask==3.0.2
+Werkzeug==3.0.1
+gunicorn==21.2.0
+
+# 2. Database ORM & MySQL Drivers
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.28
+mysql-connector-python==8.3.0
+PyMySQL==1.1.0
+cryptography==42.0.5
+
+# 3. Autentikasi, Enkripsi & Keamanan
 Flask-Bcrypt==1.0.1
-Flask-CORS==3.0.10
-mysql-connector-python==8.0.33
-Werkzeug==2.3.6
+bcrypt==4.1.2
+PyJWT==2.8.0
+
+# 4. Middleware & Environment Configuration
+Flask-Cors==4.0.0
+python-dotenv==1.0.1
+
+# 5. Komputasi SPK & Pengolahan Berkas Data
+numpy==1.26.4
+pandas==2.2.1
+openpyxl==3.1.2
+requests==2.31.0

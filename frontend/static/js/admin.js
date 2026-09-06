@@ -1,9 +1,10 @@
 /* =========================================================================
    ADMIN.JS - MODUL ORCHESTRATOR UTAMA SISTEM BANSOS KABUPATEN SIDOARJO
    PENGELOLA: AUTHENTICATION, STATE BUS, OCR KTP, DUKCAPIL, CRUD & DATATABLES
+   Lokasi: frontend/static/js/admin.js
    ========================================================================= */
 
-// Injeksi Style Antarmuka Dasbor & DataTables
+// Injeksi Style Antarmuka Dasbor & DataTables secara Dinamis
 const dtStyle = document.createElement('style');
 dtStyle.innerHTML = `
     .dataTables_length { margin-bottom: 15px; margin-top: 5px; font-weight: 600; color: var(--text-muted, #64748b); }
@@ -19,9 +20,14 @@ dtStyle.innerHTML = `
 `;
 document.head.appendChild(dtStyle);
 
+// =========================================================================
 // 1. STATE & KONFIGURASI GLOBAL
-const API_URL = (typeof window.API_BASE_URL !== 'undefined') ? window.API_BASE_URL : 'http://127.0.0.1:5000';
-const MAP_CENTER_SIDOARJO = [-7.4478, 112.7183];
+// =========================================================================
+const BASE_URL = (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
+    ? window.CONFIG.BASE_URL.replace(/\/+$/, '')
+    : ((typeof window.API_BASE_URL !== 'undefined') ? window.API_BASE_URL.replace(/\/+$/, '') : 'http://127.0.0.1:5000');
+
+const MAP_CENTER_SIDOARJO = (window.CONFIG?.MAP?.DEFAULT_CENTER) || [-7.4478, 112.7183];
 
 window.globalDataWarga = [];
 let globalDataWarga = [];
@@ -32,60 +38,96 @@ window.sortAzAsc = false;
 window.selectedTanggalDaftar = '';
 
 let dtTable = null;
-let chartDesilObj = null, chartPersetujuanObj = null, chartPenyaluranObj = null, chartSengketaObj = null;
-let formMap = null, formMarker = null;
+let chartDesilObj = null;
+let chartPersetujuanObj = null;
+let chartPenyaluranObj = null;
+let chartSengketaObj = null;
+let formMap = null;
+let formMarker = null;
 
 let user = null;
 try {
-    user = JSON.parse(localStorage.getItem('user') || localStorage.getItem('bansosUser'));
-} catch (e) { }
+    user = (window.Auth && typeof window.Auth.getUser === 'function')
+        ? window.Auth.getUser()
+        : JSON.parse(localStorage.getItem('user') || localStorage.getItem('bansosUser') || 'null');
+} catch (e) {
+    user = null;
+}
 
 // =========================================================================
-// 2. INTEGRASI EVENT BUS (STATE SYNC)
+// 2. HELPER UTILITY & STATE BUS SYNC
 // =========================================================================
+window.safeHtml = function (str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+};
+
+window.escapeInlineJS = function (str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '&quot;')
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '');
+};
+
+function showAdminAlert(options) {
+    if (typeof Swal !== 'undefined') {
+        return Swal.fire(options);
+    }
+    alert(options.text || options.title || 'Pemberitahuan');
+    return Promise.resolve({ isConfirmed: true, value: true });
+}
+
+// Sinkronisasi Event Bus jika arsitektur event termuat
 if (window.BansosApp && window.BansosApp.Events) {
-    // Sinkronisasi pembaruan peta saat data warga dimutakhirkan
     window.BansosApp.Events.on('warga:updated', function (dataWarga) {
         if (window.macroMap && typeof window.renderChoroplethKerentanan === 'function') {
             window.renderChoroplethKerentanan();
         }
     });
 
-    // Respons terhadap kalkulasi SPK
     window.BansosApp.Events.on('spk:computed', function (hasilSpk) {
-        console.log('[SPK Event] Hasil perhitungan SPK diterima oleh Orchestrator.');
+        console.log('[SPK Event] Pembaruan kalkulasi SPK diterima oleh orchestrator dasbor.');
     });
 }
 
-// Helper String Sanitization
-window.safeHtml = function (str) {
-    if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-};
-
-window.escapeInlineJS = function (str) {
-    if (!str) return '';
-    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n').replace(/\r/g, '');
-};
-
 // =========================================================================
-// 3. LIFECYCLE DOM & INISIALISASI
+// 3. LIFECYCLE DOM & INITIALIZATION
 // =========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
-    const token = (window.BansosApp && window.BansosApp.API) ? window.BansosApp.API.getToken() : window.getCleanToken();
-    if (!token) {
-        window.location.href = 'login.html';
-        return;
+    // Verifikasi sesi autentikasi (Wajib login untuk role admin & operator/petugas)
+    if (window.Auth && typeof window.Auth.requireAuth === 'function') {
+        if (!window.Auth.requireAuth(['admin', 'operator', 'petugas'])) return;
+    } else {
+        const token = (window.BansosApp && window.BansosApp.API) ? window.BansosApp.API.getToken() : window.getCleanToken();
+        if (!token) {
+            window.location.href = 'login.html';
+            return;
+        }
     }
 
-    if (user) {
-        const nameEl = document.getElementById('navUsername');
-        const roleEl = document.getElementById('navRoleBadge');
+    // Perbarui identitas user aktif dan panel kendali administrator
+    const currentUser = (window.Auth && typeof window.Auth.getUser === 'function') ? window.Auth.getUser() : user;
+    const currentRole = ((window.Auth && typeof window.Auth.getRole === 'function') ? window.Auth.getRole() : currentUser?.role || 'operator').toLowerCase();
+
+    if (currentUser) {
+        const nameEl = document.getElementById('navUsername') || document.getElementById('userProfileLabel');
+        const roleEl = document.getElementById('navRoleBadge') || document.getElementById('userRoleBadge');
         const cmdEl = document.getElementById('adminCommandCenter');
 
-        if (nameEl) nameEl.innerText = user.nama_lengkap || user.username || 'ADMIN';
+        if (nameEl) {
+            nameEl.innerText = (currentUser.nama_lengkap || currentUser.username || 'PETUGAS').toUpperCase();
+        }
+
         if (roleEl) {
-            if (user.role === 'admin' || user.username === 'admin') {
+            if (currentRole === 'admin') {
                 roleEl.className = 'role-badge role-admin';
                 roleEl.innerHTML = '<i class="fas fa-crown"></i> Super Admin';
                 if (cmdEl) cmdEl.style.display = 'block';
@@ -97,10 +139,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Memuat data dasbor utama
+    // Memuat seluruh dataset dan statistik dasbor
     await window.loadDashboardData();
 
-    // Inisialisasi peta setelah DOM stabil
+    // Inisialisasi Map Picker Form & Makro Spasial Wilayah Sidoarjo
     setTimeout(() => {
         window.initFormMapPicker();
         if (typeof window.initMacroDistributionMap === 'function') {
@@ -108,10 +150,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }, 350);
 
-    // Inisialisasi Notifikasi & Panggilan WebRTC
+    // Inisialisasi Notifikasi & WebRTC
     window.setupNotificationSystemModern();
     window.fetchNotifikasiRealtime();
-    setInterval(window.fetchNotifikasiRealtime, 8000);
+    setInterval(window.fetchNotifikasiRealtime, 10000);
 
     if (typeof window.initPeerCall === 'function') {
         window.initPeerCall();
@@ -119,14 +161,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // =========================================================================
-// 4. MEMUAT DATA DASHBOARD & DISTRIBUSI STATE
+// 4. MEMUAT DATA DASHBOARD & KALKULASI STATISTIK
 // =========================================================================
 window.loadDashboardData = async function (showToast = false) {
     try {
-        const res = await window.fetchData(`/warga?_t=${Date.now()}`);
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth(`/warga?_t=${Date.now()}`) : window.fetchData(`/warga?_t=${Date.now()}`));
         if (!res || !res.ok) return;
-        let data = await res.json();
-        if (!Array.isArray(data)) data = [];
+
+        const resData = await res.json();
+        let data = Array.isArray(resData) ? resData : (resData.data || []);
 
         // Sinkronisasi data ke State Manager Terpusat
         if (window.BansosApp && window.BansosApp.State) {
@@ -144,7 +187,7 @@ window.loadDashboardData = async function (showToast = false) {
         const sengketa = data.filter(w => String(w.status_salur).includes('Sengketa')).length;
         const bebasSengketa = total - sengketa;
 
-        // Pembaruan elemen statistik kartu
+        // Pembaruan Kartu Metrik Statistik
         const statTotal = document.getElementById('statTotal');
         if (statTotal) statTotal.innerText = total;
 
@@ -171,7 +214,14 @@ window.loadDashboardData = async function (showToast = false) {
         window.filterAndRenderData();
 
         if (showToast) {
-            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Data arsip diperbarui!', showConfirmButton: false, timer: 1500 });
+            showAdminAlert({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Data arsip diperbarui!',
+                showConfirmButton: false,
+                timer: 1500
+            });
         }
     } catch (err) {
         console.error('[Load Error] Gagal memuat data warga:', err);
@@ -179,20 +229,29 @@ window.loadDashboardData = async function (showToast = false) {
 };
 
 // =========================================================================
-// 5. OCR SCAN KTP & VALIDASI DUKCAPIL SIDOARJO
+// 5. OCR SCAN KTP (AI TESSERACT) & VALIDASI DUKCAPIL
 // =========================================================================
 window.processOCR = async function (input) {
     if (!input.files || !input.files[0]) return;
-    Swal.fire({
+
+    if (typeof Tesseract === 'undefined') {
+        return showAdminAlert({
+            icon: 'error',
+            title: 'Pustaka OCR Belum Siap',
+            text: 'Modul Tesseract OCR belum termuat secara sempurna di peramban.'
+        });
+    }
+
+    showAdminAlert({
         title: 'Memindai KTP (AI OCR)...',
         html: 'Membaca NIK, Nama Lengkap, Tanggal Lahir, dan Alamat...',
         allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
+        didOpen: () => Swal?.showLoading()
     });
 
     try {
         const res = await Tesseract.recognize(input.files[0], 'ind');
-        Swal.close();
+        Swal?.close();
         const text = res.data.text || '';
 
         const nikMatch = text.match(/\b\d{16}\b/);
@@ -220,7 +279,7 @@ window.processOCR = async function (input) {
         if (/LAKI|LAKI-LAKI/i.test(text) && document.getElementById('c4')) document.getElementById('c4').value = "1";
         if (/PEREMPUAN/i.test(text) && document.getElementById('c4')) document.getElementById('c4').value = "2";
 
-        Swal.fire({
+        showAdminAlert({
             icon: 'success',
             title: 'Scan KTP Berhasil!',
             text: 'Data identitas berhasil diisi otomatis ke dalam formulir pendataan.',
@@ -228,7 +287,7 @@ window.processOCR = async function (input) {
             showConfirmButton: false
         });
     } catch (e) {
-        Swal.fire('Gagal Scan', 'Tidak dapat mengenali teks pada berkas KTP.', 'error');
+        showAdminAlert({ icon: 'error', title: 'Gagal Scan', text: 'Tidak dapat mengenali teks pada berkas KTP.' });
     }
 };
 
@@ -237,17 +296,17 @@ window.cekDukcapilLokal = async function () {
     const nik = nikInput ? nikInput.value.trim() : '';
 
     if (!nik || nik.length !== 16 || !/^\d+$/.test(nik)) {
-        return Swal.fire('Peringatan', 'Masukkan tepat 16 digit angka NIK.', 'warning');
+        return showAdminAlert({ icon: 'warning', title: 'Peringatan', text: 'Masukkan tepat 16 digit angka NIK.' });
     }
 
-    Swal.fire({ title: 'Memeriksa Data Dukcapil...', didOpen: () => Swal.showLoading() });
+    showAdminAlert({ title: 'Memeriksa Data Dukcapil...', didOpen: () => Swal?.showLoading() });
 
     try {
-        const res = await window.fetchData(`/api/dukcapil/${nik}`);
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth(`/api/dukcapil/${nik}`) : window.fetchData(`/api/dukcapil/${nik}`));
         const json = await res.json();
-        Swal.close();
+        Swal?.close();
 
-        if (res.ok && json.status === 'success') {
+        if (res && res.ok && json.status === 'success') {
             const d = json.data;
             if (document.getElementById('nama')) document.getElementById('nama').value = d.nama;
             if (document.getElementById('tempatLahir')) document.getElementById('tempatLahir').value = d.tempat_lahir;
@@ -255,26 +314,26 @@ window.cekDukcapilLokal = async function () {
             if (document.getElementById('alamat')) document.getElementById('alamat').value = d.alamat;
             if (document.getElementById('c4')) document.getElementById('c4').value = d.jenis_kelamin === 'Perempuan' ? '2' : '1';
 
-            Swal.fire({
+            showAdminAlert({
                 icon: 'success',
                 title: 'Data Dukcapil Ditemukan!',
                 html: `<b>Nama:</b> ${d.nama}<br><b>TTL:</b> ${d.tempat_lahir}, ${d.tanggal_lahir}<br><b>Alamat:</b> ${d.alamat}`,
                 confirmButtonColor: '#10b981'
             });
         } else {
-            Swal.fire('Gagal', 'Data NIK tidak ditemukan di basis data Dukcapil Sidoarjo.', 'error');
+            showAdminAlert({ icon: 'error', title: 'Gagal', text: 'Data NIK tidak ditemukan di basis data Dukcapil Sidoarjo.' });
         }
     } catch (err) {
-        Swal.fire('Error', 'Gagal menghubungi server Dukcapil.', 'error');
+        showAdminAlert({ icon: 'error', title: 'Error', text: 'Gagal menghubungi peladen Dukcapil.' });
     }
 };
 
 // =========================================================================
-// 6. GEOTAGGING FORM PENDAFTARAN (PICKER PETA)
+// 6. GEOTAGGING FORM PENDAFTARAN (PICKER PETA LEAFLET)
 // =========================================================================
 window.initFormMapPicker = function () {
     const mapBox = document.getElementById('formCoordMap');
-    if (!mapBox || formMap) return;
+    if (!mapBox || formMap || typeof L === 'undefined') return;
 
     formMap = L.map('formCoordMap', { attributionControl: false }).setView(MAP_CENTER_SIDOARJO, 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(formMap);
@@ -309,7 +368,7 @@ window.updateLocationAndAddress = async function (lat, lng) {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
         if (res.ok) {
             const data = await res.json();
-            if (data && data.display_name && alamatEl) {
+            if (data && data.display_name && alamatEl && (!alamatEl.value || alamatEl.value === 'Sidoarjo')) {
                 alamatEl.value = data.display_name;
             }
         }
@@ -328,18 +387,20 @@ window.ambilLokasiGPS = function () {
                 }
                 window.updateLocationAndAddress(lat, lng);
             },
-            () => Swal.fire('GPS Gagal', 'Mohon izinkan akses lokasi di peramban Anda.', 'error')
+            () => showAdminAlert({ icon: 'error', title: 'GPS Gagal', text: 'Mohon izinkan akses lokasi pada peramban Anda.' })
         );
     }
 };
 
 // =========================================================================
-// 7. GRAFIK STATISTIK DASBOR
+// 7. GRAFIK STATISTIK DASBOR (CHART.JS)
 // =========================================================================
 window.render3DashboardCharts = function (data) {
+    if (typeof Chart === 'undefined') return;
     if (!Array.isArray(data)) data = [];
     const total = data.length;
 
+    // Grafik Desil 1 - 10
     const ctxDesil = document.getElementById('chartDesil10');
     if (ctxDesil) {
         const desilCounts = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -368,6 +429,7 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
+    // Grafik Persetujuan (Valid vs Menunggu)
     const ctxValid = document.getElementById('chartPersetujuan');
     if (ctxValid) {
         const disetujui = data.filter(w => w.is_verified).length;
@@ -393,6 +455,7 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
+    // Grafik Status Distribusi Penyaluran
     const ctxSalur = document.getElementById('chartPenyaluran');
     if (ctxSalur) {
         const telahMenerima = data.filter(w => w.status_salur === 'Telah Menerima').length;
@@ -418,6 +481,7 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
+    // Grafik Pemantauan Sengketa Lapangan
     const ctxSengketa = document.getElementById('chartSengketa');
     if (ctxSengketa) {
         const kasusSengketa = data.filter(w => String(w.status_salur).includes('Sengketa')).length;
@@ -445,10 +509,14 @@ window.render3DashboardCharts = function (data) {
 };
 
 // =========================================================================
-// 8. CRUD DATA WARGA & FILTER/SORTING
+// 8. CRUD DATA WARGA, FILTERING & SORTING
 // =========================================================================
 window.tambahData = async function (e) {
-    if (e) e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
+
+    const formEl = document.getElementById('bansosForm');
+    const formData = new FormData(formEl);
+
     const payload = {
         nama: document.getElementById('nama')?.value.trim(),
         nik: document.getElementById('nik')?.value.trim(),
@@ -472,21 +540,32 @@ window.tambahData = async function (e) {
         catatan: document.getElementById('catatan')?.value.trim() || ''
     };
 
-    if (!payload.nik || !payload.nama) return Swal.fire('Peringatan', 'NIK dan Nama Lengkap wajib diisi.', 'warning');
-    Swal.fire({ title: 'Menyimpan Data...', didOpen: () => Swal.showLoading() });
+    if (!payload.nik || !payload.nama) {
+        return showAdminAlert({ icon: 'warning', title: 'Peringatan', text: 'NIK dan Nama Lengkap wajib diisi.' });
+    }
+
+    showAdminAlert({ title: 'Menyimpan Data...', allowOutsideClick: false, didOpen: () => Swal?.showLoading() });
 
     try {
-        const res = await window.fetchData('/warga', { method: 'POST', body: JSON.stringify(payload) });
+        const fotoInput = document.getElementById('fotoRumah') || document.getElementById('fotoKtp');
+        let res;
+
+        if (fotoInput && fotoInput.files && fotoInput.files[0]) {
+            res = await (window.fetchWithAuth ? window.fetchWithAuth('/warga', { method: 'POST', body: formData }) : window.fetchData('/warga', { method: 'POST', body: formData }));
+        } else {
+            res = await (window.fetchWithAuth ? window.fetchWithAuth('/warga', { method: 'POST', body: payload }) : window.fetchData('/warga', { method: 'POST', body: JSON.stringify(payload) }));
+        }
+
         const json = await res.json();
         if (res && res.ok) {
-            Swal.fire('Berhasil', json.message || 'Data warga berhasil disimpan!', 'success');
-            document.getElementById('bansosForm')?.reset();
+            showAdminAlert({ icon: 'success', title: 'Berhasil', text: json.message || 'Data warga berhasil disimpan!' });
+            formEl?.reset();
             window.loadDashboardData();
         } else {
-            Swal.fire('Gagal', json.message || 'Gagal menyimpan data.', 'error');
+            showAdminAlert({ icon: 'error', title: 'Gagal', text: json.message || 'Gagal menyimpan data.' });
         }
     } catch (err) {
-        Swal.fire('Error', 'Kendala koneksi ke server.', 'error');
+        showAdminAlert({ icon: 'error', title: 'Error', text: 'Kendala komunikasi ke peladen backend.' });
     }
 };
 
@@ -571,11 +650,11 @@ window.filterAndRenderData = function () {
 };
 
 // =========================================================================
-// 9. RENDER DATATABLES
+// 9. RENDER DATATABLES TERINTEGRASI
 // =========================================================================
 window.renderTable = function (data) {
     if (!Array.isArray(data)) data = [];
-    if ($.fn.DataTable.isDataTable('#dataTable')) {
+    if (typeof $ !== 'undefined' && $.fn.DataTable && $.fn.DataTable.isDataTable('#dataTable')) {
         $('#dataTable').DataTable().clear().destroy();
     }
     const tbody = document.querySelector('#dataTable tbody');
@@ -613,7 +692,8 @@ window.renderTable = function (data) {
             ? `<button onclick="window.bukaUploadBuktiSalur(${w.id}, '${window.escapeInlineJS(w.nama)}', '${w.bukti_salur || ''}')" class="btn btn-sm" style="padding:5px 8px; background:#dcfce7; color:#15803d; border-radius:6px; margin-right:3px;" title="Unggah Bukti Penyaluran"><i class="fas fa-camera"></i></button>`
             : '';
 
-        const btnDelete = (user && (user.role === 'admin' || user.username === 'admin'))
+        const currentRole = ((window.Auth && typeof window.Auth.getRole === 'function') ? window.Auth.getRole() : user?.role || 'operator').toLowerCase();
+        const btnDelete = currentRole === 'admin'
             ? `<button onclick="window.hapusData(${w.id})" class="btn" style="padding:5px 8px; background:#ef4444; color:white; font-size:0.8rem; border-radius:6px;" title="Hapus Data"><i class="fas fa-trash"></i></button>`
             : '';
 
@@ -646,82 +726,85 @@ window.renderTable = function (data) {
     });
 
     tbody.innerHTML = html;
-    
-    dtTable = $('#dataTable').DataTable({
-        pageLength: 10,
-        responsive: true,
-        order: [],
-        language: {
-            search: "Cari NIK/Nama:",
-            lengthMenu: "_MENU_ baris",
-            info: "Menampilkan _START_ s.d. _END_ dari _TOTAL_ warga",
-            paginate: { next: "→", previous: "←" }
-        }
-    });
+
+    if (typeof $ !== 'undefined' && $.fn.DataTable) {
+        dtTable = $('#dataTable').DataTable({
+            pageLength: 10,
+            responsive: true,
+            order: [],
+            language: {
+                search: "Cari NIK/Nama:",
+                lengthMenu: "_MENU_ baris",
+                info: "Menampilkan _START_ s.d. _END_ dari _TOTAL_ warga",
+                paginate: { next: "→", previous: "←" }
+            }
+        });
+    }
 };
 
 // =========================================================================
 // 10. AKSI PERSETUJUAN & PEMBATALAN MASSAL
 // =========================================================================
 window.verifyAllData = async function (e) {
-    if (e) e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     const checkedBoxes = Array.from(document.querySelectorAll('.row-checkbox:checked'))
         .map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
     const payload = checkedBoxes.length > 0 ? { ids: checkedBoxes } : {};
 
-    Swal.fire({ title: 'Memproses Persetujuan...', didOpen: () => Swal.showLoading() });
+    showAdminAlert({ title: 'Memproses Persetujuan...', didOpen: () => Swal?.showLoading() });
     try {
-        const res = await window.fetchData('/warga/bulk/verify', { method: 'POST', body: JSON.stringify(payload) });
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/warga/bulk/verify', { method: 'POST', body: payload }) : window.fetchData('/warga/bulk/verify', { method: 'POST', body: JSON.stringify(payload) }));
         if (res && res.ok) {
-            Swal.fire('Sukses', 'Data warga berhasil disetujui.', 'success');
+            showAdminAlert({ icon: 'success', title: 'Sukses', text: 'Data warga berhasil disetujui sebagai penerima bansos.' });
             await window.loadDashboardData();
         }
     } catch (err) {
-        Swal.fire('Error', 'Gagal memproses persetujuan.', 'error');
+        showAdminAlert({ icon: 'error', title: 'Error', text: 'Gagal memproses persetujuan massal.' });
     }
 };
 
 window.unverifyAllData = async function (e) {
-    if (e) e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     const checkedBoxes = Array.from(document.querySelectorAll('.row-checkbox:checked'))
         .map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
     const payload = checkedBoxes.length > 0 ? { ids: checkedBoxes } : {};
 
-    Swal.fire({ title: 'Membatalkan Persetujuan...', didOpen: () => Swal.showLoading() });
+    showAdminAlert({ title: 'Membatalkan Persetujuan...', didOpen: () => Swal?.showLoading() });
     try {
-        const res = await window.fetchData('/warga/bulk/unverify', { method: 'POST', body: JSON.stringify(payload) });
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/warga/bulk/unverify', { method: 'POST', body: payload }) : window.fetchData('/warga/bulk/unverify', { method: 'POST', body: JSON.stringify(payload) }));
         if (res && res.ok) {
-            Swal.fire('Sukses', 'Persetujuan data warga berhasil dibatalkan.', 'success');
+            showAdminAlert({ icon: 'success', title: 'Sukses', text: 'Persetujuan data warga berhasil dibatalkan.' });
             await window.loadDashboardData();
         }
     } catch (err) {
-        Swal.fire('Error', 'Gagal membatalkan persetujuan.', 'error');
+        showAdminAlert({ icon: 'error', title: 'Error', text: 'Gagal membatalkan persetujuan massal.' });
     }
 };
 
 window.toggleVerifySingle = async function (id, namaWarga) {
-    const res = await window.fetchData(`/warga/${id}/verify`, { method: 'PATCH' });
+    const res = await (window.fetchWithAuth ? window.fetchWithAuth(`/warga/${id}/verify`, { method: 'PATCH' }) : window.fetchData(`/warga/${id}/verify`, { method: 'PATCH' }));
     if (res && res.ok) {
         window.loadDashboardData();
     }
 };
 
 // =========================================================================
-// 11. MODAL EDIT, HAPUS, & BUKTI SALUR
+// 11. MODAL EDIT, HAPUS, & PENANGANAN BUKTI SALUR / SENGKETA
 // =========================================================================
 window.bukaModalEdit = function (id) {
     const dataList = (window.BansosApp && window.BansosApp.State) ? window.BansosApp.State.wargaList : window.globalDataWarga;
     const w = dataList.find(item => item.id === id);
     if (!w) return;
-    document.getElementById('editId').value = w.id;
-    document.getElementById('editNama').value = w.nama || '';
-    document.getElementById('editNik').value = w.nik || '';
+
+    if (document.getElementById('editId')) document.getElementById('editId').value = w.id;
+    if (document.getElementById('editNama')) document.getElementById('editNama').value = w.nama || '';
+    if (document.getElementById('editNik')) document.getElementById('editNik').value = w.nik || '';
     if (document.getElementById('editNoHp')) document.getElementById('editNoHp').value = w.no_hp || '';
     if (document.getElementById('editEmail')) document.getElementById('editEmail').value = w.email || '';
-    document.getElementById('editTempatLahir').value = w.tempat_lahir || '';
-    document.getElementById('editTglLahir').value = w.tanggal_lahir || '';
-    document.getElementById('editAlamat').value = w.alamat || '';
-    
+    if (document.getElementById('editTempatLahir')) document.getElementById('editTempatLahir').value = w.tempat_lahir || '';
+    if (document.getElementById('editTglLahir')) document.getElementById('editTglLahir').value = w.tanggal_lahir || '';
+    if (document.getElementById('editAlamat')) document.getElementById('editAlamat').value = w.alamat || '';
+
     if (document.getElementById('editC1')) document.getElementById('editC1').value = w.c1_ekonomi || 0;
     if (document.getElementById('editC2')) document.getElementById('editC2').value = w.c2_aset || 0;
     if (document.getElementById('editC3')) document.getElementById('editC3').value = w.c3_umur || 0;
@@ -738,7 +821,7 @@ window.bukaModalEdit = function (id) {
 };
 
 window.simpanEdit = async function (e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     const id = document.getElementById('editId').value;
     const payload = {
         nama: document.getElementById('editNama').value.trim(),
@@ -759,34 +842,42 @@ window.simpanEdit = async function (e) {
         c9: parseInt(document.getElementById('editC9')?.value || 1),
         c10: parseInt(document.getElementById('editC10')?.value || 1)
     };
-    const res = await window.fetchData(`/warga/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+
+    const res = await (window.fetchWithAuth ? window.fetchWithAuth(`/warga/${id}`, { method: 'PUT', body: payload }) : window.fetchData(`/warga/${id}`, { method: 'PUT', body: JSON.stringify(payload) }));
     if (res && res.ok) {
-        Swal.fire('Berhasil', 'Data warga berhasil diperbarui.', 'success');
+        showAdminAlert({ icon: 'success', title: 'Berhasil', text: 'Data warga berhasil diperbarui.' });
         window.closeModal('modalEdit');
         window.loadDashboardData();
     }
 };
 
 window.hapusData = async function (id) {
-    if (confirm('Hapus data warga ini?')) {
-        await window.fetchData(`/warga/${id}`, { method: 'DELETE' });
+    const konfirmasi = confirm('Apakah Anda yakin ingin menghapus data warga ini?');
+    if (konfirmasi) {
+        await (window.fetchWithAuth ? window.fetchWithAuth(`/warga/${id}`, { method: 'DELETE' }) : window.fetchData(`/warga/${id}`, { method: 'DELETE' }));
         window.loadDashboardData();
     }
 };
 
 window.bukaUploadBuktiSalur = function (id, namaWarga, existingPhoto) {
     let previewHtml = existingPhoto 
-        ? `<div style="margin-bottom:15px;"><img src="${API_URL}/uploads/${existingPhoto}" style="max-width:100%; max-height:200px; border-radius:10px;" /></div>` 
-        : `<p style="font-size:0.85rem; color:#64748b;">Belum ada dokumentasi serah terima.</p>`;
+        ? `<div style="margin-bottom:15px;"><img src="${BASE_URL}/uploads/${existingPhoto}" style="max-width:100%; max-height:200px; border-radius:10px;" /></div>` 
+        : `<p style="font-size:0.85rem; color:#64748b;">Belum ada dokumentasi serah terima bansos.</p>`;
 
-    Swal.fire({
+    showAdminAlert({
         title: `Bukti Penyaluran Bansos`,
-        html: `<div style="text-align:left; font-size:0.9rem;"><b>Penerima:</b> ${window.safeHtml(namaWarga)}<br>${previewHtml}<label style="font-weight:700; display:block; margin:10px 0 5px 0;">Pilih / Ambil Foto Dokumentasi:</label><input type="file" id="swalFileBukti" accept="image/*" class="form-input" style="padding:8px;" /></div>`,
-        showCancelButton: true, confirmButtonText: 'Simpan Foto', confirmButtonColor: '#10b981',
+        html: `<div style="text-align:left; font-size:0.9rem;">
+            <b>Penerima:</b> ${window.safeHtml(namaWarga)}<br>${previewHtml}
+            <label style="font-weight:700; display:block; margin:10px 0 5px 0;">Pilih / Ambil Foto Dokumentasi:</label>
+            <input type="file" id="swalFileBukti" accept="image/*" class="form-input" style="padding:8px;" />
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Simpan Foto',
+        confirmButtonColor: '#10b981',
         preConfirm: () => {
             const fileInp = document.getElementById('swalFileBukti');
             if (!fileInp.files || !fileInp.files[0]) {
-                if (!existingPhoto) Swal.showValidationMessage('Pilih berkas foto terlebih dahulu!');
+                if (!existingPhoto) Swal?.showValidationMessage('Pilih berkas foto terlebih dahulu!');
                 return null;
             }
             return fileInp.files[0];
@@ -795,27 +886,64 @@ window.bukaUploadBuktiSalur = function (id, namaWarga, existingPhoto) {
         if (result.isConfirmed && result.value) {
             const formData = new FormData();
             formData.append('file', result.value);
-            const res = await window.fetchData(`/warga/${id}/bukti-salur`, { method: 'POST', body: formData });
+            const res = await (window.fetchWithAuth ? window.fetchWithAuth(`/warga/${id}/bukti-salur`, { method: 'POST', body: formData }) : window.fetchData(`/warga/${id}/bukti-salur`, { method: 'POST', body: formData }));
             if (res && res.ok) {
-                Swal.fire('Tersimpan', 'Foto bukti penyaluran berhasil disimpan!', 'success');
+                showAdminAlert({ icon: 'success', title: 'Tersimpan', text: 'Foto bukti penyaluran berhasil diunggah!' });
                 window.loadDashboardData();
             }
         }
     });
 };
 
+window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
+    showAdminAlert({
+        title: '<i class="fas fa-shield-alt text-danger"></i> Mediasi Sengketa Bansos',
+        html: `<div style="text-align:left; font-size:0.9rem; line-height:1.6;">
+            <b>Warga:</b> ${window.safeHtml(namaWarga)} (NIK: ${nik})<br>
+            Pilih tindakan penanganan terhadap status verifikasi/penyaluran warga ini:
+        </div>`,
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonText: '<i class="fas fa-check-circle"></i> Selesaikan Sengketa',
+        denyButtonText: '<i class="fas fa-search"></i> Investigasi Lapangan',
+        cancelButtonText: 'Tutup',
+        confirmButtonColor: '#10b981',
+        denyButtonColor: '#f59e0b'
+    }).then(async (result) => {
+        let aksi = null;
+        if (result.isConfirmed) aksi = 'selesai';
+        else if (result.isDenied) aksi = 'investigasi';
+
+        if (aksi) {
+            await (window.fetchWithAuth ? window.fetchWithAuth(`/warga/${id}/lapor-sengketa`, { method: 'POST', body: { aksi } }) : window.fetchData(`/warga/${id}/lapor-sengketa`, { method: 'POST', body: JSON.stringify({ aksi }) }));
+            window.loadDashboardData();
+        }
+    });
+};
+
 // =========================================================================
-// 12. EKSPOR / IMPOR EXCEL
+// 12. EKSPOR & IMPOR EXCEL (SHEETJS XLSX)
 // =========================================================================
 window.exportExcelLengkap = function () {
     const dataList = (window.BansosApp && window.BansosApp.State) ? window.BansosApp.State.wargaList : window.globalDataWarga;
-    if (!dataList || dataList.length === 0) return Swal.fire('Data Kosong', 'Tidak ada data warga untuk diekspor.', 'warning');
+    if (!dataList || dataList.length === 0) {
+        return showAdminAlert({ icon: 'warning', title: 'Data Kosong', text: 'Tidak ada data warga untuk diekspor.' });
+    }
+
+    if (typeof XLSX === 'undefined') {
+        return showAdminAlert({ icon: 'error', title: 'Pustaka Tidak Tersedia', text: 'Modul SheetJS (xlsx.full.min.js) belum termuat.' });
+    }
 
     const exportData = dataList.map((w, idx) => ({
-        'No': idx + 1, 'NIK': String(w.nik), 'Nama Lengkap': w.nama || '',
-        'No. WhatsApp / HP': w.no_hp || '', 'Email': w.email || '',
-        'Tempat Lahir': w.tempat_lahir || '', 'Tanggal Lahir': w.tanggal_lahir || '',
-        'Alamat Lengkap': w.alamat || '', 'Desil': w.desil || 5,
+        'No': idx + 1,
+        'NIK': String(w.nik),
+        'Nama Lengkap': w.nama || '',
+        'No. WhatsApp / HP': w.no_hp || '',
+        'Email': w.email || '',
+        'Tempat Lahir': w.tempat_lahir || '',
+        'Tanggal Lahir': w.tanggal_lahir || '',
+        'Alamat Lengkap': w.alamat || '',
+        'Desil': w.desil || 5,
         'Nominal Bantuan': w.nominal_bantuan || 'Rp 600.000',
         'Status Penyaluran': w.status_salur || 'Pending',
         'Status Validasi': w.is_verified ? 'Disetujui' : 'Menunggu'
@@ -838,24 +966,24 @@ window.smartImportPreview = function (input) {
             const workbook = XLSX.read(data, { type: 'array' });
             const rawJson = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
 
-            Swal.fire({ title: 'Mengimpor Data...', didOpen: () => Swal.showLoading() });
-            const res = await window.fetchData('/warga/bulk', { method: 'POST', body: JSON.stringify({ data: rawJson }) });
+            showAdminAlert({ title: 'Mengimpor Data...', didOpen: () => Swal?.showLoading() });
+            const res = await (window.fetchWithAuth ? window.fetchWithAuth('/warga/bulk', { method: 'POST', body: { data: rawJson } }) : window.fetchData('/warga/bulk', { method: 'POST', body: JSON.stringify({ data: rawJson }) }));
             input.value = '';
 
             if (res && res.ok) {
-                Swal.fire('Sukses', 'Data warga berhasil diimpor!', 'success');
+                showAdminAlert({ icon: 'success', title: 'Sukses', text: 'Data warga berhasil diselaraskan ke dalam basis data.' });
                 await window.loadDashboardData(true);
             }
         } catch (err) {
             input.value = '';
-            Swal.fire('Error', 'Gagal membaca berkas Excel.', 'error');
+            showAdminAlert({ icon: 'error', title: 'Error', text: 'Gagal memproses berkas Excel.' });
         }
     };
     reader.readAsArrayBuffer(file);
 };
 
 // =========================================================================
-// 13. KELOLA PENGGUNA & NOTIFIKASI
+// 13. KELOLA PENGGUNA (ADMIN ONLY) & NOTIFIKASI REAL-TIME
 // =========================================================================
 window.bukaModalPengguna = async function () {
     const modal = document.getElementById('modalPengguna');
@@ -866,19 +994,20 @@ window.bukaModalPengguna = async function () {
 window.loadTablePengguna = async function () {
     const tbody = document.getElementById('userTableBody');
     if (!tbody) return;
+
     try {
-        const res = await window.fetchData('/users');
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/users') : window.fetchData('/users'));
         const users = await res.json();
         tbody.innerHTML = '';
         users.forEach((u, idx) => {
             const btnDel = u.username !== 'admin'
-                ? `<button onclick="window.hapusUser(${u.id}, '${window.escapeInlineJS(u.username)}')" class="btn btn-sm" style="background:#fee2e2; color:#dc2626; border-radius:8px;"><i class="fas fa-trash"></i></button>`
+                ? `<button onclick="window.hapusUser(${u.id}, '${window.escapeInlineJS(u.username)}')" class="btn btn-sm" style="background:#fee2e2; color:#dc2626; border-radius:8px; padding:4px 8px;"><i class="fas fa-trash"></i></button>`
                 : '<span style="font-size:0.75rem; color:#64748b; font-weight:700;">Akun Utama</span>';
 
             tbody.innerHTML += `
                 <tr style="background:${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
                     <td style="font-weight:700; color:#64748b; text-align:center;">#${u.id}</td>
-                    <td><b style="color:#0f172a;">${window.safeHtml(u.username)}</b></td>
+                    <td><b style="color:#0f172a;">${window.safeHtml(u.username)}</b><br><small class="text-muted">${window.safeHtml(u.email || '-')}</small></td>
                     <td style="text-align:center;"><span class="badge badge-blue">${u.role}</span></td>
                     <td style="text-align:center;">${btnDel}</td>
                 </tr>
@@ -888,23 +1017,29 @@ window.loadTablePengguna = async function () {
 };
 
 window.simpanUser = async function (e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     const payload = {
         username: document.getElementById('manageUsername')?.value.trim(),
         password: document.getElementById('managePassword')?.value.trim(),
         role: document.getElementById('manageRole')?.value || 'operator'
     };
-    const res = await window.fetchData('/users', { method: 'POST', body: JSON.stringify(payload) });
+
+    if (!payload.username || !payload.password) {
+        return showAdminAlert({ icon: 'warning', title: 'Perhatian', text: 'Username dan password wajib diisi.' });
+    }
+
+    const res = await (window.fetchWithAuth ? window.fetchWithAuth('/users', { method: 'POST', body: payload }) : window.fetchData('/users', { method: 'POST', body: JSON.stringify(payload) }));
     if (res && res.ok) {
-        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Akun ditambahkan!', timer: 1500, showConfirmButton: false });
+        showAdminAlert({ toast: true, position: 'top-end', icon: 'success', title: 'Akun berhasil ditambahkan!', timer: 1500, showConfirmButton: false });
         document.getElementById('formUser')?.reset();
         window.loadTablePengguna();
     }
 };
 
 window.hapusUser = async function (id, username) {
-    if (confirm(`Hapus akun ${username}?`)) {
-        await window.fetchData(`/users/${id}`, { method: 'DELETE' });
+    const konfirmasi = confirm(`Hapus akun dinas "${username}"?`);
+    if (konfirmasi) {
+        await (window.fetchWithAuth ? window.fetchWithAuth(`/users/${id}`, { method: 'DELETE' }) : window.fetchData(`/users/${id}`, { method: 'DELETE' }));
         window.loadTablePengguna();
     }
 };
@@ -914,7 +1049,7 @@ window.setupNotificationSystemModern = function () {
     if (notifBtn) {
         notifBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            window.toggleNotifPanel(e);
+            window.toggleNotifPanel();
         });
     }
 };
@@ -929,33 +1064,35 @@ window.toggleNotifPanel = function () {
 
 window.fetchNotifikasiRealtime = async function () {
     try {
-        const res = await window.fetchData('/api/notifikasi');
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/api/notifikasi') : window.fetchData('/api/notifikasi'));
         if (!res || !res.ok) return;
         const notifs = await res.json();
         const listEl = document.getElementById('notifList');
         const badgeEl = document.getElementById('notifBadge');
 
-        const unreadCount = notifs.filter(n => !n.is_read).length;
+        const unreadCount = Array.isArray(notifs) ? notifs.filter(n => !n.is_read).length : 0;
         if (badgeEl) {
             badgeEl.innerText = unreadCount;
             badgeEl.style.display = unreadCount > 0 ? 'inline-block' : 'none';
         }
 
         if (!listEl) return;
-        listEl.innerHTML = notifs.length ? notifs.map(n => `
+        listEl.innerHTML = (Array.isArray(notifs) && notifs.length) ? notifs.map(n => `
             <div style="padding:12px 16px; border-bottom:1px solid #f1f5f9; background:${n.is_read ? '#fff' : '#f0fdf4'};">
                 <p style="margin:0; font-size:0.85rem; color:#1e293b;">${window.safeHtml(n.pesan)}</p>
                 <small style="color:#64748b; font-size:0.75rem;"><i class="fas fa-clock"></i> ${n.waktu}</small>
             </div>
-        `).join('') : '<div style="padding:20px; text-align:center; color:#94a3b8;">Tidak ada notifikasi.</div>';
+        `).join('') : '<div style="padding:20px; text-align:center; color:#94a3b8;">Tidak ada notifikasi baru.</div>';
     } catch (e) { }
 };
 
 // =========================================================================
-// 14. HELPER UMUM & AUTH
+// 14. HELPER MODAL & LOGOUT
 // =========================================================================
 window.toggleSelectAll = function (source) {
-    document.querySelectorAll('.row-checkbox').forEach(cb => { cb.checked = source.checked; });
+    document.querySelectorAll('.row-checkbox').forEach(cb => {
+        cb.checked = source.checked;
+    });
 };
 
 window.closeModal = function (modalId) {
@@ -964,6 +1101,31 @@ window.closeModal = function (modalId) {
 };
 
 window.logout = function () {
-    localStorage.clear();
-    window.location.href = 'login.html';
+    if (window.Auth && typeof window.Auth.clearSession === 'function') {
+        window.Auth.clearSession(true);
+    } else {
+        localStorage.clear();
+        window.location.href = 'login.html';
+    }
 };
+
+// Pasang delegasi event untuk tombol hitung SPK BWM-SAW (RBAC Admin)
+document.addEventListener('click', async (e) => {
+    const btnHitung = e.target.closest('#btnHitungSpk');
+    if (btnHitung) {
+        e.preventDefault();
+        showAdminAlert({ title: 'Menjalankan SPK BWM-SAW...', allowOutsideClick: false, didOpen: () => Swal?.showLoading() });
+        try {
+            const res = await (window.fetchWithAuth ? window.fetchWithAuth('/api/spk/hitung', { method: 'POST' }) : window.fetchData('/api/spk/hitung', { method: 'POST' }));
+            const json = await res.json();
+            if (res && res.ok) {
+                showAdminAlert({ icon: 'success', title: 'Perhitungan Selesai', text: json.message || 'Perankingan SPK berhasil diperbarui.' });
+                await window.loadDashboardData();
+            } else {
+                showAdminAlert({ icon: 'error', title: 'Gagal SPK', text: json.message || 'Gagal mengeksekusi komputasi SPK.' });
+            }
+        } catch (err) {
+            showAdminAlert({ icon: 'error', title: 'Error', text: 'Koneksi ke engine SPK backend terputus.' });
+        }
+    }
+});

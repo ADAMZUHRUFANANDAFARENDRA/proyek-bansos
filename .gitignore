@@ -1,6 +1,21 @@
+# Python & Virtual Environment
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+venv/
+env/
 .env
-db_data/
-*.log
+
+# Database lokal (hanya skema DDL di db/ yang dilacak)
+backend/*.db
+*.sqlite3
+
+# Direktori Media Uploads
+backend/static/uploads/*
+!backend/static/uploads/.gitkeep
+
+# IDE & OS
+.vscode/
+.idea/
 .DS_Store
+Thumbs.db

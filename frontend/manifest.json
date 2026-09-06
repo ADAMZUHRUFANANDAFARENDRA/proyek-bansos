@@ -3,11 +3,12 @@
   "short_name": "Bansos Sidoarjo",
   "description": "Sistem Informasi SPK Penentuan Bantuan Sosial Cerdas Desa Cemandi, Kabupaten Sidoarjo Terintegrasi AI.",
   "start_url": "/publik.html",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f8fafc",
   "theme_color": "#009846",
-  "scope": "/",
+  "categories": ["government", "productivity", "utilities"],
   "icons": [
     {
       "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Lambang_Kabupaten_Sidoarjo.png/409px-Lambang_Kabupaten_Sidoarjo.png",
@@ -20,6 +21,34 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Portal Warga",
+      "short_name": "Cek Bansos",
+      "description": "Layanan transparansi pengecekan desil dan penyaluran bansos",
+      "url": "/publik.html",
+      "icons": [
+        {
+          "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Lambang_Kabupaten_Sidoarjo.png/409px-Lambang_Kabupaten_Sidoarjo.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Akses Aparatur",
+      "short_name": "Login Dinsos",
+      "description": "Pintu masuk verifikasi lapangan dan kalkulasi SPK",
+      "url": "/login.html",
+      "icons": [
+        {
+          "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Lambang_Kabupaten_Sidoarjo.png/409px-Lambang_Kabupaten_Sidoarjo.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

@@ -57,7 +57,6 @@
             height: 100%;
         }
 
-        /* LATAR BELAKANG MESH GRADIENT MODERN & SEGAR */
         body.page-login {
             min-height: 100vh;
             display: flex;
@@ -158,7 +157,6 @@
             background: #ffffff;
         }
 
-        /* TOMBOL BULAT CEK BPS */
         .bps-circle-btn {
             position: fixed;
             bottom: 24px;
@@ -331,7 +329,6 @@
             justify-content: center;
         }
 
-        /* CLOUDFLARE ENCRYPTION STATUS BOX */
         .cf-box {
             display: flex;
             align-items: center;
@@ -368,7 +365,6 @@
             font-weight: 600;
         }
 
-        /* CAPTCHA CHALLENGE BOX */
         .captcha-box {
             display: flex;
             align-items: center;
@@ -495,7 +491,7 @@
             <div class="form-group">
                 <label class="form-label">Username Pegawai</label>
                 <div class="input-wrapper">
-                    <input type="text" id="username" class="form-input" required autocomplete="off" placeholder="Ketik username Anda">
+                    <input type="text" id="username" class="form-input" required autocomplete="username" placeholder="Ketik username Anda">
                     <i class="fas fa-user input-icon"></i>
                 </div>
             </div>
@@ -506,7 +502,7 @@
                     <a class="forgot-link" onclick="openResetModal()">Lupa Sandi?</a>
                 </div>
                 <div class="input-wrapper">
-                    <input type="password" id="password" class="form-input" required placeholder="Ketik kata sandi Anda">
+                    <input type="password" id="password" class="form-input" required autocomplete="current-password" placeholder="Ketik kata sandi Anda">
                     <i class="fas fa-lock input-icon"></i>
                     <button type="button" class="toggle-password" onclick="togglePassword('password', 'eyeIcon')"><i class="fas fa-eye" id="eyeIcon"></i></button>
                 </div>
@@ -523,7 +519,6 @@
                 <input type="number" id="captchaAnswer" class="captcha-input" placeholder="Hasil?">
             </div>
 
-            <!-- Tombol Login Resmi -->
             <button type="submit" class="btn-login" id="btnSubmit" disabled>Login <i class="fas fa-sign-in-alt"></i></button>
         </form>
     </div>
@@ -551,19 +546,26 @@
         </div>
     </div>
 
-    <!-- =========================================================================
-         SCRIPT LOGIKA LOGIN MANDIRI (FULL INLINE JAVASCRIPT)
-         ========================================================================= -->
+    <!-- FONDASI CORE JAVASCRIPT -->
+    <script src="static/js/core/config.js"></script>
+    <script src="static/js/core/auth.js"></script>
+    <script src="static/js/core/api.js"></script>
+    <script src="static/js/global.js"></script>
+
+    <!-- LOGIKA LOGIN INTERAKTIF & INTEGRASI -->
     <script>
-        const API_URL = "http://127.0.0.1:5000";
+        const API_URL = (window.CONFIG && window.CONFIG.BASE_URL) ? window.CONFIG.BASE_URL : "http://127.0.0.1:5000";
         let expectedCaptcha = 0;
         let isSecure = false;
 
-        // Bersihkan token kedaluwarsa setiap kali halaman login dibuka
-        localStorage.clear();
+        window.addEventListener('DOMContentLoaded', () => {
+            // Jika token masih aktif dan belum kedaluwarsa, langsung arahkan ke dasbor
+            if (window.Auth && window.Auth.isAuthenticated()) {
+                window.location.replace(window.CONFIG?.AUTH?.DASHBOARD_REDIRECT_URL || 'index.html');
+                return;
+            }
 
-        window.onload = () => {
-            // Trigger inisialisasi basis data jika baru pertama dijalankan
+            // Inisialisasi awal kriteria database bila backend baru aktif
             fetch(`${API_URL}/init-kriteria`, { method: 'GET' }).catch(() => {});
 
             // Simulasi Verifikasi Enkripsi Peladen (800ms)
@@ -587,7 +589,7 @@
                 }
                 isSecure = true;
             }, 800);
-        };
+        });
 
         function generateCaptcha() {
             const num1 = Math.floor(Math.random() * 9) + 1;
@@ -613,7 +615,6 @@
             }
         }
 
-        // 1. PANDUAN ALUR LOGIN RESMI
         function mulaiTurLogin() {
             Swal.fire({
                 title: 'Panduan Alur Akses Sistem',
@@ -625,11 +626,11 @@
                         </div>
                         <div style="margin-bottom:12px; padding:10px; background:#f0f9ff; border-radius:10px; border-left:4px solid #0284c7;">
                             <b>2. Akses Masyarakat / Warga:</b><br>
-                            Masyarakat umum tidak perlu login di halaman ini. Silakan klik tombol <b>"Portal Warga"</b> di pojok kanan atas untuk pendaftaran mandiri atau pengecekan status.
+                            Masyarakat umum tidak perlu login di halaman ini. Silakan klik tombol <b>"Portal Warga"</b> di pojok kanan atas untuk pengecekan status bantuan sosial atau sanggahan.
                         </div>
                         <div style="padding:10px; background:#fef3c7; border-radius:10px; border-left:4px solid #f59e0b;">
                             <b>3. Pengecekan Data BPS Terpadu:</b><br>
-                            Klik tombol lingkaran biru <b>"Cek BPS"</b> di pojok kanan bawah untuk mengecek status desil NIK secara langsung.
+                            Klik tombol lingkaran biru <b>"Cek BPS"</b> di pojok kanan bawah untuk memeriksa status desil NIK secara langsung.
                         </div>
                     </div>
                 `,
@@ -639,7 +640,6 @@
             });
         }
 
-        // 2. FITUR CEK DATA BPS DENGAN INPUT 16 DIGIT NIK
         async function cekDataBPS() {
             const { value: nik } = await Swal.fire({
                 title: '<i class="fas fa-database text-primary"></i> Cek Data BPS Sidoarjo',
@@ -672,38 +672,41 @@
                 });
 
                 try {
-                    const res = await fetch(`${API_URL}/api/public/cek-bansos/${nik}`);
+                    // Cek status ke endpoint terpadu bansos
+                    const res = await fetch(`${API_URL}/api/publik/cek-bansos?nik=${nik}`);
                     const json = await res.json();
 
-                    if (res.ok && json.status === 'success') {
+                    if (res.ok && json.data) {
                         const d = json.data;
-                        const isLayak = d.level === 2;
+                        const isLayak = (d.desil <= 4);
                         Swal.fire({
                             icon: isLayak ? 'success' : 'info',
-                            title: isLayak ? 'Terdaftar & Disetujui BPS' : 'Terdaftar (Dalam Antrean Verifikasi)',
+                            title: isLayak ? 'Terdaftar & Disetujui (Layak Bansos)' : 'Terdaftar (Desil Non-Prioritas)',
                             html: `
                                 <div style="text-align:left; font-size:0.9rem; background:#f8fafc; padding:15px; border-radius:12px; border:1px solid #e2e8f0; line-height:1.7;">
-                                    <div><b>Nama:</b> ${d.nama}</div>
+                                    <div><b>Nama:</b> ${d.nama_lengkap}</div>
                                     <div><b>NIK:</b> ${d.nik}</div>
-                                    <div><b>Alamat:</b> ${d.alamat || '-'}</div>
-                                    <div style="margin-top:6px;"><b>Status Kelayakan:</b> <span style="background:${isLayak ? '#dcfce7' : '#e0f2fe'}; color:${isLayak ? '#15803d' : '#0369a1'}; padding:3px 10px; border-radius:20px; font-weight:700;">${d.status}</span></div>
+                                    <div><b>Alamat:</b> ${d.alamat || 'Sidoarjo'}</div>
+                                    <div style="margin-top:6px;"><b>Kelompok Desil:</b> Desil ${d.desil}</div>
+                                    <div><b>Status Bansos:</b> <span style="background:${isLayak ? '#dcfce7' : '#e0f2fe'}; color:${isLayak ? '#15803d' : '#0369a1'}; padding:3px 10px; border-radius:20px; font-weight:700;">${d.status_bansos}</span></div>
                                     <div style="margin-top:10px; font-size:0.8rem; color:#059669;"><i class="fas fa-shield-alt"></i> Data terverifikasi sesuai standar DTSEN / BPS Kabupaten Sidoarjo.</div>
                                 </div>
                             `,
                             confirmButtonColor: '#10b981'
                         });
                     } else {
+                        // Fallback: Periksa data kependudukan Dukcapil
                         const dukcapilRes = await fetch(`${API_URL}/api/dukcapil/${nik}`).catch(() => null);
                         if (dukcapilRes && dukcapilRes.ok) {
                             const dukJson = await dukcapilRes.json();
                             const duk = dukJson.data;
                             Swal.fire({
                                 icon: 'warning',
-                                title: 'Belum Terdaftar di Bansos',
+                                title: 'Belum Masuk Daftar Bansos',
                                 html: `
                                     <div style="text-align:left; font-size:0.9rem; line-height:1.6;">
-                                        <p>NIK <b>${nik}</b> ditemukan pada data kependudukan atas nama <b>${duk.nama}</b>, tetapi <u>belum masuk</u> dalam daftar penerima bantuan.</p>
-                                        <p style="margin-top:10px; color:#059669; font-weight:600;">Warga dapat mendaftar mandiri melalui Portal Warga.</p>
+                                        <p>NIK <b>${nik}</b> tercatat aktif pada Dukcapil atas nama <b>${duk.nama}</b> (${duk.alamat}), tetapi <u>belum masuk</u> kuota penerima bantuan.</p>
+                                        <p style="margin-top:10px; color:#059669; font-weight:600;">Warga dapat mengajukan sanggahan mandiri melalui Portal Warga.</p>
                                     </div>
                                 `,
                                 showCancelButton: true,
@@ -717,7 +720,7 @@
                             Swal.fire({
                                 icon: 'error',
                                 title: 'Data Tidak Ditemukan',
-                                text: `NIK ${nik} tidak ditemukan dalam basis data BPS maupun bansos.`,
+                                text: `NIK ${nik} tidak teridentifikasi pada basis data kependudukan maupun bansos.`,
                                 confirmButtonColor: '#ef4444'
                             });
                         }
@@ -728,7 +731,6 @@
             }
         }
 
-        // 3. SUBMIT LOGIN DENGAN GENERASI TOKEN BARU
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!isSecure) return;
@@ -736,7 +738,7 @@
             const ansInput = document.getElementById('captchaAnswer');
             const answer = parseInt(ansInput ? ansInput.value : '0');
             if (answer !== expectedCaptcha) {
-                Swal.fire('Anti-Bot Terpicu', 'Hasil penjumlahan matematika salah. Silakan coba kembali.', 'warning');
+                Swal.fire('Anti-Bot Terpicu', 'Hasil perhitungan matematika salah. Silakan coba lagi.', 'warning');
                 generateCaptcha();
                 return;
             }
@@ -747,43 +749,57 @@
                 btn.disabled = true;
             }
 
+            const payload = {
+                username: document.getElementById('username').value.trim(),
+                password: document.getElementById('password').value.trim()
+            };
+
             try {
                 const res = await fetch(`${API_URL}/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        username: document.getElementById('username').value.trim(),
-                        password: document.getElementById('password').value.trim()
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 const data = await res.json();
-                if (res.ok && data.status === 'success') {
-                    // Simpan token baru ke seluruh key penyimpanan lokal
-                    localStorage.clear();
-                    localStorage.setItem('token', data.access_token);
-                    localStorage.setItem('bansosToken', data.access_token);
-                    localStorage.setItem('user', JSON.stringify(data.data));
-                    localStorage.setItem('bansosUser', JSON.stringify(data.data));
+                if (res.ok && (data.status === 'success' || data.token)) {
+                    const token = data.access_token || data.token;
+                    const role = data.role || data.data?.role || 'operator';
+                    const userObj = data.user || data.data || { username: payload.username, role };
+
+                    // Simpan sesi menggunakan Auth manager terpadu sekaligus sinkron ke localStorage
+                    if (window.Auth && typeof window.Auth.setSession === 'function') {
+                        window.Auth.setSession(token, role, userObj);
+                    } else if (typeof setAuthSession === 'function') {
+                        setAuthSession(token, userObj);
+                    } else {
+                        localStorage.setItem('token', token);
+                        localStorage.setItem('bansosToken', token);
+                        localStorage.setItem('user', JSON.stringify(userObj));
+                    }
 
                     Swal.fire({
                         icon: 'success',
                         title: 'Akses Diterima',
-                        text: `Selamat bertugas, ${data.data.username.toUpperCase()}!`,
+                        text: `Selamat bertugas, ${(userObj.nama_lengkap || userObj.username).toUpperCase()}!`,
                         showConfirmButton: false,
                         timer: 1000
                     }).then(() => {
-                        window.location.href = 'index.html';
+                        window.location.replace(window.CONFIG?.AUTH?.DASHBOARD_REDIRECT_URL || 'index.html');
                     });
                 } else {
-                    Swal.fire({ icon: 'error', title: 'Akses Ditolak', text: data.message || 'Username atau password salah.' });
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Akses Ditolak',
+                        text: data.message || 'Username atau kata sandi tidak sesuai.'
+                    });
                     generateCaptcha();
                 }
             } catch (err) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Koneksi Terputus',
-                    text: 'Gagal terhubung ke backend Flask di port 5000. Pastikan server aktif.'
+                    text: 'Gagal terhubung ke backend Flask di port 5000. Pastikan server telah aktif.'
                 });
             } finally {
                 if (btn) {
@@ -793,7 +809,6 @@
             }
         });
 
-        // 4. KONTROL MODAL LUPA SANDI
         function openResetModal() {
             const m = document.getElementById('resetModal');
             if (m) m.style.display = 'flex';
@@ -808,7 +823,7 @@
             e.preventDefault();
             Swal.fire({
                 title: 'Pengajuan Terkirim',
-                text: 'Permintaan reset kata sandi telah diteruskan ke Administrator Database.',
+                text: 'Permintaan reset kata sandi telah dicatat. Silakan hubungi Administrator untuk persetujuan.',
                 icon: 'success',
                 confirmButtonColor: '#10b981'
             });

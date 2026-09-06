@@ -1,7 +1,10 @@
+-- Inisialisasi Basis Data
 CREATE DATABASE IF NOT EXISTS bansos;
 USE bansos;
 
--- 1. Tabel Data Warga (10 Kriteria Penilaian BWM-SAW)
+-- =============================================================================
+-- 1. TABEL DATA WARGA (10 KRITERIA PENILAIAN BWM-SAW & LOGISTIK PENYALURAN)
+-- =============================================================================
 CREATE TABLE IF NOT EXISTS warga (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nama VARCHAR(100) NOT NULL,
@@ -11,6 +14,8 @@ CREATE TABLE IF NOT EXISTS warga (
   tempat_lahir VARCHAR(50) NULL,
   tanggal_lahir DATE NULL,
   alamat VARCHAR(255) NULL,
+  
+  -- 10 Kriteria Penilaian BWM-SAW
   c1_ekonomi DOUBLE NOT NULL DEFAULT 0,
   c2_aset INT NOT NULL DEFAULT 0,
   c3_umur INT NOT NULL DEFAULT 0,
@@ -21,28 +26,36 @@ CREATE TABLE IF NOT EXISTS warga (
   c8_tempat_tinggal INT NOT NULL DEFAULT 1,
   c9_pendidikan INT NOT NULL DEFAULT 1,
   c10_kesehatan INT NOT NULL DEFAULT 1,
+  
+  -- Status Verifikasi & Bukti Lapangan
   is_verified BOOLEAN DEFAULT FALSE,
   tanggal_verifikasi DATE NULL,
   foto_rumah VARCHAR(255) NULL,
   latitude VARCHAR(50) NULL,
   longitude VARCHAR(50) NULL,
   catatan TEXT NULL,
+  
+  -- Status Distribusi Bantuan
   status_salur VARCHAR(20) DEFAULT 'Pending',
   bukti_salur VARCHAR(255) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Tabel Pengguna (Admin & Petugas/Operator)
+-- =============================================================================
+-- 2. TABEL PENGGUNA (ADMIN & PETUGAS / OPERATOR)
+-- =============================================================================
 CREATE TABLE IF NOT EXISTS user (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(50) NOT NULL UNIQUE,
   email VARCHAR(100) UNIQUE NULL,
   password VARCHAR(255) NOT NULL,
-  role VARCHAR(20) DEFAULT 'operator',
+  role VARCHAR(20) DEFAULT 'operator', -- 'admin' atau 'operator'
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Tabel Kriteria Penilaian SPK
+-- =============================================================================
+-- 3. TABEL KRITERIA PENILAIAN SPK (BOBOT BWM & TIPE SAW)
+-- =============================================================================
 CREATE TABLE IF NOT EXISTS kriteria (
   id INT AUTO_INCREMENT PRIMARY KEY,
   kode VARCHAR(5) NOT NULL UNIQUE,
@@ -51,7 +64,9 @@ CREATE TABLE IF NOT EXISTS kriteria (
   jenis VARCHAR(10) NOT NULL -- 'benefit' atau 'cost'
 );
 
--- 4. Tabel Notifikasi
+-- =============================================================================
+-- 4. TABEL NOTIFIKASI SISTEM
+-- =============================================================================
 CREATE TABLE IF NOT EXISTS notifikasi (
   id INT AUTO_INCREMENT PRIMARY KEY,
   pesan TEXT NOT NULL,
@@ -62,7 +77,9 @@ CREATE TABLE IF NOT EXISTS notifikasi (
   is_archived BOOLEAN DEFAULT FALSE
 );
 
--- 5. Tabel Live Chat & Pengaduan Multimedia
+-- =============================================================================
+-- 5. TABEL LIVE CHAT & PENGADUAN MULTIMEDIA
+-- =============================================================================
 CREATE TABLE IF NOT EXISTS chat_keluhan (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nik_warga VARCHAR(20) NOT NULL,
@@ -73,3 +90,22 @@ CREATE TABLE IF NOT EXISTS chat_keluhan (
   file_type VARCHAR(20) NULL,
   waktu TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- =============================================================================
+-- SEED DATA: 10 KRITERIA STANDAR METODE BWM-SAW
+-- =============================================================================
+INSERT INTO kriteria (kode, nama, bobot, jenis) VALUES
+('C1', 'Kondisi Ekonomi / Penghasilan', 0.22, 'cost'),
+('C2', 'Kepemilikan Aset', 0.15, 'cost'),
+('C3', 'Umur Kepala Keluarga', 0.08, 'benefit'),
+('C4', 'Jenis Kelamin', 0.05, 'benefit'),
+('C5', 'Jumlah Tanggungan', 0.18, 'benefit'),
+('C6', 'Status Pernikahan', 0.06, 'benefit'),
+('C7', 'Kepemilikan Anak / Balita', 0.08, 'benefit'),
+('C8', 'Kelayakan Tempat Tinggal', 0.10, 'cost'),
+('C9', 'Tingkat Pendidikan Terakhir', 0.04, 'cost'),
+('C10', 'Kondisi Kesehatan / Disabilitas', 0.04, 'cost')
+ON DUPLICATE KEY UPDATE 
+  nama = VALUES(nama),
+  bobot = VALUES(bobot),
+  jenis = VALUES(jenis);

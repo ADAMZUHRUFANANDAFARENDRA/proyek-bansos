@@ -15,8 +15,6 @@ import uuid
 import random
 import traceback
 from datetime import datetime, timedelta, date
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from functools import wraps
 
 from dotenv import load_dotenv
@@ -29,19 +27,20 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
 
 # ===========================================================================
-# 1. KONFIGURASI APLIKASI & DATABASE FLASK
+# 1. KONFIGURASI APLIKASI & DATABASE
 # ===========================================================================
 load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'kunci_rahasia_pemkab_sidoarjo_2026_spk_saw_bwm')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
-    'DATABASE_URL', 'mysql+mysqlconnector://root:@127.0.0.1:3306/bansos'
-)
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB Max Upload
 
-# Folder Penyimpanan Berkas Statis Uploads
+# Database URI: Mendukung MySQL bawaan atau fallback SQLite
+default_mysql = 'mysql+mysqlconnector://root:@127.0.0.1:3306/bansos'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', default_mysql)
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_CONTENT_LENGTH', 100 * 1024 * 1024))
+
+# Folder Penyimpanan Berkas Uploads
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -55,7 +54,7 @@ ALLOWED_EXTENSIONS = {
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 
-# Konfigurasi Cross-Origin Resource Sharing (CORS) Penuh
+# Konfigurasi CORS Penuh
 CORS(
     app,
     resources={r"/*": {"origins": "*"}},
@@ -77,7 +76,7 @@ def handle_preflight():
 # 2. HELPER UTILITY & SANITASI DATA
 # ===========================================================================
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1).lower() in ALLOWED_EXTENSIONS
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def safe_float(val, default=0.0):
     try:
@@ -99,8 +98,7 @@ def safe_int(val, default=0):
         if val is None or val == '': return int(default)
         if isinstance(val, int): return val
         if isinstance(val, float): return int(val)
-        f = safe_float(val, default)
-        return int(f)
+        return int(safe_float(val, default))
     except:
         return int(default)
 
@@ -114,7 +112,7 @@ def handle_generic_exception(e):
     return jsonify({"status": "error", "message": f"Server Error: {str(e)}"}), 500
 
 # ===========================================================================
-# 3. STRUKTUR MODEL DATABASE MYSQL (SQLAlchemy)
+# 3. STRUKTUR MODEL DATABASE
 # ===========================================================================
 class Warga(db.Model):
     __tablename__ = 'warga'
@@ -127,7 +125,7 @@ class Warga(db.Model):
     tanggal_lahir = db.Column(db.Date, nullable=True)
     alamat = db.Column(db.String(255), nullable=True, default='Sidoarjo')
     
-    # 10 Kriteria BWM-SAW
+    # 10 Kriteria Penilaian BWM-SAW
     c1_ekonomi = db.Column(db.Float, nullable=False, default=0.0)          # Cost
     c2_aset = db.Column(db.Integer, nullable=False, default=0)              # Cost
     c3_umur = db.Column(db.Integer, nullable=False, default=0)              # Benefit
@@ -139,7 +137,7 @@ class Warga(db.Model):
     c9_pendidikan = db.Column(db.Integer, nullable=False, default=1)        # Cost (1=SD, 2=SMP, 3=SMA, 4=PT)
     c10_kesehatan = db.Column(db.Integer, nullable=False, default=1)        # Benefit (1=Sehat, 2=Sakit/Disabilitas)
     
-    # Status Validasi & Lapangan
+    # Status Validasi Lapangan
     is_verified = db.Column(db.Boolean, default=False)
     tanggal_verifikasi = db.Column(db.Date, nullable=True)
     foto_rumah = db.Column(db.String(255), nullable=True)
@@ -147,7 +145,7 @@ class Warga(db.Model):
     longitude = db.Column(db.String(50), nullable=True)
     catatan = db.Column(db.Text, nullable=True)
     
-    # Penyaluran & Sengketa
+    # Status Distribusi Bansos
     status_salur = db.Column(db.String(50), default='Pending')
     bukti_salur = db.Column(db.String(255), nullable=True)
     nominal_bantuan = db.Column(db.String(100), nullable=True, default='Rp 600.000 / Beras 10 Kg')
@@ -195,53 +193,52 @@ class ChatKeluhan(db.Model):
     waktu = db.Column(db.DateTime, default=datetime.now)
 
 # ===========================================================================
-# 4. AUTO-MIGRASI STRUKTUR DATABASE MYSQL (MENCEGAH ERROR 1054 SECARA OTOMATIS)
+# 4. AUTO-MIGRASI STRUKTUR DATABASE
 # ===========================================================================
 def auto_migrate_database():
-    """Memeriksa dan otomatis menambahkan kolom yang kurang di MySQL tanpa merusak data yang ada."""
     try:
         with app.app_context():
             db.create_all()
-            with db.engine.connect() as conn:
-                result = conn.execute(db.text("SHOW COLUMNS FROM warga"))
-                existing_cols = [row[0] for row in result.fetchall()]
-                
-                required_cols = {
-                    'nominal_bantuan': "VARCHAR(100) DEFAULT 'Rp 600.000 / Beras 10 Kg'",
-                    'status_salur': "VARCHAR(50) DEFAULT 'Pending'",
-                    'bukti_salur': "VARCHAR(255) NULL",
-                    'tanggal_salur': "DATETIME NULL",
-                    'is_verified': "TINYINT(1) DEFAULT 0",
-                    'tanggal_verifikasi': "DATE NULL",
-                    'foto_rumah': "VARCHAR(255) NULL",
-                    'latitude': "VARCHAR(50) NULL",
-                    'longitude': "VARCHAR(50) NULL",
-                    'catatan': "TEXT NULL",
-                    'tempat_lahir': "VARCHAR(50) DEFAULT 'Sidoarjo'",
-                    'tanggal_lahir': "DATE NULL",
-                    'no_hp': "VARCHAR(20) NULL",
-                    'email': "VARCHAR(100) NULL",
-                    'c1_ekonomi': "FLOAT DEFAULT 0.0",
-                    'c2_aset': "INT DEFAULT 0",
-                    'c3_umur': "INT DEFAULT 0",
-                    'c4_jenis_kelamin': "INT DEFAULT 1",
-                    'c5_tanggungan': "INT DEFAULT 0",
-                    'c6_status_pernikahan': "INT DEFAULT 1",
-                    'c7_kepemilikan_anak': "INT DEFAULT 0",
-                    'c8_tempat_tinggal': "INT DEFAULT 1",
-                    'c9_pendidikan': "INT DEFAULT 1",
-                    'c10_kesehatan': "INT DEFAULT 1",
-                    'created_at': "DATETIME DEFAULT CURRENT_TIMESTAMP"
-                }
+            if 'mysql' in app.config['SQLALCHEMY_DATABASE_URI']:
+                with db.engine.connect() as conn:
+                    result = conn.execute(db.text("SHOW COLUMNS FROM warga"))
+                    existing_cols = [row[0] for row in result.fetchall()]
+                    
+                    required_cols = {
+                        'nominal_bantuan': "VARCHAR(100) DEFAULT 'Rp 600.000 / Beras 10 Kg'",
+                        'status_salur': "VARCHAR(50) DEFAULT 'Pending'",
+                        'bukti_salur': "VARCHAR(255) NULL",
+                        'tanggal_salur': "DATETIME NULL",
+                        'is_verified': "TINYINT(1) DEFAULT 0",
+                        'tanggal_verifikasi': "DATE NULL",
+                        'foto_rumah': "VARCHAR(255) NULL",
+                        'latitude': "VARCHAR(50) NULL",
+                        'longitude': "VARCHAR(50) NULL",
+                        'catatan': "TEXT NULL",
+                        'tempat_lahir': "VARCHAR(50) DEFAULT 'Sidoarjo'",
+                        'tanggal_lahir': "DATE NULL",
+                        'no_hp': "VARCHAR(20) NULL",
+                        'email': "VARCHAR(100) NULL",
+                        'c1_ekonomi': "FLOAT DEFAULT 0.0",
+                        'c2_aset': "INT DEFAULT 0",
+                        'c3_umur': "INT DEFAULT 0",
+                        'c4_jenis_kelamin': "INT DEFAULT 1",
+                        'c5_tanggungan': "INT DEFAULT 0",
+                        'c6_status_pernikahan': "INT DEFAULT 1",
+                        'c7_kepemilikan_anak': "INT DEFAULT 0",
+                        'c8_tempat_tinggal': "INT DEFAULT 1",
+                        'c9_pendidikan': "INT DEFAULT 1",
+                        'c10_kesehatan': "INT DEFAULT 1",
+                        'created_at': "DATETIME DEFAULT CURRENT_TIMESTAMP"
+                    }
 
-                for col_name, col_def in required_cols.items():
-                    if col_name not in existing_cols:
-                        try:
-                            conn.execute(db.text(f"ALTER TABLE warga ADD COLUMN {col_name} {col_def}"))
-                            conn.commit()
-                            print(f"[MIGRATION] Berhasil menambahkan kolom '{col_name}' ke tabel warga.")
-                        except Exception as ex:
-                            print(f"[MIGRATION] Kolom '{col_name}': {ex}")
+                    for col_name, col_def in required_cols.items():
+                        if col_name not in existing_cols:
+                            try:
+                                conn.execute(db.text(f"ALTER TABLE warga ADD COLUMN {col_name} {col_def}"))
+                                conn.commit()
+                            except Exception as ex:
+                                print(f"[MIGRATION] Kolom '{col_name}': {ex}")
     except Exception as e:
         print(f"[MIGRATION ERROR] {e}")
 
@@ -262,7 +259,7 @@ def token_required(f):
         elif request.args.get('token'):
             token = request.args.get('token').strip()
 
-        if not token or token == 'null' or token == 'undefined':
+        if not token or token in ('null', 'undefined'):
             return jsonify({"status": "error", "message": "Token autentikasi tidak ditemukan."}), 401
 
         try:
@@ -295,7 +292,7 @@ def roles_required(*allowed_roles):
                 return jsonify({'status': 'ok'}), 200
             current_role = getattr(request, 'current_user', {}).get('role')
             if current_role not in allowed_roles:
-                return jsonify({"status": "error", "message": "Akses ditolak: Hanya untuk Administrator."}), 403
+                return jsonify({"status": "error", "message": "Akses ditolak: Otoritas tidak mencukupi."}), 403
             return f(*args, **kwargs)
         return wrapper
     return decorator
@@ -304,6 +301,7 @@ def roles_required(*allowed_roles):
 # 6. INITIALIZATION & AUTENTIKASI LOGIN
 # ===========================================================================
 @app.route('/init-kriteria', methods=['GET', 'OPTIONS'])
+@app.route('/api/init-kriteria', methods=['GET', 'OPTIONS'])
 def init_kriteria():
     try:
         auto_migrate_database()
@@ -333,12 +331,13 @@ def init_kriteria():
                 role='operator'
             ))
         db.session.commit()
-        return jsonify({"status": "success", "message": "Basis data & Akun bawaan siap digunakan!"})
+        return jsonify({"status": "success", "message": "Basis data & Akun dinas siap digunakan!"})
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/login', methods=['POST', 'OPTIONS'])
+@app.route('/api/auth/login', methods=['POST', 'OPTIONS'])
 def login():
     if request.method == 'OPTIONS':
         return jsonify({'status': 'ok'}), 200
@@ -355,13 +354,21 @@ def login():
         }
         token = jwt.encode(token_payload, app.config['SECRET_KEY'], algorithm='HS256')
         if isinstance(token, bytes): token = token.decode('utf-8')
+        
+        # Format respons yang kompatibel dengan frontend
         return jsonify({
-            "status": "success", "access_token": token,
-            "data": {"username": user.username, "role": user.role}
+            "status": "success",
+            "message": "Login berhasil",
+            "token": token,
+            "access_token": token,
+            "role": user.role,
+            "data": {"username": user.username, "role": user.role},
+            "user": {"id": user.id, "username": user.username, "nama_lengkap": user.username.capitalize()}
         })
-    return jsonify({"status": "fail", "message": "Username atau Password Salah!"}), 401
+    return jsonify({"status": "fail", "message": "Username atau kata sandi tidak sesuai."}), 401
 
 @app.route('/users', methods=['GET', 'POST', 'OPTIONS'])
+@app.route('/api/users', methods=['GET', 'POST', 'OPTIONS'])
 @token_required
 @roles_required('admin')
 def manage_users():
@@ -398,6 +405,7 @@ def manage_users():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/users/<int:id>', methods=['DELETE', 'PUT', 'OPTIONS'])
+@app.route('/api/users/<int:id>', methods=['DELETE', 'PUT', 'OPTIONS'])
 @token_required
 @roles_required('admin')
 def handle_single_user(id):
@@ -472,7 +480,6 @@ def hitung_saw_logic():
     for idx, item in enumerate(hasil_akhir):
         desil_calc = min(10, max(1, math.ceil(((idx + 1) / total_warga) * 10))) if total_warga > 0 else 1
         item['desil'] = desil_calc
-        
         if desil_calc <= 4:
             item['prioritas'] = "Prioritas Tinggi (Layak)"
             item['menerima'] = "Menerima Bansos"
@@ -511,6 +518,7 @@ def hitung_wp_logic():
     return {'hasil_akhir': hasil_akhir}
 
 @app.route('/kriteria', methods=['GET', 'POST', 'OPTIONS'])
+@app.route('/api/kriteria', methods=['GET', 'POST', 'OPTIONS'])
 @token_required
 def manage_kriteria():
     if request.method == 'POST':
@@ -525,11 +533,19 @@ def manage_kriteria():
     return jsonify([{'kode': k.kode, 'nama': k.nama, 'bobot': k.bobot, 'jenis': k.jenis} for k in Kriteria.query.all()])
 
 @app.route('/hitung-saw', methods=['GET', 'OPTIONS'])
+@app.route('/api/hitung-saw', methods=['GET', 'OPTIONS'])
+@app.route('/api/spk/hitung', methods=['POST', 'GET', 'OPTIONS'])
 @token_required
 def get_hitung_saw():
-    return jsonify(hitung_saw_logic())
+    hasil = hitung_saw_logic()
+    return jsonify({
+        "status": "success",
+        "message": "Kalkulasi BWM-SAW berhasil diperbarui",
+        **hasil
+    })
 
 @app.route('/komparasi', methods=['GET', 'OPTIONS'])
+@app.route('/api/komparasi', methods=['GET', 'OPTIONS'])
 @token_required
 def komparasi_metode():
     saw_data = hitung_saw_logic()
@@ -551,13 +567,12 @@ def komparasi_metode():
 # 8. CRUD DATA WARGA, ARSIP & PERSETUJUAN MASSAL
 # ===========================================================================
 @app.route('/warga', methods=['GET', 'POST', 'OPTIONS'])
+@app.route('/api/warga', methods=['GET', 'POST', 'OPTIONS'])
 @token_required
 def manage_warga():
     try:
         if request.method == 'GET':
             warga_list = Warga.query.order_by(Warga.id.desc()).all()
-            
-            # Hitung perankingan SAW dan desil secara dinamis
             kriteria_list = Kriteria.query.all()
             total_warga = len(warga_list)
             desil_map = {}
@@ -592,7 +607,7 @@ def manage_warga():
                     desil_val = min(10, max(1, math.ceil(((rank_idx + 1) / total_warga) * 10))) if total_warga > 0 else 1
                     desil_map[s['id']] = desil_val
 
-            return jsonify([{
+            hasil_json = [{
                 'id': w.id,
                 'nama': w.nama or '',
                 'nik': w.nik or '',
@@ -622,10 +637,16 @@ def manage_warga():
                 'nominal_bantuan': w.nominal_bantuan or 'Rp 600.000 / Beras 10 Kg',
                 'tanggal_salur': w.tanggal_salur.strftime("%d/%m/%Y %H:%M") if w.tanggal_salur else "-",
                 'created_at': w.created_at.strftime("%d/%m/%Y %H:%M WIB") if w.created_at else datetime.now().strftime("%d/%m/%Y %H:%M WIB")
-            } for w in warga_list])
+            } for w in warga_list]
+            return jsonify({'status': 'success', 'data': hasil_json})
 
         elif request.method == 'POST':
-            d = request.get_json(silent=True) or {}
+            # Mendukung JSON dan multipart/form-data
+            if request.is_json:
+                d = request.get_json(silent=True) or {}
+            else:
+                d = request.form.to_dict()
+
             nik = str(d.get('nik', '')).strip()
             nama = str(d.get('nama', '')).strip()
             if not nik or not nama:
@@ -638,6 +659,13 @@ def manage_warga():
                 try: tgl = datetime.strptime(str(d['tanggal_lahir'])[:10], '%Y-%m-%d').date()
                 except: pass
 
+            foto = request.files.get('foto_rumah') or request.files.get('foto_ktp')
+            foto_filename = None
+            if foto and allowed_file(foto.filename):
+                ext = foto.filename.rsplit('.', 1)[1].lower()
+                foto_filename = secure_filename(f"foto_{int(datetime.now().timestamp())}_{nik}.{ext}")
+                foto.save(os.path.join(app.config['UPLOAD_FOLDER'], foto_filename))
+
             new_w = Warga(
                 nama=nama,
                 nik=nik,
@@ -646,8 +674,8 @@ def manage_warga():
                 tempat_lahir=str(d.get('tempat_lahir', 'Sidoarjo')),
                 tanggal_lahir=tgl,
                 alamat=str(d.get('alamat', 'Sidoarjo')),
-                latitude=str(d.get('lat', '')),
-                longitude=str(d.get('lng', '')),
+                latitude=str(d.get('lat', d.get('latitude', ''))),
+                longitude=str(d.get('lng', d.get('longitude', ''))),
                 c1_ekonomi=safe_float(d.get('c1', d.get('c1_ekonomi'))),
                 c2_aset=safe_int(d.get('c2', d.get('c2_aset'))),
                 c3_umur=safe_int(d.get('c3', d.get('c3_umur'))),
@@ -658,17 +686,19 @@ def manage_warga():
                 c8_tempat_tinggal=safe_int(d.get('c8', d.get('c8_tempat_tinggal', 1))),
                 c9_pendidikan=safe_int(d.get('c9', d.get('c9_pendidikan', 1))),
                 c10_kesehatan=safe_int(d.get('c10', d.get('c10_kesehatan', 1))),
+                foto_rumah=foto_filename,
                 catatan=str(d.get('catatan', ''))
             )
             db.session.add(new_w)
             db.session.commit()
-            return jsonify({"status": "success", "message": "Data warga berhasil disimpan!"})
+            return jsonify({"status": "success", "message": "Data verifikasi lapangan berhasil dicatat!"})
     except Exception as e:
         traceback.print_exc()
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/warga/<int:id>', methods=['DELETE', 'PUT', 'OPTIONS'])
+@app.route('/api/warga/<int:id>', methods=['DELETE', 'PUT', 'OPTIONS'])
 @token_required
 def action_warga(id):
     try:
@@ -695,6 +725,7 @@ def action_warga(id):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/warga/<int:id>/verify', methods=['PATCH', 'OPTIONS'])
+@app.route('/api/warga/<int:id>/verify', methods=['PATCH', 'OPTIONS'])
 @token_required
 def verify_warga(id):
     w = Warga.query.get_or_404(id)
@@ -704,6 +735,7 @@ def verify_warga(id):
     return jsonify({"status": "success", "is_verified": w.is_verified})
 
 @app.route('/warga/delete-all', methods=['DELETE', 'POST', 'OPTIONS'])
+@app.route('/api/warga/delete-all', methods=['DELETE', 'POST', 'OPTIONS'])
 @token_required
 @roles_required('admin')
 def delete_all_warga():
@@ -716,24 +748,18 @@ def delete_all_warga():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/warga/bulk/verify', methods=['POST', 'OPTIONS'])
+@app.route('/api/warga/bulk/verify', methods=['POST', 'OPTIONS'])
 @token_required
 def bulk_verify():
-    if request.method == 'OPTIONS':
-        return jsonify({}), 200
+    if request.method == 'OPTIONS': return jsonify({}), 200
     try:
         data = request.get_json(silent=True) or {}
         ids = data.get('ids', [])
         today_val = date.today()
-        
-        if ids and len(ids) > 0:
-            wargas = Warga.query.filter(Warga.id.in_(ids)).all()
-        else:
-            wargas = Warga.query.all()
-            
+        wargas = Warga.query.filter(Warga.id.in_(ids)).all() if ids else Warga.query.all()
         for w in wargas:
             w.is_verified = True
             w.tanggal_verifikasi = today_val
-            
         db.session.commit()
         return jsonify({
             "status": "success",
@@ -745,23 +771,17 @@ def bulk_verify():
         return jsonify({"status": "error", "message": f"Gagal persetujuan massal: {str(e)}"}), 500
 
 @app.route('/warga/bulk/unverify', methods=['POST', 'OPTIONS'])
+@app.route('/api/warga/bulk/unverify', methods=['POST', 'OPTIONS'])
 @token_required
 def bulk_unverify():
-    if request.method == 'OPTIONS':
-        return jsonify({}), 200
+    if request.method == 'OPTIONS': return jsonify({}), 200
     try:
         data = request.get_json(silent=True) or {}
         ids = data.get('ids', [])
-        
-        if ids and len(ids) > 0:
-            wargas = Warga.query.filter(Warga.id.in_(ids)).all()
-        else:
-            wargas = Warga.query.all()
-            
+        wargas = Warga.query.filter(Warga.id.in_(ids)).all() if ids else Warga.query.all()
         for w in wargas:
             w.is_verified = False
             w.tanggal_verifikasi = None
-            
         db.session.commit()
         return jsonify({
             "status": "success",
@@ -773,6 +793,7 @@ def bulk_unverify():
         return jsonify({"status": "error", "message": f"Gagal membatalkan persetujuan: {str(e)}"}), 500
 
 @app.route('/warga/<int:id>/bukti-salur', methods=['POST', 'OPTIONS'])
+@app.route('/api/warga/<int:id>/bukti-salur', methods=['POST', 'OPTIONS'])
 @token_required
 def upload_bukti_salur(id):
     w = Warga.query.get_or_404(id)
@@ -781,7 +802,7 @@ def upload_bukti_salur(id):
         return jsonify({"status": "error", "message": "Berkas foto bukti diperlukan."}), 400
     if not allowed_file(file.filename):
         return jsonify({"status": "error", "message": "Format gambar tidak didukung."}), 400
-    ext = file.filename.rsplit('.', 1).lower()
+    ext = file.filename.rsplit('.', 1)[1].lower()
     unique_name = f"bukti_{id}_{int(datetime.now().timestamp())}_{uuid.uuid4().hex[:6]}.{ext}"
     file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_name))
     w.bukti_salur = unique_name
@@ -791,6 +812,7 @@ def upload_bukti_salur(id):
     return jsonify({"status": "success", "message": "Foto bukti penyaluran berhasil disimpan!"})
 
 @app.route('/warga/<int:id>/lapor-sengketa', methods=['POST', 'OPTIONS'])
+@app.route('/api/warga/<int:id>/lapor-sengketa', methods=['POST', 'OPTIONS'])
 @token_required
 def lapor_sengketa_salur(id):
     w = Warga.query.get_or_404(id)
@@ -811,10 +833,9 @@ def lapor_sengketa_salur(id):
     return jsonify({"status": "success", "message": f"Status sengketa berhasil diperbarui: {w.status_salur}"})
 
 # ===========================================================================
-# 9. SMART EXCEL IMPORTER (ROBUST MULTI-HEADER & UPSERT)
+# 9. SMART EXCEL IMPORTER
 # ===========================================================================
 def parse_excel_row(d):
-    """Mendeteksi dan mengekstrak field warga dari baris JSON Excel secara fleksibel."""
     def get_val(*keys, default=''):
         for k in keys:
             for dk in d.keys():
@@ -845,8 +866,7 @@ def parse_excel_row(d):
         try: s_nik = f"{int(float(s_nik))}"
         except: pass
     nik = re.sub(r'\D', '', s_nik)
-    if not nik:
-        return None
+    if not nik: return None
 
     nama = str(get_val('nama lengkap', 'nama pemohon', 'nama warga', 'nama', default=f'Warga {nik[-4:]}')).strip()
     no_hp = str(get_val('no. whatsapp / hp', 'no whatsapp', 'no hp', 'no wa', 'telepon', 'phone', default='')).strip()
@@ -897,6 +917,7 @@ def parse_excel_row(d):
     }
 
 @app.route('/warga/bulk', methods=['POST', 'OPTIONS'])
+@app.route('/api/warga/bulk', methods=['POST', 'OPTIONS'])
 @token_required
 def import_bulk_warga():
     try:
@@ -917,7 +938,6 @@ def import_bulk_warga():
                 w = Warga(nik=nik)
                 db.session.add(w)
 
-            # Update seluruh atribut (UPSERT)
             w.nama = parsed['nama']
             w.no_hp = parsed['no_hp']
             w.email = parsed['email']
@@ -954,7 +974,7 @@ def import_bulk_warga():
         return jsonify({'status': 'error', 'message': f'Gagal impor data: {str(e)}'}), 500
 
 # ===========================================================================
-# 10. DUKCAPIL VALIDATOR & SINKRONISASI BPS SIDOARJO (18 KECAMATAN)
+# 10. DUKCAPIL VALIDATOR, CEK PUBLIK & SINKRONISASI BPS SIDOARJO
 # ===========================================================================
 @app.route('/api/dukcapil/<nik>', methods=['GET'])
 def check_dukcapil(nik):
@@ -985,6 +1005,59 @@ def check_dukcapil(nik):
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
+
+@app.route('/api/publik/cek-bansos', methods=['GET', 'OPTIONS'])
+@app.route('/cek-bansos', methods=['GET', 'OPTIONS'])
+def cek_bansos_publik():
+    nik = request.args.get('nik', '').strip()
+    if not nik or len(nik) != 16:
+        return jsonify({'message': 'NIK tidak valid (wajib 16 digit)'}), 400
+
+    w = Warga.query.filter_by(nik=nik).first()
+    if not w:
+        return jsonify({'message': 'Data NIK tidak ditemukan dalam sistem penetapan bansos'}), 404
+
+    # Hitung desil secara cepat
+    saw_data = hitung_saw_logic()
+    rank_item = next((item for item in saw_data.get('hasil_akhir', []) if item['nik'] == nik), None)
+    desil_val = rank_item['desil'] if rank_item else 5
+    prioritas_val = rank_item['prioritas'] if rank_item else "Dalam Proses Seleksi"
+    menerima_val = rank_item['menerima'] if rank_item else "Menunggu Penetapan"
+
+    return jsonify({
+        'status': 'success',
+        'data': {
+            'nik': w.nik,
+            'nama_lengkap': w.nama,
+            'alamat': w.alamat,
+            'desil': desil_val,
+            'status_bansos': menerima_val,
+            'prioritas': prioritas_val,
+            'status_salur': w.status_salur or 'Pending',
+            'nominal_bantuan': w.nominal_bantuan or 'Rp 600.000 / Beras 10 Kg'
+        }
+    }), 200
+
+@app.route('/api/publik/pengaduan', methods=['POST', 'OPTIONS'])
+def submit_pengaduan_publik():
+    body = request.get_json(silent=True) or {}
+    nik = body.get('nik', '').strip()
+    nama = body.get('nama_pelapor', body.get('nama', 'Warga')).strip()
+    kategori = body.get('kategori', 'Sanggahan Kelayakan Bansos')
+    pesan = body.get('isi_laporan', body.get('pesan', ''))
+
+    if not nik or not pesan:
+        return jsonify({'message': 'NIK dan isi sanggahan wajib diisi'}), 400
+
+    chat = ChatKeluhan(
+        nik_warga=nik,
+        nama_warga=nama,
+        sender='warga',
+        pesan=f"[{kategori}] {pesan}"
+    )
+    db.session.add(chat)
+    db.session.commit()
+    return jsonify({'status': 'success', 'message': 'Pengaduan berhasil dicatat ke sistem investigasi'}), 201
 
 @app.route('/api/bps/sync', methods=['POST', 'OPTIONS'])
 @token_required
@@ -1053,7 +1126,7 @@ def handle_chat_nik(nik):
         file = request.files.get('file')
         file_path, file_type = None, None
         if file and file.filename != '':
-            ext = file.filename.rsplit('.', 1).lower()
+            ext = file.filename.rsplit('.', 1)[1].lower()
             file_type = 'image' if ext in {'jpg', 'jpeg', 'png', 'webp'} else ('video' if ext in {'mp4', 'mov', 'webm'} else 'document')
             unique_name = f"{int(datetime.now().timestamp())}_{uuid.uuid4().hex[:8]}.{ext}"
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_name))

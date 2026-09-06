@@ -1,27 +1,62 @@
 /**
  * =========================================================================
  * GLOBAL.JS - SISTEM PENDUKUNG KEPUTUSAN BANSOS PEMKAB SIDOARJO
+ * Lokasi: frontend/static/js/global.js
  * =========================================================================
- * Berisi konfigurasi API, helper autentikasi JWT, proteksi rute,
- * interceptor request fetch, dan fungsi formatting umum.
+ * Utilitas global: Konfigurasi API, autentikasi JWT, proteksi rute,
+ * interceptor fetch, integrasi SweetAlert2, dan helper formatting.
  */
 
-// 1. KONFIGURASI BASE URL API BACKEND (Menggunakan 127.0.0.1)
-const API_BASE_URL = 'http://127.0.0.1:5000';
+// 1. KONFIGURASI BASE URL API BACKEND
+const API_BASE_URL = (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
+    ? window.CONFIG.BASE_URL
+    : 'http://127.0.0.1:5000';
 window.API_BASE_URL = API_BASE_URL;
 
-// 2. HELPER AUTENTIKASI & MANAJEMEN SESI (JWT)
+// 2. HELPER TOKEN & DECODER JWT
+function isTokenExpired(token) {
+    if (!token) return true;
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return true;
+        const base64Url = parts[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+            atob(base64)
+                .split('')
+                .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+        );
+        const payload = JSON.parse(jsonPayload);
+        if (!payload.exp) return false;
+        return payload.exp <= Math.floor(Date.now() / 1000);
+    } catch (e) {
+        return true;
+    }
+}
+
 function getAuthToken() {
-    let token = localStorage.getItem('token') ||
+    if (window.Auth && typeof window.Auth.getToken === 'function') {
+        return window.Auth.getToken();
+    }
+    const tokenKey = window.CONFIG?.AUTH?.TOKEN_KEY || 'bansos_jwt_token';
+    const raw = localStorage.getItem(tokenKey) ||
+                localStorage.getItem('token') ||
                 localStorage.getItem('bansosToken') ||
                 localStorage.getItem('access_token') || '';
-    if (!token || token === 'undefined' || token === 'null') return '';
-    return token.replace(/^["']+|["']+$/g, '').trim();
+    if (!raw || raw === 'undefined' || raw === 'null') return '';
+    return raw.replace(/^["']+|["']+$/g, '').trim();
 }
 
 function getAuthUser() {
+    if (window.Auth && typeof window.Auth.getUser === 'function') {
+        return window.Auth.getUser();
+    }
     try {
-        const user = localStorage.getItem('user') || localStorage.getItem('bansosUser');
+        const userKey = window.CONFIG?.AUTH?.USER_DATA_KEY || 'bansos_user_data';
+        const user = localStorage.getItem(userKey) ||
+                     localStorage.getItem('user') ||
+                     localStorage.getItem('bansosUser');
         return user ? JSON.parse(user) : null;
     } catch (e) {
         return null;
@@ -29,63 +64,89 @@ function getAuthUser() {
 }
 
 function setAuthSession(token, userData) {
+    if (window.Auth && typeof window.Auth.setSession === 'function') {
+        window.Auth.setSession(token, userData?.role || 'operator', userData);
+        return;
+    }
+    const tokenKey = window.CONFIG?.AUTH?.TOKEN_KEY || 'bansos_jwt_token';
+    const userKey = window.CONFIG?.AUTH?.USER_DATA_KEY || 'bansos_user_data';
+    const roleKey = window.CONFIG?.AUTH?.ROLE_KEY || 'bansos_user_role';
+
     if (token) {
+        localStorage.setItem(tokenKey, token);
         localStorage.setItem('token', token);
-        localStorage.setItem('bansosToken', token);
     }
     if (userData) {
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('bansosUser', JSON.stringify(userData));
+        localStorage.setItem(userKey, JSON.stringify(userData));
+        if (userData.role) {
+            localStorage.setItem(roleKey, userData.role.toLowerCase());
+        }
     }
 }
 
 function logoutUser() {
-    localStorage.clear();
-    window.location.href = 'login.html';
+    if (window.Auth && typeof window.Auth.clearSession === 'function') {
+        window.Auth.clearSession(true);
+        return;
+    }
+    const keys = [
+        'bansos_jwt_token', 'token', 'access_token', 'bansosToken',
+        'bansos_user_data', 'user', 'bansosUser', 'bansos_user_role'
+    ];
+    keys.forEach(k => localStorage.removeItem(k));
+    const target = window.CONFIG?.AUTH?.LOGIN_REDIRECT_URL || 'login.html';
+    window.location.href = target;
 }
 
-// 3. INTERCEPTOR FETCH DENGAN JWT (FETCH WITH AUTH)
+// 3. RESOLUSI URL & INTERCEPTOR FETCH
+function resolveApiUrl(endpoint) {
+    if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+        return endpoint;
+    }
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const base = (window.CONFIG?.BASE_URL || API_BASE_URL || 'http://127.0.0.1:5000').replace(/\/+$/, '');
+    return `${base}${cleanEndpoint}`;
+}
+
 async function fetchWithAuth(endpoint, options = {}) {
     const token = getAuthToken();
-    const headers = {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-    };
+    const config = { ...options };
+    config.headers = { ...(config.headers || {}) };
 
     if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        config.headers['Authorization'] = `Bearer ${token}`;
     }
 
-    // Jika request mengirim FormData (misal upload foto/video), biarkan browser set Content-Type secara otomatis
-    if (options.body instanceof FormData) {
-        delete headers['Content-Type'];
+    if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
+        config.headers['Content-Type'] = 'application/json';
+        config.body = JSON.stringify(config.body);
+    } else if (config.body instanceof FormData) {
+        delete config.headers['Content-Type'];
     }
 
-    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+    const url = resolveApiUrl(endpoint);
 
     try {
-        const response = await fetch(url, { ...options, headers });
+        const response = await fetch(url, config);
 
-        // Token expired atau akses tidak sah (401)
         if (response.status === 401) {
-            localStorage.clear();
+            logoutUser();
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Sesi Telah Berakhir',
-                    text: 'Sesi autentikasi Anda telah habis. Silakan login kembali.',
+                    text: 'Sesi autentikasi Anda telah habis. Silakan masuk kembali.',
                     confirmButtonColor: '#009846'
                 }).then(() => {
-                    window.location.href = 'login.html';
+                    window.location.href = window.CONFIG?.AUTH?.LOGIN_REDIRECT_URL || 'login.html';
                 });
             } else {
                 alert('Sesi telah berakhir, silakan login kembali.');
-                window.location.href = 'login.html';
+                window.location.href = window.CONFIG?.AUTH?.LOGIN_REDIRECT_URL || 'login.html';
             }
             return null;
         }
 
-        // Akses ditolak karena role tidak mencukupi (403)
         if (response.status === 403) {
             const errData = await response.clone().json().catch(() => ({}));
             const msg = errData.message || 'Anda tidak memiliki hak akses untuk tindakan ini.';
@@ -96,6 +157,8 @@ async function fetchWithAuth(endpoint, options = {}) {
                     text: msg,
                     confirmButtonColor: '#ef4444'
                 });
+            } else {
+                alert(`[AKSES DITOLAK] ${msg}`);
             }
         }
 
@@ -106,45 +169,50 @@ async function fetchWithAuth(endpoint, options = {}) {
             Swal.fire({
                 icon: 'error',
                 title: 'Koneksi Terputus',
-                text: 'Gagal terhubung ke server backend. Pastikan server Flask aktif di port 5000.',
+                text: 'Gagal terhubung ke server backend. Pastikan server aktif.',
                 confirmButtonColor: '#ef4444'
             });
+        } else {
+            alert('Gagal terhubung ke server backend.');
         }
         throw error;
     }
 }
 
-// 4. GUARD / PROTEKSI HALAMAN OTOMATIS
+// 4. GUARD / PROTEKSI RUTE
 document.addEventListener('DOMContentLoaded', () => {
     const currentPath = window.location.pathname.toLowerCase();
     const token = getAuthToken();
+    const tokenValid = token && !isTokenExpired(token);
     const user = getAuthUser();
 
-    // Jika berada di halaman index/dashboard admin tanpa login
-    if (currentPath.includes('index.html') || (currentPath.endsWith('/') && !currentPath.includes('login') && !currentPath.includes('publik'))) {
-        if (!token) {
-            window.location.href = 'login.html';
+    const isDashboard = currentPath.includes('index.html') || 
+                        (currentPath.endsWith('/') && !currentPath.includes('login') && !currentPath.includes('publik'));
+
+    if (isDashboard) {
+        if (!tokenValid) {
+            logoutUser();
             return;
         }
 
-        // Tampilkan info user di navbar jika elemen tersedia
-        const userNameEl = document.querySelector('.user-name');
-        const roleBadgeEl = document.querySelector('.role-badge');
+        const userNameEl = document.querySelector('.user-name') || document.getElementById('userProfileLabel');
+        const roleBadgeEl = document.querySelector('.role-badge') || document.getElementById('userRoleBadge');
+
         if (user && userNameEl) {
-            userNameEl.textContent = user.username ? user.username.toUpperCase() : 'PETUGAS';
+            userNameEl.textContent = (user.nama_lengkap || user.username || 'PETUGAS').toUpperCase();
         }
         if (user && roleBadgeEl) {
-            roleBadgeEl.textContent = user.role === 'admin' ? 'Super Admin' : 'Operator Wilayah';
-            roleBadgeEl.className = `role-badge ${user.role === 'admin' ? 'role-admin' : 'role-petugas'}`;
+            const role = (user.role || 'operator').toLowerCase();
+            const isAdmin = role === 'admin';
+            roleBadgeEl.textContent = isAdmin ? 'Super Admin' : 'Operator Wilayah';
+            roleBadgeEl.className = `role-badge ${isAdmin ? 'role-admin' : 'role-petugas'}`;
         }
     }
 
-    // Jika sudah login dan mencoba membuka login.html
-    if (currentPath.includes('login.html') && token) {
-        window.location.href = 'index.html';
+    if (currentPath.includes('login.html') && tokenValid) {
+        window.location.href = window.CONFIG?.AUTH?.DASHBOARD_REDIRECT_URL || 'index.html';
     }
 
-    // Pasang event listener untuk tombol logout otomatis jika ada
     const logoutButtons = document.querySelectorAll('#logoutBtn, .btn-logout');
     logoutButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -169,30 +237,42 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// 5. FUNGSI UTILITAS FORMATTING & UI
+// 5. FUNGSI FORMATTING, SANITASI & UI
 function formatRupiah(angka) {
-    if (angka === null || angka === undefined) return 'Rp 0';
-    const number = Number(angka);
+    if (angka === null || angka === undefined || angka === '') return 'Rp 0';
+    let num = angka;
+    if (typeof angka === 'string') {
+        const clean = angka.replace(/[^0-9,-]/g, '').replace(',', '.');
+        num = parseFloat(clean);
+    }
+    if (isNaN(num)) return 'Rp 0';
     return new Intl.NumberFormat('id-ID', {
         style: 'currency',
         currency: 'IDR',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
-    }).format(isNaN(number) ? 0 : number);
+    }).format(num);
 }
 
 function formatDateIndo(dateString) {
     if (!dateString) return '-';
-    try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-        });
-    } catch (e) {
-        return dateString;
-    }
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return String(dateString);
+    return date.toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
+}
+
+function safeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 function showToast(icon = 'success', title = 'Berhasil!') {
@@ -206,11 +286,27 @@ function showToast(icon = 'success', title = 'Berhasil!') {
         });
         Toast.fire({ icon, title });
     } else {
-        alert(title);
+        alert(`[${icon.toUpperCase()}] ${title}`);
     }
 }
 
-// 6. TEMPELKAN KE OBJEK GLOBAL (WINDOW)
+// 6. EXPORT OBJECT
+const Global = {
+    formatRupiah,
+    formatTanggal: formatDateIndo,
+    formatDateIndo,
+    safeHtml,
+    toast: (pesan, tipe = 'info') => showToast(tipe, pesan),
+    showToast,
+    fetchWithAuth,
+    getAuthToken,
+    getAuthUser,
+    setAuthSession,
+    logoutUser,
+    isTokenExpired
+};
+
+window.Global = Global;
 window.getAuthToken = getAuthToken;
 window.getAuthUser = getAuthUser;
 window.setAuthSession = setAuthSession;
@@ -219,3 +315,4 @@ window.fetchWithAuth = fetchWithAuth;
 window.formatRupiah = formatRupiah;
 window.formatDateIndo = formatDateIndo;
 window.showToast = showToast;
+window.safeHtml = safeHtml;
