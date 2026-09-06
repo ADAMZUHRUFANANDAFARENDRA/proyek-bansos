@@ -1,21 +1,111 @@
-# Python & Virtual Environment
+# =========================================================================
+# GITIGNORE - SISTEM PENDUKUNG KEPUTUSAN BANSOS PEMKAB SIDOARJO
+# Lokasi: .gitignore
+# =========================================================================
+
+# 1. Bytecode & Kompilasi Python
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 2. Virtual Environment & Paket Dependensi
 venv/
 env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# 3. Environment Variables & Kredensial Sensitif
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
 
-# Database lokal (hanya skema DDL di db/ yang dilacak)
+# 4. Flask Instance & Cache Runtime
+instance/
+.webassets-cache
+
+# 5. Database Lokal, Cache & Dump Cadangan
 backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
 *.sqlite3
+*.db-journal
+*.sql.gz
+*.dump
+mysql_data/
+dumps/
 
-# Direktori Media Uploads
+# 6. Direktori Unggahan Media (Foto KTP, Rumah & Video Survei)
 backend/static/uploads/*
 !backend/static/uploads/.gitkeep
+backend/static/temp/
+*.tmp
 
-# IDE & OS
+# 7. Pengujian, Code Coverage & Cache Linter
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+
+# 8. Node.js & Tooling Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# 9. Docker & Container Overrides
+docker-compose.override.yml
+.docker/
+
+# 10. Log Aplikasi & WSGI Gunicorn
+*.log
+gunicorn_access.log
+gunicorn_error.log
+
+# 11. IDE, Editor Teks & Workspace
 .vscode/
+!.vscode/extensions.json
 .idea/
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+*~
+
+# 12. Sistem Operasi (OS Artifacts)
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini
