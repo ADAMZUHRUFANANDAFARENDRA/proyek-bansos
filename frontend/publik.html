@@ -71,7 +71,6 @@
         .chat-header-text h3 { margin: 0; font-size: 1.15rem; color: var(--text-main); font-weight: 800; display: flex; align-items: center; gap: 8px;}
         .chat-header-text p { margin: 4px 0 0 0; font-size: 0.85rem; color: var(--text-muted); font-weight: 600; display: flex; gap: 6px; align-items: center;}
         
-        /* Indikator Online Blinking */
         .status-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block; animation: pulse-dot 2s infinite;}
         @keyframes pulse-dot { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); } 70% { box-shadow: 0 0 0 6px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
     </style>
@@ -161,12 +160,6 @@
                     <div style="background: #eff6ff; padding: 22px; border-radius: var(--radius-md); border: 1px solid #bfdbfe; border-left: 6px solid var(--info); margin-bottom: 25px;">
                         <b style="font-size:1.1rem; color:#1e3a8a;"><i class="fas fa-bolt"></i> Terintegrasi Langsung ke Pusat (Real-Time)</b><br>
                         <span style="color:#475569; font-size:1rem; font-weight:400; display:block; margin-top:5px;">Formulir yang Anda kirimkan di sini akan seketika membunyikan notifikasi di layar komputer Kantor Dinas Sosial. Notifikasi hasil evaluasi juga akan dikirimkan ke Email Anda.</span>
-                    </div>
-
-                    <div class="form-group" style="background: var(--bg-base); padding: 30px; border-radius: var(--radius-md); border: 2px dashed var(--primary); box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
-                        <label class="form-label" style="color:var(--primary-dark); font-size:1.1rem;"><i class="fas fa-camera"></i> 1. Foto KTP (Autentikasi Ekstraksi Teks AI)</label>
-                        <input type="file" id="ktpUpload" accept="image/*" class="form-input" style="padding:15px; background:var(--surface); cursor:pointer;" onchange="window.processOCR(this)">
-                        <span class="form-helper-desc"><i class="fas fa-magic"></i> <b>Fitur Cerdas (Opsional):</b> Unggah foto KTP Anda, dan Robot Kecerdasan Buatan kami akan mengetik NIK & Nama Anda secara otomatis.</span>
                     </div>
 
                     <form id="formPendaftaranWarga" onsubmit="window.daftarMandiri(event)">
@@ -322,7 +315,7 @@
                         <h2 style="margin:0; color:var(--text-main); font-weight:800; font-size:2rem;">Pusat Bantuan & Edukasi Warga</h2>
                     </div>
                     <div class="guide-box"><div class="guide-icon"><i class="fas fa-mobile-alt"></i></div><div class="guide-text"><h4>Apa Fungsi Portal Mandiri Ini?</h4><p>Portal ini adalah inovasi jembatan komunikasi digital milik Pemerintah Kabupaten untuk mengakomodir pendaftaran bantuan sosial secara daring, memangkas birokrasi dan menghilangkan antrean fisik di balai desa maupun kantor dinas.</p></div></div>
-                    <div class="guide-box"><div class="guide-icon"><i class="fas fa-camera"></i></div><div class="guide-text"><h4>Adakah Cara Mengisi Formulir Secara Otomatis?</h4><p>Sangat ada. Pilih tab <b>Pendaftaran Mandiri</b>, lalu ketuk area "Scan KTP Auto-Fill". Sistem penglihatan komputer (AI OCR) kami akan otomatis membaca gambar KTP Anda dan menyalin teksnya seketika ke dalam formulir pengisian.</p></div></div>
+                    <div class="guide-box"><div class="guide-icon"><i class="fas fa-id-card"></i></div><div class="guide-text"><h4>Bagaimana Cara Mendaftar Bansos?</h4><p>Pilih tab <b>Pendaftaran Mandiri</b>, lalu isi formulir dengan Nomor Induk Kependudukan (NIK), Nama Lengkap, dan 10 kriteria indikator sosial keluarga Anda sesuai dengan dokumen kependudukan resmi.</p></div></div>
                     <div class="guide-box"><div class="guide-icon"><i class="fas fa-comments"></i></div><div class="guide-text"><h4>Apa Langkah Selanjutnya Pasca-Pendaftaran?</h4><p>Anda bisa ke menu <b>Cek Status</b> untuk melacak proses NIK Anda. Jika ingin mengobrol dengan Petugas Dinsos, silakan buka menu <b>Masuk Dashboard</b> dengan melengkapi Nama dan Email yang terdaftar.</p></div></div>
                 </div>
 
@@ -486,7 +479,6 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
     <!-- FILE INTERNAL KITA (Bypass Cache v9.5) -->

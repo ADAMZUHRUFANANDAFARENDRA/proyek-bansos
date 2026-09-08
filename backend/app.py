@@ -17,7 +17,12 @@ import traceback
 from datetime import datetime, timedelta, date
 from functools import wraps
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from flask import Flask, jsonify, request, send_from_directory, make_response
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS
@@ -29,18 +34,14 @@ from werkzeug.utils import secure_filename
 # ===========================================================================
 # 1. KONFIGURASI APLIKASI & DATABASE
 # ===========================================================================
-load_dotenv()
-
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'kunci_rahasia_pemkab_sidoarjo_2026_spk_saw_bwm')
 
-# Database URI: Mendukung MySQL bawaan atau fallback SQLite
 default_mysql = 'mysql+mysqlconnector://root:@127.0.0.1:3306/bansos'
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', default_mysql)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_CONTENT_LENGTH', 100 * 1024 * 1024))
 
-# Folder Penyimpanan Berkas Uploads
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -54,7 +55,6 @@ ALLOWED_EXTENSIONS = {
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 
-# Konfigurasi CORS Penuh
 CORS(
     app,
     resources={r"/*": {"origins": "*"}},
@@ -125,19 +125,17 @@ class Warga(db.Model):
     tanggal_lahir = db.Column(db.Date, nullable=True)
     alamat = db.Column(db.String(255), nullable=True, default='Sidoarjo')
     
-    # 10 Kriteria Penilaian BWM-SAW
-    c1_ekonomi = db.Column(db.Float, nullable=False, default=0.0)          # Cost
-    c2_aset = db.Column(db.Integer, nullable=False, default=0)              # Cost
-    c3_umur = db.Column(db.Integer, nullable=False, default=0)              # Benefit
-    c4_jenis_kelamin = db.Column(db.Integer, nullable=False, default=1)     # Benefit (1=L, 2=P)
-    c5_tanggungan = db.Column(db.Integer, nullable=False, default=0)        # Benefit
-    c6_status_pernikahan = db.Column(db.Integer, nullable=False, default=1) # Benefit (1=Belum, 2=Nikah, 3=Cerai)
-    c7_kepemilikan_anak = db.Column(db.Integer, nullable=False, default=0)  # Benefit
-    c8_tempat_tinggal = db.Column(db.Integer, nullable=False, default=1)    # Benefit (1=Milik, 2=Sewa, 3=Numpang)
-    c9_pendidikan = db.Column(db.Integer, nullable=False, default=1)        # Cost (1=SD, 2=SMP, 3=SMA, 4=PT)
-    c10_kesehatan = db.Column(db.Integer, nullable=False, default=1)        # Benefit (1=Sehat, 2=Sakit/Disabilitas)
+    c1_ekonomi = db.Column(db.Float, nullable=False, default=0.0)
+    c2_aset = db.Column(db.Integer, nullable=False, default=0)
+    c3_umur = db.Column(db.Integer, nullable=False, default=0)
+    c4_jenis_kelamin = db.Column(db.Integer, nullable=False, default=1)
+    c5_tanggungan = db.Column(db.Integer, nullable=False, default=0)
+    c6_status_pernikahan = db.Column(db.Integer, nullable=False, default=1)
+    c7_kepemilikan_anak = db.Column(db.Integer, nullable=False, default=0)
+    c8_tempat_tinggal = db.Column(db.Integer, nullable=False, default=1)
+    c9_pendidikan = db.Column(db.Integer, nullable=False, default=1)
+    c10_kesehatan = db.Column(db.Integer, nullable=False, default=1)
     
-    # Status Validasi Lapangan
     is_verified = db.Column(db.Boolean, default=False)
     tanggal_verifikasi = db.Column(db.Date, nullable=True)
     foto_rumah = db.Column(db.String(255), nullable=True)
@@ -145,7 +143,6 @@ class Warga(db.Model):
     longitude = db.Column(db.String(50), nullable=True)
     catatan = db.Column(db.Text, nullable=True)
     
-    # Status Distribusi Bansos
     status_salur = db.Column(db.String(50), default='Pending')
     bukti_salur = db.Column(db.String(255), nullable=True)
     nominal_bantuan = db.Column(db.String(100), nullable=True, default='Rp 600.000 / Beras 10 Kg')
@@ -158,7 +155,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=True)
     password = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), default='operator')  # 'admin' atau 'operator'
+    role = db.Column(db.String(20), default='operator')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Kriteria(db.Model):
@@ -167,7 +164,7 @@ class Kriteria(db.Model):
     kode = db.Column(db.String(5), unique=True, nullable=False)
     nama = db.Column(db.String(50), nullable=False)
     bobot = db.Column(db.Float, nullable=False)
-    jenis = db.Column(db.String(10), nullable=False)  # 'benefit' atau 'cost'
+    jenis = db.Column(db.String(10), nullable=False)
 
 class Notifikasi(db.Model):
     __tablename__ = 'notifikasi'
@@ -184,10 +181,10 @@ class ChatKeluhan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nik_warga = db.Column(db.String(20), nullable=False)
     nama_warga = db.Column(db.String(100), nullable=False)
-    sender = db.Column(db.String(20), nullable=False)  # 'admin' atau 'warga'
+    sender = db.Column(db.String(20), nullable=False)
     pesan = db.Column(db.Text, nullable=True)
     file_path = db.Column(db.String(255), nullable=True)
-    file_type = db.Column(db.String(20), nullable=True)  # 'image', 'video', 'document', 'audio'
+    file_type = db.Column(db.String(20), nullable=True)
     is_pinned = db.Column(db.Boolean, default=False)
     reaction = db.Column(db.String(10), nullable=True)
     waktu = db.Column(db.DateTime, default=datetime.now)
@@ -355,7 +352,6 @@ def login():
         token = jwt.encode(token_payload, app.config['SECRET_KEY'], algorithm='HS256')
         if isinstance(token, bytes): token = token.decode('utf-8')
         
-        # Format respons yang kompatibel dengan frontend
         return jsonify({
             "status": "success",
             "message": "Login berhasil",
@@ -641,7 +637,6 @@ def manage_warga():
             return jsonify({'status': 'success', 'data': hasil_json})
 
         elif request.method == 'POST':
-            # Mendukung JSON dan multipart/form-data
             if request.is_json:
                 d = request.get_json(silent=True) or {}
             else:
@@ -974,7 +969,7 @@ def import_bulk_warga():
         return jsonify({'status': 'error', 'message': f'Gagal impor data: {str(e)}'}), 500
 
 # ===========================================================================
-# 10. DUKCAPIL VALIDATOR, CEK PUBLIK & SINKRONISASI BPS SIDOARJO
+# 10. DUKCAPIL VALIDATOR, PUBLIK & BPS SIDOARJO
 # ===========================================================================
 @app.route('/api/dukcapil/<nik>', methods=['GET'])
 def check_dukcapil(nik):
@@ -1017,7 +1012,6 @@ def cek_bansos_publik():
     if not w:
         return jsonify({'message': 'Data NIK tidak ditemukan dalam sistem penetapan bansos'}), 404
 
-    # Hitung desil secara cepat
     saw_data = hitung_saw_logic()
     rank_item = next((item for item in saw_data.get('hasil_akhir', []) if item['nik'] == nik), None)
     desil_val = rank_item['desil'] if rank_item else 5

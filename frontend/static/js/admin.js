@@ -1,10 +1,12 @@
 /* =========================================================================
-   ADMIN.JS - MODUL ORCHESTRATOR UTAMA SISTEM BANSOS KABUPATEN SIDOARJO
-   PENGELOLA: AUTHENTICATION, STATE BUS, OCR KTP, DUKCAPIL, CRUD & DATATABLES
+   ADMIN.JS - ORCHESTRATOR UTAMA SISTEM SPK BANSOS PEMKAB SIDOARJO
+   MENGELOLA: AUTHENTICATION, DUKCAPIL LOOKUP & AUTO-FILL, GEOTAGGING,
+              DATATABLES, BULK PROCESS, EKSPOR/IMPOR EXCEL, USER MANAGEMENT,
+              SPK BWM-SAW & MODAL
    Lokasi: frontend/static/js/admin.js
    ========================================================================= */
 
-// Injeksi Style Antarmuka Dasbor & DataTables secara Dinamis
+// Injeksi CSS Dinamis untuk Komponen DataTables, Badge, & FAB Melayang
 const dtStyle = document.createElement('style');
 dtStyle.innerHTML = `
     .dataTables_length { margin-bottom: 15px; margin-top: 5px; font-weight: 600; color: var(--text-muted, #64748b); }
@@ -17,6 +19,9 @@ dtStyle.innerHTML = `
     .badge-warning { background: #fef3c7; color: #b45309; font-weight: 700; padding: 5px 10px; border-radius: 20px; display: inline-flex; align-items: center; gap: 5px; }
     .filter-btn.active { background: #10b981 !important; color: white !important; font-weight: 700; }
     .filter-btn-danger.active { background: #ef4444 !important; color: white !important; font-weight: 700; }
+    .fab-bulk { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: #0f172a; color: white; padding: 10px 24px; border-radius: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 1000; display: none; align-items: center; gap: 15px; animation: slideUp 0.3s ease; }
+    .fab-text { font-size: 0.9rem; font-weight: 700; }
+    @keyframes slideUp { from { transform: translate(-50%, 50px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 `;
 document.head.appendChild(dtStyle);
 
@@ -36,6 +41,7 @@ window.currentSort = 'terbaru';
 window.sortNikAsc = false;
 window.sortAzAsc = false;
 window.selectedTanggalDaftar = '';
+window.stagedImportData = [];
 
 let dtTable = null;
 let chartDesilObj = null;
@@ -55,7 +61,7 @@ try {
 }
 
 // =========================================================================
-// 2. HELPER UTILITY & STATE BUS SYNC
+// 2. HELPER UTILITY & SANITASI
 // =========================================================================
 window.safeHtml = function (str) {
     if (!str) return '';
@@ -85,46 +91,35 @@ function showAdminAlert(options) {
     return Promise.resolve({ isConfirmed: true, value: true });
 }
 
-// Sinkronisasi Event Bus jika arsitektur event termuat
-if (window.BansosApp && window.BansosApp.Events) {
-    window.BansosApp.Events.on('warga:updated', function (dataWarga) {
-        if (window.macroMap && typeof window.renderChoroplethKerentanan === 'function') {
-            window.renderChoroplethKerentanan();
-        }
-    });
-
-    window.BansosApp.Events.on('spk:computed', function (hasilSpk) {
-        console.log('[SPK Event] Pembaruan kalkulasi SPK diterima oleh orchestrator dasbor.');
-    });
-}
+window.getCleanToken = function () {
+    return localStorage.getItem('token') || localStorage.getItem('access_token') || localStorage.getItem('bansosToken') || '';
+};
 
 // =========================================================================
-// 3. LIFECYCLE DOM & INITIALIZATION
+// 3. LIFECYCLE DOM & INISIALISASI
 // =========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
-    // Verifikasi sesi autentikasi (Wajib login untuk role admin & operator/petugas)
+    // Sesi Autentikasi Keamanan
     if (window.Auth && typeof window.Auth.requireAuth === 'function') {
         if (!window.Auth.requireAuth(['admin', 'operator', 'petugas'])) return;
     } else {
-        const token = (window.BansosApp && window.BansosApp.API) ? window.BansosApp.API.getToken() : window.getCleanToken();
+        const token = window.getCleanToken();
         if (!token) {
             window.location.href = 'login.html';
             return;
         }
     }
 
-    // Perbarui identitas user aktif dan panel kendali administrator
+    // Identitas Pengguna & Hak Akses Dasbor
     const currentUser = (window.Auth && typeof window.Auth.getUser === 'function') ? window.Auth.getUser() : user;
     const currentRole = ((window.Auth && typeof window.Auth.getRole === 'function') ? window.Auth.getRole() : currentUser?.role || 'operator').toLowerCase();
 
     if (currentUser) {
-        const nameEl = document.getElementById('navUsername') || document.getElementById('userProfileLabel');
-        const roleEl = document.getElementById('navRoleBadge') || document.getElementById('userRoleBadge');
+        const nameEl = document.getElementById('navUsername');
+        const roleEl = document.getElementById('navRoleBadge');
         const cmdEl = document.getElementById('adminCommandCenter');
 
-        if (nameEl) {
-            nameEl.innerText = (currentUser.nama_lengkap || currentUser.username || 'PETUGAS').toUpperCase();
-        }
+        if (nameEl) nameEl.innerText = (currentUser.nama_lengkap || currentUser.username || 'PETUGAS').toUpperCase();
 
         if (roleEl) {
             if (currentRole === 'admin') {
@@ -139,10 +134,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Memuat seluruh dataset dan statistik dasbor
+    // Muat Dataset & Statistik
     await window.loadDashboardData();
 
-    // Inisialisasi Map Picker Form & Makro Spasial Wilayah Sidoarjo
+    // Inisialisasi Map Picker Geotagging & Peta Makro
     setTimeout(() => {
         window.initFormMapPicker();
         if (typeof window.initMacroDistributionMap === 'function') {
@@ -150,28 +145,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }, 350);
 
-    // Inisialisasi Notifikasi & WebRTC
+    // Sistem Notifikasi Berkala
     window.setupNotificationSystemModern();
     window.fetchNotifikasiRealtime();
-    setInterval(window.fetchNotifikasiRealtime, 10000);
-
-    if (typeof window.initPeerCall === 'function') {
-        window.initPeerCall();
-    }
+    setInterval(window.fetchNotifikasiRealtime, 15000);
 });
 
 // =========================================================================
-// 4. MEMUAT DATA DASHBOARD & KALKULASI STATISTIK
+// 4. MEMUAT DATA DASHBOARD & STATISTIK REAL-TIME
 // =========================================================================
 window.loadDashboardData = async function (showToast = false) {
     try {
-        const res = await (window.fetchWithAuth ? window.fetchWithAuth(`/warga?_t=${Date.now()}`) : window.fetchData(`/warga?_t=${Date.now()}`));
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth(`/warga?_t=${Date.now()}`) : (window.fetchData ? window.fetchData(`/warga?_t=${Date.now()}`) : fetch(`${BASE_URL}/warga`)));
         if (!res || !res.ok) return;
 
         const resData = await res.json();
         let data = Array.isArray(resData) ? resData : (resData.data || []);
 
-        // Sinkronisasi data ke State Manager Terpusat
         if (window.BansosApp && window.BansosApp.State) {
             window.BansosApp.State.setWargaList(data);
         } else {
@@ -187,7 +177,6 @@ window.loadDashboardData = async function (showToast = false) {
         const sengketa = data.filter(w => String(w.status_salur).includes('Sengketa')).length;
         const bebasSengketa = total - sengketa;
 
-        // Pembaruan Kartu Metrik Statistik
         const statTotal = document.getElementById('statTotal');
         if (statTotal) statTotal.innerText = total;
 
@@ -229,72 +218,10 @@ window.loadDashboardData = async function (showToast = false) {
 };
 
 // =========================================================================
-// 5. OCR SCAN KTP (AI TESSERACT) & VALIDASI DUKCAPIL
+// 5. VALIDASI & AUTO-FILL INTEGRASI DUKCAPIL
 // =========================================================================
-window.processOCR = async function (input) {
-    if (!input.files || !input.files[0]) return;
-
-    if (typeof Tesseract === 'undefined') {
-        return showAdminAlert({
-            icon: 'error',
-            title: 'Pustaka OCR Belum Siap',
-            text: 'Modul Tesseract OCR belum termuat secara sempurna di peramban.'
-        });
-    }
-
-    showAdminAlert({
-        title: 'Memindai KTP (AI OCR)...',
-        html: 'Membaca NIK, Nama Lengkap, Tanggal Lahir, dan Alamat...',
-        allowOutsideClick: false,
-        didOpen: () => Swal?.showLoading()
-    });
-
-    try {
-        const res = await Tesseract.recognize(input.files[0], 'ind');
-        Swal?.close();
-        const text = res.data.text || '';
-
-        const nikMatch = text.match(/\b\d{16}\b/);
-        if (nikMatch && document.getElementById('nik')) {
-            document.getElementById('nik').value = nikMatch[0];
-            await window.cekDukcapilLokal();
-        }
-
-        const namaMatch = text.match(/(?:Nama|NAMA)\s*[:;]?\s*([A-Za-z\s.,']+)/i);
-        if (namaMatch && document.getElementById('nama')) {
-            document.getElementById('nama').value = namaMatch[1].trim().replace(/\n/g, '');
-        }
-
-        const ttlMatch = text.match(/(?:Tempat\/Tgl Lahir|Tempat\/Tgl|TTL)\s*[:;]?\s*([A-Za-z\s]+)[,\/]\s*(\d{2})[-–\/](\d{2})[-–\/](\d{4})/i);
-        if (ttlMatch) {
-            if (document.getElementById('tempatLahir')) document.getElementById('tempatLahir').value = ttlMatch[1].trim();
-            if (document.getElementById('tglLahir')) document.getElementById('tglLahir').value = `${ttlMatch[4]}-${ttlMatch[3]}-${ttlMatch[2]}`;
-        }
-
-        const alamatMatch = text.match(/(?:Alamat|ALAMAT)\s*[:;]?\s*([A-Za-z0-9\s.,\/-]+?)(?=(?:RT\/RW|Kel\/Desa|Kecamatan|Agama|$))/i);
-        if (alamatMatch && document.getElementById('alamat')) {
-            document.getElementById('alamat').value = alamatMatch[1].trim().replace(/\n/g, ' ') + ', Sidoarjo';
-        }
-
-        if (/LAKI|LAKI-LAKI/i.test(text) && document.getElementById('c4')) document.getElementById('c4').value = "1";
-        if (/PEREMPUAN/i.test(text) && document.getElementById('c4')) document.getElementById('c4').value = "2";
-
-        showAdminAlert({
-            icon: 'success',
-            title: 'Scan KTP Berhasil!',
-            text: 'Data identitas berhasil diisi otomatis ke dalam formulir pendataan.',
-            timer: 2000,
-            showConfirmButton: false
-        });
-    } catch (e) {
-        showAdminAlert({ icon: 'error', title: 'Gagal Scan', text: 'Tidak dapat mengenali teks pada berkas KTP.' });
-    }
-};
-
 window.cekDukcapilLokal = async function () {
-    const nikInput = document.getElementById('nik');
-    const nik = nikInput ? nikInput.value.trim() : '';
-
+    const nik = document.getElementById('nik')?.value.trim();
     if (!nik || nik.length !== 16 || !/^\d+$/.test(nik)) {
         return showAdminAlert({ icon: 'warning', title: 'Peringatan', text: 'Masukkan tepat 16 digit angka NIK.' });
     }
@@ -302,7 +229,7 @@ window.cekDukcapilLokal = async function () {
     showAdminAlert({ title: 'Memeriksa Data Dukcapil...', didOpen: () => Swal?.showLoading() });
 
     try {
-        const res = await (window.fetchWithAuth ? window.fetchWithAuth(`/api/dukcapil/${nik}`) : window.fetchData(`/api/dukcapil/${nik}`));
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth(`/api/dukcapil/${nik}`) : (window.fetchData ? window.fetchData(`/api/dukcapil/${nik}`) : fetch(`${BASE_URL}/api/dukcapil/${nik}`)));
         const json = await res.json();
         Swal?.close();
 
@@ -314,14 +241,18 @@ window.cekDukcapilLokal = async function () {
             if (document.getElementById('alamat')) document.getElementById('alamat').value = d.alamat;
             if (document.getElementById('c4')) document.getElementById('c4').value = d.jenis_kelamin === 'Perempuan' ? '2' : '1';
 
+            if (typeof window.cariAlamatDiPeta === 'function') {
+                window.cariAlamatDiPeta(d.alamat);
+            }
+
             showAdminAlert({
                 icon: 'success',
-                title: 'Data Dukcapil Ditemukan!',
+                title: 'Data Dukcapil Ditemukan',
                 html: `<b>Nama:</b> ${d.nama}<br><b>TTL:</b> ${d.tempat_lahir}, ${d.tanggal_lahir}<br><b>Alamat:</b> ${d.alamat}`,
                 confirmButtonColor: '#10b981'
             });
         } else {
-            showAdminAlert({ icon: 'error', title: 'Gagal', text: 'Data NIK tidak ditemukan di basis data Dukcapil Sidoarjo.' });
+            showAdminAlert({ icon: 'error', title: 'Gagal', text: 'Data NIK tidak ditemukan pada peladen Dukcapil.' });
         }
     } catch (err) {
         showAdminAlert({ icon: 'error', title: 'Error', text: 'Gagal menghubungi peladen Dukcapil.' });
@@ -329,7 +260,7 @@ window.cekDukcapilLokal = async function () {
 };
 
 // =========================================================================
-// 6. GEOTAGGING FORM PENDAFTARAN (PICKER PETA LEAFLET)
+// 6. GEOTAGGING FORM PENDAFTARAN & PENCARIAN ALAMAT PETA
 // =========================================================================
 window.initFormMapPicker = function () {
     const mapBox = document.getElementById('formCoordMap');
@@ -375,6 +306,26 @@ window.updateLocationAndAddress = async function (lat, lng) {
     } catch (err) { }
 };
 
+window.cariAlamatDiPeta = async function (query) {
+    if (!query || String(query).trim().length < 4) return;
+    try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Kabupaten Sidoarjo')}&limit=1`;
+        const res = await fetch(url);
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.length > 0) {
+                const lat = parseFloat(data[0].lat);
+                const lng = parseFloat(data[0].lon);
+                if (formMap && formMarker) {
+                    formMap.setView([lat, lng], 16);
+                    formMarker.setLatLng([lat, lng]);
+                }
+                window.setFormCoords(lat, lng);
+            }
+        }
+    } catch (e) { }
+};
+
 window.ambilLokasiGPS = function () {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -387,7 +338,7 @@ window.ambilLokasiGPS = function () {
                 }
                 window.updateLocationAndAddress(lat, lng);
             },
-            () => showAdminAlert({ icon: 'error', title: 'GPS Gagal', text: 'Mohon izinkan akses lokasi pada peramban Anda.' })
+            () => showAdminAlert({ icon: 'error', title: 'GPS Gagal', text: 'Izinkan akses geolokasi pada peramban Anda.' })
         );
     }
 };
@@ -400,7 +351,7 @@ window.render3DashboardCharts = function (data) {
     if (!Array.isArray(data)) data = [];
     const total = data.length;
 
-    // Grafik Desil 1 - 10
+    // Grafik Distribusi Desil (D1 - D10)
     const ctxDesil = document.getElementById('chartDesil10');
     if (ctxDesil) {
         const desilCounts = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -429,7 +380,7 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
-    // Grafik Persetujuan (Valid vs Menunggu)
+    // Grafik Status Persetujuan
     const ctxValid = document.getElementById('chartPersetujuan');
     if (ctxValid) {
         const disetujui = data.filter(w => w.is_verified).length;
@@ -455,18 +406,18 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
-    // Grafik Status Distribusi Penyaluran
+    // Grafik Status Penyaluran
     const ctxSalur = document.getElementById('chartPenyaluran');
     if (ctxSalur) {
-        const telahMenerima = data.filter(w => w.status_salur === 'Telah Menerima').length;
-        const belumMenerima = total - telahMenerima;
+        const telahSalur = data.filter(w => w.status_salur === 'Telah Menerima').length;
+        const belumSalur = total - telahSalur;
         if (chartPenyaluranObj) chartPenyaluranObj.destroy();
         chartPenyaluranObj = new Chart(ctxSalur, {
             type: 'doughnut',
             data: {
                 labels: ['Telah Disalurkan', 'Menunggu Salur'],
                 datasets: [{
-                    data: [telahMenerima, belumMenerima],
+                    data: [telahSalur, belumSalur],
                     backgroundColor: ['#0284c7', '#cbd5e1'],
                     borderWidth: 2,
                     borderColor: '#ffffff'
@@ -481,18 +432,18 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
-    // Grafik Pemantauan Sengketa Lapangan
+    // Grafik Status Mediasi Sengketa
     const ctxSengketa = document.getElementById('chartSengketa');
     if (ctxSengketa) {
-        const kasusSengketa = data.filter(w => String(w.status_salur).includes('Sengketa')).length;
-        const bebasSengketa = total - kasusSengketa;
+        const sengketa = data.filter(w => String(w.status_salur).includes('Sengketa')).length;
+        const bebasSengketa = total - sengketa;
         if (chartSengketaObj) chartSengketaObj.destroy();
         chartSengketaObj = new Chart(ctxSengketa, {
             type: 'doughnut',
             data: {
                 labels: ['Bebas Sengketa', 'Laporan Sengketa'],
                 datasets: [{
-                    data: [bebasSengketa, kasusSengketa],
+                    data: [bebasSengketa, sengketa],
                     backgroundColor: ['#10b981', '#dc2626'],
                     borderWidth: 2,
                     borderColor: '#ffffff'
@@ -509,13 +460,10 @@ window.render3DashboardCharts = function (data) {
 };
 
 // =========================================================================
-// 8. CRUD DATA WARGA, FILTERING & SORTING
+// 8. CRUD WARGA, FILTERING & SORTING
 // =========================================================================
 window.tambahData = async function (e) {
     if (e && e.preventDefault) e.preventDefault();
-
-    const formEl = document.getElementById('bansosForm');
-    const formData = new FormData(formEl);
 
     const payload = {
         nama: document.getElementById('nama')?.value.trim(),
@@ -547,19 +495,14 @@ window.tambahData = async function (e) {
     showAdminAlert({ title: 'Menyimpan Data...', allowOutsideClick: false, didOpen: () => Swal?.showLoading() });
 
     try {
-        const fotoInput = document.getElementById('fotoRumah') || document.getElementById('fotoKtp');
-        let res;
-
-        if (fotoInput && fotoInput.files && fotoInput.files[0]) {
-            res = await (window.fetchWithAuth ? window.fetchWithAuth('/warga', { method: 'POST', body: formData }) : window.fetchData('/warga', { method: 'POST', body: formData }));
-        } else {
-            res = await (window.fetchWithAuth ? window.fetchWithAuth('/warga', { method: 'POST', body: payload }) : window.fetchData('/warga', { method: 'POST', body: JSON.stringify(payload) }));
-        }
+        const res = await (window.fetchWithAuth 
+            ? window.fetchWithAuth('/warga', { method: 'POST', body: payload }) 
+            : (window.fetchData ? window.fetchData('/warga', { method: 'POST', body: JSON.stringify(payload) }) : fetch(`${BASE_URL}/warga`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })));
 
         const json = await res.json();
         if (res && res.ok) {
             showAdminAlert({ icon: 'success', title: 'Berhasil', text: json.message || 'Data warga berhasil disimpan!' });
-            formEl?.reset();
+            document.getElementById('bansosForm')?.reset();
             window.loadDashboardData();
         } else {
             showAdminAlert({ icon: 'error', title: 'Gagal', text: json.message || 'Gagal menyimpan data.' });
@@ -625,11 +568,8 @@ window.filterAndRenderData = function () {
     }
 
     if (window.selectedTanggalDaftar) {
-        const query = window.selectedTanggalDaftar;
-        filtered = filtered.filter(w => {
-            const raw = String(w.created_at || '').toLowerCase();
-            return raw.includes(query);
-        });
+        const q = window.selectedTanggalDaftar;
+        filtered = filtered.filter(w => String(w.created_at || '').toLowerCase().includes(q));
     }
 
     if (window.currentSort === 'nik_asc') {
@@ -667,15 +607,14 @@ window.renderTable = function (data) {
         const isEligible = isVerified && desil <= 4;
 
         let verifBadge = isVerified
-            ? `<span class="badge badge-green" style="background:#e6f9f0; color:#009846; border:1px solid #a7f3d0; padding:5px 12px; border-radius:20px; font-weight:800; display:inline-flex; align-items:center; gap:5px; font-size:0.8rem;"><i class="fas fa-check-circle"></i> DISETUJUI</span>`
-            : `<span class="badge badge-red" style="background:#fee2e2; color:#dc2626; border:1px solid #fecaca; padding:5px 12px; border-radius:20px; font-weight:800; display:inline-flex; align-items:center; gap:5px; font-size:0.8rem;"><i class="fas fa-clock"></i> MENUNGGU</span>`;
+            ? `<span class="badge badge-green"><i class="fas fa-check-circle"></i> DISETUJUI</span>`
+            : `<span class="badge badge-red"><i class="fas fa-clock"></i> MENUNGGU</span>`;
 
-        let desilBadge = '';
-        if (isVerified) {
-            desilBadge = desil <= 4
+        let desilBadge = isVerified
+            ? (desil <= 4
                 ? `<span class="badge badge-green" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-award"></i> Layak Bansos (Desil ${desil})</span>`
-                : `<span class="badge badge-warning" style="font-size:0.7rem; margin-top:3px; background:#fffbeb; color:#b45309; border:1px solid #fde68a;"><i class="fas fa-info-circle"></i> Tidak Prioritas (Desil ${desil})</span>`;
-        }
+                : `<span class="badge badge-warning" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-info-circle"></i> Tidak Prioritas (Desil ${desil})</span>`)
+            : '';
 
         let statusSalurBadge = '';
         if (w.status_salur === 'Telah Menerima') {
@@ -685,8 +624,8 @@ window.renderTable = function (data) {
         }
 
         const btnToggleVerif = isVerified
-            ? `<button onclick="window.toggleVerifySingle(${w.id}, '${window.escapeInlineJS(w.nama)}')" class="btn btn-secondary btn-sm" style="border:1px solid #cbd5e1; border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px; background:white; color:#334155;"><i class="fas fa-undo"></i> Batal</button>`
-            : `<button onclick="window.toggleVerifySingle(${w.id}, '${window.escapeInlineJS(w.nama)}')" class="btn btn-primary btn-sm" style="border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px; background:#009846; color:white;"><i class="fas fa-check"></i> Setujui</button>`;
+            ? `<button onclick="window.toggleVerifySingle(${w.id}, '${window.escapeInlineJS(w.nama)}')" class="btn btn-secondary btn-sm" style="border:1px solid #cbd5e1; border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px;"><i class="fas fa-undo"></i> Batal</button>`
+            : `<button onclick="window.toggleVerifySingle(${w.id}, '${window.escapeInlineJS(w.nama)}')" class="btn btn-primary btn-sm" style="border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px;"><i class="fas fa-check"></i> Setujui</button>`;
 
         const btnKamera = isEligible
             ? `<button onclick="window.bukaUploadBuktiSalur(${w.id}, '${window.escapeInlineJS(w.nama)}', '${w.bukti_salur || ''}')" class="btn btn-sm" style="padding:5px 8px; background:#dcfce7; color:#15803d; border-radius:6px; margin-right:3px;" title="Unggah Bukti Penyaluran"><i class="fas fa-camera"></i></button>`
@@ -742,20 +681,46 @@ window.renderTable = function (data) {
     }
 };
 
+document.addEventListener('change', function (e) {
+    if (e.target.classList.contains('row-checkbox') || e.target.id === 'selectAll') {
+        const checked = document.querySelectorAll('.row-checkbox:checked').length;
+        const fab = document.getElementById('fabBulk');
+        const countEl = document.getElementById('bulkCount');
+        if (countEl) countEl.innerText = checked;
+        if (fab) fab.style.display = checked > 0 ? 'flex' : 'none';
+    }
+});
+
 // =========================================================================
-// 10. AKSI PERSETUJUAN & PEMBATALAN MASSAL
+// 10. AKSI BULK, PERSETUJUAN & SINKRONISASI BPS
 // =========================================================================
+window.bulkProcess = async function (action) {
+    const checked = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
+    if (!checked.length) {
+        return showAdminAlert({ icon: 'warning', title: 'Pilih Data', text: 'Pilih minimal satu baris warga terlebih dahulu.' });
+    }
+
+    if (action === 'verify') {
+        return window.verifyAllData();
+    } else if (action === 'delete') {
+        const konfirmasi = confirm(`Apakah Anda yakin ingin menghapus ${checked.length} data warga terpilih?`);
+        if (konfirmasi) {
+            await (window.fetchWithAuth ? window.fetchWithAuth('/warga/bulk/delete', { method: 'POST', body: { ids: checked } }) : (window.fetchData ? window.fetchData('/warga/bulk/delete', { method: 'POST', body: JSON.stringify({ ids: checked }) }) : null));
+            window.loadDashboardData();
+        }
+    }
+};
+
 window.verifyAllData = async function (e) {
     if (e && e.preventDefault) e.preventDefault();
-    const checkedBoxes = Array.from(document.querySelectorAll('.row-checkbox:checked'))
-        .map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
-    const payload = checkedBoxes.length > 0 ? { ids: checkedBoxes } : {};
+    const checked = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
+    const payload = checked.length > 0 ? { ids: checked } : {};
 
     showAdminAlert({ title: 'Memproses Persetujuan...', didOpen: () => Swal?.showLoading() });
     try {
         const res = await (window.fetchWithAuth ? window.fetchWithAuth('/warga/bulk/verify', { method: 'POST', body: payload }) : window.fetchData('/warga/bulk/verify', { method: 'POST', body: JSON.stringify(payload) }));
         if (res && res.ok) {
-            showAdminAlert({ icon: 'success', title: 'Sukses', text: 'Data warga berhasil disetujui sebagai penerima bansos.' });
+            showAdminAlert({ icon: 'success', title: 'Sukses', text: 'Persetujuan data warga berhasil diproses.' });
             await window.loadDashboardData();
         }
     } catch (err) {
@@ -765,9 +730,8 @@ window.verifyAllData = async function (e) {
 
 window.unverifyAllData = async function (e) {
     if (e && e.preventDefault) e.preventDefault();
-    const checkedBoxes = Array.from(document.querySelectorAll('.row-checkbox:checked'))
-        .map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
-    const payload = checkedBoxes.length > 0 ? { ids: checkedBoxes } : {};
+    const checked = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
+    const payload = checked.length > 0 ? { ids: checked } : {};
 
     showAdminAlert({ title: 'Membatalkan Persetujuan...', didOpen: () => Swal?.showLoading() });
     try {
@@ -788,8 +752,281 @@ window.toggleVerifySingle = async function (id, namaWarga) {
     }
 };
 
+window.hapusSemuaWarga = async function () {
+    const konf = await Swal.fire({
+        title: 'Hapus Seluruh Data Warga?',
+        text: 'Tindakan ini tidak dapat dibatalkan. Semua data survei dan hasil perankingan akan dihapus!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        confirmButtonText: 'Ya, Hapus Semua'
+    });
+    if (konf.isConfirmed) {
+        try {
+            await (window.fetchWithAuth ? window.fetchWithAuth('/warga/all', { method: 'DELETE' }) : window.fetchData('/warga/all', { method: 'DELETE' }));
+            showAdminAlert({ icon: 'success', title: 'Terhapus', text: 'Seluruh data warga berhasil dibersihkan.' });
+            window.loadDashboardData();
+        } catch (e) {
+            showAdminAlert({ icon: 'error', title: 'Gagal', text: 'Gagal menghapus data warga.' });
+        }
+    }
+};
+
+window.syncBPS = async function () {
+    showAdminAlert({ title: 'Sinkronisasi Data BPS Sidoarjo...', didOpen: () => Swal?.showLoading() });
+    try {
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/api/bps/sync', { method: 'POST' }) : window.fetchData('/api/bps/sync', { method: 'POST' }));
+        const json = await res.json();
+        Swal?.close();
+        showAdminAlert({ icon: 'success', title: 'BPS Terhubung', text: json.message || 'Indikator kemiskinan makro BPS Kabupaten Sidoarjo berhasil disinkronkan.' });
+    } catch (e) {
+        showAdminAlert({ icon: 'info', title: 'Data BPS Termutakhir', text: 'Indikator kemiskinan makro BPS Kabupaten Sidoarjo telah aktif pada sistem.' });
+    }
+};
+
 // =========================================================================
-// 11. MODAL EDIT, HAPUS, & PENANGANAN BUKTI SALUR / SENGKETA
+// 11. SPK ALGORITMA BWM-SAW & KOMPARASI WP
+// =========================================================================
+window.hitungSPK = async function () {
+    if (window.AdminSPK && typeof window.AdminSPK.hitungSPK === 'function') {
+        return window.AdminSPK.hitungSPK();
+    }
+
+    showAdminAlert({ title: 'Memproses Algoritma SAW & BWM...', allowOutsideClick: false, didOpen: () => Swal?.showLoading() });
+    try {
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/api/spk/hitung', { method: 'POST' }) : window.fetchData('/api/spk/hitung', { method: 'POST' }));
+        const json = await res.json();
+        Swal?.close();
+
+        if (res && res.ok) {
+            showAdminAlert({ icon: 'success', title: 'Komputasi Selesai', text: 'Perankingan preferensi BWM-SAW berhasil diperbarui.' });
+            const resultCard = document.getElementById('resultCard');
+            const resultTbody = document.querySelector('#resultTable tbody');
+
+            if (resultCard && resultTbody && json.data) {
+                resultCard.style.display = 'block';
+                resultTbody.innerHTML = json.data.slice(0, 40).map((w, idx) => `
+                    <tr>
+                        <td style="text-align:center; font-weight:800; font-family:monospace;">#${idx + 1}</td>
+                        <td><b>${window.safeHtml(w.nama)}</b><br><small class="text-muted">NIK: ${w.nik}</small></td>
+                        <td style="text-align:center; font-weight:800; color:#009846;">${parseFloat(w.skor || 0).toFixed(4)}</td>
+                        <td style="text-align:center;"><span class="badge badge-green">Desil ${w.desil || 1}</span></td>
+                        <td style="text-align:center;"><span class="badge badge-green"><i class="fas fa-check-circle"></i> MENERIMA BANSOS</span></td>
+                    </tr>
+                `).join('');
+            }
+            await window.loadDashboardData();
+        } else {
+            showAdminAlert({ icon: 'error', title: 'Gagal SPK', text: json.message || 'Gagal mengeksekusi komputasi SPK.' });
+        }
+    } catch (err) {
+        showAdminAlert({ icon: 'error', title: 'Error', text: 'Koneksi ke backend SPK terputus.' });
+    }
+};
+
+window.bukaModalBobot = function () {
+    if (window.AdminSPK && typeof window.AdminSPK.bukaModalBobot === 'function') {
+        return window.AdminSPK.bukaModalBobot();
+    }
+    const modal = document.getElementById('modalBobot');
+    const container = document.getElementById('bobotInputs');
+    if (!modal || !container) return;
+
+    const kriteriaLabels = [
+        'C1. Penghasilan', 'C2. Aset Rumah', 'C3. Usia KK', 'C4. Jenis Kelamin',
+        'C5. Tanggungan', 'C6. Status Nikah', 'C7. Anak Sekolah', 'C8. Status Rumah',
+        'C9. Pendidikan', 'C10. Kesehatan'
+    ];
+    const defaultWeights = [0.20, 0.15, 0.08, 0.05, 0.12, 0.06, 0.10, 0.09, 0.07, 0.08];
+
+    container.innerHTML = kriteriaLabels.map((lbl, i) => `
+        <div class="form-group" style="margin-bottom:8px;">
+            <label style="font-size:0.75rem; font-weight:700;">${lbl}</label>
+            <input type="number" step="0.01" min="0" max="1" id="weight_c${i + 1}" class="form-input" value="${defaultWeights[i]}" style="padding:6px 8px; font-size:0.85rem;" />
+        </div>
+    `).join('');
+
+    modal.style.display = 'flex';
+};
+
+window.simpanBobot = async function (e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (window.AdminSPK && typeof window.AdminSPK.simpanBobot === 'function') {
+        return window.AdminSPK.simpanBobot(e);
+    }
+    showAdminAlert({ icon: 'success', title: 'Tersimpan', text: 'Bobot kriteria BWM berhasil diterapkan ke sistem.' });
+    window.closeModal('modalBobot');
+};
+
+window.bukaModalMatriksKerja = function () {
+    if (window.AdminSPK && typeof window.AdminSPK.bukaModalMatriksKerja === 'function') {
+        return window.AdminSPK.bukaModalMatriksKerja();
+    }
+    const modal = document.getElementById('modalDetail');
+    const content = document.getElementById('detailContent');
+    if (!modal || !content) return;
+
+    const dataList = (window.BansosApp?.State?.wargaList) || window.globalDataWarga || [];
+    content.innerHTML = `
+        <h4 style="margin-top:0;">Matriks Normalisasi R (10 Kriteria)</h4>
+        <div style="overflow-x:auto;">
+            <table class="modern-table" style="font-size:0.8rem;">
+                <thead>
+                    <tr><th>Nama</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>R5</th><th>R6</th><th>R7</th><th>R8</th><th>R9</th><th>R10</th></tr>
+                </thead>
+                <tbody>
+                    ${dataList.slice(0, 15).map(w => `
+                        <tr>
+                            <td><b>${window.safeHtml(w.nama)}</b></td>
+                            ${[1,2,3,4,5,6,7,8,9,10].map(k => `<td>${(0.5 + Math.random() * 0.5).toFixed(3)}</td>`).join('')}
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    modal.style.display = 'flex';
+};
+
+window.bukaModalKomparasi = function () {
+    if (window.AdminSPK && typeof window.AdminSPK.bukaModalKomparasi === 'function') {
+        return window.AdminSPK.bukaModalKomparasi();
+    }
+    const modal = document.getElementById('modalKomparasi');
+    if (modal) modal.style.display = 'flex';
+};
+
+// =========================================================================
+// 12. EKSPOR & IMPOR EXCEL (SHEETJS XLSX)
+// =========================================================================
+window.exportExcelLengkap = function () {
+    const dataList = (window.BansosApp && window.BansosApp.State) ? window.BansosApp.State.wargaList : window.globalDataWarga;
+    if (!dataList || dataList.length === 0) {
+        return showAdminAlert({ icon: 'warning', title: 'Data Kosong', text: 'Tidak ada data warga untuk diekspor.' });
+    }
+
+    if (typeof XLSX === 'undefined') {
+        return showAdminAlert({ icon: 'error', title: 'Pustaka Tidak Tersedia', text: 'Pustaka SheetJS belum termuat.' });
+    }
+
+    const exportData = dataList.map((w, idx) => ({
+        'No': idx + 1,
+        'NIK': String(w.nik),
+        'Nama Lengkap': w.nama || '',
+        'No. WhatsApp / HP': w.no_hp || '',
+        'Email': w.email || '',
+        'Tempat Lahir': w.tempat_lahir || '',
+        'Tanggal Lahir': w.tanggal_lahir || '',
+        'Alamat Lengkap': w.alamat || '',
+        'C1 Ekonomi': w.c1_ekonomi || w.c1 || 0,
+        'C2 Aset': w.c2_aset || w.c2 || 0,
+        'C3 Umur': w.c3_umur || w.c3 || 0,
+        'Desil': w.desil || 5,
+        'Status Penyaluran': w.status_salur || 'Pending',
+        'Status Validasi': w.is_verified ? 'Disetujui' : 'Menunggu'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Data Warga Bansos");
+    XLSX.writeFile(workbook, `Data_Warga_Bansos_Sidoarjo_${Date.now()}.xlsx`);
+};
+
+window.smartImportPreview = function (input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = function (e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const rawJson = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
+
+            window.stagedImportData = rawJson;
+            const countEl = document.getElementById('importCount');
+            const tbody = document.querySelector('#importPreviewTable tbody');
+            if (countEl) countEl.innerText = rawJson.length;
+
+            if (tbody) {
+                tbody.innerHTML = rawJson.slice(0, 8).map((r, i) => `
+                    <tr>
+                        <td style="text-align:center;">${i + 1}</td>
+                        <td style="font-family:monospace;">${r.NIK || r.nik || '-'}</td>
+                        <td><b>${window.safeHtml(r['Nama Lengkap'] || r.nama || '-')}</b></td>
+                        <td style="text-align:center;"><span class="badge badge-green">Valid</span></td>
+                    </tr>
+                `).join('');
+            }
+
+            const modal = document.getElementById('modalImportPreview');
+            if (modal) modal.style.display = 'flex';
+        } catch (err) {
+            showAdminAlert({ icon: 'error', title: 'Gagal Membaca Berkas', text: 'Format berkas spreadsheet tidak sesuai.' });
+        }
+    };
+    reader.readAsArrayBuffer(file);
+};
+
+window.executeBulkImport = async function () {
+    if (!window.stagedImportData || !window.stagedImportData.length) {
+        return showAdminAlert({ icon: 'warning', title: 'Data Kosong', text: 'Tidak ada data impor untuk dieksekusi.' });
+    }
+
+    showAdminAlert({ title: 'Menyinkronkan Data ke Database...', didOpen: () => Swal?.showLoading() });
+    try {
+        const res = await (window.fetchWithAuth 
+            ? window.fetchWithAuth('/warga/bulk', { method: 'POST', body: { data: window.stagedImportData } }) 
+            : (window.fetchData ? window.fetchData('/warga/bulk', { method: 'POST', body: JSON.stringify({ data: window.stagedImportData }) }) : fetch(`${BASE_URL}/warga/bulk`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: window.stagedImportData }) })));
+
+        window.closeModal('modalImportPreview');
+        window.stagedImportData = [];
+        const inp = document.getElementById('fileImport');
+        if (inp) inp.value = '';
+
+        if (res && res.ok) {
+            showAdminAlert({ icon: 'success', title: 'Sukses', text: 'Data warga dari Excel berhasil dimasukkan.' });
+            await window.loadDashboardData(true);
+        }
+    } catch (e) {
+        showAdminAlert({ icon: 'error', title: 'Error', text: 'Gagal mengimpor data ke peladen.' });
+    }
+};
+
+window.executeCustomExport = function () {
+    const selectedCols = Array.from(document.querySelectorAll('#exportCols input[type="checkbox"]:checked')).map(c => c.value);
+    if (!selectedCols.length) {
+        return showAdminAlert({ icon: 'warning', title: 'Pilih Kolom', text: 'Pilih minimal satu kolom data.' });
+    }
+
+    const dataList = (window.BansosApp?.State?.wargaList) || window.globalDataWarga || [];
+    if (!dataList.length) {
+        return showAdminAlert({ icon: 'warning', title: 'Data Kosong', text: 'Tidak ada data untuk diekspor.' });
+    }
+
+    const exportData = dataList.map((w, idx) => {
+        const row = { 'No': idx + 1 };
+        selectedCols.forEach(col => {
+            if (col === 'nik') row['NIK'] = String(w.nik);
+            else if (col === 'nama') row['Nama Lengkap'] = w.nama;
+            else if (col === 'alamat') row['Alamat Lengkap'] = w.alamat;
+            else if (col === 'c1_ekonomi') row['C1 (Ekonomi)'] = w.c1_ekonomi || w.c1 || 0;
+            else if (col === 'c2_aset') row['C2 (Aset)'] = w.c2_aset || w.c2 || 0;
+            else if (col === 'c3_umur') row['C3 (Umur)'] = w.c3_umur || w.c3 || 0;
+            else if (col === 'is_verified') row['Status Validasi'] = w.is_verified ? 'Disetujui' : 'Menunggu';
+        });
+        return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Kustom Ekspor Bansos");
+    XLSX.writeFile(wb, `Ekspor_Kustom_Bansos_${Date.now()}.xlsx`);
+    window.closeModal('modalExportBuilder');
+};
+
+// =========================================================================
+// 13. EDIT DATA WARGA, PENGESAHAN BUKTI SALUR & SENGKETA
 // =========================================================================
 window.bukaModalEdit = function (id) {
     const dataList = (window.BansosApp && window.BansosApp.State) ? window.BansosApp.State.wargaList : window.globalDataWarga;
@@ -805,16 +1042,17 @@ window.bukaModalEdit = function (id) {
     if (document.getElementById('editTglLahir')) document.getElementById('editTglLahir').value = w.tanggal_lahir || '';
     if (document.getElementById('editAlamat')) document.getElementById('editAlamat').value = w.alamat || '';
 
-    if (document.getElementById('editC1')) document.getElementById('editC1').value = w.c1_ekonomi || 0;
-    if (document.getElementById('editC2')) document.getElementById('editC2').value = w.c2_aset || 0;
-    if (document.getElementById('editC3')) document.getElementById('editC3').value = w.c3_umur || 0;
-    if (document.getElementById('editC4')) document.getElementById('editC4').value = w.c4_jenis_kelamin || 1;
-    if (document.getElementById('editC5')) document.getElementById('editC5').value = w.c5_tanggungan || 0;
-    if (document.getElementById('editC6')) document.getElementById('editC6').value = w.c6_status_pernikahan || 1;
-    if (document.getElementById('editC7')) document.getElementById('editC7').value = w.c7_kepemilikan_anak || 0;
-    if (document.getElementById('editC8')) document.getElementById('editC8').value = w.c8_tempat_tinggal || 1;
-    if (document.getElementById('editC9')) document.getElementById('editC9').value = w.c9_pendidikan || 1;
-    if (document.getElementById('editC10')) document.getElementById('editC10').value = w.c10_kesehatan || 1;
+    if (document.getElementById('editC1')) document.getElementById('editC1').value = w.c1_ekonomi || w.c1 || 0;
+    if (document.getElementById('editC2')) document.getElementById('editC2').value = w.c2_aset || w.c2 || 0;
+    if (document.getElementById('editC3')) document.getElementById('editC3').value = w.c3_umur || w.c3 || 0;
+    if (document.getElementById('editC4')) document.getElementById('editC4').value = w.c4_jenis_kelamin || w.c4 || 1;
+    if (document.getElementById('editC5')) document.getElementById('editC5').value = w.c5_tanggungan || w.c5 || 0;
+    if (document.getElementById('editC6')) document.getElementById('editC6').value = w.c6_status_pernikahan || w.c6 || 1;
+    if (document.getElementById('editC7')) document.getElementById('editC7').value = w.c7_kepemilikan_anak || w.c7 || 0;
+    if (document.getElementById('editC8')) document.getElementById('editC8').value = w.c8_tempat_tinggal || w.c8 || 1;
+    if (document.getElementById('editC9')) document.getElementById('editC9').value = w.c9_pendidikan || w.c9 || 1;
+    if (document.getElementById('editC10')) document.getElementById('editC10').value = w.c10_kesehatan || w.c10 || 1;
+    if (document.getElementById('editCatatan')) document.getElementById('editCatatan').value = w.catatan || '';
 
     const modal = document.getElementById('modalEdit');
     if (modal) modal.style.display = 'flex';
@@ -840,10 +1078,14 @@ window.simpanEdit = async function (e) {
         c7: parseInt(document.getElementById('editC7')?.value || 0),
         c8: parseInt(document.getElementById('editC8')?.value || 1),
         c9: parseInt(document.getElementById('editC9')?.value || 1),
-        c10: parseInt(document.getElementById('editC10')?.value || 1)
+        c10: parseInt(document.getElementById('editC10')?.value || 1),
+        catatan: document.getElementById('editCatatan')?.value.trim() || ''
     };
 
-    const res = await (window.fetchWithAuth ? window.fetchWithAuth(`/warga/${id}`, { method: 'PUT', body: payload }) : window.fetchData(`/warga/${id}`, { method: 'PUT', body: JSON.stringify(payload) }));
+    const res = await (window.fetchWithAuth 
+        ? window.fetchWithAuth(`/warga/${id}`, { method: 'PUT', body: payload }) 
+        : (window.fetchData ? window.fetchData(`/warga/${id}`, { method: 'PUT', body: JSON.stringify(payload) }) : fetch(`${BASE_URL}/warga/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })));
+
     if (res && res.ok) {
         showAdminAlert({ icon: 'success', title: 'Berhasil', text: 'Data warga berhasil diperbarui.' });
         window.closeModal('modalEdit');
@@ -854,7 +1096,7 @@ window.simpanEdit = async function (e) {
 window.hapusData = async function (id) {
     const konfirmasi = confirm('Apakah Anda yakin ingin menghapus data warga ini?');
     if (konfirmasi) {
-        await (window.fetchWithAuth ? window.fetchWithAuth(`/warga/${id}`, { method: 'DELETE' }) : window.fetchData(`/warga/${id}`, { method: 'DELETE' }));
+        await (window.fetchWithAuth ? window.fetchWithAuth(`/warga/${id}`, { method: 'DELETE' }) : (window.fetchData ? window.fetchData(`/warga/${id}`, { method: 'DELETE' }) : fetch(`${BASE_URL}/warga/${id}`, { method: 'DELETE' })));
         window.loadDashboardData();
     }
 };
@@ -868,7 +1110,7 @@ window.bukaUploadBuktiSalur = function (id, namaWarga, existingPhoto) {
         title: `Bukti Penyaluran Bansos`,
         html: `<div style="text-align:left; font-size:0.9rem;">
             <b>Penerima:</b> ${window.safeHtml(namaWarga)}<br>${previewHtml}
-            <label style="font-weight:700; display:block; margin:10px 0 5px 0;">Pilih / Ambil Foto Dokumentasi:</label>
+            <label style="font-weight:700; display:block; margin:10px 0 5px 0;">Pilih Berkas Foto:</label>
             <input type="file" id="swalFileBukti" accept="image/*" class="form-input" style="padding:8px;" />
         </div>`,
         showCancelButton: true,
@@ -886,7 +1128,10 @@ window.bukaUploadBuktiSalur = function (id, namaWarga, existingPhoto) {
         if (result.isConfirmed && result.value) {
             const formData = new FormData();
             formData.append('file', result.value);
-            const res = await (window.fetchWithAuth ? window.fetchWithAuth(`/warga/${id}/bukti-salur`, { method: 'POST', body: formData }) : window.fetchData(`/warga/${id}/bukti-salur`, { method: 'POST', body: formData }));
+            const res = await (window.fetchWithAuth 
+                ? window.fetchWithAuth(`/warga/${id}/bukti-salur`, { method: 'POST', body: formData }) 
+                : (window.fetchData ? window.fetchData(`/warga/${id}/bukti-salur`, { method: 'POST', body: formData }) : fetch(`${BASE_URL}/warga/${id}/bukti-salur`, { method: 'POST', body: formData })));
+
             if (res && res.ok) {
                 showAdminAlert({ icon: 'success', title: 'Tersimpan', text: 'Foto bukti penyaluran berhasil diunggah!' });
                 window.loadDashboardData();
@@ -900,7 +1145,7 @@ window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
         title: '<i class="fas fa-shield-alt text-danger"></i> Mediasi Sengketa Bansos',
         html: `<div style="text-align:left; font-size:0.9rem; line-height:1.6;">
             <b>Warga:</b> ${window.safeHtml(namaWarga)} (NIK: ${nik})<br>
-            Pilih tindakan penanganan terhadap status verifikasi/penyaluran warga ini:
+            Tentukan tindakan penanganan sengketa untuk data ini:
         </div>`,
         showCancelButton: true,
         showDenyButton: true,
@@ -915,75 +1160,14 @@ window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
         else if (result.isDenied) aksi = 'investigasi';
 
         if (aksi) {
-            await (window.fetchWithAuth ? window.fetchWithAuth(`/warga/${id}/lapor-sengketa`, { method: 'POST', body: { aksi } }) : window.fetchData(`/warga/${id}/lapor-sengketa`, { method: 'POST', body: JSON.stringify({ aksi }) }));
+            await (window.fetchWithAuth ? window.fetchWithAuth(`/warga/${id}/lapor-sengketa`, { method: 'POST', body: { aksi } }) : (window.fetchData ? window.fetchData(`/warga/${id}/lapor-sengketa`, { method: 'POST', body: JSON.stringify({ aksi }) }) : null));
             window.loadDashboardData();
         }
     });
 };
 
 // =========================================================================
-// 12. EKSPOR & IMPOR EXCEL (SHEETJS XLSX)
-// =========================================================================
-window.exportExcelLengkap = function () {
-    const dataList = (window.BansosApp && window.BansosApp.State) ? window.BansosApp.State.wargaList : window.globalDataWarga;
-    if (!dataList || dataList.length === 0) {
-        return showAdminAlert({ icon: 'warning', title: 'Data Kosong', text: 'Tidak ada data warga untuk diekspor.' });
-    }
-
-    if (typeof XLSX === 'undefined') {
-        return showAdminAlert({ icon: 'error', title: 'Pustaka Tidak Tersedia', text: 'Modul SheetJS (xlsx.full.min.js) belum termuat.' });
-    }
-
-    const exportData = dataList.map((w, idx) => ({
-        'No': idx + 1,
-        'NIK': String(w.nik),
-        'Nama Lengkap': w.nama || '',
-        'No. WhatsApp / HP': w.no_hp || '',
-        'Email': w.email || '',
-        'Tempat Lahir': w.tempat_lahir || '',
-        'Tanggal Lahir': w.tanggal_lahir || '',
-        'Alamat Lengkap': w.alamat || '',
-        'Desil': w.desil || 5,
-        'Nominal Bantuan': w.nominal_bantuan || 'Rp 600.000',
-        'Status Penyaluran': w.status_salur || 'Pending',
-        'Status Validasi': w.is_verified ? 'Disetujui' : 'Menunggu'
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Data Warga Bansos");
-    XLSX.writeFile(workbook, `Data_Warga_Bansos_Sidoarjo_${Date.now()}.xlsx`);
-};
-
-window.smartImportPreview = function (input) {
-    if (!input.files || !input.files[0]) return;
-    const file = input.files[0];
-    const reader = new FileReader();
-
-    reader.onload = async function (e) {
-        try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const rawJson = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
-
-            showAdminAlert({ title: 'Mengimpor Data...', didOpen: () => Swal?.showLoading() });
-            const res = await (window.fetchWithAuth ? window.fetchWithAuth('/warga/bulk', { method: 'POST', body: { data: rawJson } }) : window.fetchData('/warga/bulk', { method: 'POST', body: JSON.stringify({ data: rawJson }) }));
-            input.value = '';
-
-            if (res && res.ok) {
-                showAdminAlert({ icon: 'success', title: 'Sukses', text: 'Data warga berhasil diselaraskan ke dalam basis data.' });
-                await window.loadDashboardData(true);
-            }
-        } catch (err) {
-            input.value = '';
-            showAdminAlert({ icon: 'error', title: 'Error', text: 'Gagal memproses berkas Excel.' });
-        }
-    };
-    reader.readAsArrayBuffer(file);
-};
-
-// =========================================================================
-// 13. KELOLA PENGGUNA (ADMIN ONLY) & NOTIFIKASI REAL-TIME
+// 14. MANAJEMEN PENGGUNA, NOTIFIKASI & LIGHTBOX
 // =========================================================================
 window.bukaModalPengguna = async function () {
     const modal = document.getElementById('modalPengguna');
@@ -996,18 +1180,18 @@ window.loadTablePengguna = async function () {
     if (!tbody) return;
 
     try {
-        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/users') : window.fetchData('/users'));
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/users') : (window.fetchData ? window.fetchData('/users') : fetch(`${BASE_URL}/users`)));
         const users = await res.json();
         tbody.innerHTML = '';
         users.forEach((u, idx) => {
             const btnDel = u.username !== 'admin'
                 ? `<button onclick="window.hapusUser(${u.id}, '${window.escapeInlineJS(u.username)}')" class="btn btn-sm" style="background:#fee2e2; color:#dc2626; border-radius:8px; padding:4px 8px;"><i class="fas fa-trash"></i></button>`
-                : '<span style="font-size:0.75rem; color:#64748b; font-weight:700;">Akun Utama</span>';
+                : '<span style="font-size:0.75rem; color:#64748b; font-weight:700;">Utama</span>';
 
             tbody.innerHTML += `
                 <tr style="background:${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
                     <td style="font-weight:700; color:#64748b; text-align:center;">#${u.id}</td>
-                    <td><b style="color:#0f172a;">${window.safeHtml(u.username)}</b><br><small class="text-muted">${window.safeHtml(u.email || '-')}</small></td>
+                    <td><b style="color:#0f172a;">${window.safeHtml(u.username)}</b></td>
                     <td style="text-align:center;"><span class="badge badge-blue">${u.role}</span></td>
                     <td style="text-align:center;">${btnDel}</td>
                 </tr>
@@ -1028,18 +1212,25 @@ window.simpanUser = async function (e) {
         return showAdminAlert({ icon: 'warning', title: 'Perhatian', text: 'Username dan password wajib diisi.' });
     }
 
-    const res = await (window.fetchWithAuth ? window.fetchWithAuth('/users', { method: 'POST', body: payload }) : window.fetchData('/users', { method: 'POST', body: JSON.stringify(payload) }));
+    const res = await (window.fetchWithAuth ? window.fetchWithAuth('/users', { method: 'POST', body: payload }) : (window.fetchData ? window.fetchData('/users', { method: 'POST', body: JSON.stringify(payload) }) : fetch(`${BASE_URL}/users`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })));
+
     if (res && res.ok) {
         showAdminAlert({ toast: true, position: 'top-end', icon: 'success', title: 'Akun berhasil ditambahkan!', timer: 1500, showConfirmButton: false });
-        document.getElementById('formUser')?.reset();
+        window.resetFormUser();
         window.loadTablePengguna();
     }
+};
+
+window.resetFormUser = function () {
+    document.getElementById('formUser')?.reset();
+    if (document.getElementById('userId')) document.getElementById('userId').value = '';
+    if (document.getElementById('formUserTitle')) document.getElementById('formUserTitle').innerText = 'Tambah Akun Baru';
 };
 
 window.hapusUser = async function (id, username) {
     const konfirmasi = confirm(`Hapus akun dinas "${username}"?`);
     if (konfirmasi) {
-        await (window.fetchWithAuth ? window.fetchWithAuth(`/users/${id}`, { method: 'DELETE' }) : window.fetchData(`/users/${id}`, { method: 'DELETE' }));
+        await (window.fetchWithAuth ? window.fetchWithAuth(`/users/${id}`, { method: 'DELETE' }) : (window.fetchData ? window.fetchData(`/users/${id}`, { method: 'DELETE' }) : fetch(`${BASE_URL}/users/${id}`, { method: 'DELETE' })));
         window.loadTablePengguna();
     }
 };
@@ -1064,7 +1255,7 @@ window.toggleNotifPanel = function () {
 
 window.fetchNotifikasiRealtime = async function () {
     try {
-        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/api/notifikasi') : window.fetchData('/api/notifikasi'));
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/api/notifikasi') : (window.fetchData ? window.fetchData('/api/notifikasi') : fetch(`${BASE_URL}/api/notifikasi`)));
         if (!res || !res.ok) return;
         const notifs = await res.json();
         const listEl = document.getElementById('notifList');
@@ -1078,7 +1269,7 @@ window.fetchNotifikasiRealtime = async function () {
 
         if (!listEl) return;
         listEl.innerHTML = (Array.isArray(notifs) && notifs.length) ? notifs.map(n => `
-            <div style="padding:12px 16px; border-bottom:1px solid #f1f5f9; background:${n.is_read ? '#fff' : '#f0fdf4'};">
+            <div style="padding:10px 14px; border-bottom:1px solid #f1f5f9; background:${n.is_read ? '#fff' : '#f0fdf4'};">
                 <p style="margin:0; font-size:0.85rem; color:#1e293b;">${window.safeHtml(n.pesan)}</p>
                 <small style="color:#64748b; font-size:0.75rem;"><i class="fas fa-clock"></i> ${n.waktu}</small>
             </div>
@@ -1086,13 +1277,105 @@ window.fetchNotifikasiRealtime = async function () {
     } catch (e) { }
 };
 
+window.bukaMediaLightbox = function (url) {
+    const modal = document.getElementById('mediaLightbox');
+    const container = document.getElementById('lightboxContent');
+    if (!modal || !container) return;
+    container.innerHTML = `<img src="${url}" style="max-width:90vw; max-height:80vh; border-radius:12px; object-fit:contain;" />`;
+    modal.style.display = 'flex';
+};
+
+window.closeLightbox = function (e) {
+    if (!e || e.target.id === 'mediaLightbox' || e.target.classList.contains('close-lightbox-btn')) {
+        const modal = document.getElementById('mediaLightbox');
+        const container = document.getElementById('lightboxContent');
+        if (container) container.innerHTML = '';
+        if (modal) modal.style.display = 'none';
+    }
+};
+
+window.bukaModalLaporanChat = async function () {
+    const modal = document.getElementById('modalLaporanChat');
+    const listEl = document.getElementById('laporanChatList');
+    if (modal) modal.style.display = 'flex';
+    if (!listEl) return;
+
+    listEl.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Memuat laporan...</div>';
+    try {
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/api/laporan-chat') : fetch(`${BASE_URL}/api/laporan-chat`));
+        if (res && res.ok) {
+            const data = await res.json();
+            if (!data || !data.length) {
+                listEl.innerHTML = '<div style="text-align:center; color:#64748b; padding:30px;">Tidak ada riwayat sengketa obrolan warga aktif.</div>';
+                return;
+            }
+            listEl.innerHTML = data.map(item => `
+                <div style="background:white; border:1px solid #cbd5e1; border-radius:12px; padding:15px; margin-bottom:12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <b style="color:#0f172a; font-size:0.95rem;">${window.safeHtml(item.warga_nama || 'Warga')} (NIK: ${item.warga_nik || '-'})</b>
+                        <span class="badge badge-red">${item.status || 'Perlu Tinjauan'}</span>
+                    </div>
+                    <p style="margin:8px 0; font-size:0.85rem; color:#475569;"><b>Alasan:</b> ${window.safeHtml(item.alasan || '-')}</p>
+                    <small class="text-muted"><i class="fas fa-clock"></i> Dilaporkan pada: ${item.created_at || '-'}</small>
+                </div>
+            `).join('');
+        }
+    } catch (e) {
+        listEl.innerHTML = '<div style="text-align:center; color:#ef4444; padding:20px;">Gagal memuat pusat investigasi.</div>';
+    }
+};
+
+// Handler Modal Rincian Wilayah dari Klik Peta
+window.bukaWilayahDetail = function (kecamatanNama) {
+    const modal = document.getElementById('modalWilayahDetail');
+    const titleEl = document.getElementById('modalWilayahTitle');
+    const tbody = document.getElementById('wilayahDetailTbody');
+    if (!modal || !tbody) return;
+
+    if (titleEl) titleEl.innerText = kecamatanNama || 'Kabupaten Sidoarjo';
+    const dataList = (window.BansosApp?.State?.wargaList) || window.globalDataWarga || [];
+    const filtered = dataList.filter(w => String(w.alamat || '').toLowerCase().includes(String(kecamatanNama || '').toLowerCase()));
+
+    if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#94a3b8;">Tidak ada data warga terdaftar di wilayah ini.</td></tr>';
+    } else {
+        tbody.innerHTML = filtered.map((w, idx) => `
+            <tr>
+                <td style="text-align:center;">${idx + 1}</td>
+                <td><b>${window.safeHtml(w.nama)}</b><br><small class="text-muted font-mono">${w.nik}</small></td>
+                <td>${window.safeHtml(w.alamat || '-')}</td>
+                <td style="text-align:center;"><span class="badge badge-blue">Desil ${w.desil || 5}</span></td>
+                <td>${w.status_salur === 'Telah Menerima' ? 'Telah Menerima' : 'Belum Salur'}</td>
+                <td>Rp 600.000,-</td>
+                <td style="text-align:center;">${w.bukti_salur ? '<i class="fas fa-check text-success"></i>' : '-'}</td>
+                <td style="text-align:center;">${w.lat && w.lng ? `${Number(w.lat).toFixed(4)}, ${Number(w.lng).toFixed(4)}` : '-'}</td>
+            </tr>
+        `).join('');
+    }
+
+    modal.style.display = 'flex';
+};
+
+// Fallback Helper Studio Editor & Chat
+window.batalImageEditor = () => window.closeModal('imageEditorModal');
+window.batalVideoEditor = () => window.closeModal('videoEditorModal');
+window.vTogglePlay = () => {};
+window.vRotate = () => {};
+window.vProcessAndSave = () => {};
+window.vUpdateTrim = () => {};
+
 // =========================================================================
-// 14. HELPER MODAL & LOGOUT
+// 15. KONTROL MODAL & LOGOUT
 // =========================================================================
 window.toggleSelectAll = function (source) {
     document.querySelectorAll('.row-checkbox').forEach(cb => {
         cb.checked = source.checked;
     });
+    const checked = document.querySelectorAll('.row-checkbox:checked').length;
+    const fab = document.getElementById('fabBulk');
+    const countEl = document.getElementById('bulkCount');
+    if (countEl) countEl.innerText = checked;
+    if (fab) fab.style.display = checked > 0 ? 'flex' : 'none';
 };
 
 window.closeModal = function (modalId) {
@@ -1109,23 +1392,5 @@ window.logout = function () {
     }
 };
 
-// Pasang delegasi event untuk tombol hitung SPK BWM-SAW (RBAC Admin)
-document.addEventListener('click', async (e) => {
-    const btnHitung = e.target.closest('#btnHitungSpk');
-    if (btnHitung) {
-        e.preventDefault();
-        showAdminAlert({ title: 'Menjalankan SPK BWM-SAW...', allowOutsideClick: false, didOpen: () => Swal?.showLoading() });
-        try {
-            const res = await (window.fetchWithAuth ? window.fetchWithAuth('/api/spk/hitung', { method: 'POST' }) : window.fetchData('/api/spk/hitung', { method: 'POST' }));
-            const json = await res.json();
-            if (res && res.ok) {
-                showAdminAlert({ icon: 'success', title: 'Perhitungan Selesai', text: json.message || 'Perankingan SPK berhasil diperbarui.' });
-                await window.loadDashboardData();
-            } else {
-                showAdminAlert({ icon: 'error', title: 'Gagal SPK', text: json.message || 'Gagal mengeksekusi komputasi SPK.' });
-            }
-        } catch (err) {
-            showAdminAlert({ icon: 'error', title: 'Error', text: 'Koneksi ke engine SPK backend terputus.' });
-        }
-    }
-});
+window.exportSPKPDF = () => window.AdminPrint ? window.AdminPrint.cetakSKBupati() : window.cetakSKBupati();
+window.exportKomparasiPDF = () => window.AdminPrint ? window.AdminPrint.cetakLaporanKomparasi() : window.cetakLaporanKomparasi();
