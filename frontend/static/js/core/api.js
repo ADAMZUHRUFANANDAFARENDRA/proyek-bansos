@@ -1,145 +1,185 @@
 /* =========================================================================
    API.JS - CLIENT HTTP, AUTHENTICATION MANAGER & REQUEST WRAPPER
    Lokasi: frontend/static/js/core/api.js
+   PEMERINTAH KABUPATEN SIDOARJO - DINAS SOSIAL
    ========================================================================= */
 
 window.BansosApp = window.BansosApp || {};
 
-window.BansosApp.API = {
-    // Penentuan Base URL otomatis dari config.js atau variabel global lingkungan
-    baseUrl: (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
-        ? window.CONFIG.BASE_URL
-        : ((typeof window.API_BASE_URL !== 'undefined') ? window.API_BASE_URL : 'http://127.0.0.1:5000'),
+(function (window) {
+    'use strict';
 
     /**
-     * Mengambil dan membersihkan token JWT dari berbagai alternatif kunci penyimpanan
-     * @returns {string}
+     * Resolusi Base URL Backend Dinamis
      */
-    getToken() {
-        const tokenKey = window.CONFIG?.AUTH?.TOKEN_KEY || 'bansos_jwt_token';
-        const token = localStorage.getItem(tokenKey) ||
-                      localStorage.getItem('token') ||
-                      localStorage.getItem('access_token') ||
-                      localStorage.getItem('bansosToken') ||
-                      '';
-        // Membersihkan karakter kutip berlebih atau spasi tidak disengaja
-        return token.replace(/^["']+|["']+$/g, '').trim();
-    },
+    function getBaseUrl() {
+        if (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL) {
+            return window.CONFIG.BASE_URL.replace(/\/+$/, '');
+        }
+        if (typeof window.API_BASE_URL !== 'undefined' && window.API_BASE_URL) {
+            return window.API_BASE_URL.replace(/\/+$/, '');
+        }
+        // Port default Live Server/Vite ke Flask
+        const currentPort = window.location.port;
+        if (currentPort === '5500' || currentPort === '3000' || currentPort === '8080') {
+            return 'http://127.0.0.1:5000';
+        }
+        return '';
+    }
 
     /**
-     * Request HTTP Inti (Mengembalikan Objek Response mentah)
-     * @param {string} endpoint 
-     * @param {Object} options 
-     * @returns {Promise<Response|null>}
+     * Ambil token yang bersih dari karakter kutip
      */
-    async request(endpoint, options = {}) {
-        const token = this.getToken();
-        const headers = { ...(options.headers || {}) };
-
-        // Sisipkan token otentikasi jika tersedia
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
+    function getCleanToken() {
+        if (window.Auth && typeof window.Auth.getToken === 'function') {
+            const authTk = window.Auth.getToken();
+            if (authTk) return authTk.replace(/^["']+|["']+$/g, '').trim();
         }
 
-        // Otomatis set JSON header jika body bukan FormData
-        if (!(options.body instanceof FormData) && !headers['Content-Type']) {
-            headers['Content-Type'] = 'application/json';
-        } else if (options.body instanceof FormData) {
-            // Browser akan otomatis menyusun boundary multipart/form-data
-            delete headers['Content-Type'];
-        }
-
-        // Resolusi URL: jika sudah absolut (http/https), pakai langsung
-        let url = endpoint;
-        if (!endpoint.startsWith('http')) {
-            const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-            url = `${this.baseUrl}${cleanEndpoint}`;
-        }
-
-        try {
-            const response = await fetch(url, { ...options, headers });
-            
-            // Interceptor 401: Token kedaluwarsa atau tidak valid
-            if (response.status === 401) {
-                console.warn('[API 401] Sesi kedaluwarsa, menghapus sesi kredensial...');
-                if (window.Auth && typeof window.Auth.clearSession === 'function') {
-                    window.Auth.clearSession(true);
-                } else {
-                    localStorage.clear();
-                    window.location.href = 'login.html';
+        const keys = ['token', 'access_token', 'bansos_jwt_token', 'bansosToken'];
+        for (const k of keys) {
+            try {
+                const val = localStorage.getItem(k);
+                if (val && val !== 'null' && val !== 'undefined' && val.trim() !== '') {
+                    return val.replace(/^["']+|["']+$/g, '').trim();
                 }
-                return null;
+            } catch (e) {}
+        }
+        return '';
+    }
+
+    window.BansosApp.API = {
+        getBaseUrl,
+        getToken: getCleanToken,
+
+        /**
+         * Permintaan HTTP Utama Terpadu
+         * @param {string} endpoint
+         * @param {Object} options
+         * @returns {Promise<Response|null>}
+         */
+        async request(endpoint, options = {}) {
+            const baseUrl = getBaseUrl();
+            let url = endpoint;
+
+            if (!endpoint.startsWith('http://') && !endpoint.startsWith('https://')) {
+                const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+                url = `${baseUrl}${cleanEndpoint}`;
             }
 
-            return response;
-        } catch (error) {
-            console.error(`[API ERROR] Gagal request ke ${url}:`, error);
-            throw error;
+            // Normalisasi Headers dari berbagai format (Plain Object, Headers instance, dsb)
+            const headers = {};
+            if (options.headers) {
+                if (options.headers instanceof Headers) {
+                    options.headers.forEach((val, key) => { headers[key] = val; });
+                } else if (Array.isArray(options.headers)) {
+                    options.headers.forEach(([key, val]) => { headers[key] = val; });
+                } else {
+                    Object.assign(headers, options.headers);
+                }
+            }
+
+            // Sisipkan Token Bearer jika tersedia
+            const token = getCleanToken();
+            if (token && !headers['Authorization']) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            // Tangani serialisasi body & Content-Type otomatis
+            let requestBody = options.body;
+            if (requestBody instanceof FormData) {
+                // Biarkan peramban mengelola header boundary multipart secara otomatis
+                delete headers['Content-Type'];
+            } else if (requestBody && typeof requestBody === 'object') {
+                requestBody = JSON.stringify(requestBody);
+                if (!headers['Content-Type']) {
+                    headers['Content-Type'] = 'application/json';
+                }
+            }
+
+            if (!headers['Accept']) {
+                headers['Accept'] = 'application/json';
+            }
+
+            const fetchOptions = {
+                ...options,
+                headers,
+                body: requestBody
+            };
+
+            try {
+                const response = await fetch(url, fetchOptions);
+
+                // Interceptor 401 Unauthorized
+                if (response.status === 401) {
+                    const isAuthRoute = url.includes('/login') || url.includes('/auth');
+                    
+                    if (!isAuthRoute) {
+                        console.warn('[API 401] Sesi kedaluwarsa atau token tidak sah:', url);
+                        // Jangan langsung redirect jika halaman baru saja terbuka (memberi jeda pembacaan token)
+                        if (window.Auth && typeof window.Auth.clearSession === 'function') {
+                            window.Auth.clearSession(true);
+                        } else {
+                            localStorage.clear();
+                            window.location.replace('login.html');
+                        }
+                    }
+                    return null;
+                }
+
+                return response;
+            } catch (error) {
+                console.error(`[API Fetch Error] Endpoint ${url} gagal dihubungi:`, error);
+                throw error;
+            }
+        },
+
+        async get(endpoint, options = {}) {
+            return this.request(endpoint, { ...options, method: 'GET' });
+        },
+
+        async post(endpoint, body = {}, options = {}) {
+            return this.request(endpoint, { ...options, method: 'POST', body });
+        },
+
+        async put(endpoint, body = {}, options = {}) {
+            return this.request(endpoint, { ...options, method: 'PUT', body });
+        },
+
+        async patch(endpoint, body = {}, options = {}) {
+            return this.request(endpoint, { ...options, method: 'PATCH', body });
+        },
+
+        async delete(endpoint, options = {}) {
+            return this.request(endpoint, { ...options, method: 'DELETE' });
         }
-    },
+    };
 
-    // Shortcut Helper RESTful API (Langsung mengurai JSON)
-    async get(endpoint, options = {}) {
-        const res = await this.request(endpoint, { ...options, method: 'GET' });
-        return res ? res.json() : null;
-    },
+    /**
+     * =========================================================================
+     * SHORTCUT GLOBAL KONSISTENSI LINTAS MODUL
+     * =========================================================================
+     */
+    window.fetchData = (endpoint, options) => window.BansosApp.API.request(endpoint, options);
+    window.getCleanToken = getCleanToken;
 
-    async post(endpoint, body = {}, options = {}) {
-        const isFormData = body instanceof FormData;
-        const res = await this.request(endpoint, {
-            ...options,
-            method: 'POST',
-            body: isFormData ? body : JSON.stringify(body)
-        });
-        return res ? res.json() : null;
-    },
+    window.apiFetch = async function (endpoint, options = {}) {
+        const res = await window.BansosApp.API.request(endpoint, options);
+        if (!res) {
+            throw new Error('Sesi autentikasi telah berakhir.');
+        }
 
-    async put(endpoint, body = {}, options = {}) {
-        const isFormData = body instanceof FormData;
-        const res = await this.request(endpoint, {
-            ...options,
-            method: 'PUT',
-            body: isFormData ? body : JSON.stringify(body)
-        });
-        return res ? res.json() : null;
-    },
+        let data = {};
+        try {
+            data = await res.json();
+        } catch (e) {
+            data = { message: 'Respons peladen bukan format JSON yang valid.' };
+        }
 
-    async patch(endpoint, body = {}, options = {}) {
-        const isFormData = body instanceof FormData;
-        const res = await this.request(endpoint, {
-            ...options,
-            method: 'PATCH',
-            body: isFormData ? body : JSON.stringify(body)
-        });
-        return res ? res.json() : null;
-    },
+        if (!res.ok) {
+            throw new Error(data.message || `Galat peladen (Status: ${res.status})`);
+        }
+        return data;
+    };
 
-    async delete(endpoint, options = {}) {
-        const res = await this.request(endpoint, { ...options, method: 'DELETE' });
-        return res ? res.json() : null;
-    }
-};
-
-/**
- * =========================================================================
- * BRIDGE / WRAPPER GLOBAL UNTUK KOMPATIBILITAS KODE
- * =========================================================================
- */
-
-// 1. Kompatibilitas fungsi bawaan lama
-window.fetchData = (endpoint, options) => window.BansosApp.API.request(endpoint, options);
-window.getCleanToken = () => window.BansosApp.API.getToken();
-
-// 2. Kompatibilitas modul modern (apiFetch langsung mengembalikan objek JSON data)
-window.apiFetch = async function (endpoint, options = {}) {
-    const res = await window.BansosApp.API.request(endpoint, options);
-    if (!res) {
-        throw new Error('Sesi autentikasi telah berakhir.');
-    }
-
-    const data = await res.json();
-    if (!res.ok) {
-        throw new Error(data.message || `Terjadi kesalahan pada server (Status: ${res.status})`);
-    }
-    return data;
-};
+})(window);

@@ -648,11 +648,17 @@
 
     <!-- AUTH FAST SECURITY CHECK -->
     <script>
-        let authTk = localStorage.getItem('token') || localStorage.getItem('access_token') || localStorage.getItem('bansosToken') || localStorage.getItem('bansos_jwt_token');
-        if (!authTk || authTk === 'undefined' || authTk === 'null') {
-            localStorage.clear();
-            window.location.href = 'login.html';
-        }
+        (function () {
+            const token = localStorage.getItem('token') || 
+                          localStorage.getItem('access_token') || 
+                          localStorage.getItem('bansos_jwt_token') || 
+                          localStorage.getItem('bansosToken');
+
+            if (!token || token === 'undefined' || token === 'null' || token.trim() === '') {
+                localStorage.clear();
+                window.location.replace('login.html');
+            }
+        })();
     </script>
 </head>
 <body class="page-dashboard">

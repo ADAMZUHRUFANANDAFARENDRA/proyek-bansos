@@ -10,7 +10,6 @@ KOMPARASI: WEIGHTED PRODUCT (WP) & INTEGRASI DUKCAPIL / BPS SIDOARJO
 import os
 import re
 import math
-import smtplib
 import uuid
 import random
 import traceback
@@ -29,13 +28,15 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 import jwt
 from werkzeug.exceptions import HTTPException
+from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 # ===========================================================================
 # 1. KONFIGURASI APLIKASI & DATABASE
 # ===========================================================================
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'kunci_rahasia_pemkab_sidoarjo_2026_spk_saw_bwm')
+
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'pemkab_sidoarjo_spk_secret_key_2026')
 
 default_mysql = 'mysql+mysqlconnector://root:@127.0.0.1:3306/bansos'
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', default_mysql)
@@ -101,6 +102,21 @@ def safe_int(val, default=0):
         return int(safe_float(val, default))
     except:
         return int(default)
+
+def verify_user_password(stored_password, provided_password):
+    if not stored_password or not provided_password:
+        return False
+    try:
+        if check_password_hash(stored_password, provided_password):
+            return True
+    except Exception:
+        pass
+    try:
+        if bcrypt.check_password_hash(stored_password, provided_password):
+            return True
+    except Exception:
+        pass
+    return stored_password == provided_password
 
 @app.errorhandler(HTTPException)
 def handle_http_exception(e):
@@ -190,7 +206,27 @@ class ChatKeluhan(db.Model):
     waktu = db.Column(db.DateTime, default=datetime.now)
 
 # ===========================================================================
-# 4. AUTO-MIGRASI STRUKTUR DATABASE
+# 4. HELPER PENCATATAN AKTIVITAS SISTEM (AUDIT TRAIL NOTIFIKASI)
+# ===========================================================================
+def catat_notifikasi(pesan, role_target='all'):
+    """Mencatat aktivitas aparatur, admin, maupun warga ke basis data secara otomatis."""
+    try:
+        notif = Notifikasi(
+            pesan=pesan,
+            role_target=role_target,
+            waktu=datetime.now(),
+            is_read=False,
+            is_pinned=False,
+            is_archived=False
+        )
+        db.session.add(notif)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[NOTIFIKASI ERROR] Gagal mencatat log: {e}")
+
+# ===========================================================================
+# 5. AUTO-MIGRASI STRUKTUR DATABASE
 # ===========================================================================
 def auto_migrate_database():
     try:
@@ -240,7 +276,7 @@ def auto_migrate_database():
         print(f"[MIGRATION ERROR] {e}")
 
 # ===========================================================================
-# 5. DEKORATOR KEAMANAN & AUTENTIKASI JWT
+# 6. DEKORATOR KEAMANAN & AUTENTIKASI JWT
 # ===========================================================================
 def token_required(f):
     @wraps(f)
@@ -295,7 +331,7 @@ def roles_required(*allowed_roles):
     return decorator
 
 # ===========================================================================
-# 6. INITIALIZATION & AUTENTIKASI LOGIN
+# 7. INITIALIZATION & AUTENTIKASI LOGIN
 # ===========================================================================
 @app.route('/init-kriteria', methods=['GET', 'OPTIONS'])
 @app.route('/api/init-kriteria', methods=['GET', 'OPTIONS'])
@@ -318,13 +354,13 @@ def init_kriteria():
         if not User.query.filter_by(username='admin').first():
             db.session.add(User(
                 username='admin', email='admin@sidoarjo.go.id',
-                password=bcrypt.generate_password_hash('admin123').decode('utf-8'),
+                password=generate_password_hash('admin123', method='pbkdf2:sha256'),
                 role='admin'
             ))
         if not User.query.filter_by(username='petugas').first():
             db.session.add(User(
                 username='petugas', email='petugas@sidoarjo.go.id',
-                password=bcrypt.generate_password_hash('12345').decode('utf-8'),
+                password=generate_password_hash('12345', method='pbkdf2:sha256'),
                 role='operator'
             ))
         db.session.commit()
@@ -341,27 +377,45 @@ def login():
 
     data = request.get_json(silent=True) or {}
     username = data.get('username', '').strip()
-    password = data.get('password', '')
+    password = data.get('password', '').strip()
 
     user = User.query.filter_by(username=username).first()
-    if user and bcrypt.check_password_hash(user.password, password):
-        token_payload = {
-            'user_id': user.id, 'username': user.username, 'role': user.role,
-            'exp': datetime.utcnow() + timedelta(hours=24)
+
+    if not user or not verify_user_password(user.password, password):
+        return jsonify({'message': 'Username atau kata sandi salah!'}), 401
+
+    if not user.password.startswith('pbkdf2:sha256:'):
+        user.password = generate_password_hash(password, method='pbkdf2:sha256')
+        db.session.commit()
+
+    payload = {
+        'user_id': user.id,
+        'username': user.username,
+        'role': user.role,
+        'exp': datetime.utcnow() + timedelta(hours=12)
+    }
+    token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
+    if isinstance(token, bytes):
+        token = token.decode('utf-8')
+
+    catat_notifikasi(f"[{user.role.capitalize()}] Pengguna '{user.username}' berhasil masuk ke sistem.", role_target='admin')
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Login berhasil',
+        'token': token,
+        'access_token': token,
+        'role': user.role,
+        'data': {
+            'username': user.username,
+            'role': user.role
+        },
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'role': user.role
         }
-        token = jwt.encode(token_payload, app.config['SECRET_KEY'], algorithm='HS256')
-        if isinstance(token, bytes): token = token.decode('utf-8')
-        
-        return jsonify({
-            "status": "success",
-            "message": "Login berhasil",
-            "token": token,
-            "access_token": token,
-            "role": user.role,
-            "data": {"username": user.username, "role": user.role},
-            "user": {"id": user.id, "username": user.username, "nama_lengkap": user.username.capitalize()}
-        })
-    return jsonify({"status": "fail", "message": "Username atau kata sandi tidak sesuai."}), 401
+    }), 200
 
 @app.route('/users', methods=['GET', 'POST', 'OPTIONS'])
 @app.route('/api/users', methods=['GET', 'POST', 'OPTIONS'])
@@ -379,22 +433,31 @@ def manage_users():
                 'created_at': u.created_at.strftime("%d/%m/%Y") if u.created_at else "-"
             } for u in users])
         elif request.method == 'POST':
-            d = request.get_json(silent=True) or {}
-            username = d.get('username', '').strip()
-            password = d.get('password', '').strip()
-            role = d.get('role', 'operator')
+            data = request.get_json(silent=True) or {}
+            username = data.get('username', '').strip()
+            password = data.get('password', '').strip()
+            role = data.get('role', 'operator').strip()
+
             if not username or not password:
-                return jsonify({"status": "error", "message": "Username dan password wajib diisi."}), 400
+                return jsonify({'message': 'Username dan password wajib diisi!'}), 400
+
             if User.query.filter_by(username=username).first():
-                return jsonify({"status": "error", "message": "Username sudah terdaftar."}), 400
-            new_u = User(
-                username=username, email=d.get('email', f"{username}@sidoarjo.go.id"),
-                password=bcrypt.generate_password_hash(password).decode('utf-8'),
+                return jsonify({'message': 'Username sudah digunakan!'}), 409
+
+            hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+
+            new_user = User(
+                username=username,
+                email=data.get('email', f"{username}@sidoarjo.go.id"),
+                password=hashed_password,
                 role=role
             )
-            db.session.add(new_u)
+            db.session.add(new_user)
             db.session.commit()
-            return jsonify({"status": "success", "message": f"Akun {username} ({role}) berhasil dibuat!"})
+
+            catat_notifikasi(f"[Admin] Akun aparatur baru '{username}' ({role.upper()}) berhasil dibuat.", role_target='admin')
+
+            return jsonify({'status': 'success', 'message': 'Pengguna berhasil ditambahkan'}), 201
     except Exception as e:
         traceback.print_exc()
         db.session.rollback()
@@ -412,13 +475,23 @@ def handle_single_user(id):
                 return jsonify({"status": "error", "message": "Akun Super Admin utama tidak boleh dihapus."}), 400
             db.session.delete(u)
             db.session.commit()
+            catat_notifikasi(f"[Admin] Akun '{u.username}' telah dihapus dari sistem.", role_target='admin')
             return jsonify({"status": "success", "message": "Akun berhasil dihapus."})
+        elif request.method == 'PUT':
+            d = request.get_json(silent=True) or {}
+            if d.get('password'):
+                u.password = generate_password_hash(d['password'].strip(), method='pbkdf2:sha256')
+            if d.get('role'):
+                u.role = d['role'].strip()
+            db.session.commit()
+            catat_notifikasi(f"[Admin] Pengaturan akun '{u.username}' diperbarui.", role_target='admin')
+            return jsonify({"status": "success", "message": "Data akun berhasil diperbarui."})
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # ===========================================================================
-# 7. LOGIKA PERHITUNGAN SPK BWM-SAW & KOMPARASI WEIGHTED PRODUCT (WP)
+# 8. LOGIKA PERHITUNGAN SPK BWM-SAW & KOMPARASI WEIGHTED PRODUCT (WP)
 # ===========================================================================
 KRITERIA_KEYS = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10']
 
@@ -525,6 +598,7 @@ def manage_kriteria():
                 k.bobot = safe_float(i.get('bobot'), k.bobot)
                 if i.get('jenis'): k.jenis = i['jenis']
         db.session.commit()
+        catat_notifikasi("[Admin] Bobot kriteria BWM berhasil diperbarui oleh Administrator.", role_target='all')
         return jsonify({"status": "success", "message": "Bobot kriteria berhasil disimpan!"})
     return jsonify([{'kode': k.kode, 'nama': k.nama, 'bobot': k.bobot, 'jenis': k.jenis} for k in Kriteria.query.all()])
 
@@ -534,33 +608,68 @@ def manage_kriteria():
 @token_required
 def get_hitung_saw():
     hasil = hitung_saw_logic()
+    catat_notifikasi("[Admin] Proses kalkulasi algoritma BWM-SAW selesai diperbarui.", role_target='all')
     return jsonify({
         "status": "success",
         "message": "Kalkulasi BWM-SAW berhasil diperbarui",
         **hasil
     })
 
+# ===========================================================================
+# ENDPOINT KOMPARASI SAW VS WP
+# ===========================================================================
 @app.route('/komparasi', methods=['GET', 'OPTIONS'])
 @app.route('/api/komparasi', methods=['GET', 'OPTIONS'])
 @token_required
 def komparasi_metode():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
     saw_data = hitung_saw_logic()
     wp_data = hitung_wp_logic()
-    data_saw = {x['nik']: {'skor': x['skor_akhir'], 'rank': i + 1, 'nama': x['nama'], 'desil': x['desil'], 'prioritas': x['prioritas'], 'menerima': x['menerima']} for i, x in enumerate(saw_data.get('hasil_akhir', []))}
-    data_wp = {x['nik']: {'skor': x['skor_akhir'], 'rank': i + 1} for i, x in enumerate(wp_data.get('hasil_akhir', []))}
+    
+    data_saw = {
+        x['nik']: {
+            'skor': x['skor_akhir'], 
+            'rank': i + 1, 
+            'nama': x['nama'], 
+            'desil': x.get('desil', 1), 
+            'prioritas': x.get('prioritas', '-'), 
+            'menerima': x.get('menerima', '-')
+        } for i, x in enumerate(saw_data.get('hasil_akhir', []))
+    }
+    
+    data_wp = {
+        x['nik']: {
+            'skor': x['skor_akhir'], 
+            'rank': i + 1
+        } for i, x in enumerate(wp_data.get('hasil_akhir', []))
+    }
 
     res = []
     for nik, val in data_saw.items():
         res.append({
-            'nama': val['nama'], 'nik': nik, 'saw_skor': val['skor'], 'saw_rank': val['rank'],
-            'wp_skor': data_wp.get(nik, {}).get('skor', 0), 'wp_rank': data_wp.get(nik, {}).get('rank', 0),
-            'desil': val['desil'], 'prioritas': val['prioritas'], 'menerima': val['menerima']
+            'nama': val['nama'],
+            'nik': nik,
+            'saw_skor': val['skor'],
+            'saw_rank': val['rank'],
+            'wp_skor': data_wp.get(nik, {}).get('skor', 0.0),
+            'wp_rank': data_wp.get(nik, {}).get('rank', 0),
+            'desil': val['desil'],
+            'prioritas': val['prioritas'],
+            'menerima': val['menerima']
         })
+
     res.sort(key=lambda x: x['saw_rank'])
-    return jsonify(res)
+    
+    return jsonify({
+        "status": "success",
+        "count": len(res),
+        "data": res
+    }), 200
 
 # ===========================================================================
-# 8. CRUD DATA WARGA, ARSIP & PERSETUJUAN MASSAL
+# 9. CRUD DATA WARGA, ARSIP & PERSETUJUAN MASSAL
 # ===========================================================================
 @app.route('/warga', methods=['GET', 'POST', 'OPTIONS'])
 @app.route('/api/warga', methods=['GET', 'POST', 'OPTIONS'])
@@ -686,6 +795,8 @@ def manage_warga():
             )
             db.session.add(new_w)
             db.session.commit()
+            
+            catat_notifikasi(f"[Petugas] Berkas warga baru '{nama}' (NIK: {nik}) berhasil ditambahkan ke sistem.", role_target='all')
             return jsonify({"status": "success", "message": "Data verifikasi lapangan berhasil dicatat!"})
     except Exception as e:
         traceback.print_exc()
@@ -699,8 +810,10 @@ def action_warga(id):
     try:
         w = Warga.query.get_or_404(id)
         if request.method == 'DELETE':
+            nama_w = w.nama
             db.session.delete(w)
             db.session.commit()
+            catat_notifikasi(f"[Admin] Data warga '{nama_w}' telah dihapus dari basis data.", role_target='all')
             return jsonify({"status": "success", "message": "Data berhasil dihapus."})
         elif request.method == 'PUT':
             d = request.get_json(silent=True) or {}
@@ -714,6 +827,7 @@ def action_warga(id):
                 try: w.tanggal_lahir = datetime.strptime(d['tanggal_lahir'][:10], '%Y-%m-%d').date()
                 except: pass
             db.session.commit()
+            catat_notifikasi(f"[Petugas] Pembaruan profil berkas warga '{w.nama}' telah disimpan.", role_target='all')
             return jsonify({"status": "success", "message": "Data berhasil diperbarui."})
     except Exception as e:
         db.session.rollback()
@@ -727,6 +841,8 @@ def verify_warga(id):
     w.is_verified = not w.is_verified
     w.tanggal_verifikasi = datetime.now().date() if w.is_verified else None
     db.session.commit()
+    status_text = "Disetujui (Layak Bansos)" if w.is_verified else "Dibatalkan Persetujuannya"
+    catat_notifikasi(f"[Petugas] Status verifikasi '{w.nama}' diubah menjadi: {status_text}.", role_target='all')
     return jsonify({"status": "success", "is_verified": w.is_verified})
 
 @app.route('/warga/delete-all', methods=['DELETE', 'POST', 'OPTIONS'])
@@ -737,6 +853,7 @@ def delete_all_warga():
     try:
         db.session.query(Warga).delete()
         db.session.commit()
+        catat_notifikasi("🚨 [Admin] Seluruh data arsip warga telah dikosongkan oleh Super Admin.", role_target='all')
         return jsonify({"status": "success", "message": "Seluruh data arsip warga berhasil dikosongkan."})
     except Exception as e:
         db.session.rollback()
@@ -756,6 +873,7 @@ def bulk_verify():
             w.is_verified = True
             w.tanggal_verifikasi = today_val
         db.session.commit()
+        catat_notifikasi(f"[Petugas] Persetujuan massal: {len(wargas)} berkas warga berhasil disetujui.", role_target='all')
         return jsonify({
             "status": "success",
             "count": len(wargas),
@@ -778,6 +896,7 @@ def bulk_unverify():
             w.is_verified = False
             w.tanggal_verifikasi = None
         db.session.commit()
+        catat_notifikasi(f"[Petugas] Sebanyak {len(wargas)} berkas warga dikembalikan ke status Menunggu Validasi.", role_target='all')
         return jsonify({
             "status": "success",
             "count": len(wargas),
@@ -804,6 +923,7 @@ def upload_bukti_salur(id):
     w.status_salur = 'Telah Menerima'
     w.tanggal_salur = datetime.now()
     db.session.commit()
+    catat_notifikasi(f"[Petugas] Bansos berhasil disalurkan secara fisik kepada '{w.nama}' (NIK: {w.nik}).", role_target='all')
     return jsonify({"status": "success", "message": "Foto bukti penyaluran berhasil disimpan!"})
 
 @app.route('/warga/<int:id>/lapor-sengketa', methods=['POST', 'OPTIONS'])
@@ -818,17 +938,20 @@ def lapor_sengketa_salur(id):
     if aksi == 'sengketa':
         w.status_salur = 'Sengketa: Belum Terima'
         w.catatan = f"[⚠️ SENGKETA {datetime.now().strftime('%d/%m/%Y %H:%M')}] {keterangan} | {w.catatan or ''}"
+        catat_notifikasi(f"🚨 [Sengketa] Laporan aduan penyaluran dari warga '{w.nama}': {keterangan}", role_target='all')
     elif aksi == 'selesai':
         w.status_salur = 'Telah Menerima'
         w.tanggal_salur = datetime.now()
+        catat_notifikasi(f"[Petugas] Mediasi sengketa bantuan untuk '{w.nama}' telah diselesaikan.", role_target='all')
     elif aksi == 'investigasi':
         w.status_salur = 'Sengketa: Dalam Investigasi'
+        catat_notifikasi(f"🚨 [Investigasi] Kasus sengketa '{w.nama}' dimasukkan ke tahap investigasi lapangan.", role_target='admin')
         
     db.session.commit()
     return jsonify({"status": "success", "message": f"Status sengketa berhasil diperbarui: {w.status_salur}"})
 
 # ===========================================================================
-# 9. SMART EXCEL IMPORTER
+# 10. SMART EXCEL IMPORTER
 # ===========================================================================
 def parse_excel_row(d):
     def get_val(*keys, default=''):
@@ -959,6 +1082,7 @@ def import_bulk_warga():
             count += 1
 
         db.session.commit()
+        catat_notifikasi(f"[Petugas] Impor berkas Excel berhasil menyelaraskan {count} data warga ke basis data.", role_target='all')
         return jsonify({
             'status': 'success',
             'count': count,
@@ -969,7 +1093,7 @@ def import_bulk_warga():
         return jsonify({'status': 'error', 'message': f'Gagal impor data: {str(e)}'}), 500
 
 # ===========================================================================
-# 10. DUKCAPIL VALIDATOR, PUBLIK & BPS SIDOARJO
+# 11. DUKCAPIL VALIDATOR, PUBLIK & BPS SIDOARJO
 # ===========================================================================
 @app.route('/api/dukcapil/<nik>', methods=['GET'])
 def check_dukcapil(nik):
@@ -1051,6 +1175,7 @@ def submit_pengaduan_publik():
     )
     db.session.add(chat)
     db.session.commit()
+    catat_notifikasi(f"[Warga] NIK {nik} ({nama}) mengirim pengaduan: {kategori}", role_target='all')
     return jsonify({'status': 'success', 'message': 'Pengaduan berhasil dicatat ke sistem investigasi'}), 201
 
 @app.route('/api/bps/sync', methods=['POST', 'OPTIONS'])
@@ -1082,10 +1207,11 @@ def sync_bps():
                 catatan="Data Sinkronisasi BPS Sidoarjo (DTSEN Terpadu)"
             ))
     db.session.commit()
+    catat_notifikasi("[Petugas] Sinkronisasi 10 data terpadu BPS Sidoarjo berhasil dilakukan.", role_target='all')
     return jsonify({"status": "success", "message": "10 data terpadu BPS Sidoarjo berhasil disinkronkan!"})
 
 # ===========================================================================
-# 11. MEDIA SERVER, REAL-TIME CHAT & NOTIFIKASI
+# 12. MEDIA SERVER, REAL-TIME CHAT & NOTIFIKASI TERPADU
 # ===========================================================================
 @app.route('/uploads/<path:filename>')
 def serve_uploads(filename):
@@ -1148,12 +1274,55 @@ def get_laporan_chat():
     except Exception as e:
         return jsonify([]), 200
 
+# ===========================================================================
+# ENDPOINT NOTIFIKASI AKTIVITAS LENGKAP
+# ===========================================================================
 @app.route('/api/notifikasi', methods=['GET', 'OPTIONS'])
 @token_required
 def get_notifikasi():
-    role = request.current_user['role']
-    notifs = Notifikasi.query.filter(Notifikasi.role_target.in_([role, 'all'])).order_by(Notifikasi.is_pinned.desc(), Notifikasi.id.desc()).limit(30).all()
-    return jsonify([{"id": n.id, "pesan": n.pesan, "waktu": n.waktu.strftime("%H:%M | %d/%m"), "is_read": n.is_read, "is_pinned": n.is_pinned} for n in notifs])
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    role = request.current_user.get('role', 'operator')
+    
+    notifs = Notifikasi.query.filter(
+        Notifikasi.role_target.in_([role, 'all'])
+    ).order_by(Notifikasi.id.desc()).limit(50).all()
+
+    unread_count = Notifikasi.query.filter(
+        Notifikasi.role_target.in_([role, 'all']),
+        Notifikasi.is_read == False
+    ).count()
+
+    return jsonify({
+        "status": "success",
+        "unread": unread_count,
+        "data": [{
+            "id": n.id,
+            "pesan": n.pesan,
+            "waktu": n.waktu.strftime("%H:%M • %d/%m/%Y") if n.waktu else "-",
+            "is_read": bool(n.is_read),
+            "is_pinned": bool(n.is_pinned),
+            "is_archived": bool(n.is_archived)
+        } for n in notifs]
+    }), 200
+
+@app.route('/api/notifikasi/read-all', methods=['POST', 'OPTIONS'])
+@token_required
+def mark_all_notifications_read():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    try:
+        role = request.current_user.get('role', 'operator')
+        Notifikasi.query.filter(
+            Notifikasi.role_target.in_([role, 'all']),
+            Notifikasi.is_read == False
+        ).update({Notifikasi.is_read: True}, synchronize_session=False)
+        db.session.commit()
+        return jsonify({"status": "success", "message": "Semua notifikasi ditandai sudah dibaca."}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/notifikasi/<int:id>/read', methods=['PATCH', 'OPTIONS'])
 @token_required
@@ -1164,7 +1333,7 @@ def update_notifikasi(id):
     return jsonify({"status": "success"})
 
 # ===========================================================================
-# 12. ENTRY POINT UTAMA
+# 13. ENTRY POINT UTAMA
 # ===========================================================================
 if __name__ == '__main__':
     auto_migrate_database()

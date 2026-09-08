@@ -2,7 +2,7 @@
    ADMIN.JS - ORCHESTRATOR UTAMA SISTEM SPK BANSOS PEMKAB SIDOARJO
    MENGELOLA: AUTHENTICATION, DUKCAPIL LOOKUP & AUTO-FILL, GEOTAGGING,
               DATATABLES, BULK PROCESS, EKSPOR/IMPOR EXCEL, USER MANAGEMENT,
-              SPK BWM-SAW & MODAL
+              SPK BWM-SAW, MODAL & PUSAT NOTIFIKASI AKTIVITAS
    Lokasi: frontend/static/js/admin.js
    ========================================================================= */
 
@@ -145,10 +145,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }, 350);
 
-    // Sistem Notifikasi Berkala
-    window.setupNotificationSystemModern();
-    window.fetchNotifikasiRealtime();
-    setInterval(window.fetchNotifikasiRealtime, 15000);
+    // Sistem Notifikasi Aktivitas Real-time
+    window.loadNotifikasiAktivitas();
+    setInterval(() => window.loadNotifikasiAktivitas(), 15000);
 });
 
 // =========================================================================
@@ -785,68 +784,14 @@ window.syncBPS = async function () {
 };
 
 // =========================================================================
-// 11. SPK ALGORITMA BWM-SAW & KOMPARASI WP
+// 11. SPK ALGORITMA BWM-SAW & KOMPARASI WP (JEMBATAN MODULAR)
 // =========================================================================
-window.hitungSPK = async function () {
-    if (window.AdminSPK && typeof window.AdminSPK.hitungSPK === 'function') {
-        return window.AdminSPK.hitungSPK();
-    }
-
-    showAdminAlert({ title: 'Memproses Algoritma SAW & BWM...', allowOutsideClick: false, didOpen: () => Swal?.showLoading() });
-    try {
-        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/api/spk/hitung', { method: 'POST' }) : window.fetchData('/api/spk/hitung', { method: 'POST' }));
-        const json = await res.json();
-        Swal?.close();
-
-        if (res && res.ok) {
-            showAdminAlert({ icon: 'success', title: 'Komputasi Selesai', text: 'Perankingan preferensi BWM-SAW berhasil diperbarui.' });
-            const resultCard = document.getElementById('resultCard');
-            const resultTbody = document.querySelector('#resultTable tbody');
-
-            if (resultCard && resultTbody && json.data) {
-                resultCard.style.display = 'block';
-                resultTbody.innerHTML = json.data.slice(0, 40).map((w, idx) => `
-                    <tr>
-                        <td style="text-align:center; font-weight:800; font-family:monospace;">#${idx + 1}</td>
-                        <td><b>${window.safeHtml(w.nama)}</b><br><small class="text-muted">NIK: ${w.nik}</small></td>
-                        <td style="text-align:center; font-weight:800; color:#009846;">${parseFloat(w.skor || 0).toFixed(4)}</td>
-                        <td style="text-align:center;"><span class="badge badge-green">Desil ${w.desil || 1}</span></td>
-                        <td style="text-align:center;"><span class="badge badge-green"><i class="fas fa-check-circle"></i> MENERIMA BANSOS</span></td>
-                    </tr>
-                `).join('');
-            }
-            await window.loadDashboardData();
-        } else {
-            showAdminAlert({ icon: 'error', title: 'Gagal SPK', text: json.message || 'Gagal mengeksekusi komputasi SPK.' });
-        }
-    } catch (err) {
-        showAdminAlert({ icon: 'error', title: 'Error', text: 'Koneksi ke backend SPK terputus.' });
-    }
-};
-
 window.bukaModalBobot = function () {
     if (window.AdminSPK && typeof window.AdminSPK.bukaModalBobot === 'function') {
         return window.AdminSPK.bukaModalBobot();
     }
     const modal = document.getElementById('modalBobot');
-    const container = document.getElementById('bobotInputs');
-    if (!modal || !container) return;
-
-    const kriteriaLabels = [
-        'C1. Penghasilan', 'C2. Aset Rumah', 'C3. Usia KK', 'C4. Jenis Kelamin',
-        'C5. Tanggungan', 'C6. Status Nikah', 'C7. Anak Sekolah', 'C8. Status Rumah',
-        'C9. Pendidikan', 'C10. Kesehatan'
-    ];
-    const defaultWeights = [0.20, 0.15, 0.08, 0.05, 0.12, 0.06, 0.10, 0.09, 0.07, 0.08];
-
-    container.innerHTML = kriteriaLabels.map((lbl, i) => `
-        <div class="form-group" style="margin-bottom:8px;">
-            <label style="font-size:0.75rem; font-weight:700;">${lbl}</label>
-            <input type="number" step="0.01" min="0" max="1" id="weight_c${i + 1}" class="form-input" value="${defaultWeights[i]}" style="padding:6px 8px; font-size:0.85rem;" />
-        </div>
-    `).join('');
-
-    modal.style.display = 'flex';
+    if (modal) modal.style.display = 'flex';
 };
 
 window.simpanBobot = async function (e) {
@@ -863,29 +808,7 @@ window.bukaModalMatriksKerja = function () {
         return window.AdminSPK.bukaModalMatriksKerja();
     }
     const modal = document.getElementById('modalDetail');
-    const content = document.getElementById('detailContent');
-    if (!modal || !content) return;
-
-    const dataList = (window.BansosApp?.State?.wargaList) || window.globalDataWarga || [];
-    content.innerHTML = `
-        <h4 style="margin-top:0;">Matriks Normalisasi R (10 Kriteria)</h4>
-        <div style="overflow-x:auto;">
-            <table class="modern-table" style="font-size:0.8rem;">
-                <thead>
-                    <tr><th>Nama</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>R5</th><th>R6</th><th>R7</th><th>R8</th><th>R9</th><th>R10</th></tr>
-                </thead>
-                <tbody>
-                    ${dataList.slice(0, 15).map(w => `
-                        <tr>
-                            <td><b>${window.safeHtml(w.nama)}</b></td>
-                            ${[1,2,3,4,5,6,7,8,9,10].map(k => `<td>${(0.5 + Math.random() * 0.5).toFixed(3)}</td>`).join('')}
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
-    modal.style.display = 'flex';
+    if (modal) modal.style.display = 'flex';
 };
 
 window.bukaModalKomparasi = function () {
@@ -1167,7 +1090,7 @@ window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
 };
 
 // =========================================================================
-// 14. MANAJEMEN PENGGUNA, NOTIFIKASI & LIGHTBOX
+// 14. MANAJEMEN PENGGUNA SISTEM (USER CRUD)
 // =========================================================================
 window.bukaModalPengguna = async function () {
     const modal = document.getElementById('modalPengguna');
@@ -1235,48 +1158,130 @@ window.hapusUser = async function (id, username) {
     }
 };
 
-window.setupNotificationSystemModern = function () {
-    const notifBtn = document.querySelector('.notif-wrapper');
-    if (notifBtn) {
-        notifBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            window.toggleNotifPanel();
-        });
+// =========================================================================
+// 15. PUSAT PENGENDALI NOTIFIKASI AKTIVITAS (ADMIN, PETUGAS, WARGA)
+// =========================================================================
+
+// Buka/Tutup Jendela Dropdown Notifikasi
+window.toggleNotifPanel = function (e) {
+    if (e) e.stopPropagation();
+    const panel = document.getElementById('notifPanel');
+    if (!panel) return;
+
+    const isVisible = panel.style.display === 'flex';
+    panel.style.display = isVisible ? 'none' : 'flex';
+
+    if (!isVisible) {
+        window.loadNotifikasiAktivitas();
     }
 };
 
-window.toggleNotifPanel = function () {
+// Tutup Panel Notifikasi Otomatis Saat Mengklik Area Luar
+document.addEventListener('click', function (e) {
     const panel = document.getElementById('notifPanel');
-    if (!panel) return;
-    window.isNotifPanelOpen = !window.isNotifPanelOpen;
-    panel.style.display = window.isNotifPanelOpen ? 'flex' : 'none';
-    if (window.isNotifPanelOpen) window.fetchNotifikasiRealtime();
-};
+    const wrapper = document.querySelector('.notif-wrapper');
+    if (panel && panel.style.display === 'flex') {
+        if (!panel.contains(e.target) && !wrapper.contains(e.target)) {
+            panel.style.display = 'none';
+        }
+    }
+});
 
-window.fetchNotifikasiRealtime = async function () {
+// Mengambil dan Menampilkan Log Aktivitas
+window.loadNotifikasiAktivitas = async function (filterTab = 'all') {
+    const container = document.getElementById('notifList');
+    const badge = document.getElementById('notifBadge');
+    
+    if (container && container.children.length === 0) {
+        container.innerHTML = '<div style="padding:15px; text-align:center; color:#64748b; font-size:0.85rem;">Memuat aktivitas...</div>';
+    }
+
     try {
-        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/api/notifikasi') : (window.fetchData ? window.fetchData('/api/notifikasi') : fetch(`${BASE_URL}/api/notifikasi`)));
-        if (!res || !res.ok) return;
-        const notifs = await res.json();
-        const listEl = document.getElementById('notifList');
-        const badgeEl = document.getElementById('notifBadge');
+        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+        const res = await window.fetchData(`${baseUrl}/api/notifikasi`);
+        if (!res) return;
 
-        const unreadCount = Array.isArray(notifs) ? notifs.filter(n => !n.is_read).length : 0;
-        if (badgeEl) {
-            badgeEl.innerText = unreadCount;
-            badgeEl.style.display = unreadCount > 0 ? 'inline-block' : 'none';
+        const result = await res.json();
+        const list = result.data || [];
+        const unreadCount = result.unread || 0;
+
+        // Perbarui angka di badge lonceng
+        if (badge) {
+            badge.textContent = unreadCount;
+            badge.style.display = unreadCount > 0 ? 'inline-block' : 'none';
         }
 
-        if (!listEl) return;
-        listEl.innerHTML = (Array.isArray(notifs) && notifs.length) ? notifs.map(n => `
-            <div style="padding:10px 14px; border-bottom:1px solid #f1f5f9; background:${n.is_read ? '#fff' : '#f0fdf4'};">
-                <p style="margin:0; font-size:0.85rem; color:#1e293b;">${window.safeHtml(n.pesan)}</p>
-                <small style="color:#64748b; font-size:0.75rem;"><i class="fas fa-clock"></i> ${n.waktu}</small>
-            </div>
-        `).join('') : '<div style="padding:20px; text-align:center; color:#94a3b8;">Tidak ada notifikasi baru.</div>';
-    } catch (e) { }
+        if (!container) return;
+
+        // Filter Sesuai Tab (All / Urgent / Arsip)
+        let filtered = list;
+        if (filterTab === 'urgent') {
+            filtered = list.filter(n => n.pesan.includes('🚨') || n.pesan.toLowerCase().includes('sengketa'));
+        } else if (filterTab === 'arsip') {
+            filtered = list.filter(n => n.is_archived);
+        }
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<div style="padding:25px; text-align:center; color:#94a3b8; font-size:0.85rem;">Tidak ada riwayat aktivitas pada kategori ini.</div>';
+            return;
+        }
+
+        container.innerHTML = filtered.map(item => {
+            let iconBadge = '📌';
+            let bgStyle = item.is_read ? '#ffffff' : '#f0fdf4';
+            
+            if (item.pesan.includes('[Admin]')) iconBadge = '👑';
+            else if (item.pesan.includes('[Petugas]')) iconBadge = '📋';
+            else if (item.pesan.includes('[Warga]')) iconBadge = '👤';
+            else if (item.pesan.includes('🚨')) {
+                iconBadge = '🚨';
+                bgStyle = '#fef2f2';
+            }
+
+            return `
+                <div style="padding: 12px 14px; border-bottom: 1px solid #f1f5f9; background: ${bgStyle}; font-size: 0.84rem; display: flex; gap: 10px; align-items: flex-start;">
+                    <span style="font-size: 1.1rem; line-height: 1;">${iconBadge}</span>
+                    <div style="flex: 1;">
+                        <div style="color: #0f172a; font-weight: ${item.is_read ? '500' : '700'}; line-height: 1.4;">${window.safeHtml(item.pesan)}</div>
+                        <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px;">${item.waktu}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (err) {
+        if (container) {
+            container.innerHTML = '<div style="padding:15px; text-align:center; color:#ef4444; font-size:0.85rem;">Gagal memuat notifikasi.</div>';
+        }
+    }
 };
 
+// Kompatibilitas panggilan lama jika ada modul yang memanggil
+window.fetchNotifikasiRealtime = () => window.loadNotifikasiAktivitas();
+
+// Pergantian Tab Notifikasi
+window.switchNotifTab = function (tab) {
+    document.querySelectorAll('.ntf-tab-btn').forEach(b => b.classList.remove('active'));
+    if (tab === 'all') document.getElementById('tabNotifAll')?.classList.add('active');
+    if (tab === 'urgent') document.getElementById('tabNotifUrgent')?.classList.add('active');
+    if (tab === 'arsip') document.getElementById('tabNotifArsip')?.classList.add('active');
+    window.loadNotifikasiAktivitas(tab);
+};
+
+// Tandai Semua Notifikasi Sudah Dibaca
+window.tandaiSemuaNotifDibaca = async function () {
+    try {
+        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+        await window.fetchData(`${baseUrl}/api/notifikasi/read-all`, { method: 'POST' });
+        window.loadNotifikasiAktivitas();
+    } catch (e) {
+        console.error(e);
+    }
+};
+
+// =========================================================================
+// 16. MODAL RINCIAN WILAYAH, INVESTIGASI & LIGHTBOX
+// =========================================================================
 window.bukaMediaLightbox = function (url) {
     const modal = document.getElementById('mediaLightbox');
     const container = document.getElementById('lightboxContent');
@@ -1325,7 +1330,6 @@ window.bukaModalLaporanChat = async function () {
     }
 };
 
-// Handler Modal Rincian Wilayah dari Klik Peta
 window.bukaWilayahDetail = function (kecamatanNama) {
     const modal = document.getElementById('modalWilayahDetail');
     const titleEl = document.getElementById('modalWilayahTitle');
@@ -1365,7 +1369,7 @@ window.vProcessAndSave = () => {};
 window.vUpdateTrim = () => {};
 
 // =========================================================================
-// 15. KONTROL MODAL & LOGOUT
+// 17. KONTROL MODAL & LOGOUT
 // =========================================================================
 window.toggleSelectAll = function (source) {
     document.querySelectorAll('.row-checkbox').forEach(cb => {

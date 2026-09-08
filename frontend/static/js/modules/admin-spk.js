@@ -1,12 +1,16 @@
 /* =========================================================================
    ADMIN-SPK.JS - ENGINE ALGORITMA BWM, SAW, VALIDASI WP & MATRIKS NORMALISASI
+   Lokasi: frontend/static/js/modules/admin-spk.js
+   PEMERINTAH KABUPATEN SIDOARJO - DINAS SOSIAL
    ========================================================================= */
 
 window.lastSPKResult = null;
 window.lastKomparasiResult = [];
-window.compChartInstance = null; // Deklarasi instans grafik terpusat
+window.compChartInstance = null;
 
+// =========================================================================
 // 1. PROSES ALGORITMA BWM - SAW
+// =========================================================================
 window.hitungSPK = async function () {
     const wargaLayak = (window.globalDataWarga || []).filter(w => w.is_verified);
     if (wargaLayak.length === 0) {
@@ -106,7 +110,7 @@ window.hitungSPK = async function () {
             tr.innerHTML = `
                 <td style="text-align:center; vertical-align:middle;">${rankBadge}</td>
                 <td style="vertical-align:middle;">
-                    <div style="font-weight:800; color:#1e293b; font-size:0.92rem;">${window.safeHtml(item.nama)}</div>
+                    <div style="font-weight:800; color:#1e293b; font-size:0.92rem;">${window.safeHtml ? window.safeHtml(item.nama) : item.nama}</div>
                     <small style="color:#64748b; font-family:monospace; font-size:0.78rem;">NIK: ${item.nik || '-'}</small>
                 </td>
                 <td style="vertical-align:middle; min-width:120px;">
@@ -137,36 +141,32 @@ window.hitungSPK = async function () {
     }
 };
 
-// 2. VERIFIKASI ALGORITMA (SAW VS WP) - DIPERBAIKI PENUH
+// =========================================================================
+// 2. VERIFIKASI HASIL ALGORITMA (SAW VS WP)
+// =========================================================================
 window.bukaModalKomparasi = async function () {
     const modal = document.getElementById('modalKomparasi');
     const tbody = document.querySelector('#tblKomparasi tbody');
+    const canvas = document.getElementById('compChart');
+
     if (modal) modal.style.display = 'flex';
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:25px; color:#64748b;"><i class="fas fa-spinner fa-spin text-primary"></i> Memproses komparasi preferensi SAW vs WP...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">Memuat data perbandingan SAW & WP...</td></tr>';
 
     try {
-        let res = await window.fetchData('/komparasi');
-        if (!res || !res.ok) {
-            res = await window.fetchData('/api/komparasi');
-        }
+        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+        const response = await window.fetchData(`${baseUrl}/komparasi`);
+        
+        if (!response) return;
+        const result = await response.json();
+        
+        // Ekstraksi array data baik dengan format pembungkus data maupun array murni
+        const list = Array.isArray(result) ? result : (result.data || []);
+        window.lastKomparasiResult = list; // Sinkronkan ke state memori agar cetak laporan tetap dapat membaca data
 
-        if (!res || !res.ok) {
-            let errorText = 'Koneksi ke endpoint komparasi gagal.';
-            try {
-                const errJson = await res.json();
-                if (errJson && errJson.message) errorText = errJson.message;
-            } catch (_) {}
-            throw new Error(errorText);
-        }
-
-        const data = await res.json();
-        window.lastKomparasiResult = Array.isArray(data) ? data : (data.data || data.hasil || []);
-
-        if (!tbody) return;
-        tbody.innerHTML = '';
-
-        if (window.lastKomparasiResult.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; color:#64748b;">Belum ada data alternatif warga yang disetujui. Silakan setujui data warga dan klik "Proses Algoritma SAW" terlebih dahulu.</td></tr>';
+        if (!list || list.length === 0) {
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; color:#64748b;">Belum ada data warga yang terverifikasi untuk dikomparasi. Silakan klik "Proses Algoritma SAW" terlebih dahulu.</td></tr>';
+            }
             if (window.compChartInstance) {
                 window.compChartInstance.destroy();
                 window.compChartInstance = null;
@@ -174,63 +174,91 @@ window.bukaModalKomparasi = async function () {
             return;
         }
 
-        const labels = [], sawScores = [], wpScores = [];
-        const maxWpRaw = Math.max(...window.lastKomparasiResult.map(d => parseFloat(d.wp_skor || 0))) || 1;
-        const maxSawRaw = Math.max(...window.lastKomparasiResult.map(d => parseFloat(d.saw_skor || 0))) || 1;
-
-        window.lastKomparasiResult.slice(0, 15).forEach((item) => {
-            labels.push((item.nama || 'Warga').split(' ')[0]);
-            const sVal = parseFloat(item.saw_skor || 0);
-            const wVal = parseFloat(item.wp_skor || 0);
-            sawScores.push(sVal);
-
-            const wScaled = (wVal < 0.1 && maxWpRaw > 0) ? (wVal / maxWpRaw * maxSawRaw) : wVal;
-            wpScores.push(parseFloat(wScaled.toFixed(4)));
-
-            tbody.innerHTML += `
-                <tr>
-                    <td><b>${window.safeHtml(item.nama)}</b><br><small class="text-muted">NIK: ${item.nik || '-'}</small></td>
-                    <td style="text-align:center;"><span class="badge badge-green">#${item.saw_rank}</span></td>
-                    <td style="text-align:center; color:#15803d; font-weight:800; font-family:monospace;">${sVal.toFixed(4)}</td>
-                    <td style="text-align:center;"><span class="badge badge-blue">#${item.wp_rank}</span></td>
-                    <td style="text-align:center; color:#0369a1; font-weight:800; font-family:monospace;">${wVal.toFixed(4)}</td>
+        // 1. Render Tabel Komparasi
+        if (tbody) {
+            tbody.innerHTML = list.map((item) => `
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                    <td style="padding: 12px 14px;">
+                        <b>${window.safeHtml ? window.safeHtml(item.nama) : item.nama}</b>
+                        <div style="font-size:0.78rem; color:#64748b;">NIK: ${item.nik || '-'}</div>
+                    </td>
+                    <td style="text-align:center; font-weight:800; color:#009846;">Rank ${item.saw_rank}</td>
+                    <td style="text-align:center; font-family:monospace; font-weight:700;">${item.saw_skor}</td>
+                    <td style="text-align:center; font-weight:800; color:#2563eb;">Rank ${item.wp_rank}</td>
+                    <td style="text-align:center; font-family:monospace; font-weight:700;">${item.wp_skor}</td>
                 </tr>
-            `;
-        });
+            `).join('');
+        }
 
-        // Inisialisasi Grafik Chart.js Tanpa Konflik Scope Variabel
-        const ctx = document.getElementById('compChart');
-        if (ctx && typeof Chart !== 'undefined') {
+        // 2. Render Grafik Komparasi Top 15 Warga
+        if (canvas) {
             if (window.compChartInstance) {
                 window.compChartInstance.destroy();
+                window.compChartInstance = null;
             }
+
+            const top15 = list.slice(0, 15);
+            const labels = top15.map(x => (x.nama || 'Warga').split(' ')[0]);
+            const sawScores = top15.map(x => parseFloat(x.saw_skor || 0));
+            const wpScores = top15.map(x => parseFloat(x.wp_skor || 0));
+
+            const ctx = canvas.getContext('2d');
             window.compChartInstance = new Chart(ctx, {
-                type: 'line',
+                type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'Skor SAW', data: sawScores, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.3, fill: true },
-                        { label: 'Skor WP (Validasi)', data: wpScores, borderColor: '#0284c7', backgroundColor: 'rgba(2, 132, 199, 0.1)', tension: 0.3, borderDash: [5, 5], fill: true }
+                        {
+                            label: 'Skor SAW (BWM)',
+                            data: sawScores,
+                            backgroundColor: 'rgba(0, 152, 70, 0.75)',
+                            borderColor: '#009846',
+                            borderWidth: 1.5,
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Skor Weighted Product (WP)',
+                            data: wpScores,
+                            backgroundColor: 'rgba(37, 99, 235, 0.75)',
+                            borderColor: '#2563eb',
+                            borderWidth: 1.5,
+                            borderRadius: 6
+                        }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: false } }
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
                 }
             });
         }
-    } catch (e) {
+
+    } catch (err) {
+        console.error('[Komparasi Error]', err);
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:25px; color:#dc2626;"><b>Gagal memuat data komparasi:</b> ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#ef4444; padding:20px;">Gagal memuat data komparasi: ${err.message}</td></tr>`;
         }
     }
 };
 
-// 3. MATRIKS NORMALISASI TERNORMALISASI (R)
+// =========================================================================
+// 3. MATRIKS KERJA TERNORMALISASI (R)
+// =========================================================================
 window.bukaModalMatriksKerja = function () {
     if (!window.lastSPKResult || !window.lastSPKResult.matriks_normalisasi || window.lastSPKResult.matriks_normalisasi.length === 0) {
-        return Swal.fire({ icon: 'info', title: 'Data Belum Tersedia', text: 'Silakan jalankan "Proses Algoritma SAW" terlebih dahulu.', confirmButtonColor: '#009846' });
+        return Swal.fire({ 
+            icon: 'info', 
+            title: 'Data Belum Tersedia', 
+            text: 'Silakan jalankan "Proses Algoritma SAW" terlebih dahulu.', 
+            confirmButtonColor: '#009846' 
+        });
     }
     const matriks = window.lastSPKResult.matriks_normalisasi;
     const kriteriaHeaders = [
@@ -249,7 +277,7 @@ window.bukaModalMatriksKerja = function () {
 
     let tbodyHtml = '<tbody>';
     matriks.forEach((row, idx) => {
-        tbodyHtml += `<tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};"><td style="padding: 8px 6px; text-align: center; font-weight: 700; border: 1px solid #e2e8f0; font-size: 0.8rem;">${idx + 1}</td><td style="padding: 8px 12px; border: 1px solid #e2e8f0; text-align: left;"><div style="font-weight: 700; font-size: 0.85rem;">${window.safeHtml(row.nama)}</div><small style="color: #64748b; font-family: monospace;">NIK: ${row.nik || '-'}</small></td>`;
+        tbodyHtml += `<tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};"><td style="padding: 8px 6px; text-align: center; font-weight: 700; border: 1px solid #e2e8f0; font-size: 0.8rem;">${idx + 1}</td><td style="padding: 8px 12px; border: 1px solid #e2e8f0; text-align: left;"><div style="font-weight: 700; font-size: 0.85rem;">${window.safeHtml ? window.safeHtml(row.nama) : row.nama}</div><small style="color: #64748b; font-family: monospace;">NIK: ${row.nik || '-'}</small></td>`;
         for (let i = 1; i <= 10; i++) {
             const val = parseFloat(row[`C${i}`]);
             tbodyHtml += `<td style="padding: 8px 6px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace; font-size: 0.82rem; font-weight: 600;"><span style="background: #f1f5f9; padding: 3px 6px; border-radius: 4px;">${isNaN(val) ? '0.0000' : val.toFixed(4)}</span></td>`;
@@ -260,13 +288,19 @@ window.bukaModalMatriksKerja = function () {
 
     Swal.fire({
         html: `<div style="text-align: left; font-family: 'Inter', sans-serif;"><h3 style="margin: 0 0 10px 0; font-size: 1.15rem; color: #0f172a; font-weight: 800;"><i class="fas fa-table-cells text-primary"></i> Matriks Normalisasi Ternormalisasi (R)</h3><div style="max-height: 380px; overflow: auto; border: 1px solid #cbd5e1; border-radius: 8px;"><table style="width: 100%; border-collapse: collapse;">${theadHtml}${tbodyHtml}</table></div></div>`,
-        width: '940px', showCloseButton: true, confirmButtonColor: '#009846', confirmButtonText: '<i class="fas fa-check"></i> Tutup Matriks'
+        width: '940px', 
+        showCloseButton: true, 
+        confirmButtonColor: '#009846', 
+        confirmButtonText: '<i class="fas fa-check"></i> Tutup Matriks'
     });
 };
 
+// =========================================================================
 // 4. BOBOT KRITERIA BWM & SYNC BPS
+// =========================================================================
 window.bukaModalBobot = async function () {
-    const modal = document.getElementById('modalBobot'), container = document.getElementById('bobotInputs');
+    const modal = document.getElementById('modalBobot');
+    const container = document.getElementById('bobotInputs');
     if (!modal || !container) return;
     modal.style.display = 'flex';
     container.innerHTML = '<div style="text-align:center; padding:15px;">Memuat bobot kriteria...</div>';
@@ -277,13 +311,19 @@ window.bukaModalBobot = async function () {
         kriteria.forEach(k => {
             container.innerHTML += `<div class="form-group"><label class="form-label" style="font-size:0.8rem; font-weight:700;">${k.kode} (${k.nama})</label><input type="number" step="0.0001" class="form-input input-bobot-bwm" data-kode="${k.kode}" data-jenis="${k.jenis}" value="${k.bobot}" style="padding:6px;"></div>`;
         });
-    } catch (e) { }
+    } catch (e) {
+        container.innerHTML = '<div style="text-align:center; color:#ef4444; padding:15px;">Gagal memuat kriteria.</div>';
+    }
 };
 
 window.simpanBobot = async function (e) {
     if (e) e.preventDefault();
     const inputs = document.querySelectorAll('.input-bobot-bwm');
-    const payload = Array.from(inputs).map(inp => ({ kode: inp.dataset.kode, jenis: inp.dataset.jenis, bobot: parseFloat(inp.value || 0) }));
+    const payload = Array.from(inputs).map(inp => ({ 
+        kode: inp.dataset.kode, 
+        jenis: inp.dataset.jenis, 
+        bobot: parseFloat(inp.value || 0) 
+    }));
     const res = await window.fetchData('/kriteria', { method: 'POST', body: JSON.stringify(payload) });
     if (res && res.ok) {
         Swal.fire('Tersimpan', 'Bobot kriteria berhasil diterapkan!', 'success');
