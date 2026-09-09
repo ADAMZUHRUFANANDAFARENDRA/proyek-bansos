@@ -1,5 +1,5 @@
 /* =========================================================================
-   ADMIN-SPK.JS - ENGINE ALGORITMA BWM, SAW, VALIDASI WP & MATRIKS NORMALISASI
+   ADMIN-SPK.JS - ENGINE SPK BWM-SAW & KOMPARASI WEIGHTED PRODUCT (WP)
    Lokasi: frontend/static/js/modules/admin-spk.js
    PEMERINTAH KABUPATEN SIDOARJO - DINAS SOSIAL
    ========================================================================= */
@@ -31,9 +31,7 @@ window.hitungSPK = async function () {
 
     try {
         let res = await window.fetchData('/hitung-saw');
-        if (!res || !res.ok) {
-            res = await window.fetchData('/api/hitung-saw');
-        }
+        if (!res || !res.ok) res = await window.fetchData('/api/hitung-saw');
 
         if (!res || !res.ok) {
             let errorDetail = `HTTP ${res ? res.status : 'Error'}`;
@@ -74,23 +72,24 @@ window.hitungSPK = async function () {
             else resultCard.prepend(summaryBox);
         }
 
+        // Ukuran grid kartu metrik terkunci di dalam batas kontainer (box-sizing: border-box)
         summaryBox.innerHTML = `
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin: 24px 0 28px 0; padding: 2px; box-sizing: border-box;">
-                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 5px solid #0284c7; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; align-items: center; gap: 14px;">
-                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;"><i class="fas fa-users"></i></div>
-                    <div><div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Dievaluasi</div><div style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin-top: 2px;">${totalWarga} Jiwa</div></div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin: 18px 0 24px 0; width: 100%; box-sizing: border-box;">
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 5px solid #0284c7; border-radius: 12px; padding: 14px 18px;">
+                    <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Dievaluasi</div>
+                    <div style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin-top: 2px;">${totalWarga} Jiwa</div>
                 </div>
-                <div style="background: #ffffff; border: 1px solid #bbf7d0; border-left: 5px solid #16a34a; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 6px rgba(22,163,74,0.05); display: flex; align-items: center; gap: 14px;">
-                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;"><i class="fas fa-check-circle"></i></div>
-                    <div><div style="font-size: 0.72rem; color: #15803d; font-weight: 700; text-transform: uppercase;">Layak (Desil 1–4)</div><div style="font-size: 1.3rem; font-weight: 800; color: #14532d; margin-top: 2px;">${totalLayak} Penerima</div></div>
+                <div style="background: #ffffff; border: 1px solid #bbf7d0; border-left: 5px solid #16a34a; border-radius: 12px; padding: 14px 18px;">
+                    <div style="font-size: 0.72rem; color: #15803d; font-weight: 700; text-transform: uppercase;">Layak (Desil 1–4)</div>
+                    <div style="font-size: 1.3rem; font-weight: 800; color: #14532d; margin-top: 2px;">${totalLayak} Penerima</div>
                 </div>
-                <div style="background: #ffffff; border: 1px solid #fecaca; border-left: 5px solid #dc2626; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 6px rgba(220,38,38,0.05); display: flex; align-items: center; gap: 14px;">
-                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;"><i class="fas fa-times-circle"></i></div>
-                    <div><div style="font-size: 0.72rem; color: #b91c1c; font-weight: 700; text-transform: uppercase;">Tidak Prioritas</div><div style="font-size: 1.3rem; font-weight: 800; color: #7f1d1d; margin-top: 2px;">${totalTidak} Warga</div></div>
+                <div style="background: #ffffff; border: 1px solid #fecaca; border-left: 5px solid #dc2626; border-radius: 12px; padding: 14px 18px;">
+                    <div style="font-size: 0.72rem; color: #b91c1c; font-weight: 700; text-transform: uppercase;">Tidak Prioritas</div>
+                    <div style="font-size: 1.3rem; font-weight: 800; color: #7f1d1d; margin-top: 2px;">${totalTidak} Warga</div>
                 </div>
-                <div style="background: #ffffff; border: 1px solid #fde68a; border-left: 5px solid #d97706; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 6px rgba(217,119,6,0.05); display: flex; align-items: center; gap: 14px;">
-                    <div style="width: 46px; height: 46px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;"><i class="fas fa-money-bill-wave"></i></div>
-                    <div><div style="font-size: 0.72rem; color: #92400e; font-weight: 700; text-transform: uppercase;">Alokasi Bansos</div><div style="font-size: 1.25rem; font-weight: 800; color: #78350f; margin-top: 2px;">Rp ${estimasiDana.toLocaleString('id-ID')}</div></div>
+                <div style="background: #ffffff; border: 1px solid #fde68a; border-left: 5px solid #d97706; border-radius: 12px; padding: 14px 18px;">
+                    <div style="font-size: 0.72rem; color: #92400e; font-weight: 700; text-transform: uppercase;">Alokasi Bansos</div>
+                    <div style="font-size: 1.25rem; font-weight: 800; color: #78350f; margin-top: 2px;">Rp ${estimasiDana.toLocaleString('id-ID')}</div>
                 </div>
             </div>
         `;
@@ -103,9 +102,9 @@ window.hitungSPK = async function () {
             const skorPct = Math.min(100, Math.max(0, (skorNum * 100))).toFixed(1);
 
             let rankBadge = `<span style="font-weight:700; color:#64748b;">#${idx + 1}</span>`;
-            if (idx === 0) rankBadge = `<span style="background:#f59e0b; color:white; padding:3px 9px; border-radius:12px; font-weight:800; font-size:0.75rem;"><i class="fas fa-medal"></i> #1</span>`;
-            else if (idx === 1) rankBadge = `<span style="background:#94a3b8; color:white; padding:3px 9px; border-radius:12px; font-weight:800; font-size:0.75rem;"><i class="fas fa-medal"></i> #2</span>`;
-            else if (idx === 2) rankBadge = `<span style="background:#d97706; color:white; padding:3px 9px; border-radius:12px; font-weight:800; font-size:0.75rem;"><i class="fas fa-medal"></i> #3</span>`;
+            if (idx === 0) rankBadge = `<span style="background:#f59e0b; color:white; padding:3px 9px; border-radius:12px; font-weight:800; font-size:0.75rem;">Rank 1</span>`;
+            else if (idx === 1) rankBadge = `<span style="background:#94a3b8; color:white; padding:3px 9px; border-radius:12px; font-weight:800; font-size:0.75rem;">Rank 2</span>`;
+            else if (idx === 2) rankBadge = `<span style="background:#d97706; color:white; padding:3px 9px; border-radius:12px; font-weight:800; font-size:0.75rem;">Rank 3</span>`;
 
             tr.innerHTML = `
                 <td style="text-align:center; vertical-align:middle;">${rankBadge}</td>
@@ -128,44 +127,51 @@ window.hitungSPK = async function () {
                     </span>
                 </td>
                 <td style="text-align:center; vertical-align:middle;">
-                    ${isLayakDesil ? `<span class="badge badge-green" style="font-size:0.78rem;"><i class="fas fa-check-circle"></i> Menerima Bansos</span>` : `<span class="badge badge-red" style="font-size:0.78rem;"><i class="fas fa-times-circle"></i> Tidak Menerima</span>`}
+                    ${isLayakDesil ? `<span class="badge badge-green" style="font-size:0.78rem;">Menerima Bansos</span>` : `<span class="badge badge-red" style="font-size:0.78rem;">Tidak Menerima</span>`}
                 </td>
             `;
             resultTbody.appendChild(tr);
         });
 
-        resultCard.scrollIntoView({ behavior: 'smooth' });
-        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Perhitungan BWM-SAW Berhasil!', showConfirmButton: false, timer: 2000 });
+        // Pengguliran Vertikal Murni (left: 0) agar layar tidak tergeser horizontal
+        const targetTop = resultCard.getBoundingClientRect().top + window.pageYOffset - 90;
+        window.scrollTo({
+            top: Math.max(0, targetTop),
+            left: 0,
+            behavior: 'smooth'
+        });
+
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Perhitungan BWM-SAW Selesai!', showConfirmButton: false, timer: 2000 });
     } catch (e) {
         Swal.fire('Gagal Komputasi', `Detail Kendala: ${e.message}`, 'error');
     }
 };
 
 // =========================================================================
-// 2. VERIFIKASI HASIL ALGORITMA (SAW VS WP)
+// 2. VERIFIKASI HASIL ALGORITMA (SAW VS WP) - PROPORSI TERKUNCI
 // =========================================================================
 window.bukaModalKomparasi = async function () {
     const modal = document.getElementById('modalKomparasi');
     const tbody = document.querySelector('#tblKomparasi tbody');
-    const canvas = document.getElementById('compChart');
+    const printArea = document.getElementById('printKomparasiArea');
 
     if (modal) modal.style.display = 'flex';
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">Memuat data perbandingan SAW & WP...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:35px; color:#64748b; font-weight:600;"><i class="fas fa-spinner fa-spin text-primary" style="margin-right:8px;"></i> Mengambil dan memvalidasi skor perbandingan SAW vs WP...</td></tr>';
 
     try {
         const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
-        const response = await window.fetchData(`${baseUrl}/komparasi`);
-        
-        if (!response) return;
-        const result = await response.json();
-        
-        // Ekstraksi array data baik dengan format pembungkus data maupun array murni
+        let res = await window.fetchData(`${baseUrl}/komparasi`);
+        if (!res || !res.ok) res = await window.fetchData(`${baseUrl}/api/komparasi`);
+
+        if (!res || !res.ok) throw new Error('Peladen tidak memberikan respons komparasi.');
+
+        const result = await res.json();
         const list = Array.isArray(result) ? result : (result.data || []);
-        window.lastKomparasiResult = list; // Sinkronkan ke state memori agar cetak laporan tetap dapat membaca data
+        window.lastKomparasiResult = list;
 
         if (!list || list.length === 0) {
             if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; color:#64748b;">Belum ada data warga yang terverifikasi untuk dikomparasi. Silakan klik "Proses Algoritma SAW" terlebih dahulu.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:40px; color:#64748b;">Belum ada data warga terdaftar untuk dibandingkan. Silakan tambahkan atau setujui data warga terlebih dahulu.</td></tr>';
             }
             if (window.compChartInstance) {
                 window.compChartInstance.destroy();
@@ -174,24 +180,77 @@ window.bukaModalKomparasi = async function () {
             return;
         }
 
-        // 1. Render Tabel Komparasi
-        if (tbody) {
-            tbody.innerHTML = list.map((item) => `
-                <tr style="border-bottom: 1px solid #e2e8f0;">
-                    <td style="padding: 12px 14px;">
-                        <b>${window.safeHtml ? window.safeHtml(item.nama) : item.nama}</b>
-                        <div style="font-size:0.78rem; color:#64748b;">NIK: ${item.nik || '-'}</div>
-                    </td>
-                    <td style="text-align:center; font-weight:800; color:#009846;">Rank ${item.saw_rank}</td>
-                    <td style="text-align:center; font-family:monospace; font-weight:700;">${item.saw_skor}</td>
-                    <td style="text-align:center; font-weight:800; color:#2563eb;">Rank ${item.wp_rank}</td>
-                    <td style="text-align:center; font-family:monospace; font-weight:700;">${item.wp_skor}</td>
-                </tr>
-            `).join('');
+        // Ringkasan Statistik Verifikasi
+        let metricHeader = document.getElementById('komparasiSummaryBox');
+        if (!metricHeader && printArea) {
+            metricHeader = document.createElement('div');
+            metricHeader.id = 'komparasiSummaryBox';
+            printArea.prepend(metricHeader);
         }
 
-        // 2. Render Grafik Komparasi Top 15 Warga
-        if (canvas) {
+        const totalKandidat = list.length;
+        const top1SAW = list[0]?.nama || '-';
+        const top1WP = [...list].sort((a,b) => (a.wp_rank || 999) - (b.wp_rank || 999))[0]?.nama || '-';
+        
+        let cocokRank = 0;
+        list.forEach(item => {
+            if (Math.abs((item.saw_rank || 0) - (item.wp_rank || 0)) <= 2) cocokRank++;
+        });
+        const akurasiPct = Math.round((cocokRank / (totalKandidat || 1)) * 100);
+
+        if (metricHeader) {
+            metricHeader.innerHTML = `
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; width: 100%; box-sizing: border-box;">
+                    <div style="background:#ffffff; padding:14px 18px; border-radius:12px; border:1px solid #e2e8f0; border-left:4px solid #009846;">
+                        <div style="font-size:0.72rem; color:#64748b; font-weight:700; text-transform:uppercase;">Kandidat Teruji</div>
+                        <div style="font-size:1.25rem; font-weight:800; color:#0f172a; margin-top:3px;">${totalKandidat} Alternatif</div>
+                    </div>
+                    <div style="background:#ffffff; padding:14px 18px; border-radius:12px; border:1px solid #e2e8f0; border-left:4px solid #2563eb;">
+                        <div style="font-size:0.72rem; color:#64748b; font-weight:700; text-transform:uppercase;">Tingkat Konvergensi</div>
+                        <div style="font-size:1.25rem; font-weight:800; color:#1d4ed8; margin-top:3px;">${akurasiPct}% Konsisten</div>
+                    </div>
+                    <div style="background:#ffffff; padding:14px 18px; border-radius:12px; border:1px solid #e2e8f0; border-left:4px solid #f59e0b;">
+                        <div style="font-size:0.72rem; color:#64748b; font-weight:700; text-transform:uppercase;">Peringkat 1 SAW</div>
+                        <div style="font-size:1rem; font-weight:800; color:#b45309; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${top1SAW}</div>
+                    </div>
+                    <div style="background:#ffffff; padding:14px 18px; border-radius:12px; border:1px solid #e2e8f0; border-left:4px solid #8b5cf6;">
+                        <div style="font-size:0.72rem; color:#64748b; font-weight:700; text-transform:uppercase;">Peringkat 1 WP</div>
+                        <div style="font-size:1rem; font-weight:800; color:#6d28d9; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${top1WP}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render Tabel
+        if (tbody) {
+            tbody.innerHTML = list.map((item) => {
+                const diff = (item.wp_rank || 0) - (item.saw_rank || 0);
+                let diffBadge = `<span style="color:#64748b; font-weight:700;">Identik (0)</span>`;
+                if (diff > 0) {
+                    diffBadge = `<span style="color:#15803d; font-weight:800;">+${diff} Peringkat</span>`;
+                } else if (diff < 0) {
+                    diffBadge = `<span style="color:#dc2626; font-weight:800;">${diff} Peringkat</span>`;
+                }
+
+                return `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 12px 16px;">
+                            <div style="font-weight:800; color:#0f172a; font-size:0.92rem;">${window.safeHtml ? window.safeHtml(item.nama) : item.nama}</div>
+                            <div style="font-size:0.78rem; color:#64748b; font-family:monospace;">NIK: ${item.nik || '-'}</div>
+                        </td>
+                        <td style="text-align:center; font-weight:800; color:#009846;">Rank ${item.saw_rank}</td>
+                        <td style="text-align:center; font-family:monospace; font-weight:700; color:#0f172a;">${parseFloat(item.saw_skor || 0).toFixed(4)}</td>
+                        <td style="text-align:center; font-weight:800; color:#2563eb;">Rank ${item.wp_rank}</td>
+                        <td style="text-align:center; font-family:monospace; font-weight:700; color:#0f172a;">${parseFloat(item.wp_skor || 0).toFixed(4)}</td>
+                        <td style="text-align:center; font-size:0.83rem;">${diffBadge}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Render Grafik Chart.js Tanpa Mengubah Dimensi Layar
+        const canvas = document.getElementById('compChart');
+        if (canvas && typeof Chart !== 'undefined') {
             if (window.compChartInstance) {
                 window.compChartInstance.destroy();
                 window.compChartInstance = null;
@@ -211,15 +270,15 @@ window.bukaModalKomparasi = async function () {
                         {
                             label: 'Skor SAW (BWM)',
                             data: sawScores,
-                            backgroundColor: 'rgba(0, 152, 70, 0.75)',
+                            backgroundColor: 'rgba(0, 152, 70, 0.82)',
                             borderColor: '#009846',
                             borderWidth: 1.5,
                             borderRadius: 6
                         },
                         {
-                            label: 'Skor Weighted Product (WP)',
+                            label: 'Skor Validasi (WP)',
                             data: wpScores,
-                            backgroundColor: 'rgba(37, 99, 235, 0.75)',
+                            backgroundColor: 'rgba(37, 99, 235, 0.82)',
                             borderColor: '#2563eb',
                             borderWidth: 1.5,
                             borderRadius: 6
@@ -230,7 +289,7 @@ window.bukaModalKomparasi = async function () {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'top' },
+                        legend: { position: 'top', labels: { boxWidth: 14, font: { weight: 'bold' } } },
                         tooltip: { mode: 'index', intersect: false }
                     },
                     scales: {
@@ -243,10 +302,14 @@ window.bukaModalKomparasi = async function () {
     } catch (err) {
         console.error('[Komparasi Error]', err);
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#ef4444; padding:20px;">Gagal memuat data komparasi: ${err.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#ef4444; padding:30px; font-weight:700;">Gagal memuat data verifikasi: ${err.message}</td></tr>`;
         }
     }
 };
+
+window.AdminSPK = window.AdminSPK || {};
+window.AdminSPK.bukaModalKomparasi = window.bukaModalKomparasi;
+window.AdminSPK.hitungSPK = window.hitungSPK;
 
 // =========================================================================
 // 3. MATRIKS KERJA TERNORMALISASI (R)

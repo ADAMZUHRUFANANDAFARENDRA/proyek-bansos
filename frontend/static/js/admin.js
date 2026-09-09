@@ -40,7 +40,6 @@ window.currentFilter = 'all';
 window.currentSort = 'terbaru';
 window.sortNikAsc = false;
 window.sortAzAsc = false;
-window.selectedTanggalDaftar = '';
 window.stagedImportData = [];
 
 let dtTable = null;
@@ -459,8 +458,162 @@ window.render3DashboardCharts = function (data) {
 };
 
 // =========================================================================
-// 8. CRUD WARGA, FILTERING & SORTING
+// 8. CRUD WARGA, FILTERING & SINKRONISASI WAKTU (TANGGAL, BULAN, TAHUN BEBAS)
 // =========================================================================
+
+window.activeDateFilter = {
+    mode: 'tanggal', // 'tanggal' | 'bulan' | 'tahun'
+    val: ''
+};
+
+// Pengurai Format Tanggal Pendaftaran Warga (created_at)
+function parseWaktuPendaftaran(dateStr) {
+    if (!dateStr) return null;
+    const s = String(dateStr).trim();
+
+    // 1. Format standar aplikasi: DD/MM/YYYY HH:mm WIB atau DD-MM-YYYY
+    const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (dmy) {
+        return {
+            day: parseInt(dmy[1], 10),
+            month: parseInt(dmy[2], 10),
+            year: parseInt(dmy[3], 10)
+        };
+    }
+
+    // 2. Format ISO / Database: YYYY-MM-DD
+    const ymd = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    if (ymd) {
+        return {
+            day: parseInt(ymd[3], 10),
+            month: parseInt(ymd[2], 10),
+            year: parseInt(ymd[1], 10)
+        };
+    }
+
+    // 3. Fallback Objek Date Bawaan
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+        return {
+            day: d.getDate(),
+            month: d.getMonth() + 1,
+            year: d.getFullYear()
+        };
+    }
+    return null;
+}
+
+// Beralih Mode Filter Waktu (Input Tahun Fleksibel Bebas Ketik)
+window.changeDateFilterMode = function (mode) {
+    window.activeDateFilter.mode = mode;
+    window.activeDateFilter.val = '';
+    const container = document.getElementById('dateFilterInputContainer');
+    if (!container) return;
+
+    if (mode === 'tanggal') {
+        container.innerHTML = `
+            <input type="date" id="filterTglPicker" onchange="window.applyDateFilter()" 
+                   style="border:1px solid #e2e8f0; border-radius:8px; padding:3px 8px; font-family:'Inter'; font-size:0.8rem; outline:none; color:#0f172a; cursor:pointer; background:#f8fafc;" title="Pilih Tanggal Tertentu">
+        `;
+    } else if (mode === 'bulan') {
+        container.innerHTML = `
+            <input type="month" id="filterBulanPicker" onchange="window.applyDateFilter()" 
+                   style="border:1px solid #e2e8f0; border-radius:8px; padding:3px 8px; font-family:'Inter'; font-size:0.8rem; outline:none; color:#0f172a; cursor:pointer; background:#f8fafc;" title="Pilih Bulan Tertentu">
+        `;
+    } else if (mode === 'tahun') {
+        // Bebas mengetik tahun berapa saja
+        container.innerHTML = `
+            <input type="number" id="filterTahunPicker" min="1900" max="2100" placeholder="Ketik Tahun (contoh: 2026)" oninput="window.applyDateFilter()" 
+                   style="width:160px; border:1px solid #e2e8f0; border-radius:8px; padding:3px 8px; font-family:'Inter'; font-size:0.8rem; outline:none; color:#0f172a; background:#f8fafc;" title="Ketik tahun pendaftaran bebas">
+        `;
+    }
+
+    window.filterAndRenderData();
+};
+
+// Mengambil Nilai Waktu yang Dipilih Sesuai Mode
+window.applyDateFilter = function () {
+    const mode = window.activeDateFilter.mode;
+
+    if (mode === 'tanggal') {
+        window.activeDateFilter.val = document.getElementById('filterTglPicker')?.value || '';
+    } else if (mode === 'bulan') {
+        window.activeDateFilter.val = document.getElementById('filterBulanPicker')?.value || '';
+    } else if (mode === 'tahun') {
+        window.activeDateFilter.val = document.getElementById('filterTahunPicker')?.value.trim() || '';
+    }
+
+    window.filterAndRenderData();
+};
+
+// Reset Filter Waktu
+window.resetDateFilter = function () {
+    window.activeDateFilter = { mode: 'tanggal', val: '' };
+    const modeEl = document.getElementById('dateFilterMode');
+    if (modeEl) modeEl.value = 'tanggal';
+    window.changeDateFilterMode('tanggal');
+};
+
+// Pemfilteran Data Warga dengan Sinkronisasi Tanggal, Bulan, & Tahun yang Tepat
+window.filterAndRenderData = function () {
+    let dataList = (window.BansosApp && window.BansosApp.State) 
+        ? window.BansosApp.State.wargaList 
+        : (window.globalDataWarga || []);
+    let filtered = [...dataList];
+
+    // Filter Kategori Status
+    if (window.currentFilter === 'layak') {
+        filtered = filtered.filter(w => w.is_verified && ((w.desil || 5) <= 4));
+    } else if (window.currentFilter === 'menerima') {
+        filtered = filtered.filter(w => w.status_salur === 'Telah Menerima');
+    } else if (window.currentFilter === 'bermasalah') {
+        filtered = filtered.filter(w => String(w.status_salur).includes('Sengketa') || !w.is_verified);
+    }
+
+    // Sinkronisasi Presisi Tanggal / Bulan / Tahun Pendaftaran
+    const { mode, val } = window.activeDateFilter;
+    if (val) {
+        if (mode === 'tanggal') {
+            const [targetY, targetM, targetD] = val.split('-').map(Number);
+            filtered = filtered.filter(w => {
+                const parsed = parseWaktuPendaftaran(w.created_at);
+                return parsed && parsed.year === targetY && parsed.month === targetM && parsed.day === targetD;
+            });
+        } else if (mode === 'bulan') {
+            const [targetY, targetM] = val.split('-').map(Number);
+            filtered = filtered.filter(w => {
+                const parsed = parseWaktuPendaftaran(w.created_at);
+                return parsed && parsed.year === targetY && parsed.month === targetM;
+            });
+        } else if (mode === 'tahun') {
+            const targetY = parseInt(val, 10);
+            if (!isNaN(targetY)) {
+                filtered = filtered.filter(w => {
+                    const parsed = parseWaktuPendaftaran(w.created_at);
+                    return parsed && parsed.year === targetY;
+                });
+            }
+        }
+    }
+
+    // Pengurutan (Sorting)
+    if (window.currentSort === 'nik_asc') {
+        filtered.sort((a, b) => BigInt(String(a.nik).replace(/\D/g, '') || 0) < BigInt(String(b.nik).replace(/\D/g, '') || 0) ? -1 : 1);
+    } else if (window.currentSort === 'nik_desc') {
+        filtered.sort((a, b) => BigInt(String(a.nik).replace(/\D/g, '') || 0) > BigInt(String(b.nik).replace(/\D/g, '') || 0) ? -1 : 1);
+    } else if (window.currentSort === 'terbaru') {
+        filtered.sort((a, b) => (b.id || 0) - (a.id || 0));
+    } else if (window.currentSort === 'terlama') {
+        filtered.sort((a, b) => (a.id || 0) - (b.id || 0));
+    } else if (window.currentSort === 'az') {
+        filtered.sort((a, b) => String(a.nama || '').localeCompare(String(b.nama || '')));
+    } else if (window.currentSort === 'za') {
+        filtered.sort((a, b) => String(b.nama || '').localeCompare(String(a.nama || '')));
+    }
+
+    window.renderTable(filtered);
+};
+
 window.tambahData = async function (e) {
     if (e && e.preventDefault) e.preventDefault();
 
@@ -547,57 +700,31 @@ window.toggleSortAz = function (btnEl) {
     window.applySort(window.sortAzAsc ? 'az' : 'za', btn);
 };
 
-window.filterByTanggalDaftar = function (val) {
-    window.selectedTanggalDaftar = val ? String(val).trim().toLowerCase() : '';
-    window.filterAndRenderData();
-};
-
-window.filterAndRenderData = function () {
-    let dataList = (window.BansosApp && window.BansosApp.State) 
-        ? window.BansosApp.State.wargaList 
-        : (window.globalDataWarga || []);
-    let filtered = [...dataList];
-
-    if (window.currentFilter === 'layak') {
-        filtered = filtered.filter(w => w.is_verified && ((w.desil || 5) <= 4));
-    } else if (window.currentFilter === 'menerima') {
-        filtered = filtered.filter(w => w.status_salur === 'Telah Menerima');
-    } else if (window.currentFilter === 'bermasalah') {
-        filtered = filtered.filter(w => String(w.status_salur).includes('Sengketa') || !w.is_verified);
-    }
-
-    if (window.selectedTanggalDaftar) {
-        const q = window.selectedTanggalDaftar;
-        filtered = filtered.filter(w => String(w.created_at || '').toLowerCase().includes(q));
-    }
-
-    if (window.currentSort === 'nik_asc') {
-        filtered.sort((a, b) => BigInt(String(a.nik).replace(/\D/g, '') || 0) < BigInt(String(b.nik).replace(/\D/g, '') || 0) ? -1 : 1);
-    } else if (window.currentSort === 'nik_desc') {
-        filtered.sort((a, b) => BigInt(String(a.nik).replace(/\D/g, '') || 0) > BigInt(String(b.nik).replace(/\D/g, '') || 0) ? -1 : 1);
-    } else if (window.currentSort === 'terbaru') {
-        filtered.sort((a, b) => (b.id || 0) - (a.id || 0));
-    } else if (window.currentSort === 'terlama') {
-        filtered.sort((a, b) => (a.id || 0) - (b.id || 0));
-    } else if (window.currentSort === 'az') {
-        filtered.sort((a, b) => String(a.nama || '').localeCompare(String(b.nama || '')));
-    } else if (window.currentSort === 'za') {
-        filtered.sort((a, b) => String(b.nama || '').localeCompare(String(a.nama || '')));
-    }
-
-    window.renderTable(filtered);
-};
-
 // =========================================================================
-// 9. RENDER DATATABLES TERINTEGRASI
+// 9. RENDER DATATABLES TERINTEGRASI (CLEAN LIFECYCLE)
 // =========================================================================
 window.renderTable = function (data) {
     if (!Array.isArray(data)) data = [];
+
+    // Hancurkan instance DataTables lama secara bersih tanpa .clear() agar DOM tersinkron
     if (typeof $ !== 'undefined' && $.fn.DataTable && $.fn.DataTable.isDataTable('#dataTable')) {
-        $('#dataTable').DataTable().clear().destroy();
+        $('#dataTable').DataTable().destroy();
     }
+
     const tbody = document.querySelector('#dataTable tbody');
     if (!tbody) return;
+
+    if (data.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align:center; padding:30px; color:#94a3b8; font-weight:600;">
+                    <i class="fas fa-inbox" style="font-size:1.8rem; opacity:0.35; margin-bottom:8px; display:block;"></i>
+                    Tidak ada data warga yang sesuai dengan filter waktu/kategori yang dipilih.
+                </td>
+            </tr>
+        `;
+        return;
+    }
 
     let html = '';
     data.forEach(w => {
@@ -665,6 +792,7 @@ window.renderTable = function (data) {
 
     tbody.innerHTML = html;
 
+    // Inisialisasi DataTable Baru dengan Bahasa Indonesia
     if (typeof $ !== 'undefined' && $.fn.DataTable) {
         dtTable = $('#dataTable').DataTable({
             pageLength: 10,
@@ -674,6 +802,9 @@ window.renderTable = function (data) {
                 search: "Cari NIK/Nama:",
                 lengthMenu: "_MENU_ baris",
                 info: "Menampilkan _START_ s.d. _END_ dari _TOTAL_ warga",
+                infoEmpty: "Menampilkan 0 warga",
+                zeroRecords: "Data warga tidak ditemukan",
+                emptyTable: "Belum ada arsip data warga",
                 paginate: { next: "→", previous: "←" }
             }
         });
@@ -784,39 +915,20 @@ window.syncBPS = async function () {
 };
 
 // =========================================================================
-// 11. SPK ALGORITMA BWM-SAW & KOMPARASI WP (JEMBATAN MODULAR)
+// 11. SPK ALGORITMA BWM-SAW & KOMPARASI WP (JEMBATAN MODULAR AMAN)
 // =========================================================================
-window.bukaModalBobot = function () {
-    if (window.AdminSPK && typeof window.AdminSPK.bukaModalBobot === 'function') {
-        return window.AdminSPK.bukaModalBobot();
-    }
-    const modal = document.getElementById('modalBobot');
-    if (modal) modal.style.display = 'flex';
-};
-
-window.simpanBobot = async function (e) {
-    if (e && e.preventDefault) e.preventDefault();
-    if (window.AdminSPK && typeof window.AdminSPK.simpanBobot === 'function') {
-        return window.AdminSPK.simpanBobot(e);
-    }
-    showAdminAlert({ icon: 'success', title: 'Tersimpan', text: 'Bobot kriteria BWM berhasil diterapkan ke sistem.' });
-    window.closeModal('modalBobot');
-};
-
-window.bukaModalMatriksKerja = function () {
-    if (window.AdminSPK && typeof window.AdminSPK.bukaModalMatriksKerja === 'function') {
-        return window.AdminSPK.bukaModalMatriksKerja();
-    }
-    const modal = document.getElementById('modalDetail');
-    if (modal) modal.style.display = 'flex';
-};
-
 window.bukaModalKomparasi = function () {
     if (window.AdminSPK && typeof window.AdminSPK.bukaModalKomparasi === 'function') {
         return window.AdminSPK.bukaModalKomparasi();
     }
     const modal = document.getElementById('modalKomparasi');
     if (modal) modal.style.display = 'flex';
+};
+
+window.hitungSPK = function () {
+    if (window.AdminSPK && typeof window.AdminSPK.hitungSPK === 'function') {
+        return window.AdminSPK.hitungSPK();
+    }
 };
 
 // =========================================================================
@@ -1159,41 +1271,45 @@ window.hapusUser = async function (id, username) {
 };
 
 // =========================================================================
-// 15. PUSAT PENGENDALI NOTIFIKASI AKTIVITAS (ADMIN, PETUGAS, WARGA)
+// 15. PUSAT PENGENDALI NOTIFIKASI AKTIVITAS (CLEAN, PIN, ARSIP & DETAIL)
 // =========================================================================
 
-// Buka/Tutup Jendela Dropdown Notifikasi
+window.currentNotifTab = 'all';
+window.cachedNotifList = [];
+
+// Buka / Tutup Dropdown Notifikasi
 window.toggleNotifPanel = function (e) {
     if (e) e.stopPropagation();
     const panel = document.getElementById('notifPanel');
     if (!panel) return;
 
-    const isVisible = panel.style.display === 'flex';
-    panel.style.display = isVisible ? 'none' : 'flex';
+    const isVisible = panel.style.display === 'block' || panel.style.display === 'flex';
+    panel.style.display = isVisible ? 'none' : 'block';
 
     if (!isVisible) {
-        window.loadNotifikasiAktivitas();
+        window.loadNotifikasiAktivitas(window.currentNotifTab);
     }
 };
 
-// Tutup Panel Notifikasi Otomatis Saat Mengklik Area Luar
+// Tutup Panel Saat Mengklik Area Luar
 document.addEventListener('click', function (e) {
     const panel = document.getElementById('notifPanel');
     const wrapper = document.querySelector('.notif-wrapper');
-    if (panel && panel.style.display === 'flex') {
+    if (panel && (panel.style.display === 'block' || panel.style.display === 'flex')) {
         if (!panel.contains(e.target) && !wrapper.contains(e.target)) {
             panel.style.display = 'none';
         }
     }
 });
 
-// Mengambil dan Menampilkan Log Aktivitas
-window.loadNotifikasiAktivitas = async function (filterTab = 'all') {
+// Mengambil dan Me-render Log Aktivitas dengan Tampilan Bersih & Aksi Lengkap
+window.loadNotifikasiAktivitas = async function (filterTab = window.currentNotifTab) {
+    window.currentNotifTab = filterTab;
     const container = document.getElementById('notifList');
     const badge = document.getElementById('notifBadge');
-    
+
     if (container && container.children.length === 0) {
-        container.innerHTML = '<div style="padding:15px; text-align:center; color:#64748b; font-size:0.85rem;">Memuat aktivitas...</div>';
+        container.innerHTML = '<div style="padding:22px; text-align:center; color:#94a3b8; font-size:0.83rem;">Memuat aktivitas...</div>';
     }
 
     try {
@@ -1203,9 +1319,9 @@ window.loadNotifikasiAktivitas = async function (filterTab = 'all') {
 
         const result = await res.json();
         const list = result.data || [];
+        window.cachedNotifList = list;
         const unreadCount = result.unread || 0;
 
-        // Perbarui angka di badge lonceng
         if (badge) {
             badge.textContent = unreadCount;
             badge.style.display = unreadCount > 0 ? 'inline-block' : 'none';
@@ -1213,37 +1329,87 @@ window.loadNotifikasiAktivitas = async function (filterTab = 'all') {
 
         if (!container) return;
 
-        // Filter Sesuai Tab (All / Urgent / Arsip)
+        // Pemisahan Tab: Semua (Aktif), Urgent, Arsip
         let filtered = list;
-        if (filterTab === 'urgent') {
-            filtered = list.filter(n => n.pesan.includes('🚨') || n.pesan.toLowerCase().includes('sengketa'));
-        } else if (filterTab === 'arsip') {
+        if (filterTab === 'arsip') {
             filtered = list.filter(n => n.is_archived);
+        } else if (filterTab === 'urgent') {
+            filtered = list.filter(n => !n.is_archived && (n.pesan.includes('🚨') || n.pesan.toLowerCase().includes('sengketa') || n.pesan.toLowerCase().includes('urgent')));
+        } else {
+            // Urutkan yang di-pin agar selalu berada di posisi paling atas
+            filtered = list.filter(n => !n.is_archived).sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0));
         }
 
         if (filtered.length === 0) {
-            container.innerHTML = '<div style="padding:25px; text-align:center; color:#94a3b8; font-size:0.85rem;">Tidak ada riwayat aktivitas pada kategori ini.</div>';
+            container.innerHTML = `
+                <div style="padding:36px 16px; text-align:center; color:#94a3b8; font-size:0.83rem;">
+                    <i class="fas fa-inbox" style="font-size:1.8rem; opacity:0.35; margin-bottom:8px; display:block;"></i>
+                    Tidak ada notifikasi pada kategori ini.
+                </div>
+            `;
             return;
         }
 
         container.innerHTML = filtered.map(item => {
-            let iconBadge = '📌';
-            let bgStyle = item.is_read ? '#ffffff' : '#f0fdf4';
-            
-            if (item.pesan.includes('[Admin]')) iconBadge = '👑';
-            else if (item.pesan.includes('[Petugas]')) iconBadge = '📋';
-            else if (item.pesan.includes('[Warga]')) iconBadge = '👤';
-            else if (item.pesan.includes('🚨')) {
-                iconBadge = '🚨';
-                bgStyle = '#fef2f2';
+            // Pembersihan string dari emoji dan prefix mentah
+            let cleanMsg = item.pesan
+                .replace(/👑|📌|🔒|🚨|⚠️/g, '')
+                .replace(/\[Admin\]/gi, '')
+                .replace(/\[Petugas\]/gi, '')
+                .replace(/\[Warga\]/gi, '')
+                .replace(/SISTEM:/gi, '')
+                .trim();
+
+            // Label Peran Bersih (Text Badge)
+            let roleBadge = '<span style="background:#f1f5f9; color:#475569; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; letter-spacing:0.3px;">SISTEM</span>';
+            if (item.pesan.includes('[Admin]')) {
+                roleBadge = '<span style="background:#e0e7ff; color:#4f46e5; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; letter-spacing:0.3px;">ADMIN</span>';
+            } else if (item.pesan.includes('[Petugas]')) {
+                roleBadge = '<span style="background:#e0f2fe; color:#0284c7; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; letter-spacing:0.3px;">PETUGAS</span>';
+            } else if (item.pesan.includes('[Warga]')) {
+                roleBadge = '<span style="background:#fef3c7; color:#b45309; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; letter-spacing:0.3px;">WARGA</span>';
+            } else if (item.pesan.includes('🚨') || item.pesan.toLowerCase().includes('sengketa')) {
+                roleBadge = '<span style="background:#fee2e2; color:#dc2626; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; letter-spacing:0.3px;">URGENT</span>';
             }
 
+            // Aksen Khusus untuk Notifikasi yang Disematkan (PIN)
+            const isPinned = Boolean(item.is_pinned);
+            const isArchived = Boolean(item.is_archived);
+            
+            const cardBg = isPinned ? '#fffdf7' : (item.is_read ? '#ffffff' : '#f0fdf4');
+            const pinAccent = isPinned ? 'border-left: 4px solid #f59e0b;' : 'border-left: 4px solid transparent;';
+            const pinIconColor = isPinned ? '#f59e0b' : '#94a3b8';
+            const pinTitle = isPinned ? 'Lepas Sematan (Unpin)' : 'Sematkan ke Atas (Pin)';
+            const archiveTitle = isArchived ? 'Pulihkan dari Arsip' : 'Arsipkan';
+
             return `
-                <div style="padding: 12px 14px; border-bottom: 1px solid #f1f5f9; background: ${bgStyle}; font-size: 0.84rem; display: flex; gap: 10px; align-items: flex-start;">
-                    <span style="font-size: 1.1rem; line-height: 1;">${iconBadge}</span>
-                    <div style="flex: 1;">
-                        <div style="color: #0f172a; font-weight: ${item.is_read ? '500' : '700'}; line-height: 1.4;">${window.safeHtml(item.pesan)}</div>
-                        <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px;">${item.waktu}</div>
+                <div style="padding:12px 16px; border-bottom:1px solid #f1f5f9; background:${cardBg}; ${pinAccent} display:flex; gap:10px; align-items:flex-start; cursor:pointer; transition:background 0.2s;" 
+                     onclick="window.lihatDetailNotifikasi(${item.id})" 
+                     onmouseover="this.style.background='#f8fafc'" 
+                     onmouseout="this.style.background='${cardBg}'">
+                    
+                    <div style="flex:1;">
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                            ${roleBadge}
+                            ${isPinned ? '<span style="font-size:0.68rem; font-weight:800; color:#d97706; background:#fef3c7; padding:1px 6px; border-radius:4px;"><i class="fas fa-thumbtack"></i> SEMATAN</span>' : ''}
+                            <span style="font-size:0.7rem; color:#94a3b8; margin-left:auto;">${item.waktu}</span>
+                        </div>
+                        <div style="color:#0f172a; font-size:0.83rem; font-weight:${item.is_read ? '500' : '700'}; line-height:1.45;">
+                            ${window.safeHtml(cleanMsg)}
+                        </div>
+                    </div>
+
+                    <!-- Panel Aksi Cepat (Bebas Klik Detail) -->
+                    <div style="display:flex; gap:3px; margin-left:4px;" onclick="event.stopPropagation()">
+                        <button type="button" onclick="window.togglePinNotif(${item.id})" title="${pinTitle}" style="background:none; border:none; color:${pinIconColor}; cursor:pointer; padding:5px 6px; font-size:0.85rem; border-radius:6px;" onmouseover="this.style.background='#f1f5f9'">
+                            <i class="fas fa-thumbtack"></i>
+                        </button>
+                        <button type="button" onclick="window.toggleArsipNotif(${item.id})" title="${archiveTitle}" style="background:none; border:none; color:#64748b; cursor:pointer; padding:5px 6px; font-size:0.85rem; border-radius:6px;" onmouseover="this.style.background='#f1f5f9'">
+                            <i class="fas ${isArchived ? 'fa-box-open' : 'fa-archive'}"></i>
+                        </button>
+                        <button type="button" onclick="window.hapusNotif(${item.id})" title="Hapus Notifikasi" style="background:none; border:none; color:#94a3b8; cursor:pointer; padding:5px 6px; font-size:0.85rem; border-radius:6px;" onmouseover="this.style.color='#ef4444'; this.style.background='#fee2e2'">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
                     </div>
                 </div>
             `;
@@ -1251,20 +1417,123 @@ window.loadNotifikasiAktivitas = async function (filterTab = 'all') {
 
     } catch (err) {
         if (container) {
-            container.innerHTML = '<div style="padding:15px; text-align:center; color:#ef4444; font-size:0.85rem;">Gagal memuat notifikasi.</div>';
+            container.innerHTML = '<div style="padding:15px; text-align:center; color:#ef4444; font-size:0.82rem;">Gagal memuat notifikasi.</div>';
         }
     }
 };
 
-// Kompatibilitas panggilan lama jika ada modul yang memanggil
-window.fetchNotifikasiRealtime = () => window.loadNotifikasiAktivitas();
+// Modal Detail Notifikasi Lengkap Saat Diklik
+window.lihatDetailNotifikasi = function (id) {
+    const item = (window.cachedNotifList || []).find(n => n.id === id);
+    if (!item) return;
+
+    // Tandai otomatis sudah dibaca jika belum
+    if (!item.is_read) {
+        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+        window.fetchData(`${baseUrl}/api/notifikasi/${id}/read`, { method: 'PATCH' }).then(() => {
+            item.is_read = true;
+            window.loadNotifikasiAktivitas(window.currentNotifTab);
+        });
+    }
+
+    let cleanMsg = item.pesan.replace(/👑|📌|🔒|🚨|⚠️/g, '').trim();
+
+    Swal.fire({
+        title: 'Detail Aktivitas Sistem',
+        html: `
+            <div style="text-align:left; font-size:0.88rem; line-height:1.6; color:#1e293b;">
+                <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:14px;">
+                    <div style="margin-bottom:6px;"><b>Waktu:</b> ${item.waktu}</div>
+                    <div style="margin-bottom:6px;"><b>Status:</b> ${item.is_pinned ? '<span style="color:#d97706; font-weight:700;">Disematkan (Pinned)</span>' : 'Reguler'} • ${item.is_archived ? 'Diarsipkan' : 'Aktif'}</div>
+                    <div><b>Keterangan:</b></div>
+                    <div style="font-size:0.95rem; font-weight:600; color:#0f172a; margin-top:4px;">${window.safeHtml(cleanMsg)}</div>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonText: item.is_pinned ? 'Lepas Pin' : 'Sematkan (Pin)',
+        denyButtonText: item.is_archived ? 'Batal Arsip' : 'Arsipkan',
+        cancelButtonText: 'Tutup',
+        confirmButtonColor: '#f59e0b',
+        denyButtonColor: '#64748b'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            await window.togglePinNotif(id);
+        } else if (result.isDenied) {
+            await window.toggleArsipNotif(id);
+        }
+    });
+};
+
+// Kompatibilitas panggilan background periodik
+window.fetchNotifikasiRealtime = () => window.loadNotifikasiAktivitas(window.currentNotifTab);
+
+// Toggle Pin / Unpin
+window.togglePinNotif = async function (id) {
+    try {
+        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+        await window.fetchData(`${baseUrl}/api/notifikasi/${id}/pin`, { method: 'PATCH' });
+        window.loadNotifikasiAktivitas(window.currentNotifTab);
+    } catch (e) {
+        console.error('Gagal mengubah status pin:', e);
+    }
+};
+
+// Toggle Arsip
+window.toggleArsipNotif = async function (id) {
+    try {
+        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+        await window.fetchData(`${baseUrl}/api/notifikasi/${id}/archive`, { method: 'PATCH' });
+        window.loadNotifikasiAktivitas(window.currentNotifTab);
+    } catch (e) {
+        console.error('Gagal mengubah status arsip:', e);
+    }
+};
+
+// Hapus Notifikasi
+window.hapusNotif = async function (id) {
+    try {
+        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+        await window.fetchData(`${baseUrl}/api/notifikasi/${id}`, { method: 'DELETE' });
+        window.loadNotifikasiAktivitas(window.currentNotifTab);
+    } catch (e) {
+        console.error('Gagal menghapus notifikasi:', e);
+    }
+};
+
+// Bersihkan Seluruh Notifikasi Non-Pin
+window.hapusSemuaNotif = async function () {
+    const konfirmasi = confirm('Bersihkan seluruh daftar riwayat notifikasi yang tidak disematkan?');
+    if (!konfirmasi) return;
+
+    try {
+        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+        await window.fetchData(`${baseUrl}/api/notifikasi/clear-all`, { method: 'POST' });
+        window.loadNotifikasiAktivitas(window.currentNotifTab);
+    } catch (e) {
+        console.error('Gagal membersihkan notifikasi:', e);
+    }
+};
 
 // Pergantian Tab Notifikasi
 window.switchNotifTab = function (tab) {
-    document.querySelectorAll('.ntf-tab-btn').forEach(b => b.classList.remove('active'));
-    if (tab === 'all') document.getElementById('tabNotifAll')?.classList.add('active');
-    if (tab === 'urgent') document.getElementById('tabNotifUrgent')?.classList.add('active');
-    if (tab === 'arsip') document.getElementById('tabNotifArsip')?.classList.add('active');
+    document.querySelectorAll('.ntf-tab-btn').forEach(b => {
+        b.classList.remove('active');
+        b.style.background = 'transparent';
+        b.style.color = '#475569';
+    });
+
+    const activeBtn = document.getElementById(
+        tab === 'urgent' ? 'tabNotifUrgent' : (tab === 'arsip' ? 'tabNotifArsip' : 'tabNotifAll')
+    );
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.style.background = '#ffffff';
+        activeBtn.style.color = tab === 'urgent' ? '#dc2626' : '#0f172a';
+        activeBtn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
+    }
+
     window.loadNotifikasiAktivitas(tab);
 };
 
@@ -1273,9 +1542,9 @@ window.tandaiSemuaNotifDibaca = async function () {
     try {
         const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
         await window.fetchData(`${baseUrl}/api/notifikasi/read-all`, { method: 'POST' });
-        window.loadNotifikasiAktivitas();
+        window.loadNotifikasiAktivitas(window.currentNotifTab);
     } catch (e) {
-        console.error(e);
+        console.error('Gagal menandai dibaca:', e);
     }
 };
 

@@ -50,7 +50,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ALLOWED_EXTENSIONS = {
     'jpg', 'jpeg', 'png', 'webp', 'gif',
     'mp4', 'mov', 'avi', 'mkv', 'webm',
-    'pdf', 'xlsx', 'xls', 'csv', 'wav', 'mp3', 'ogg'
+    'pdf', 'xlsx', 'xls', 'csv', 'wav', 'mp3', 'ogg',
+    'doc', 'docx', 'txt', 'zip', 'm4a', 'aac'
 }
 
 db = SQLAlchemy(app)
@@ -1156,27 +1157,46 @@ def cek_bansos_publik():
         }
     }), 200
 
+# ===========================================================================
+# ENDPOINT PELAPORAN CHATBOT DENGAN NAMA REAL-TIME WARGA
+# ===========================================================================
 @app.route('/api/publik/pengaduan', methods=['POST', 'OPTIONS'])
 def submit_pengaduan_publik():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
     body = request.get_json(silent=True) or {}
-    nik = body.get('nik', '').strip()
-    nama = body.get('nama_pelapor', body.get('nama', 'Warga')).strip()
-    kategori = body.get('kategori', 'Sanggahan Kelayakan Bansos')
-    pesan = body.get('isi_laporan', body.get('pesan', ''))
+    nik = str(body.get('nik', '')).strip()
+    nama = str(body.get('nama_pelapor', body.get('nama', ''))).strip() or f"Warga ({nik[-4:]})"
+    kategori = body.get('kategori', 'Aduan Sengketa Chatbot Warga')
+    pesan = body.get('isi_laporan', body.get('pesan', '')).strip()
 
     if not nik or not pesan:
-        return jsonify({'message': 'NIK dan isi sanggahan wajib diisi'}), 400
+        return jsonify({'message': 'NIK dan isi laporan wajib diisi.'}), 400
 
+    # 1. Catat ke Chat Keluhan dengan Nama Asli Warga
     chat = ChatKeluhan(
         nik_warga=nik,
         nama_warga=nama,
         sender='warga',
-        pesan=f"[{kategori}] {pesan}"
+        pesan=f"[{kategori}] {pesan}",
+        file_type='text'
     )
     db.session.add(chat)
+
+    # 2. Catat Notifikasi Prioritas Tinggi untuk Admin
+    catat_notifikasi(f"[Warga] NIK {nik} ({nama}) mengirim pengaduan: {kategori} - {pesan[:60]}", role_target='all')
     db.session.commit()
-    catat_notifikasi(f"[Warga] NIK {nik} ({nama}) mengirim pengaduan: {kategori}", role_target='all')
-    return jsonify({'status': 'success', 'message': 'Pengaduan berhasil dicatat ke sistem investigasi'}), 201
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Laporan berhasil dicatat ke Pusat Investigasi dan ruang obrolan.',
+        'data': {
+            'nik': nik,
+            'nama': nama,
+            'pesan': pesan
+        }
+    }), 201
 
 @app.route('/api/bps/sync', methods=['POST', 'OPTIONS'])
 @token_required
@@ -1223,9 +1243,19 @@ def chat_list():
     chats = ChatKeluhan.query.order_by(ChatKeluhan.waktu.asc()).all()
     rooms = {}
     for c in chats:
+        # Ringkasan pesan bersih tanpa teks repetitif
+        last_preview = c.pesan
+        if not last_preview:
+            if c.file_type == 'image': last_preview = "📷 Foto"
+            elif c.file_type == 'video': last_preview = "🎥 Video"
+            elif c.file_type == 'audio': last_preview = "🎵 Pesan Suara"
+            elif c.file_type == 'document': last_preview = "📄 Dokumen"
+            else: last_preview = "📎 Lampiran"
+
         rooms[c.nik_warga] = {
-            "nik": c.nik_warga, "nama": c.nama_warga,
-            "last_msg": c.pesan if c.pesan else ("📷 Foto" if c.file_type == 'image' else "🎥 Video"),
+            "nik": c.nik_warga,
+            "nama": c.nama_warga,
+            "last_msg": last_preview,
             "waktu": c.waktu.strftime("%H:%M | %d/%m") if c.waktu else "-"
         }
     return jsonify(list(rooms.values())[::-1])
@@ -1235,42 +1265,80 @@ def handle_chat_nik(nik):
     if request.method == 'GET':
         chats = ChatKeluhan.query.filter_by(nik_warga=nik).order_by(ChatKeluhan.waktu.asc()).all()
         return jsonify([{
-            "id": c.id, "sender": c.sender, "pesan": c.pesan,
+            "id": c.id,
+            "sender": c.sender,
+            "pesan": c.pesan or "",
             "file_path": f"/uploads/{c.file_path}" if c.file_path else None,
-            "file_type": c.file_type, "waktu": c.waktu.strftime("%H:%M") if c.waktu else "-"
+            "file_type": c.file_type or "text",
+            "waktu": c.waktu.strftime("%H:%M") if c.waktu else "-"
         } for c in chats])
+
     elif request.method == 'POST':
-        sender = request.form.get('sender', 'warga')
-        nama = request.form.get('nama', 'Warga')
-        pesan = request.form.get('pesan', '')
+        sender = request.form.get('sender', 'petugas')
+        nama = request.form.get('nama', 'Petugas Dinsos')
+        pesan = request.form.get('pesan', '').strip()
         file = request.files.get('file')
+
         file_path, file_type = None, None
         if file and file.filename != '':
-            ext = file.filename.rsplit('.', 1)[1].lower()
-            file_type = 'image' if ext in {'jpg', 'jpeg', 'png', 'webp'} else ('video' if ext in {'mp4', 'mov', 'webm'} else 'document')
+            ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'bin'
+
+            # Kategorisasi format berkas presisi
+            if ext in {'jpg', 'jpeg', 'png', 'webp', 'gif'}:
+                file_type = 'image'
+            elif ext in {'mp4', 'mov', 'avi', 'mkv'}:
+                file_type = 'video'
+            elif ext in {'webm', 'ogg', 'wav', 'mp3', 'm4a', 'aac'}:
+                if file.content_type and 'video' in file.content_type and ext == 'webm':
+                    file_type = 'video'
+                else:
+                    file_type = 'audio'
+            elif ext in {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'zip'}:
+                file_type = 'document'
+            else:
+                file_type = 'document'
+
             unique_name = f"{int(datetime.now().timestamp())}_{uuid.uuid4().hex[:8]}.{ext}"
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_name))
             file_path = unique_name
-        new_chat = ChatKeluhan(nik_warga=nik, nama_warga=nama, sender=sender, pesan=pesan, file_path=file_path, file_type=file_type)
+
+        new_chat = ChatKeluhan(
+            nik_warga=nik,
+            nama_warga=nama,
+            sender=sender,
+            pesan=pesan,
+            file_path=file_path,
+            file_type=file_type
+        )
         db.session.add(new_chat)
         db.session.commit()
-        return jsonify({"status": "success", "message": "Pesan terkirim."})
+        return jsonify({"status": "success", "message": "Pesan berhasil dikirim."}), 201
 
+# ===========================================================================
+# ENDPOINT PUSAT INVESTIGASI ADUAN CHATBOT TERPADU
+# ===========================================================================
 @app.route('/api/laporan-chat', methods=['GET', 'OPTIONS'])
-@token_required
 def get_laporan_chat():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
     try:
-        chats = ChatKeluhan.query.order_by(ChatKeluhan.id.desc()).limit(50).all()
+        # Menarik seluruh pesan keluhan / aduan chatbot dari database
+        chats = ChatKeluhan.query.filter(
+            (ChatKeluhan.pesan.like('%Aduan%')) |
+            (ChatKeluhan.pesan.like('%Sengketa%')) |
+            (ChatKeluhan.pesan.like('%Kendala%'))
+        ).order_by(ChatKeluhan.id.desc()).all()
+
         return jsonify([{
-            'id': c.id,
-            'nik': c.nik_warga or '',
-            'nama': c.nama_warga or 'Warga',
-            'pesan': c.pesan or '',
-            'file_path': f"/uploads/{c.file_path}" if c.file_path else None,
-            'file_type': c.file_type or 'text',
+            'id': f"ADU-{c.id:03d}",
+            'nik': c.nik_warga or '-',
+            'nama': c.nama_warga or f"Warga ({c.nik_warga[-4:]})",
+            'kategori': 'Aduan Sengketa Bansos / Sistem',
+            'uraian': c.pesan or '-',
             'waktu': c.waktu.strftime("%H:%M | %d/%m/%Y") if c.waktu else "-",
-            'sender': c.sender or 'warga'
-        } for c in chats])
+            'urgensi': 'urgent',
+            'tipe': 'sengketa'
+        } for c in chats]), 200
     except Exception as e:
         return jsonify([]), 200
 
@@ -1287,7 +1355,7 @@ def get_notifikasi():
     
     notifs = Notifikasi.query.filter(
         Notifikasi.role_target.in_([role, 'all'])
-    ).order_by(Notifikasi.id.desc()).limit(50).all()
+    ).order_by(Notifikasi.is_pinned.desc(), Notifikasi.id.desc()).limit(50).all()
 
     unread_count = Notifikasi.query.filter(
         Notifikasi.role_target.in_([role, 'all']),
@@ -1331,6 +1399,78 @@ def update_notifikasi(id):
     notif.is_read = not notif.is_read
     db.session.commit()
     return jsonify({"status": "success"})
+
+# ===========================================================================
+# ENDPOINT PENGELOLAAN NOTIFIKASI (PIN, ARSIP & HAPUS)
+# ===========================================================================
+@app.route('/api/notifikasi/<int:id>/pin', methods=['PATCH', 'OPTIONS'])
+@token_required
+def toggle_pin_notifikasi(id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    try:
+        notif = Notifikasi.query.get_or_404(id)
+        notif.is_pinned = not bool(notif.is_pinned)
+        db.session.commit()
+        status_txt = "disematkan di atas" if notif.is_pinned else "dilepas dari sematan"
+        return jsonify({
+            "status": "success",
+            "is_pinned": notif.is_pinned,
+            "message": f"Notifikasi berhasil {status_txt}."
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/notifikasi/<int:id>/archive', methods=['PATCH', 'OPTIONS'])
+@token_required
+def toggle_arsip_notifikasi(id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    try:
+        notif = Notifikasi.query.get_or_404(id)
+        notif.is_archived = not bool(notif.is_archived)
+        db.session.commit()
+        status_txt = "diarsipkan" if notif.is_archived else "dipulihkan dari arsip"
+        return jsonify({
+            "status": "success", 
+            "is_archived": notif.is_archived, 
+            "message": f"Notifikasi berhasil {status_txt}."
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/notifikasi/<int:id>', methods=['DELETE', 'OPTIONS'])
+@token_required
+def hapus_notifikasi(id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    try:
+        notif = Notifikasi.query.get_or_404(id)
+        db.session.delete(notif)
+        db.session.commit()
+        return jsonify({"status": "success", "message": "Notifikasi berhasil dihapus."}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/notifikasi/clear-all', methods=['DELETE', 'POST', 'OPTIONS'])
+@token_required
+def bersihkan_semua_notifikasi():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    try:
+        role = request.current_user.get('role', 'operator')
+        Notifikasi.query.filter(
+            Notifikasi.role_target.in_([role, 'all']),
+            Notifikasi.is_pinned == False
+        ).delete(synchronize_session=False)
+        db.session.commit()
+        return jsonify({"status": "success", "message": "Seluruh notifikasi berhasil dibersihkan."}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # ===========================================================================
 # 13. ENTRY POINT UTAMA

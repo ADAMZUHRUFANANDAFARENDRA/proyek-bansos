@@ -22,7 +22,7 @@
 
     <style>
         /* =====================================================================
-           TEMA GLOBAL & ROOT VARIABEL
+           TEMA GLOBAL & ROOT VARIABEL (DILENGKAPI VIEWPORT LOCK)
            ===================================================================== */
         :root {
             --primary: #009846;
@@ -53,31 +53,51 @@
             --shadow-float: 0 20px 40px -5px rgba(0,0,0,0.15);
         }
 
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0;
+            padding: 0;
+        }
+
         body.page-dashboard {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg-body);
             color: var(--text-main);
-            margin: 0;
-            padding: 0;
-            overflow-x: hidden;
         }
 
         .container {
             max-width: 1440px;
+            width: 100%;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 1.5rem 2rem;
+            box-sizing: border-box;
         }
 
+        /* Mencegah Grid Kolom Kanan Melebar Melebihi Layar */
         .grid-layout {
             display: grid;
-            grid-template-columns: 450px 1fr;
-            gap: 2rem;
+            grid-template-columns: 420px minmax(0, 1fr) !important;
+            gap: 1.5rem;
             align-items: start;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .grid-layout > div {
+            min-width: 0 !important;
+            width: 100%;
+            max-width: 100%;
         }
 
         @media (max-width: 1100px) {
             .grid-layout {
-                grid-template-columns: 1fr;
+                grid-template-columns: 1fr !important;
             }
         }
 
@@ -89,10 +109,12 @@
             top: 0;
             z-index: 1000;
             padding: 0.75rem 2rem;
+            width: 100%;
         }
 
         .nav-container {
             max-width: 1440px;
+            width: 100%;
             margin: 0 auto;
             display: flex;
             justify-content: space-between;
@@ -107,19 +129,6 @@
             color: var(--text-main);
             font-weight: 800;
             font-size: 1.25rem;
-        }
-
-        .logo i {
-            color: var(--primary);
-            font-size: 1.8rem;
-        }
-
-        .logo div span {
-            display: block;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            font-weight: 600;
-            letter-spacing: 0.5px;
         }
 
         .user-profile {
@@ -182,41 +191,18 @@
 
         #notifPanel {
             position: absolute;
-            top: 55px;
+            top: 54px;
             right: 0;
-            width: 380px;
-            background: white;
-            border-radius: 16px;
-            box-shadow: var(--shadow-float);
+            width: 390px;
+            background: #ffffff;
+            border-radius: 18px;
+            box-shadow: 0 15px 35px rgba(15, 23, 42, 0.15);
             border: 1px solid var(--border-color);
             display: none;
             flex-direction: column;
             z-index: 9999;
             overflow: hidden;
             animation: fadeInDown 0.25s ease-out;
-        }
-
-        .notif-header {
-            padding: 14px 16px;
-            background: var(--bg-body);
-            border-bottom: 1px solid var(--border-color);
-            font-weight: 700;
-            color: var(--primary);
-            font-size: 0.9rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .btn-notif-archive {
-            background: var(--surface);
-            border: 1px solid var(--border-color);
-            padding: 4px 8px;
-            border-radius: 6px;
-            color: var(--info);
-            font-size: 0.75rem;
-            font-weight: 700;
-            cursor: pointer;
         }
 
         .user-info {
@@ -272,9 +258,6 @@
             border-color: #fca5a5;
         }
 
-        /* =====================================================================
-           PUSAT KENDALI ADMINISTRATOR
-           ===================================================================== */
         #adminCommandCenter {
             background: #fafafa;
             border: 1px solid #e0e7ff;
@@ -321,9 +304,6 @@
             box-shadow: var(--shadow-md);
         }
 
-        /* =====================================================================
-           4 GRAFIK STATISTIK REAL-TIME & 4 KARTU METRIK RINGKASAN
-           ===================================================================== */
         .chart-row-4 {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -452,9 +432,7 @@
             margin: 0;
         }
 
-        /* =====================================================================
-           CARD, FORM & ELEMEN TABEL
-           ===================================================================== */
+        /* Wadah Tabel yang Terkunci Aman */
         .card {
             background: white;
             border-radius: 16px;
@@ -462,6 +440,8 @@
             box-shadow: var(--shadow-sm);
             overflow: hidden;
             margin-bottom: 20px;
+            width: 100%;
+            max-width: 100%;
         }
 
         .card-header {
@@ -551,6 +531,9 @@
         .table-container {
             padding: 1.25rem;
             overflow-x: auto;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
         }
 
         .modern-table {
@@ -574,15 +557,13 @@
             color: var(--text-main);
         }
 
-        /* =====================================================================
-           MODAL DIALOGS, FILEROBOT & VIDEO CANVAS
-           ===================================================================== */
+        /* Modal Dialog Terkunci di Tengah Layar */
         .modal-blur-overlay {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
             background: rgba(15, 23, 42, 0.65);
             backdrop-filter: blur(8px);
             z-index: 2000;
@@ -595,10 +576,13 @@
 
         .modal-card-premium {
             background: white;
-            border-radius: 24px;
+            border-radius: 20px;
             box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
             overflow: hidden;
             border: 1px solid rgba(255,255,255,0.8);
+            width: 95%;
+            max-width: 1150px;
+            box-sizing: border-box;
         }
 
         .badge-green {
@@ -664,40 +648,57 @@
 <body class="page-dashboard">
 
     <!-- =====================================================================
-         NAVBAR RESMI TUNGGAL
+         NAVBAR RESMI PEMKAB SIDOARJO (CLEAN & FRESH)
          ===================================================================== -->
     <nav>
         <div class="nav-container">
-            <a href="#" class="logo">
-                <i class="fas fa-shield-alt"></i>
+            <!-- Brand & Logo Resmi Sidoarjo -->
+            <a href="#" class="logo" style="display:flex; align-items:center; gap:12px; text-decoration:none;">
+                <img src="static/img/logo-sidoarjo.png" 
+                     onerror="this.onerror=null; this.src='https://upload.wikimedia.org/wikipedia/commons/7/70/Lambang_Kabupaten_Sidoarjo.png';" 
+                     alt="Logo Kabupaten Sidoarjo" 
+                     style="height: 38px; width: auto; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">
                 <div>
-                    Pemkab Sidoarjo
-                    <span>Sistem SAW & BWM</span>
+                    <div style="font-size:1.15rem; font-weight:800; color:var(--text-main); letter-spacing:-0.3px;">Pemkab Sidoarjo</div>
+                    <span style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform: capitalize;">Sistem Verifikasi</span>
                 </div>
             </a>
             
-            <div class="user-profile">
+            <div class="user-profile" style="display:flex; align-items:center; gap:1.2rem;">
                 <button onclick="window.openAdminChat()" class="btn-chat-nav">
                     <i class="fas fa-comments"></i> Chat Warga
                 </button>
                 
+                <!-- Lonceng Notifikasi & Dropdown Bersih -->
                 <div class="notif-wrapper" onclick="window.toggleNotifPanel(event)">
                     <i class="fas fa-bell notif-icon"></i>
                     <span id="notifBadge" class="notif-badge">0</span>
+
                     <div id="notifPanel" onclick="event.stopPropagation()">
-                        <div class="notif-header">
-                            <span><i class="fas fa-bell text-primary"></i> Pusat Notifikasi</span>
+                        <!-- Header Notifikasi Ringkas -->
+                        <div style="padding:14px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; background:#ffffff;">
+                            <div style="font-size:0.92rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-bell" style="color:#009846;"></i> Notifikasi
+                            </div>
                             <div style="display:flex; gap:6px;">
-                                <button onclick="window.tandaiSemuaNotifDibaca()" class="btn-notif-archive" title="Tandai Sudah Dibaca"><i class="fas fa-check-double"></i></button>
-                                <button onclick="window.switchNotifTab('arsip')" class="btn-notif-archive"><i class="fas fa-archive"></i> Arsip</button>
+                                <button type="button" onclick="window.tandaiSemuaNotifDibaca()" title="Tandai semua dibaca" style="background:#f1f5f9; border:none; padding:6px 10px; border-radius:8px; font-size:0.75rem; font-weight:700; color:#475569; cursor:pointer;">
+                                    <i class="fas fa-check-double text-success"></i> Baca Semua
+                                </button>
+                                <button type="button" onclick="window.hapusSemuaNotif()" title="Bersihkan notifikasi" style="background:#fee2e2; border:none; padding:6px 10px; border-radius:8px; font-size:0.75rem; font-weight:700; color:#dc2626; cursor:pointer;">
+                                    <i class="fas fa-trash-alt"></i> Bersihkan
+                                </button>
                             </div>
                         </div>
-                        <div class="ntf-tabs" style="display:flex; background:#f8fafc; padding:8px 14px; border-bottom:1px solid #e2e8f0; gap:8px;">
-                            <button id="tabNotifAll" onclick="window.switchNotifTab('all')" class="ntf-tab-btn active" style="flex:1;">Semua</button>
-                            <button id="tabNotifUrgent" onclick="window.switchNotifTab('urgent')" class="ntf-tab-btn" style="flex:1; color:#dc2626; font-weight:800;">🚨 Urgent</button>
-                            <button id="tabNotifArsip" onclick="window.switchNotifTab('arsip')" class="ntf-tab-btn" style="flex:1;">Arsip</button>
+
+                        <!-- Tab Filter Bersih -->
+                        <div style="display:flex; background:#f8fafc; padding:8px 12px; gap:6px; border-bottom:1px solid #e2e8f0;">
+                            <button id="tabNotifAll" onclick="window.switchNotifTab('all')" class="ntf-tab-btn active" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer;">Semua</button>
+                            <button id="tabNotifUrgent" onclick="window.switchNotifTab('urgent')" class="ntf-tab-btn" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; color:#dc2626; cursor:pointer;">🚨 Urgent</button>
+                            <button id="tabNotifArsip" onclick="window.switchNotifTab('arsip')" class="ntf-tab-btn" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; color:#475569; cursor:pointer;">📁 Arsip</button>
                         </div>
-                        <div id="notifList" class="notif-list-container ntf-body" style="max-height:420px; overflow-y:auto;"></div>
+
+                        <!-- Daftar Kartu Notifikasi -->
+                        <div id="notifList" class="notif-list-container" style="max-height:380px; overflow-y:auto; padding:4px 0;"></div>
                     </div>
                 </div>
 
@@ -982,22 +983,39 @@
                             <i class="fas fa-folder-open" style="color:var(--accent)"></i> Arsip Data Warga
                         </div>
                         
-                        <div class="header-action-btns">
-                            <button type="button" onclick="window.loadDashboardData(true)" class="btn btn-secondary" title="Refresh Data"><i class="fas fa-sync-alt"></i></button>
-                            <button type="button" onclick="window.exportExcelLengkap()" class="btn btn-secondary text-primary-btn" title="Ekspor Seluruh Kolom ke Excel"><i class="fas fa-file-excel"></i> Ekspor Excel</button>
-                            <button type="button" onclick="document.getElementById('fileImport').click()" class="btn btn-secondary text-admin-btn" title="Import dari Excel"><i class="fas fa-file-import"></i> Impor Excel</button>
+                        <!-- TOMBOL AKSI BERWARNA KONTRAS -->
+                        <div class="header-action-btns" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                            <button type="button" onclick="window.loadDashboardData(true)" class="btn" style="background:#f8fafc; border:1px solid #cbd5e1; color:#475569; padding:8px 12px;" title="Refresh Data">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                            
+                            <!-- 1. Ekspor Excel (Hijau Emerald) -->
+                            <button type="button" onclick="window.exportExcelLengkap()" class="btn" style="background:#ecfdf5; color:#065f46; border:1px solid #6ee7b7; font-weight:700; padding:8px 14px; transition:0.2s;" onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='#ecfdf5'" title="Ekspor Seluruh Kolom ke Excel">
+                                <i class="fas fa-file-excel" style="color:#059669;"></i> Ekspor Excel
+                            </button>
+
+                            <!-- 2. Impor Excel (Ungu Indigo) -->
+                            <button type="button" onclick="document.getElementById('fileImport').click()" class="btn" style="background:#f5f3ff; color:#5b21b6; border:1px solid #c4b5fd; font-weight:700; padding:8px 14px; transition:0.2s;" onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='#f5f3ff'" title="Import dari Excel">
+                                <i class="fas fa-file-import" style="color:#7c3aed;"></i> Impor Excel
+                            </button>
                             <input type="file" id="fileImport" style="display:none;" accept=".xlsx, .xls, .csv" onchange="window.smartImportPreview(this)">
-                            <button type="button" onclick="window.syncBPS()" class="btn btn-secondary text-info-btn" title="Tarik Sinkronisasi BPS"><i class="fas fa-cloud-download-alt"></i> BPS</button>
+
+                            <!-- 3. Sinkronisasi BPS (Biru Langit) -->
+                            <button type="button" onclick="window.syncBPS()" class="btn" style="background:#f0f9ff; color:#0369a1; border:1px solid #7dd3fc; font-weight:700; padding:8px 14px; transition:0.2s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f0f9ff'" title="Tarik Sinkronisasi BPS">
+                                <i class="fas fa-cloud-download-alt" style="color:#0284c7;"></i> BPS
+                            </button>
                             
                             <button type="button" id="btnVerifyAll" onclick="window.verifyAllData(event)" class="btn btn-primary btn-verify-all" title="Konfirmasi & Setujui Seluruh Data Warga">
                                 <i class="fas fa-check-double"></i> Setujui Semua
                             </button>
 
-                            <button type="button" id="btnUnverifyAll" onclick="window.unverifyAllData(event)" class="btn btn-warning btn-unverify-all" style="background:#fffbeb; color:#b45309; border:1px solid #fde68a;" title="Batalkan Seluruh Persetujuan Warga">
+                            <button type="button" id="btnUnverifyAll" onclick="window.unverifyAllData(event)" class="btn" style="background:#fffbeb; color:#b45309; border:1px solid #fde68a; font-weight:700;" title="Batalkan Seluruh Persetujuan Warga">
                                 <i class="fas fa-undo-alt"></i> Batalkan Semua
                             </button>
                             
-                            <button type="button" onclick="window.hapusSemuaWarga()" class="btn btn-delete-all" style="background:#fee2e2; color:#dc2626;" title="Hapus Seluruh Data Warga"><i class="fas fa-trash-alt"></i> Hapus Semua</button>
+                            <button type="button" onclick="window.hapusSemuaWarga()" class="btn" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700;" title="Hapus Seluruh Data Warga">
+                                <i class="fas fa-trash-alt"></i> Hapus Semua
+                            </button>
                         </div>
                     </div>
 
@@ -1017,10 +1035,27 @@
 
                             <div style="border-left: 2px solid var(--border-color); height: 28px; margin: 0 4px;"></div>
                             
-                            <div style="display:inline-flex; align-items:center; gap:6px; background:white; padding:4px 12px; border-radius:20px; border:1px solid var(--border-color); font-size:0.82rem; font-weight:600;">
-                                <i class="fas fa-calendar-alt text-primary"></i> Tgl Daftar:
-                                <input type="text" id="filterTglDaftar" placeholder="Contoh: 02/09/2026" oninput="window.filterByTanggalDaftar(this.value)" style="border:none; outline:none; font-family:'Inter'; font-size:0.82rem; background:transparent; width:130px;">
-                                <button type="button" onclick="document.getElementById('filterTglDaftar').value=''; window.filterByTanggalDaftar('');" style="background:none; border:none; cursor:pointer; color:#94a3b8;" title="Reset Filter Tanggal"><i class="fas fa-times-circle"></i></button>
+                            <!-- KENDALI FILTER WAKTU MINIMALIS & TERPADU -->
+                            <div class="filter-date-capsule" style="display:inline-flex; align-items:center; gap:8px; background:white; padding:4px 12px; border-radius:24px; border:1px solid #cbd5e1; font-size:0.82rem; font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+                                <i class="fas fa-calendar-alt text-primary" style="font-size:0.88rem;"></i>
+                                
+                                <!-- Pemilih Mode Filter -->
+                                <select id="dateFilterMode" onchange="window.changeDateFilterMode(this.value)" style="border:none; outline:none; background:transparent; font-family:'Inter'; font-size:0.8rem; font-weight:700; color:#334155; cursor:pointer; padding-right:2px;">
+                                    <option value="tanggal">Tanggal</option>
+                                    <option value="bulan">Bulan</option>
+                                    <option value="tahun">Tahun</option>
+                                </select>
+
+                                <span style="color:#e2e8f0; font-weight:300;">|</span>
+
+                                <!-- Input Dinamis Tunggal (Dikelola oleh JavaScript) -->
+                                <div id="dateFilterInputContainer" style="display:flex; align-items:center;">
+                                    <input type="date" id="filterTglPicker" onchange="window.applyDateFilter()" style="border:1px solid #e2e8f0; border-radius:8px; padding:3px 8px; font-family:'Inter'; font-size:0.8rem; outline:none; color:#0f172a; cursor:pointer; background:#f8fafc;" title="Pilih Tanggal Tertentu">
+                                </div>
+
+                                <button type="button" onclick="window.resetDateFilter()" style="background:none; border:none; cursor:pointer; color:#94a3b8; padding:2px 4px; display:flex; align-items:center;" title="Reset Filter Waktu">
+                                    <i class="fas fa-times-circle"></i>
+                                </button>
                             </div>
                         </div>
 
@@ -1310,7 +1345,7 @@
                 <div class="card" style="margin-top: 20px; overflow: hidden; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
                     <div class="table-container" style="padding:0;">
                         <table id="tblKomparasi" class="modern-table" style="border: none; border-radius: 0;">
-                            <thead><tr><th>Nama Keluarga / Pemohon</th><th style="text-align:center;">Rank SAW</th><th style="text-align:center;">Skor Akhir SAW</th><th style="text-align:center;">Rank WP</th><th style="text-align:center;">Skor Akhir WP</th></tr></thead>
+                            <thead><tr><th>Nama Keluarga / Pemohon</th><th style="text-align:center;">Rank SAW</th><th style="text-align:center;">Skor Akhir SAW</th><th style="text-align:center;">Rank WP</th><th style="text-align:center;">Skor Akhir WP</th><th style="text-align:center;">Deviasi Ranking</th></tr></thead>
                             <tbody></tbody>
                         </table>
                     </div>
@@ -1538,32 +1573,34 @@
                     <button type="button" onclick="window.cancelReplyMessage()" style="background:none; border:none; color:#dc2626; cursor:pointer;"><i class="fas fa-times"></i></button>
                 </div>
 
-                <!-- INPUT BAR DENGAN VOICE PAUSE/RESUME & EMOJI PICKER -->
+                <!-- INPUT BAR DENGAN WAVE VISUALIZER & DUKUNGAN SEMUA FORMAT -->
                 <div style="padding: 12px 20px; border-top: 1px solid var(--border-color); background:#ffffff; display:flex; align-items:center; gap:10px; position:relative; flex-shrink: 0; border-radius: 0 0 var(--radius-xl) 0;">
                     
-                    <!-- POPUP EMOJI LENGKAP -->
                     <div id="emojiPickerAdmin" class="emoji-picker-container" onclick="event.stopPropagation()">
                         <div style="font-size:0.75rem; font-weight:700; color:#64748b; margin-bottom:8px;">PILIH EMOJI</div>
                         <div id="emojiGridList" class="emoji-grid-section"></div>
                     </div>
 
-                    <button type="button" onclick="window.toggleEmojiPicker(event)" style="background:none; border:none; font-size:1.35rem; color:#64748b; cursor:pointer;"><i class="fas fa-smile"></i></button>
+                    <button type="button" onclick="window.toggleEmojiPicker(event)" style="background:none; border:none; font-size:1.35rem; color:#64748b; cursor:pointer;" title="Emoji"><i class="fas fa-smile"></i></button>
                     
-                    <input type="file" id="adminMediaFileInput" style="display:none;" accept="image/*,video/*" onchange="window.handleAdminMediaUpload(this)">
-                    <button type="button" onclick="document.getElementById('adminMediaFileInput').click()" title="Kirim Foto / Video" style="background:none; border:none; font-size:1.3rem; color:#64748b; cursor:pointer;"><i class="fas fa-paperclip"></i></button>
+                    <!-- Input Berkas Mendukung Semua Media & Dokumen -->
+                    <input type="file" id="adminMediaFileInput" style="display:none;" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" onchange="window.handleAdminMediaSelection(this)">
+                    <button type="button" onclick="document.getElementById('adminMediaFileInput').click()" title="Kirim Foto, Video atau Dokumen" style="background:none; border:none; font-size:1.3rem; color:#64748b; cursor:pointer;"><i class="fas fa-paperclip"></i></button>
                     
                     <input type="text" id="adminChatInput" placeholder="Ketik balasan Anda..." style="flex:1; border:1px solid #cbd5e1; background:#f8fafc; padding:10px 18px; border-radius:25px; outline:none;" onkeypress="if(event.key==='Enter') window.sendAdminChat()">
                     
-                    <!-- VOICE CONTROLLER DENGAN JEDA/LANJUT -->
-                    <div id="adminVoiceControlUI" class="voice-recorder-bar">
-                        <span id="adminVoiceTimer" style="font-weight:800; font-family:monospace; color:#dc2626; font-size:0.9rem;">00:00</span>
-                        <div style="flex:1; height:4px; background:#fca5a5; border-radius:2px; overflow:hidden;"><div id="voiceWaveProgress" style="width:100%; height:100%; background:#ef4444;"></div></div>
+                    <!-- VOICE CONTROLLER DENGAN REAL-TIME AUDIO WAVEFORM CANVAS -->
+                    <div id="adminVoiceControlUI" class="voice-recorder-bar" style="display:none; align-items:center; gap:10px; background:#fff1f2; border:1px solid #fecdd3; border-radius:25px; padding:4px 14px; flex:1;">
+                        <span id="adminVoiceTimer" style="font-weight:800; font-family:monospace; color:#e11d48; font-size:0.85rem;">00:00</span>
                         
-                        <button type="button" id="btnPauseResumeVoice" class="voice-btn-ctrl" onclick="window.togglePauseResumeVoice()" title="Jeda / Lanjutkan Suara"><i class="fas fa-pause"></i></button>
-                        <button type="button" class="voice-btn-ctrl" onclick="window.cancelVoiceRecording()" title="Batalkan"><i class="fas fa-trash-alt"></i></button>
+                        <!-- Canvas Gelombang Suara Nyata -->
+                        <canvas id="voiceWaveCanvas" width="180" height="24" style="flex:1; height:24px;"></canvas>
+                        
+                        <button type="button" class="voice-btn-ctrl" onclick="window.cancelVoiceRecording()" title="Batalkan" style="background:none; border:none; color:#e11d48; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
+                        <button type="button" class="voice-btn-ctrl" onclick="window.stopAndSendVoiceRecording()" title="Kirim Pesan Suara" style="background:#e11d48; color:white; border:none; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer;"><i class="fas fa-paper-plane" style="font-size:0.75rem;"></i></button>
                     </div>
 
-                    <button type="button" id="btnMicAdmin" onclick="window.toggleVoiceRecording()" style="background:none; border:none; font-size:1.35rem; color:#64748b; cursor:pointer;" title="Rekam Suara"><i class="fas fa-microphone"></i></button>
+                    <button type="button" id="btnMicAdmin" onclick="window.startVoiceRecording()" style="background:none; border:none; font-size:1.35rem; color:#64748b; cursor:pointer;" title="Rekam Suara"><i class="fas fa-microphone"></i></button>
                     <button type="button" id="btnSendAdmin" onclick="window.sendAdminChat()" style="background:#009846; color:white; border:none; width:42px; height:42px; border-radius:50%; cursor:pointer;"><i class="fas fa-paper-plane"></i></button>
                 </div>
             </div>
