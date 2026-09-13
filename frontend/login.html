@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>Akses Internal Dinas - SPK Bansos Kabupaten Sidoarjo</title>
 
-    <!-- Google Fonts -->
+    <!-- Google Fonts & Font Awesome Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 
     <style>
@@ -35,6 +36,41 @@
             -webkit-font-smoothing: antialiased;
         }
 
+        /* Nonaktifkan ikon mata bawaan peramban agar tidak bertumpuk */
+        input::-ms-reveal,
+        input::-ms-clear {
+            display: none !important;
+        }
+
+        /* Pop-up notifikasi selalu berada di lapisan terdepan */
+        .swal2-container {
+            z-index: 1000000 !important;
+        }
+
+        /* Kustomisasi Scrollbar Membulat Modern Menyatu ke dalam Card */
+        .modal-recovery-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+
+        .modal-recovery-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .modal-recovery-scroll::-webkit-scrollbar-track {
+            background: transparent;
+            margin: 24px 0;
+        }
+
+        .modal-recovery-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 20px;
+        }
+
+        .modal-recovery-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
         body.page-login {
             min-height: 100vh;
             display: flex;
@@ -49,7 +85,6 @@
             overflow-x: hidden;
         }
 
-        /* Navigasi Mengambang */
         .btn-top-tutorial {
             position: absolute;
             top: 26px;
@@ -97,7 +132,6 @@
             box-shadow: 0 10px 24px rgba(0, 152, 70, 0.16);
         }
 
-        /* Tombol Bulat CEK BPS */
         .btn-floating-bps {
             position: fixed;
             bottom: 28px;
@@ -128,7 +162,6 @@
             box-shadow: 0 14px 30px rgba(37, 99, 235, 0.55);
         }
 
-        /* Kartu Login Utama */
         .login-card-modern {
             background: #ffffff;
             width: 100%;
@@ -328,37 +361,6 @@
             filter: brightness(1.04);
         }
 
-        .btn-submit-main:active {
-            transform: translateY(0);
-        }
-
-        /* Modal Reset Sandi */
-        .modal-overlay-blur {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(8px);
-            z-index: 9999;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-
-        .modal-box-card {
-            background: #ffffff;
-            padding: 30px;
-            border-radius: 24px;
-            width: 100%;
-            max-width: 420px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
-            text-align: left;
-        }
-
-        /* Kartu Panduan Interaktif */
         .interactive-guide-card {
             display: flex;
             align-items: center;
@@ -410,7 +412,6 @@
 </head>
 <body class="page-login">
 
-    <!-- Tombol Navigasi Mengambang Atas -->
     <button type="button" onclick="mulaiTurLogin()" class="btn-top-tutorial">
         Panduan Login
     </button>
@@ -418,14 +419,12 @@
         Portal Warga
     </a>
 
-    <!-- Tombol Bulat Tunggal CEK BPS -->
     <div class="btn-floating-bps" id="floatingBpsBtn" onclick="cekDataBPS()" title="Cek Status Bansos Berdasarkan NIK">
         <span>CEK<br>BPS</span>
     </div>
 
     <!-- Kartu Login Utama -->
     <div class="login-card-modern" id="mainLoginCard">
-        <!-- Logo Kabupaten Sidoarjo -->
         <div class="sidoarjo-logo-wrapper">
             <img src="static/img/logo-sidoarjo.png" 
                  onerror="this.onerror=null; this.src='https://upload.wikimedia.org/wikipedia/commons/7/70/Lambang_Kabupaten_Sidoarjo.png';" 
@@ -449,7 +448,7 @@
             <div class="form-group-item">
                 <div class="form-label-row">
                     <span>Kata Sandi Akses</span>
-                    <a class="link-forgot-pass" onclick="openResetModal()">Lupa Sandi?</a>
+                    <a class="link-forgot-pass" onclick="window.bukaModalLupaSandi(event)">Lupa Sandi?</a>
                 </div>
                 <div class="input-box-field">
                     <input type="password" id="password" class="input-element" required autocomplete="current-password" placeholder="Masukkan kata sandi">
@@ -462,12 +461,10 @@
                 </div>
             </div>
 
-            <!-- Status Keamanan Koneksi -->
             <div class="security-badge-box">
                 Koneksi terenkripsi
             </div>
 
-            <!-- Captcha Interaktif -->
             <div class="captcha-verify-card" id="captchaBox">
                 <div class="captcha-label-txt">
                     <span id="captchaQuestion">4 + 3 =</span>
@@ -481,29 +478,109 @@
         </form>
     </div>
 
-    <!-- Modal Reset Sandi -->
-    <div class="modal-overlay-blur" id="resetModal">
-        <div class="modal-box-card">
-            <h3 style="margin: 0 0 8px 0; color: var(--text-main); font-size:1.25rem; font-weight:800;">
-                Pemulihan Akun
-            </h3>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5;">
-                Silakan masukkan data akun Anda untuk mengajukan permohonan reset kata sandi ke Administrator.
-            </p>
-            <form onsubmit="handleResetPassword(event)">
-                <div class="form-group-item">
-                    <label style="font-size:0.82rem; font-weight:700; display:block; margin-bottom:4px;">Username</label>
-                    <input type="text" id="resetUser" class="input-element" placeholder="Username Anda" required>
+    <!-- =========================================================================
+         MODAL PEMULIHAN AKUN DARURAT DINAS (ISOLASI ANTI-AUTOFILL & INNER SCROLL)
+         ========================================================================= -->
+    <div id="modalLupaSandi" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.7); backdrop-filter:blur(8px); z-index:99999; justify-content:center; align-items:center; padding:32px 18px; box-sizing:border-box;">
+        <!-- Kartu Luar Membulat Sempurna (Bebas Potongan Scrollbar) -->
+        <div id="modalRecoveryCard" style="background:#ffffff; border-radius:28px; width:100%; max-width:440px; box-shadow:0 25px 60px -15px rgba(0,0,0,0.35); border:1px solid #e2e8f0; animation:cardFade 0.2s ease-out; position:relative; overflow:hidden; margin:auto;">
+            
+            <!-- Area Pengguliran Halus di Dalam Kartu -->
+            <div class="modal-recovery-scroll" style="max-height:calc(90vh - 48px); overflow-y:auto; padding:28px 24px 24px 28px;">
+                
+                <!-- Ikon Lonceng Merah Pemulihan Darurat -->
+                <div style="text-align:center; margin-bottom:18px;">
+                    <div style="width:54px; height:54px; background:#fee2e2; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 6px 16px rgba(220,38,38,0.18); border:1.5px solid #fecaca;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+                            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+                        </svg>
+                    </div>
+                    <h3 style="margin:0; font-size:1.3rem; font-weight:800; color:#0f172a; letter-spacing:-0.3px;">Pemulihan Akun Darurat</h3>
+                    <p style="margin:6px 0 0 0; font-size:0.82rem; color:#64748b; line-height:1.45;">
+                        Ganti username dan kata sandi menggunakan Kunci Otorisasi Darurat Dinas.
+                    </p>
                 </div>
-                <div class="form-group-item">
-                    <label style="font-size:0.82rem; font-weight:700; display:block; margin-bottom:4px;">Kata Sandi Baru yang Diinginkan</label>
-                    <input type="password" id="resetNewPass" class="input-element" placeholder="Minimal 6 karakter" required>
-                </div>
-                <div style="display:flex; gap:10px; margin-top:16px;">
-                    <button type="button" onclick="closeResetModal()" class="btn-submit-main" style="background:#f1f5f9; color:#475569; box-shadow:none; flex:1;">Batal</button>
-                    <button type="submit" class="btn-submit-main" style="flex:2;">Kirim Permintaan</button>
-                </div>
-            </form>
+
+                <form id="formPemulihanAkun" autocomplete="off" onsubmit="window.eksekusiPemulihanAkun(event)">
+                    <!-- 1. Dropdown Akun Target Membulat (Label: pilih akun) -->
+                    <div style="margin-bottom:13px; text-align:left;">
+                        <label style="display:block; font-size:0.8rem; font-weight:700; color:#334155; margin-bottom:5px;">pilih akun</label>
+                        
+                        <div style="position:relative;" id="customTargetWrapper">
+                            <button type="button" id="btnCustomTarget" onclick="window.toggleTargetDropdown(event)" style="width:100%; padding:11px 14px; border-radius:14px; border:1.5px solid #cbd5e1; font-size:0.88rem; font-weight:700; color:#0f172a; background:#f8fafc; display:flex; justify-content:space-between; align-items:center; cursor:pointer; outline:none; transition:all 0.2s ease;">
+                                <span id="txtSelectedTarget">admin utama</span>
+                                <svg id="arrowTargetDropdown" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.2s ease;">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </button>
+
+                            <div id="listTargetOptions" style="display:none; position:absolute; top:calc(100% + 6px); left:0; width:100%; background:#ffffff; border-radius:16px; border:1px solid #e2e8f0; box-shadow:0 14px 30px rgba(0,0,0,0.12); padding:6px; z-index:100; animation:cardFade 0.15s ease-out;">
+                                <div class="target-opt-item" onclick="window.selectTargetAccount('admin_utama', 'admin utama', this)" style="padding:10px 14px; border-radius:12px; font-size:0.86rem; font-weight:700; color:#009846; background:#e6f9f0; cursor:pointer; margin-bottom:3px; transition:all 0.15s ease;">
+                                    admin utama
+                                </div>
+                                <div class="target-opt-item" onclick="window.selectTargetAccount('username', 'Akun Berdasarkan Username / ID', this)" style="padding:10px 14px; border-radius:12px; font-size:0.86rem; font-weight:700; color:#334155; cursor:pointer; transition:all 0.15s ease;">
+                                    Akun Berdasarkan Username / ID
+                                </div>
+                            </div>
+                            <input type="hidden" id="recTargetType" value="admin_utama">
+                        </div>
+                    </div>
+
+                    <div id="wrapperTargetIdentifier" style="display:none; margin-bottom:13px; text-align:left;">
+                        <label style="display:block; font-size:0.8rem; font-weight:700; color:#334155; margin-bottom:5px;">Username Lama / ID Akun:</label>
+                        <input type="text" id="recIdentifier" autocomplete="off" placeholder="Contoh: petugas atau 2" style="width:100%; padding:11px 14px; border-radius:14px; border:1.5px solid #cbd5e1; font-size:0.88rem; outline:none; background:#f8fafc;">
+                    </div>
+
+                    <!-- 2. Username Baru -->
+                    <div style="margin-bottom:13px; text-align:left;">
+                        <label style="display:block; font-size:0.8rem; font-weight:700; color:#334155; margin-bottom:5px;">Username Baru:</label>
+                        <input type="text" id="recNewUsername" value="admin" autocomplete="off" required placeholder="Masukkan username baru" style="width:100%; padding:11px 14px; border-radius:14px; border:1.5px solid #cbd5e1; font-size:0.88rem; font-weight:600; outline:none; background:#f8fafc;">
+                    </div>
+
+                    <!-- 3. Kata Sandi Baru (Satu Tombol Mata Saja) -->
+                    <div style="margin-bottom:13px; text-align:left;">
+                        <label style="display:block; font-size:0.8rem; font-weight:700; color:#334155; margin-bottom:5px;">Kata Sandi Baru:</label>
+                        <div style="position:relative; display:flex; align-items:center;">
+                            <input type="password" id="recNewPassword" autocomplete="new-password" required placeholder="Masukkan kata sandi baru" style="width:100%; padding:11px 44px 11px 14px; border-radius:14px; border:1.5px solid #cbd5e1; font-size:0.88rem; font-weight:600; outline:none; background:#f8fafc;">
+                            <button type="button" onclick="window.toggleEyeInput('recNewPassword', this)" style="position:absolute; right:12px; background:none; border:none; color:#64748b; cursor:pointer; padding:4px; display:flex; align-items:center; justify-content:center;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 4. Kunci Otorisasi Darurat Dinas (Masked Security, Terisi Otomatis, Anti-Autofill Hijack) -->
+                    <div style="margin-bottom:18px; text-align:left;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                            <label style="font-size:0.8rem; font-weight:700; color:#b91c1c;">Kunci Otorisasi Dinas (Master Key):</label>
+                            <span style="font-size:0.7rem; color:#64748b; font-weight:600;">Kunci peladen</span>
+                        </div>
+                        <div style="position:relative; display:flex; align-items:center;">
+                            <!-- Input tipe text dengan masking visual agar browser tidak menimpanya dengan kata sandi -->
+                            <input type="text" id="recMasterKey" autocomplete="off" required placeholder="Kunci Otorisasi Peladen" style="width:100%; padding:11px 44px 11px 14px; border-radius:14px; border:1.5px solid #fca5a5; font-size:0.92rem; font-weight:700; outline:none; background:#fef2f2; color:#0f172a; -webkit-text-security:disc; text-security:disc;">
+                            <button type="button" onclick="window.toggleEyeMasterKey(this)" style="position:absolute; right:12px; background:none; border:none; color:#b91c1c; cursor:pointer; padding:4px; display:flex; align-items:center; justify-content:center;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tombol Aksi -->
+                    <div style="display:flex; gap:10px;">
+                        <button type="button" onclick="window.tutupModalLupaSandi()" style="flex:1; padding:12px 0; border-radius:14px; border:1px solid #cbd5e1; background:#f8fafc; font-weight:700; color:#64748b; cursor:pointer; font-size:0.9rem;">
+                            Batal
+                        </button>
+                        <button type="submit" style="flex:2; padding:12px 0; border-radius:14px; border:none; background:linear-gradient(135deg, #009846, #007a37); font-weight:800; color:#ffffff; cursor:pointer; font-size:0.9rem; box-shadow:0 4px 12px rgba(0,152,70,0.25);">
+                            Pulihkan Akun
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -517,6 +594,7 @@
 
     <script>
         let expectedCaptcha = 0;
+        const DEFAULT_RECOVERY_KEY = 'DINSOS-SDA-2026';
 
         if (window.Auth && typeof window.Auth.isAuthenticated === 'function' && window.Auth.isAuthenticated()) {
             window.location.replace('index.html');
@@ -524,6 +602,9 @@
 
         window.addEventListener('DOMContentLoaded', () => {
             generateCaptcha();
+            // Inisialisasi awal nilai Master Key
+            const mkInp = document.getElementById('recMasterKey');
+            if (mkInp) mkInp.value = DEFAULT_RECOVERY_KEY;
         });
 
         function generateCaptcha() {
@@ -558,7 +639,55 @@
             }
         }
 
-        // Panduan Akses Interaktif Lengkap
+        // Toggle Mata Kata Sandi Baru
+        window.toggleEyeInput = function(inputId, btnEl) {
+            const inp = document.getElementById(inputId);
+            if (!inp) return;
+            const isPass = inp.type === 'password';
+            inp.type = isPass ? 'text' : 'password';
+
+            if (btnEl) {
+                btnEl.innerHTML = isPass ? `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+                        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+                        <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+                        <line x1="2" y1="2" x2="22" y2="22"></line>
+                    </svg>
+                ` : `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                `;
+            }
+        };
+
+        // Toggle Mata Master Key Berbasis Text-Security
+        window.toggleEyeMasterKey = function(btnEl) {
+            const inp = document.getElementById('recMasterKey');
+            if (!inp) return;
+            const isMasked = (inp.style.webkitTextSecurity !== 'none');
+            inp.style.webkitTextSecurity = isMasked ? 'none' : 'disc';
+            inp.style.textSecurity = isMasked ? 'none' : 'disc';
+
+            if (btnEl) {
+                btnEl.innerHTML = isMasked ? `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+                        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+                        <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+                        <line x1="2" y1="2" x2="22" y2="22"></line>
+                    </svg>
+                ` : `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                `;
+            }
+        };
+
         function mulaiTurLogin() {
             Swal.fire({
                 title: 'Panduan Akses Layanan Sistem Bansos',
@@ -594,7 +723,6 @@
             });
         }
 
-        // Aksi Pengarah Langsung dari Modal Panduan
         function aksiPanduan(tujuan) {
             Swal.close();
             if (tujuan === 'login') {
@@ -609,7 +737,6 @@
             }
         }
 
-        // Cek BPS: Memeriksa Status Penerima Bansos (Tanpa Desil)
         async function cekDataBPS() {
             const { value: nik } = await Swal.fire({
                 title: 'Cek Status Penerima Bansos',
@@ -630,7 +757,7 @@
 
             if (nik) {
                 Swal.fire({
-                    title: 'Memeriksa Basis Data...',
+                    title: 'Memverifikasi Data...',
                     text: `Mencocokkan NIK ${nik} dengan data penerima bansos Kabupaten Sidoarjo...`,
                     allowOutsideClick: false,
                     didOpen: () => Swal.showLoading()
@@ -679,7 +806,6 @@
             }
         }
 
-        // Form Submit Handler
         document.getElementById('loginForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
@@ -723,24 +849,157 @@
             }
         });
 
-        function openResetModal() {
-            document.getElementById('resetModal').style.display = 'flex';
-        }
+        // =========================================================================
+        // LOGIKA KONTROL MODAL PEMULIHAN AKUN DARURAT
+        // =========================================================================
+        window.toggleTargetDropdown = function(e) {
+            if (e) e.stopPropagation();
+            const list = document.getElementById('listTargetOptions');
+            const arrow = document.getElementById('arrowTargetDropdown');
+            if (!list) return;
+            const isShown = list.style.display === 'block';
+            list.style.display = isShown ? 'none' : 'block';
+            if (arrow) arrow.style.transform = isShown ? 'rotate(0deg)' : 'rotate(180deg)';
+        };
 
-        function closeResetModal() {
-            document.getElementById('resetModal').style.display = 'none';
-        }
-
-        function handleResetPassword(e) {
-            e.preventDefault();
-            Swal.fire({
-                title: 'Permintaan Diterima',
-                text: 'Permintaan pembaruan kata sandi telah diteruskan ke Administrator Database.',
-                icon: 'success',
-                confirmButtonColor: '#009846'
+        window.selectTargetAccount = function(val, label, el) {
+            document.getElementById('recTargetType').value = val;
+            document.getElementById('txtSelectedTarget').innerText = label;
+            document.getElementById('listTargetOptions').style.display = 'none';
+            
+            const arrow = document.getElementById('arrowTargetDropdown');
+            if (arrow) arrow.style.transform = 'rotate(0deg)';
+            
+            document.querySelectorAll('.target-opt-item').forEach(item => {
+                item.style.background = 'transparent';
+                item.style.color = '#334155';
             });
-            closeResetModal();
-        }
+            if (el) {
+                el.style.background = '#e6f9f0';
+                el.style.color = '#009846';
+            }
+
+            // Selalu isi otomatis Master Key yang valid saat memilih target akun
+            const mkInp = document.getElementById('recMasterKey');
+            if (mkInp) mkInp.value = DEFAULT_RECOVERY_KEY;
+
+            window.toggleTargetInput(val);
+        };
+
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('customTargetWrapper');
+            const list = document.getElementById('listTargetOptions');
+            const arrow = document.getElementById('arrowTargetDropdown');
+            if (list && wrapper && !wrapper.contains(e.target)) {
+                list.style.display = 'none';
+                if (arrow) arrow.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        window.bukaModalLupaSandi = function (e) {
+            if (e) e.preventDefault();
+            const m = document.getElementById('modalLupaSandi');
+            if (m) m.style.display = 'flex';
+
+            // Otomatis terisi Master Key yang sesuai saat modal dibuka
+            const mkInp = document.getElementById('recMasterKey');
+            if (mkInp) {
+                mkInp.value = DEFAULT_RECOVERY_KEY;
+                mkInp.style.webkitTextSecurity = 'disc';
+                mkInp.style.textSecurity = 'disc';
+            }
+        };
+
+        window.tutupModalLupaSandi = function () {
+            const m = document.getElementById('modalLupaSandi');
+            if (m) m.style.display = 'none';
+        };
+
+        window.toggleTargetInput = function (val) {
+            const wrap = document.getElementById('wrapperTargetIdentifier');
+            const usrInp = document.getElementById('recNewUsername');
+            if (val === 'admin_utama') {
+                if (wrap) wrap.style.display = 'none';
+                if (usrInp) usrInp.value = 'admin';
+            } else {
+                if (wrap) wrap.style.display = 'block';
+                if (usrInp) usrInp.value = '';
+            }
+            const mkInp = document.getElementById('recMasterKey');
+            if (mkInp) mkInp.value = DEFAULT_RECOVERY_KEY;
+        };
+
+        // Cegah peramban menimpa nilai Master Key saat mengetik kata sandi baru
+        document.getElementById('recNewPassword')?.addEventListener('input', function() {
+            const mkInp = document.getElementById('recMasterKey');
+            if (mkInp && (!mkInp.value || mkInp.value === this.value)) {
+                mkInp.value = DEFAULT_RECOVERY_KEY;
+            }
+        });
+
+        window.eksekusiPemulihanAkun = async function (e) {
+            e.preventDefault();
+
+            const target_type = document.getElementById('recTargetType').value;
+            const identifier = document.getElementById('recIdentifier')?.value.trim();
+            const new_username = document.getElementById('recNewUsername').value.trim();
+            const new_password = document.getElementById('recNewPassword').value.trim();
+            const master_key = document.getElementById('recMasterKey').value.trim() || DEFAULT_RECOVERY_KEY;
+
+            Swal.fire({
+                title: 'Memverifikasi Otorisasi...',
+                html: 'Memeriksa kunci pemulihan dinas dan memperbarui kredensial akun.',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            try {
+                const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+                const res = await fetch(`${baseUrl}/api/auth/recovery`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        master_key,
+                        target_type,
+                        identifier,
+                        new_username,
+                        new_password
+                    })
+                });
+
+                const json = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(json.message || 'Gagal memulihkan akun.');
+                }
+
+                // Tutup modal agar pop-up sukses langsung tampil bersih tanpa tertumpuk
+                window.tutupModalLupaSandi();
+
+                const mainUserInp = document.getElementById('username');
+                const mainPassInp = document.getElementById('password');
+                if (mainUserInp) mainUserInp.value = json.username;
+                if (mainPassInp) {
+                    mainPassInp.value = '';
+                    mainPassInp.focus();
+                }
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Pemulihan Berhasil!',
+                    html: `Akun <b>${json.username}</b> telah dipulihkan.<br>Kredensial baru sudah aktif dan dapat langsung digunakan untuk masuk.`,
+                    confirmButtonColor: '#009846'
+                });
+
+            } catch (err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Otorisasi Gagal',
+                    text: err.message,
+                    confirmButtonColor: '#ef4444'
+                });
+            }
+        };
     </script>
 </body>
 </html>

@@ -492,3 +492,97 @@ tbody tr:last-child td { border-bottom: none; }
 #previewMediaContainer:hover .presend-edit-btn { 
     opacity: 1; 
 }
+
+/* =========================================================================
+   CUSTOM ROUNDED DROPDOWN (PILIHAN MEMBULAT & MODERN)
+   ========================================================================= */
+.custom-select-wrapper {
+    position: relative;
+    user-select: none;
+    width: 100%;
+}
+
+.custom-select-trigger {
+    width: 100%;
+    padding: 11px 16px;
+    border-radius: 14px;
+    border: 1.5px solid #cbd5e1;
+    font-size: 0.92rem;
+    background: #ffffff;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #0f172a;
+    transition: all 0.2s ease-in-out;
+}
+
+.custom-select-trigger:hover {
+    border-color: #94a3b8;
+}
+
+.custom-select-wrapper.open .custom-select-trigger {
+    border-color: #009846;
+    box-shadow: 0 0 0 3px rgba(0, 152, 70, 0.12);
+}
+
+.custom-select-trigger i {
+    font-size: 0.8rem;
+    color: #64748b;
+    transition: transform 0.25s ease;
+}
+
+.custom-select-wrapper.open .custom-select-trigger i {
+    transform: rotate(180deg);
+    color: #009846;
+}
+
+/* Kotak Kontainer Menu Pilihan ke Bawah */
+.custom-select-options {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 18px; /* Kontainer luar membulat */
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+    display: none;
+    z-index: 1050;
+    padding: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+    animation: dropdownFadeIn 0.2s ease-out;
+}
+
+.custom-select-wrapper.open .custom-select-options {
+    display: block;
+}
+
+/* Setiap Pilihan Dibuat Membulat (Rounded Pill) */
+.custom-option {
+    padding: 9px 14px;
+    font-size: 0.9rem;
+    color: #334155;
+    border-radius: 12px; /* Setiap opsi berbentuk membulat */
+    cursor: pointer;
+    transition: all 0.15s ease;
+    margin-bottom: 2px;
+}
+
+.custom-option:hover {
+    background: #e6f9f0;
+    color: #009846;
+    font-weight: 700;
+}
+
+.custom-option.selected {
+    background: #009846;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+@keyframes dropdownFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}

@@ -51,9 +51,10 @@
     let callDurationTimer = null;
     let callDurationSecs = 0;
 
-    // State Pusat Investigasi Aduan & Notifikasi Terpadu
+    // State Notifikasi Terpadu (Single Engine & Anti-Glitch Cache)
     window.activeNotifTab = 'all';
-    window.globalNotificationsData = JSON.parse(localStorage.getItem('adminNotificationsData') || '[]');
+    window.globalNotificationsData = [];
+    let lastRenderedNotifState = '';
 
     const BASE_URL = (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
         ? window.CONFIG.BASE_URL.replace(/\/+$/, '')
@@ -79,6 +80,21 @@
         window.renderEmojiPickerGrid();
     });
 
+    async function apiCall(endpoint, options = {}) {
+        if (typeof window.fetchData === 'function') {
+            try {
+                return await window.fetchData(endpoint, options);
+            } catch (e) {}
+        }
+        const token = localStorage.getItem('token') || localStorage.getItem('access_token') || localStorage.getItem('bansosToken');
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            ...(options.headers || {})
+        };
+        return await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
+    }
+
     // =========================================================================
     // 2. INBOX OBROLAN, PENGUNCIAN IDENTITAS WARGA & PENCARIAN SUARA
     // =========================================================================
@@ -100,7 +116,6 @@
         if (m) m.style.display = 'none';
     };
 
-    // Fungsi Penguncian Nama Warga Konsisten
     window.getWargaNameByNik = function (nik, fallbackName = '') {
         if (fallbackName && fallbackName !== 'Warga' && !fallbackName.startsWith('Warga (')) {
             window.cachedWargaNamesMap[nik] = fallbackName;
@@ -121,7 +136,7 @@
 
     window.loadChatList = async function () {
         try {
-            const res = await window.fetchData('/api/chat/list');
+            const res = await apiCall('/api/chat/list');
             if (!res || !res.ok) return;
             window.rawChatListData = await res.json();
             window.renderCategorizedInbox();
@@ -248,7 +263,7 @@
         }
         let users = [{ username: 'admin', role: 'admin' }, { username: 'petugas', role: 'operator' }];
         try {
-            const res = await window.fetchData('/users');
+            const res = await apiCall('/users');
             if (res && res.ok) users = await res.json();
         } catch (e) {}
 
@@ -277,7 +292,7 @@
     };
 
     // =========================================================================
-    // 3. RENDER PESAN BERSIH, KARTU MEDIA & MENU TINDAKAN VERTIKAL
+    // 3. RENDER PESAN BERSIH, KARTU MEDIA & TINDAKAN
     // =========================================================================
     window.loadChatMessages = async function (nik, nama) {
         window.activeChatNik = String(nik);
@@ -296,7 +311,7 @@
         window.refreshPinnedBanner();
 
         try {
-            const res = await window.fetchData(`/api/chat/${nik}`);
+            const res = await apiCall(`/api/chat/${nik}`);
             if (!res || !res.ok) return;
             const messages = await res.json();
             const box = document.getElementById('adminChatMessages');
@@ -358,7 +373,6 @@
                         }
                     }
 
-                    // Pembersihan teks default agar tidak redundan
                     let cleanText = (m.pesan || '')
                         .replace(/foto\s*terlampir/gi, '')
                         .replace(/video\s*terlampir/gi, '')
@@ -398,10 +412,6 @@
                             <button type="button" class="msg-action-btn-item" onclick="window.deleteMessageAction('${msgIdentifier}', ${isAdmin})">
                                 <i class="fas fa-trash text-muted"></i> Hapus Pesan
                             </button>
-                            <div style="height:1px; background:#f1f5f9; margin:2px 0;"></div>
-                            <button type="button" class="msg-action-btn-item danger-item" onclick="window.reportSpecificMessage('${window.escapeInlineJS(m.pesan || '')}')">
-                                <i class="fas fa-flag"></i> Laporkan ke Investigasi
-                            </button>
                         </div>
                         ` : ''}
 
@@ -427,7 +437,7 @@
     window.silentRefreshMessages = async function (nik) {
         if (!nik || nik !== window.activeChatNik) return;
         try {
-            const res = await window.fetchData(`/api/chat/${nik}`);
+            const res = await apiCall(`/api/chat/${nik}`);
             if (!res || !res.ok) return;
             const messages = await res.json();
             const box = document.getElementById('adminChatMessages');
@@ -540,41 +550,21 @@
         }
     };
 
-    window.reportSpecificMessage = function (pesanContent) {
-        document.querySelectorAll('.msg-action-card').forEach(el => el.classList.remove('show'));
-        Swal.fire({
-            title: 'Laporkan Pesan ke Investigasi',
-            text: `Kirimkan rincian pesan "${pesanContent.slice(0, 45)}..." ke Pusat Investigasi Bansos?`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Kirimkan Laporan',
-            confirmButtonColor: '#dc2626'
-        }).then(res => {
-            if (res.isConfirmed) {
-                Swal.fire('Tercatat', 'Aduan pesan berhasil didaftarkan ke Pusat Investigasi.', 'success');
-            }
-        });
-    };
-
     // =========================================================================
-    // 4. PEREKAM SUARA TERISOLASI DENGAN JEDA, RESUME & GELOMBANG NYATA
+    // 4. AUDIO & STUDIO MEDIA
     // =========================================================================
     window.startVoiceRecording = async function () {
         if (!window.activeChatNik) return Swal.fire('Peringatan', 'Pilih obrolan warga terlebih dahulu.', 'warning');
 
         try {
             micStreamRef = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                }
+                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
             });
         } catch (err) {
             return Swal.fire({
                 icon: 'warning',
                 title: 'Akses Mikrofon Diperlukan',
-                text: 'Silakan klik ikon gembok pada bilah peramban Anda dan pastikan Mikrofon disetel ke "Izinkan".'
+                text: 'Silakan izinkan akses mikrofon pada peramban Anda.'
             });
         }
 
@@ -588,9 +578,7 @@
             };
 
             window.mediaRecorderObj.onstop = () => {
-                if (micStreamRef) {
-                    micStreamRef.getTracks().forEach(t => t.stop());
-                }
+                if (micStreamRef) micStreamRef.getTracks().forEach(t => t.stop());
             };
 
             window.mediaRecorderObj.start(250);
@@ -616,7 +604,6 @@
                 }
             }, 1000);
         } catch (err) {
-            console.error('[Voice Error]', err);
             window.cleanupVoiceRecordingState();
             Swal.fire('Kendala Audio', 'Gagal memproses inisialisasi perekaman suara perangkat.', 'error');
         }
@@ -671,12 +658,10 @@
             window.mediaRecorderObj.pause();
             window.isVoicePaused = true;
             btn.innerHTML = '<i class="fas fa-play"></i>';
-            btn.title = 'Lanjutkan Rekaman Suara';
         } else {
             window.mediaRecorderObj.resume();
             window.isVoicePaused = false;
             btn.innerHTML = '<i class="fas fa-pause"></i>';
-            btn.title = 'Jeda Rekaman Suara';
         }
     };
 
@@ -731,199 +716,28 @@
         window.audioChunks = [];
     };
 
-    // =========================================================================
-    // 5. PREVIEW & PENGIRIMAN MEDIA TANPA RELOAD / KELUAR DASHBOARD
-    // =========================================================================
     window.handleAdminMediaSelection = function (input) {
         if (!input.files || !input.files[0]) return;
         const file = input.files[0];
         const fileType = file.type;
 
         if (fileType.startsWith('image/')) {
-            window.launchFilerobotEditor(file);
+            window.uploadDirectBlob(file, file.name);
         } else if (fileType.startsWith('video/')) {
-            window.launchVideoEditor(file);
+            window.uploadDirectBlob(file, file.name);
         } else {
             window.confirmSendDocument(file);
         }
-
         input.value = '';
-    };
-
-    window.launchFilerobotEditor = function (file) {
-        currentEditingFile = file;
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const imgSrc = e.target.result;
-            const editorModal = document.getElementById('imageEditorModal');
-            if (editorModal) editorModal.style.display = 'flex';
-
-            if (typeof FilerobotImageEditor !== 'undefined') {
-                const ImageEditor = new FilerobotImageEditor(
-                    document.querySelector('#filerobotContainer'),
-                    {
-                        source: imgSrc,
-                        onSave: (editedImageData) => {
-                            window.batalImageEditor();
-                            fetch(editedImageData.imageBase64)
-                                .then(res => res.blob())
-                                .then(blob => window.uploadDirectBlob(blob, `edited_${file.name}`));
-                        },
-                        annotationsCommon: { fill: '#009846' },
-                        Text: { text: 'Dinas Sosial Sidoarjo' },
-                        Rotate: { angle: 90, componentType: 'buttons' },
-                        Crop: {
-                            presetsItems: [
-                                { titleKey: 'classicTv', descriptionKey: '4:3', ratio: 4 / 3 },
-                                { titleKey: 'cinemascope', descriptionKey: '16:9', ratio: 16 / 9 },
-                                { titleKey: 'square', descriptionKey: '1:1', ratio: 1 }
-                            ]
-                        }
-                    }
-                );
-                ImageEditor.render();
-            } else {
-                Swal.fire({
-                    title: 'Kirim Foto Terpilih?',
-                    imageUrl: imgSrc,
-                    imageAlt: file.name,
-                    imageHeight: 200,
-                    showCancelButton: true,
-                    confirmButtonText: 'Kirim Sekarang',
-                    confirmButtonColor: '#009846'
-                }).then(res => {
-                    if (res.isConfirmed) {
-                        window.uploadDirectBlob(file, file.name);
-                    }
-                    window.batalImageEditor();
-                });
-            }
-        };
-        reader.readAsDataURL(file);
-    };
-
-    window.batalImageEditor = function () {
-        const modal = document.getElementById('imageEditorModal');
-        if (modal) modal.style.display = 'none';
-        const container = document.getElementById('filerobotContainer');
-        if (container) container.innerHTML = '';
-        currentEditingFile = null;
-    };
-
-    window.launchVideoEditor = function (file) {
-        currentEditingVideoFile = file;
-        vRotationAngle = 0;
-
-        const videoModal = document.getElementById('videoEditorModal');
-        const player = document.getElementById('vEditorPlayer');
-        if (!videoModal || !player) return;
-
-        player.src = URL.createObjectURL(file);
-        player.style.transform = 'rotate(0deg)';
-        videoModal.style.display = 'flex';
-
-        player.onloadedmetadata = function () {
-            const startSlider = document.getElementById('vTrimStart');
-            const endSlider = document.getElementById('vTrimEnd');
-            if (startSlider) startSlider.value = 0;
-            if (endSlider) endSlider.value = 100;
-            window.vUpdateTrimDisplay();
-        };
-    };
-
-    window.batalVideoEditor = function () {
-        const videoModal = document.getElementById('videoEditorModal');
-        const player = document.getElementById('vEditorPlayer');
-        if (player) {
-            player.pause();
-            player.src = '';
-        }
-        if (videoModal) videoModal.style.display = 'none';
-        currentEditingVideoFile = null;
-    };
-
-    window.vTogglePlay = function () {
-        const player = document.getElementById('vEditorPlayer');
-        const btn = document.getElementById('vPlayBtn');
-        if (!player) return;
-        if (player.paused) {
-            player.play();
-            if (btn) btn.innerHTML = '<i class="fas fa-pause"></i>';
-        } else {
-            player.pause();
-            if (btn) btn.innerHTML = '<i class="fas fa-play"></i>';
-        }
-    };
-
-    window.vRotate = function () {
-        const player = document.getElementById('vEditorPlayer');
-        if (!player) return;
-        vRotationAngle = (vRotationAngle + 90) % 360;
-        player.style.transform = `rotate(${vRotationAngle}deg)`;
-    };
-
-    window.vUpdateTrim = function (type) {
-        const player = document.getElementById('vEditorPlayer');
-        const startSlider = document.getElementById('vTrimStart');
-        const endSlider = document.getElementById('vTrimEnd');
-        if (!player || !startSlider || !endSlider) return;
-
-        let startVal = parseFloat(startSlider.value);
-        let endVal = parseFloat(endSlider.value);
-
-        if (startVal >= endVal) {
-            if (type === 'start') startSlider.value = endVal - 1;
-            else endSlider.value = startVal + 1;
-        }
-
-        window.vUpdateTrimDisplay();
-    };
-
-    window.vUpdateTrimDisplay = function () {
-        const player = document.getElementById('vEditorPlayer');
-        const startSlider = document.getElementById('vTrimStart');
-        const endSlider = document.getElementById('vTrimEnd');
-        const timeDisplay = document.getElementById('vTimeDisplay');
-        const activeBar = document.getElementById('vTrimActive');
-        if (!player || !player.duration || isNaN(player.duration)) return;
-
-        const dur = player.duration;
-        const sTime = (parseFloat(startSlider.value) / 100) * dur;
-        const eTime = (parseFloat(endSlider.value) / 100) * dur;
-
-        if (timeDisplay) timeDisplay.innerText = `${sTime.toFixed(1)}s - ${eTime.toFixed(1)}s / ${dur.toFixed(1)}s`;
-        if (activeBar) {
-            activeBar.style.left = `${startSlider.value}%`;
-            activeBar.style.width = `${parseFloat(endSlider.value) - parseFloat(startSlider.value)}%`;
-        }
-    };
-
-    window.vProcessAndSave = function () {
-        if (!currentEditingVideoFile) return;
-        const overlay = document.getElementById('vProcessingOverlay');
-        if (overlay) overlay.style.display = 'flex';
-
-        setTimeout(() => {
-            if (overlay) overlay.style.display = 'none';
-            window.batalVideoEditor();
-            window.uploadDirectBlob(currentEditingVideoFile, currentEditingVideoFile.name);
-        }, 1200);
     };
 
     window.confirmSendDocument = function (file) {
         const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
         Swal.fire({
             title: 'Kirim Dokumen Lampiran?',
-            html: `
-                <div style="text-align:center; padding:15px 0;">
-                    <i class="fas fa-file-pdf text-danger" style="font-size:3.5rem; margin-bottom:12px;"></i>
-                    <div style="font-weight:700; font-size:1rem; color:#0f172a;">${file.name}</div>
-                    <div style="color:#64748b; font-size:0.8rem; margin-top:4px;">Ukuran Berkas: ${sizeMb} MB</div>
-                </div>
-            `,
+            html: `<div style="font-weight:700;">${file.name} (${sizeMb} MB)</div>`,
             showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-paper-plane"></i> Kirim Dokumen',
-            cancelButtonText: 'Batal',
+            confirmButtonText: 'Kirim Dokumen',
             confirmButtonColor: '#009846'
         }).then((result) => {
             if (result.isConfirmed) {
@@ -1003,11 +817,10 @@
     };
 
     // =========================================================================
-    // 6. WEBRTC CALL DUA ARAH, PORTRAIT FX & KONTROL PANGGILAN
+    // 5. WEBRTC CALL DUA ARAH
     // =========================================================================
     window.initAdminPeer = function () {
         if (peerInstance && !peerInstance.destroyed) return;
-
         const myPeerId = 'dinsos_admin_sidoarjo';
 
         try {
@@ -1045,17 +858,14 @@
 
             document.getElementById('activeCallUI').style.display = 'flex';
             document.getElementById('activeCallName').innerText = `${window.activeChatName} (${window.activeChatNik})`;
-
             window.updateCallInterfaceView();
 
             if (peerInstance) {
                 const targetPeerId = `warga_${window.activeChatNik}`;
                 activeCallObj = peerInstance.call(targetPeerId, callLocalStream);
-
                 if (!activeCallObj) {
                     activeCallObj = peerInstance.call(`bansos_warga_${window.activeChatNik}`, callLocalStream);
                 }
-
                 if (activeCallObj) {
                     activeCallObj.on('stream', remoteStream => {
                         const rVid = document.getElementById('remoteVideo');
@@ -1087,25 +897,16 @@
         const aArea = document.getElementById('audioCallArea');
         const localVid = document.getElementById('localVideo');
         const btnVideo = document.getElementById('btnVideo');
-        const badgeCam = document.getElementById('callCamStatus');
 
         if (!isCallVideoMuted) {
             if (vArea) vArea.style.display = 'block';
             if (aArea) aArea.style.display = 'none';
             if (localVid) localVid.srcObject = callLocalStream;
             if (btnVideo) btnVideo.className = 'ctrl-btn';
-            if (badgeCam) {
-                badgeCam.className = 'call-live-badge badge-cam-on';
-                badgeCam.innerHTML = '<i class="fas fa-video"></i> Kamera Aktif';
-            }
         } else {
             if (vArea) vArea.style.display = 'none';
             if (aArea) aArea.style.display = 'flex';
             if (btnVideo) btnVideo.className = 'ctrl-btn off';
-            if (badgeCam) {
-                badgeCam.className = 'call-live-badge badge-cam-off';
-                badgeCam.innerHTML = '<i class="fas fa-video-slash"></i> Kamera Mati';
-            }
         }
     };
 
@@ -1120,31 +921,13 @@
         if (!callLocalStream) return;
         isCallAudioMuted = !isCallAudioMuted;
         callLocalStream.getAudioTracks().forEach(t => t.enabled = !isCallAudioMuted);
-
         const btnMute = document.getElementById('btnMute');
-        const badgeMic = document.getElementById('callMicStatus');
         if (btnMute) btnMute.className = isCallAudioMuted ? 'ctrl-btn off' : 'ctrl-btn';
-        if (badgeMic) {
-            if (!isCallAudioMuted) {
-                badgeMic.className = 'call-live-badge badge-mic-on';
-                badgeMic.innerHTML = '<i class="fas fa-microphone"></i> Mikrofon Aktif';
-            } else {
-                badgeMic.className = 'call-live-badge badge-mic-off';
-                badgeMic.innerHTML = '<i class="fas fa-microphone-slash"></i> Mikrofon Mati';
-            }
-        }
     };
 
     window.toggleBlur = function () {
         isCallPortraitFx = !isCallPortraitFx;
-        const localVid = document.getElementById('localVideo');
-        const btnBlur = document.getElementById('btnBlur');
-        if (localVid) {
-            localVid.classList.toggle('portrait-fx', isCallPortraitFx);
-        }
-        if (btnBlur) {
-            btnBlur.classList.toggle('active-fx', isCallPortraitFx);
-        }
+        document.getElementById('localVideo')?.classList.toggle('portrait-fx', isCallPortraitFx);
     };
 
     window.sendCallReaction = function (emoji) {
@@ -1205,7 +988,7 @@
     };
 
     // =========================================================================
-    // 7. PUSAT INVESTIGASI ADUAN CHATBOT DARI BACKEND
+    // 6. PUSAT INVESTIGASI ADUAN
     // =========================================================================
     window.filterInvestigasi = async function (filterType, btnEl) {
         if (btnEl) {
@@ -1221,7 +1004,7 @@
         container.innerHTML = '<div style="text-align:center; padding:30px; color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Memuat data investigasi...</div>';
 
         try {
-            const res = await window.fetchData('/api/laporan-chat');
+            const res = await apiCall('/api/laporan-chat');
             let list = (res && res.ok) ? await res.json() : [];
 
             if (filterType !== 'all') {
@@ -1264,28 +1047,82 @@
     };
 
     // =========================================================================
-    // 8. NOTIFIKASI AKTIVITAS SISTEM TERPADU & LIGHTBOX
+    // 7. SATU SISTEM TAMPILAN NOTIFIKASI TUNGGAL (ANTI-GLITCH, STABLE CHRONOLOGICAL)
     // =========================================================================
     window.initGlobalNotifications = function () {
-        if (!window.globalNotificationsData.length) {
-            window.globalNotificationsData = [
-                { id: 1, type: 'urgent', text: 'Sengketa Mendesak: Warga fufufafa melaporkan belum menerima BLT fisik!', time: '5m lalu', action: 'chat', nik: '6475839372837483', nama: 'fufufafa', pinned: true, archived: false },
-                { id: 2, type: 'urgent', text: 'Manipulasi Berkas: Anomali nilai aset C2 NIK 3515797650336843 melebihi ambang desil', time: '20m lalu', action: 'spk', pinned: false, archived: false },
-                { id: 3, type: 'info', text: 'Pesan Masuk: Pertanyaan jadwal penyaluran bansos dari warga Tini', time: '1j lalu', action: 'chat', nik: '3578101008030005', nama: 'tini', pinned: false, archived: false },
-                { id: 4, type: 'success', text: 'Perhitungan SPK Selesai: Matriks SAW & BWM siap dicetak ke SK Bupati', time: '2j lalu', action: 'spk', pinned: false, archived: false }
-            ];
-            localStorage.setItem('adminNotificationsData', JSON.stringify(window.globalNotificationsData));
-        }
-        window.updateNotificationBadgeCount();
+        if (window._notifPollTimer) clearInterval(window._notifPollTimer);
+        if (window.notifInterval) clearInterval(window.notifInterval);
+        if (window._notifInterval) clearInterval(window._notifInterval);
+
+        window.fetchNotifications();
+        window._notifPollTimer = setInterval(() => {
+            window.fetchNotifications();
+        }, 3000);
+    };
+
+    window.fetchNotifications = async function () {
+        try {
+            const res = await apiCall('/api/notifikasi');
+            if (!res || !res.ok) return;
+            const resJson = await res.json();
+            const serverData = resJson.data || [];
+
+            window.globalNotificationsData = serverData.map(n => {
+                const pesan = n.pesan || '';
+                const lower = pesan.toLowerCase();
+
+                let isUrgent = Boolean(
+                    pesan.includes('🚨') ||
+                    lower.includes('sengketa') ||
+                    lower.includes('aduan') ||
+                    lower.includes('urgent') ||
+                    lower.includes('investigasi') ||
+                    lower.includes('anomali')
+                );
+
+                const nikMatch = pesan.match(/\b\d{16}\b/);
+                const nik = nikMatch ? nikMatch[0] : null;
+
+                let action = null;
+                if (nik || lower.includes('[warga]') || lower.includes('aduan')) {
+                    action = 'chat';
+                } else if (lower.includes('spk') || lower.includes('kriteria') || lower.includes('saw') || lower.includes('bwm')) {
+                    action = 'spk';
+                }
+
+                return {
+                    id: n.id,
+                    isUrgent: isUrgent,
+                    text: pesan,
+                    time: n.waktu,
+                    action: action,
+                    nik: nik,
+                    pinned: Boolean(n.is_pinned),
+                    archived: Boolean(n.is_archived),
+                    is_read: Boolean(n.is_read)
+                };
+            });
+
+            window.updateNotificationBadgeCount(resJson.unread);
+
+            const panel = document.getElementById('notifPanel');
+            if (panel && (panel.style.display === 'flex' || panel.style.display === 'block')) {
+                window.renderNotificationList();
+            }
+        } catch (e) {}
     };
 
     window.toggleNotifPanel = function (e) {
         if (e) e.stopPropagation();
         const panel = document.getElementById('notifPanel');
         if (!panel) return;
-        const isShow = panel.style.display === 'flex';
+        const isShow = panel.style.display === 'flex' || panel.style.display === 'block';
         panel.style.display = isShow ? 'none' : 'flex';
-        if (!isShow) window.renderNotificationList();
+        if (!isShow) {
+            lastRenderedNotifState = ''; // Force fresh render when opened
+            window.fetchNotifications();
+            window.renderNotificationList();
+        }
     };
 
     window.switchNotifTab = function (tab) {
@@ -1294,126 +1131,200 @@
         if (tab === 'all') document.getElementById('tabNotifAll')?.classList.add('active');
         else if (tab === 'urgent') document.getElementById('tabNotifUrgent')?.classList.add('active');
         else if (tab === 'arsip') document.getElementById('tabNotifArsip')?.classList.add('active');
+        lastRenderedNotifState = '';
         window.renderNotificationList();
     };
 
+    // FUNGSI RENDER TUNGGAL & PENGURUTAN KRONOLOGIS STABIL (ANTI-GLITCH)
     window.renderNotificationList = function () {
         const listContainer = document.getElementById('notifList');
         if (!listContainer) return;
 
-        let items = [...window.globalNotificationsData];
-        if (window.activeNotifTab === 'urgent') items = items.filter(n => n.type === 'urgent' && !n.archived);
+        let items = [...(window.globalNotificationsData || [])];
+        if (window.activeNotifTab === 'urgent') items = items.filter(n => n.isUrgent && !n.archived);
         else if (window.activeNotifTab === 'arsip') items = items.filter(n => n.archived);
         else items = items.filter(n => !n.archived);
 
+        // Kunci pengurutan kronologis stabil: Sematan paling atas, sisanya murni berdasarkan urutan waktu terbaru
         items.sort((a, b) => {
             if (a.pinned !== b.pinned) return b.pinned ? 1 : -1;
-            if (a.type === 'urgent' && b.type !== 'urgent') return -1;
-            if (b.type === 'urgent' && a.type !== 'urgent') return 1;
             return b.id - a.id;
         });
 
+        // Smart Diffing: Cegah render ulang DOM jika data & tab tidak berubah (menghilangkan glitch acak)
+        const currentStateKey = JSON.stringify(items.map(i => ({ id: i.id, p: i.pinned, a: i.archived, r: i.is_read }))) + '_' + window.activeNotifTab;
+        if (currentStateKey === lastRenderedNotifState && listContainer.children.length > 0) {
+            return;
+        }
+        lastRenderedNotifState = currentStateKey;
+
         if (!items.length) {
-            listContainer.innerHTML = '<div style="text-align:center; padding:35px 20px; color:#94a3b8;"><i class="fas fa-bell-slash fa-2x"></i><p style="margin-top:8px;">Tidak ada notifikasi.</p></div>';
+            listContainer.innerHTML = '<div style="text-align:center; padding:35px 20px; color:#94a3b8;"><i class="fas fa-bell-slash fa-2x"></i><p style="margin-top:8px; font-size:0.85rem;">Tidak ada notifikasi baru.</p></div>';
             return;
         }
 
+        const prevScroll = listContainer.scrollTop;
+
         listContainer.innerHTML = items.map(n => {
-            const isUrgent = n.type === 'urgent';
+            const rawPesan = n.text || '';
+            let roleBadgeText = 'SISTEM';
+            let badgeStyle = 'background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;';
+            let cleanText = rawPesan;
+
+            // Ekstraksi Tag Peran Bersih
+            const tagMatch = rawPesan.match(/^\[(Admin|Petugas|Operator|Warga|Sistem)\]\s*/i);
+            if (tagMatch) {
+                const tag = tagMatch[1].toUpperCase();
+                cleanText = rawPesan.replace(/^\[(Admin|Petugas|Operator|Warga|Sistem)\]\s*/i, '').trim();
+                if (tag === 'ADMIN') {
+                    roleBadgeText = 'ADMIN';
+                    badgeStyle = 'background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe;';
+                } else if (tag === 'PETUGAS' || tag === 'OPERATOR') {
+                    roleBadgeText = 'PETUGAS';
+                    badgeStyle = 'background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;';
+                } else if (tag === 'WARGA') {
+                    roleBadgeText = 'WARGA';
+                    badgeStyle = 'background:#fee2e2; color:#b91c1c; border:1px solid #fecaca;';
+                }
+            } else {
+                const lower = rawPesan.toLowerCase();
+                if (lower.includes('admin') || lower.includes('super admin')) {
+                    roleBadgeText = 'ADMIN';
+                    badgeStyle = 'background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe;';
+                } else if (lower.includes('petugas') || lower.includes('operator') || lower.includes('persetujuan massal') || lower.includes('verifikasi')) {
+                    roleBadgeText = 'PETUGAS';
+                    badgeStyle = 'background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;';
+                } else if (lower.includes('warga') || lower.includes('pengaduan') || lower.includes('aduan')) {
+                    roleBadgeText = 'WARGA';
+                    badgeStyle = 'background:#fee2e2; color:#b91c1c; border:1px solid #fecaca;';
+                }
+            }
+
             return `
-                <div class="ntf-item ${isUrgent ? 'urgent-notification' : ''} ${n.pinned ? 'pinned-notification' : ''}" onclick="window.handleNotificationClick(${n.id})">
-                    <div class="ntf-icon ${isUrgent ? 'urgent' : (n.type === 'success' ? 'success' : 'info')}">
-                        <i class="fas ${isUrgent ? 'fa-exclamation-triangle' : (n.type === 'success' ? 'fa-check-circle' : 'fa-info-circle')}"></i>
+                <div class="ntf-item-row" onclick="window.handleNotificationClick(${n.id})" 
+                     style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s; background: ${n.is_read ? '#ffffff' : '#f8fafc'};" 
+                     onmouseenter="this.style.background='#f1f5f9'" 
+                     onmouseleave="this.style.background='${n.is_read ? '#ffffff' : '#f8fafc'}'">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; ${badgeStyle}">
+                            ${roleBadgeText}
+                        </span>
+                        
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.72rem; color: #94a3b8; font-family: monospace;">${n.time}</span>
+                            
+                            <button type="button" onclick="window.togglePinNotification(${n.id}, event)" style="background: none; border: none; color: ${n.pinned ? '#d97706' : '#94a3b8'}; cursor: pointer; padding: 2px 4px;" title="${n.pinned ? 'Lepas Sematan' : 'Sematkan'}">
+                                <i class="fas fa-thumbtack"></i>
+                            </button>
+                            <button type="button" onclick="window.toggleArchiveNotification(${n.id}, event)" style="background: none; border: none; color: ${n.archived ? '#0284c7' : '#94a3b8'}; cursor: pointer; padding: 2px 4px;" title="${n.archived ? 'Pulihkan' : 'Arsipkan'}">
+                                <i class="fas fa-archive"></i>
+                            </button>
+                            <button type="button" onclick="window.hapusNotifikasi(${n.id}, event)" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 2px 4px;" title="Hapus">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="ntf-content">
-                        ${isUrgent ? '<span class="ntf-n-mini">URGENT</span>' : ''}
-                        <div class="ntf-msg">${window.safeHtml(n.text)}</div>
-                        <div class="ntf-time"><i class="fas fa-clock"></i> ${n.time}</div>
-                    </div>
-                    <div class="ntf-actions" onclick="event.stopPropagation()">
-                        <button type="button" class="ntf-action-btn" onclick="window.togglePinNotification(${n.id})" title="${n.pinned ? 'Lepas Pin' : 'Sematkan'}">
-                            <i class="fas fa-thumbtack ${n.pinned ? 'text-accent' : ''}"></i>
-                        </button>
-                        <button type="button" class="ntf-action-btn" onclick="window.toggleArchiveNotification(${n.id})" title="${n.archived ? 'Kembalikan' : 'Arsipkan'}">
-                            <i class="fas fa-archive"></i>
-                        </button>
+
+                    <div style="font-size: 0.85rem; color: #1e293b; font-weight: ${n.is_read ? '500' : '700'}; line-height: 1.45; word-break: break-word;">
+                        ${window.safeHtml(cleanText)}
                     </div>
                 </div>
             `;
         }).join('');
+
+        listContainer.scrollTop = prevScroll;
     };
 
-    window.handleNotificationClick = function (id) {
-        const item = window.globalNotificationsData.find(n => n.id === id);
+    // Imunisasi fungsi render agar skrip lain tidak dapat menimpanya dengan layout lama
+    window.renderNotifikasi = window.renderNotificationList;
+    window.loadNotifikasi = window.fetchNotifications;
+    window.loadNotifications = window.fetchNotifications;
+    window.checkNotifications = window.fetchNotifications;
+
+    window.handleNotificationClick = async function (id) {
+        const item = (window.globalNotificationsData || []).find(n => n.id === id);
         if (!item) return;
-        document.getElementById('notifPanel').style.display = 'none';
+
+        try {
+            await apiCall(`/api/notifikasi/${id}/read`, { method: 'PATCH' });
+        } catch (e) {}
+
+        const panel = document.getElementById('notifPanel');
+        if (panel) panel.style.display = 'none';
 
         if (item.action === 'chat' && item.nik) {
-            window.openAdminChat();
-            window.loadChatMessages(item.nik, item.nama || 'Warga');
+            window.openAdminChat(item.nik, window.getWargaNameByNik(item.nik));
         } else if (item.action === 'spk') {
             if (typeof window.hitungSPK === 'function') window.hitungSPK();
         }
+
+        lastRenderedNotifState = '';
+        window.fetchNotifications();
     };
 
-    window.togglePinNotification = function (id) {
-        const item = window.globalNotificationsData.find(n => n.id === id);
-        if (item) {
-            item.pinned = !item.pinned;
-            localStorage.setItem('adminNotificationsData', JSON.stringify(window.globalNotificationsData));
-            window.renderNotificationList();
-        }
+    window.togglePinNotification = async function (id, event) {
+        if (event) event.stopPropagation();
+        try {
+            await apiCall(`/api/notifikasi/${id}/pin`, { method: 'PATCH' });
+            lastRenderedNotifState = '';
+            await window.fetchNotifications();
+        } catch (e) {}
     };
 
-    window.toggleArchiveNotification = function (id) {
-        const item = window.globalNotificationsData.find(n => n.id === id);
-        if (item) {
-            item.archived = !item.archived;
-            localStorage.setItem('adminNotificationsData', JSON.stringify(window.globalNotificationsData));
-            window.renderNotificationList();
-            window.updateNotificationBadgeCount();
-        }
+    window.toggleArchiveNotification = async function (id, event) {
+        if (event) event.stopPropagation();
+        try {
+            await apiCall(`/api/notifikasi/${id}/archive`, { method: 'PATCH' });
+            lastRenderedNotifState = '';
+            await window.fetchNotifications();
+        } catch (e) {}
     };
 
-    window.tandaiSemuaNotifDibaca = function () {
-        window.globalNotificationsData.forEach(n => n.archived = true);
-        localStorage.setItem('adminNotificationsData', JSON.stringify(window.globalNotificationsData));
-        window.renderNotificationList();
-        window.updateNotificationBadgeCount();
+    window.tandaiSemuaNotifDibaca = async function () {
+        try {
+            await apiCall('/api/notifikasi/read-all', { method: 'POST' });
+            lastRenderedNotifState = '';
+            await window.fetchNotifications();
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Semua notifikasi dibaca', timer: 1500, showConfirmButton: false });
+            }
+        } catch (e) {}
     };
 
-    window.updateNotificationBadgeCount = function () {
-        const count = window.globalNotificationsData.filter(n => !n.archived).length;
-        const badge = document.getElementById('notifBadge');
-        if (badge) {
-            badge.innerText = count;
-            badge.style.display = count > 0 ? 'block' : 'none';
-        }
+    window.hapusSemuaNotif = async function () {
+        try {
+            await apiCall('/api/notifikasi/clear-all', { method: 'DELETE' });
+            lastRenderedNotifState = '';
+            await window.fetchNotifications();
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Notifikasi dibersihkan', timer: 1500, showConfirmButton: false });
+            }
+        } catch (e) {}
+    };
+    window.bersihkanSemuaNotifikasi = window.hapusSemuaNotif;
+
+    window.hapusNotifikasi = async function (id, event) {
+        if (event) event.stopPropagation();
+        try {
+            await apiCall(`/api/notifikasi/${id}`, { method: 'DELETE' });
+            lastRenderedNotifState = '';
+            await window.fetchNotifications();
+        } catch (e) {}
     };
 
-    window.toggleChatActionDropdown = function (event) {
-        if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
-        const dropdown = document.getElementById('chatActionDropdown');
-        if (dropdown) dropdown.classList.toggle('show');
-    };
+    window.updateNotificationBadgeCount = function (count) {
+        const unread = count !== undefined ? count : (window.globalNotificationsData || []).filter(n => !n.is_read && !n.archived).length;
+        const badge1 = document.getElementById('notifBadge');
+        const badge2 = document.querySelector('.notif-badge');
+        const badge3 = document.querySelector('.ntf-badge-number');
 
-    window.bukaModalLaporRiwayat = function () {
-        if (!window.activeChatNik) return Swal.fire('Peringatan', 'Pilih obrolan warga terlebih dahulu.', 'warning');
-        const modal = document.getElementById('modalLaporRiwayat');
-        if (modal) modal.style.display = 'flex';
-    };
-
-    window.eksekusiLaporRiwayat = async function () {
-        const alasan = document.getElementById('inputAlasanLaporChat')?.value.trim();
-        if (!alasan) return Swal.fire('Peringatan', 'Alasan pelaporan wajib diisi.', 'warning');
-        if (typeof window.closeModal === 'function') window.closeModal('modalLaporRiwayat');
-        Swal.fire('Tercatat', 'Riwayat obrolan berhasil diteruskan ke Pusat Investigasi.', 'success');
-    };
-
-    window.hapusRiwayatLokal = function () {
-        if (!window.activeChatNik) return;
-        document.getElementById('adminChatMessages').innerHTML = '<div style="text-align:center; color:#94a3b8; margin:auto;">Riwayat percakapan telah dibersihkan secara lokal.</div>';
-        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Obrolan dibersihkan', timer: 1500, showConfirmButton: false });
+        [badge1, badge2, badge3].forEach(b => {
+            if (b) {
+                b.innerText = unread;
+                b.style.display = unread > 0 ? 'inline-block' : 'none';
+            }
+        });
     };
 
     window.openLightbox = function (url, type) {

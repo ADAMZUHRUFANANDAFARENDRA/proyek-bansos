@@ -42,13 +42,14 @@
             overflow-x: hidden;
         }
 
-        /* --- HERO BANNER BERSIH TANPA LOGO DI SAMPING JUDUL --- */
+        /* --- HERO BANNER --- */
         .hero-public {
             background: linear-gradient(135deg, #009846 0%, #007a37 100%);
             color: white;
             padding: 3.5rem 1.5rem 5rem 1.5rem;
             text-align: center;
             position: relative;
+            z-index: 10;
         }
 
         .hero-public h1 {
@@ -67,26 +68,29 @@
         }
 
         .btn-tour-nav {
-            background: rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.22);
             backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.4);
+            border: 1.5px solid rgba(255, 255, 255, 0.5);
             color: white;
-            padding: 10px 24px;
+            padding: 11px 26px;
             border-radius: 30px;
             font-weight: 700;
             font-size: 0.92rem;
-            cursor: pointer;
+            cursor: pointer !important;
             transition: all 0.2s;
             display: inline-flex;
             align-items: center;
             gap: 8px;
+            position: relative;
+            z-index: 100;
+            pointer-events: auto !important;
         }
 
         .btn-tour-nav:hover {
             background: white;
             color: #009846;
             transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.18);
         }
 
         .btn-petugas-link {
@@ -116,7 +120,7 @@
             color: #007a37;
         }
 
-        /* --- CONTAINER UTAMA BEBAS TERPOTONG --- */
+        /* --- CONTAINER UTAMA --- */
         .container-public {
             max-width: 1100px;
             margin: -36px auto 60px auto;
@@ -134,7 +138,7 @@
             margin-bottom: 30px;
         }
 
-        /* --- TABS NAVIGASI 4 PILIHAN SEJAJAR --- */
+        /* --- TABS NAVIGASI --- */
         .tabs-portal {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -192,7 +196,272 @@
             50% { box-shadow: 0 0 0 8px rgba(0, 152, 70, 0.25); }
         }
 
-        /* --- MODAL PANDUAN AKSES SISTEM PERSIS SEPERTI LOGIN.HTML --- */
+        /* --- FORM STYLES --- */
+        .form-group { margin-bottom: 16px; text-align: left; }
+        .form-label { display: block; font-size: 0.85rem; font-weight: 700; margin-bottom: 6px; color: var(--text-main); }
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            border: 1.5px solid #cbd5e1;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+            background: white;
+            font-family: inherit;
+        }
+        .form-input:focus { border-color: #009846; box-shadow: 0 0 0 4px rgba(0, 152, 70, 0.1); }
+
+        /* --- CUSTOM DROPDOWN MEMBULAT & MODERN (ANTI-KOTAK) --- */
+        .custom-select-wrapper {
+            position: relative;
+            user-select: none;
+            width: 100%;
+        }
+        .custom-select-trigger {
+            width: 100%;
+            padding: 12px 18px;
+            border-radius: 16px;
+            border: 1.5px solid #cbd5e1;
+            font-size: 0.95rem;
+            background: #ffffff;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-main);
+            transition: all 0.2s ease-in-out;
+        }
+        .custom-select-trigger:hover {
+            border-color: #94a3b8;
+        }
+        .custom-select-trigger.active, .custom-select-wrapper.open .custom-select-trigger {
+            border-color: #009846;
+            box-shadow: 0 0 0 4px rgba(0, 152, 70, 0.12);
+        }
+        .custom-select-trigger i {
+            font-size: 0.85rem;
+            color: #64748b;
+            transition: transform 0.25s ease;
+        }
+        .custom-select-wrapper.open .custom-select-trigger i {
+            transform: rotate(180deg);
+            color: #009846;
+        }
+        .custom-select-options {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 18px;
+            box-shadow: 0 14px 35px rgba(15, 23, 42, 0.14);
+            display: none;
+            z-index: 1000;
+            padding: 8px;
+            max-height: 240px;
+            overflow-y: auto;
+            animation: slideDownFade 0.2s ease-out;
+        }
+        .custom-select-wrapper.open .custom-select-options {
+            display: block;
+        }
+        .custom-option {
+            padding: 10px 14px;
+            font-size: 0.92rem;
+            color: #334155;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .custom-option:hover {
+            background: #e6f9f0;
+            color: #009846;
+            font-weight: 700;
+        }
+        .custom-option.selected {
+            background: #009846;
+            color: #ffffff;
+            font-weight: 700;
+        }
+        @keyframes slideDownFade {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .btn-action {
+            background: #009846;
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 30px;
+            font-weight: 800;
+            cursor: pointer;
+            width: 100%;
+            font-size: 1rem;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 14px rgba(0,152,70,0.22);
+        }
+        .btn-action:hover { background: #007a37; transform: translateY(-1px); }
+
+        .map-box-area {
+            height: 320px !important;
+            width: 100%;
+            border-radius: 16px;
+            border: 1.5px solid var(--border-color);
+            position: relative;
+            z-index: 10;
+            display: block;
+            background: #e2e8f0;
+        }
+
+        .panel-cek-status-full {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+        }
+
+        /* --- KARTU FAQ MODERN TERPISAH --- */
+        .faq-modern-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .faq-modern-card {
+            background: #ffffff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+            transition: all 0.25s ease;
+        }
+        .faq-modern-card:hover {
+            border-color: #009846;
+            box-shadow: 0 8px 24px rgba(0, 152, 70, 0.08);
+            transform: translateY(-2px);
+        }
+        .faq-card-header {
+            padding: 18px 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            background: #ffffff;
+            gap: 16px;
+            user-select: none;
+        }
+        .faq-header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex: 1;
+        }
+        .faq-icon-badge {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: #e6f9f0;
+            color: #009846;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        .faq-question-title {
+            font-weight: 800;
+            font-size: 0.98rem;
+            color: #0f172a;
+            line-height: 1.4;
+        }
+        .faq-chevron {
+            color: #94a3b8;
+            font-size: 0.95rem;
+            transition: transform 0.25s ease;
+            flex-shrink: 0;
+        }
+        .faq-modern-card.open {
+            border-color: #009846;
+            box-shadow: 0 6px 20px rgba(0, 152, 70, 0.1);
+        }
+        .faq-modern-card.open .faq-chevron {
+            transform: rotate(180deg);
+            color: #009846;
+        }
+        .faq-card-body {
+            display: none;
+            padding: 18px 24px 22px 82px;
+            background: #f8fafc;
+            border-top: 1px dashed #e2e8f0;
+            font-size: 0.92rem;
+            line-height: 1.7;
+            color: #334155;
+        }
+
+        /* --- STEPPER PENGADUAN --- */
+        .stepper-complaint {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+            position: relative;
+        }
+        .stepper-complaint::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 30px;
+            right: 30px;
+            height: 3px;
+            background: #e2e8f0;
+            z-index: 1;
+        }
+        .step-node {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            width: 100px;
+        }
+        .step-circle {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: #cbd5e1;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            margin: 0 auto 6px auto;
+        }
+        .step-node.done .step-circle { background: #009846; }
+        .step-node.active .step-circle { background: #dc2626; box-shadow: 0 0 12px rgba(220,38,38,0.4); }
+        .step-title { font-size: 0.78rem; font-weight: 700; color: #475569; }
+
+        /* --- MODAL PANDUAN PORTAL --- */
+        .modal-blur-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(8px);
+            z-index: 100000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
         .panduan-modal-card {
             background: #ffffff;
             border-radius: 24px;
@@ -203,12 +472,10 @@
             border: 1px solid var(--border-color);
             animation: scaleUp 0.25s ease-out;
         }
-
         @keyframes scaleUp {
             from { opacity: 0; transform: scale(0.94); }
             to { opacity: 1; transform: scale(1); }
         }
-
         .panduan-header {
             padding: 22px 26px;
             border-bottom: 1px solid #f1f5f9;
@@ -216,24 +483,9 @@
             justify-content: space-between;
             align-items: center;
         }
-
-        .panduan-header h3 {
-            font-size: 1.25rem;
-            font-weight: 800;
-            color: #0f172a;
-        }
-
-        .panduan-close-btn {
-            background: none;
-            border: none;
-            font-size: 1.8rem;
-            color: #94a3b8;
-            cursor: pointer;
-            line-height: 1;
-        }
-
+        .panduan-header h3 { font-size: 1.25rem; font-weight: 800; color: #0f172a; }
+        .panduan-close-btn { background: none; border: none; font-size: 1.8rem; color: #94a3b8; cursor: pointer; line-height: 1; }
         .panduan-close-btn:hover { color: #dc2626; }
-
         .panduan-body {
             padding: 20px 24px;
             display: flex;
@@ -242,7 +494,6 @@
             max-height: 70vh;
             overflow-y: auto;
         }
-
         .panduan-item {
             border: 1px solid #e2e8f0;
             border-radius: 16px;
@@ -255,36 +506,17 @@
             transition: all 0.2s ease;
             background: #ffffff;
         }
-
         .panduan-item:hover {
             border-color: #009846;
             background: #f0fdf4;
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 152, 70, 0.08);
         }
+        .panduan-item-info h4 { font-size: 0.96rem; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+        .panduan-item-info p { font-size: 0.84rem; color: #64748b; line-height: 1.45; }
+        .panduan-link-btn { font-size: 0.85rem; font-weight: 800; color: #009846; white-space: nowrap; flex-shrink: 0; }
 
-        .panduan-item-info h4 {
-            font-size: 0.96rem;
-            font-weight: 800;
-            color: #0f172a;
-            margin-bottom: 4px;
-        }
-
-        .panduan-item-info p {
-            font-size: 0.84rem;
-            color: #64748b;
-            line-height: 1.45;
-        }
-
-        .panduan-link-btn {
-            font-size: 0.85rem;
-            font-weight: 800;
-            color: #009846;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-
-        /* --- WIDGET CHATBOT INTERAKTIF FLOATING --- */
+        /* --- CHATBOT WIDGET --- */
         .chatbot-fab {
             position: fixed;
             bottom: 28px;
@@ -304,9 +536,7 @@
             align-items: center;
             transition: transform 0.2s;
         }
-
         .chatbot-fab:hover { transform: scale(1.1); }
-
         .chatbot-window {
             position: fixed;
             bottom: 96px;
@@ -324,7 +554,6 @@
             overflow: hidden;
             animation: fadeIn 0.2s ease-out;
         }
-
         .chatbot-header {
             padding: 16px 18px;
             background: linear-gradient(135deg, #0284c7, #1d4ed8);
@@ -333,15 +562,7 @@
             justify-content: space-between;
             align-items: center;
         }
-
-        .chatbot-header h4 {
-            font-size: 0.95rem;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
+        .chatbot-header h4 { font-size: 0.95rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
         .chatbot-body {
             flex: 1;
             padding: 16px;
@@ -352,7 +573,6 @@
             gap: 10px;
             font-size: 0.86rem;
         }
-
         .bot-bubble {
             background: #ffffff;
             border: 1px solid #e2e8f0;
@@ -362,7 +582,6 @@
             line-height: 1.45;
             max-width: 85%;
         }
-
         .user-bubble {
             background: #009846;
             color: white;
@@ -372,14 +591,7 @@
             max-width: 85%;
             line-height: 1.45;
         }
-
-        .chatbot-quick-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            margin-top: 4px;
-        }
-
+        .chatbot-quick-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
         .chat-chip-btn {
             background: #ffffff;
             border: 1px solid #cbd5e1;
@@ -392,84 +604,30 @@
             cursor: pointer;
             transition: all 0.15s;
         }
-
-        .chat-chip-btn:hover {
-            border-color: #009846;
-            color: #009846;
-            background: #f0fdf4;
-        }
-
-        /* --- FORM & MAP STYLES --- */
-        .form-group { margin-bottom: 16px; text-align: left; }
-        .form-label { display: block; font-size: 0.85rem; font-weight: 700; margin-bottom: 6px; color: var(--text-main); }
-        .form-input, .form-select {
-            width: 100%;
-            padding: 12px 16px;
-            border-radius: 10px;
+        .chat-chip-btn:hover { border-color: #009846; color: #009846; background: #f0fdf4; }
+        .chat-pill-input {
+            flex: 1;
+            background: #f1f5f9;
             border: 1px solid #cbd5e1;
-            font-size: 0.95rem;
+            border-radius: 25px;
+            padding: 10px 16px;
             outline: none;
-            transition: border-color 0.2s;
-            background: white;
-        }
-        .form-input:focus, .form-select:focus { border-color: #009846; }
-
-        .btn-action {
-            background: #009846;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-weight: 800;
-            cursor: pointer;
-            width: 100%;
-            font-size: 1rem;
-            transition: background 0.2s;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        .btn-action:hover { background: #007a37; }
-
-        /* WADAH PETA GEOTAGGING TAMPIL BERSIH & TERANG */
-        .map-box-area {
-            height: 320px !important;
-            width: 100%;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            position: relative;
-            z-index: 10;
-            display: block;
-            background: #e2e8f0;
-        }
-
-        .modal-blur-overlay {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100vw; height: 100vh;
-            background: rgba(15, 23, 42, 0.65);
-            backdrop-filter: blur(8px);
-            z-index: 2000;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
+            font-family: inherit;
         }
     </style>
 </head>
 <body class="page-public">
 
-    <!-- TOMBOL AKSES PETUGAS (KEMBALI KE LOGIN.HTML) -->
+    <!-- TOMBOL AKSES PETUGAS -->
     <a href="login.html" class="btn-petugas-link">
         <i class="fas fa-user-shield"></i> Akses Petugas
     </a>
 
-    <!-- HERO BANNER BERSIH TANPA LOGO DI SAMPING JUDUL -->
+    <!-- HERO BANNER -->
     <div class="hero-public">
         <h1>Portal Layanan Sosial</h1>
         <p>Platform pendaftaran mandiri dan pemantauan transparan Bantuan Sosial Terpadu Pemerintah Kabupaten Sidoarjo.</p>
-        <button type="button" onclick="window.bukaModalPanduanPortal()" class="btn-tour-nav">
+        <button type="button" onclick="window.mulaiTurInteraktif()" class="btn-tour-nav" id="btnTourNav">
             <i class="fas fa-play-circle"></i> Mulai Tur Interaktif Sistem
         </button>
     </div>
@@ -496,14 +654,14 @@
 
             <!-- 1. TAB LOGIN DASHBOARD WARGA -->
             <div id="loginWargaSection" class="tab-content-portal active">
-                <div style="max-width: 480px; margin: 0 auto; text-align: center;">
+                <div style="max-width: 100%; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px;">
                     <div style="width: 70px; height: 70px; background: #e6f9f0; border-radius: 50%; color: #009846; font-size: 2.2rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
                         <i class="fas fa-fingerprint"></i>
                     </div>
                     <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 8px;">Akses Dashboard Personal</h2>
-                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px;">Masukkan identitas lengkap terdaftar Anda untuk membuka riwayat penetapan dan live chat koordinasi bersama Dinsos.</p>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; text-align: center; max-width: 500px;">Masukkan identitas lengkap terdaftar Anda untuk membuka riwayat penetapan dan live chat koordinasi bersama Dinsos.</p>
                     
-                    <form onsubmit="window.loginWarga(event)">
+                    <form onsubmit="window.prosesMasukDashboard ? window.prosesMasukDashboard(event) : window.loginWarga(event)" style="width: 100%; max-width: 500px;">
                         <div class="form-group">
                             <label class="form-label">Nomor Induk Kependudukan (NIK)</label>
                             <input type="text" inputmode="numeric" maxlength="16" id="loginNik" class="form-input" placeholder="16 Digit NIK KTP" required>
@@ -525,41 +683,39 @@
 
             <!-- 2. TAB CEK STATUS (NIK) -->
             <div id="cekStatusSection" class="tab-content-portal">
-                <div style="max-width: 520px; margin: 0 auto; text-align: center;">
-                    <div style="width: 70px; height: 70px; background: #e0f2fe; border-radius: 50%; color: #0284c7; font-size: 2.2rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 8px;">Cek Status Kepesertaan Bansos</h2>
-                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px;">Ketahui status pengajuan Bantuan Sosial Anda secara instan dan transparan hanya menggunakan NIK.</p>
-                    
-                    <form id="panel-input-nik" onsubmit="window.cekStatusAwal(event)">
-                        <div class="form-group">
-                            <label class="form-label">Nomor Induk Kependudukan (NIK 16 Digit)</label>
-                            <input type="text" inputmode="numeric" maxlength="16" id="cekNik" class="form-input" placeholder="Ketik 16 digit NIK..." required>
+                <div class="panel-cek-status-full" id="panelInputLacak">
+                    <div style="text-align: center; margin-bottom: 25px; max-width: 600px;">
+                        <div style="width: 70px; height: 70px; background: #e0f2fe; border-radius: 50%; color: #0284c7; font-size: 2.2rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+                            <i class="fas fa-shield-alt"></i>
                         </div>
-                        <button type="submit" class="btn-action" style="padding: 14px; border-radius: 30px; background: linear-gradient(135deg, #0284c7, #1d4ed8);">
-                            <i class="fas fa-search"></i> Lacak Status Bansos
-                        </button>
-                    </form>
+                        <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 8px;">Cek Status Kepesertaan Bansos</h2>
+                        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px;">Ketahui status pengajuan Bantuan Sosial Anda secara instan dan transparan hanya menggunakan NIK.</p>
+                        
+                        <form onsubmit="window.prosesLacakBansos ? window.prosesLacakBansos(event) : window.cekStatusAwal(event)" style="width: 100%;">
+                            <div class="form-group">
+                                <label class="form-label" style="text-align: left;">Nomor Induk Kependudukan (NIK 16 Digit)</label>
+                                <input type="text" inputmode="numeric" maxlength="16" id="cekNik" class="form-input" placeholder="Ketik 16 digit NIK..." required>
+                            </div>
+                            <button type="submit" class="btn-action" style="padding: 14px; border-radius: 30px; background: linear-gradient(135deg, #0284c7, #1d4ed8);">
+                                <i class="fas fa-search"></i> Lacak Status Bansos
+                            </button>
+                        </form>
+                    </div>
+                </div>
 
-                    <div id="panel-hasil-cek" style="display:none; text-align:left; margin-top: 24px;">
-                        <div id="kartuStatus" style="background:#f0fdf4; border:1px solid #a7f3d0; padding:20px; border-radius:16px;"></div>
-                        <div style="display:flex; gap:10px; margin-top:16px;">
-                            <button type="button" onclick="window.resetCekStatus()" class="btn btn-secondary" style="padding: 12px 18px; border-radius: 10px;"><i class="fas fa-arrow-left"></i> Cek NIK Lain</button>
-                            <button type="button" onclick="window.switchTabPublik('loginWargaSection'); document.getElementById('loginNik').value = document.getElementById('cekNik').value;" class="btn btn-primary" style="flex:1; padding: 12px; border-radius: 10px;"><i class="fas fa-sign-in-alt"></i> Lanjut ke Dashboard</button>
-                        </div>
-                    </div>
+                <div id="panel-hasil-cek" style="display:none; width: 100%;">
+                    <div id="kartuStatus" style="width: 100%;"></div>
                 </div>
             </div>
 
-            <!-- 3. TAB DAFTAR MANDIRI (10 KRITERIA & PETA GEOTAGGING) -->
+            <!-- 3. TAB DAFTAR MANDIRI -->
             <div id="daftarMandiriSection" class="tab-content-portal">
                 <div style="background: #eff6ff; padding: 18px 22px; border-radius: 14px; border: 1px solid #bfdbfe; border-left: 6px solid #0284c7; margin-bottom: 25px;">
                     <b style="font-size:1rem; color:#1e3a8a;"><i class="fas fa-bolt"></i> Terintegrasi Langsung ke Sistem Pusat Dinsos Sidoarjo</b>
-                    <p style="color:#475569; font-size:0.88rem; margin-top:4px;">Pengajuan ini langsung dicatat ke basis data survei dan dievaluasi menggunakan metode Best-Worst Method (BWM) & Simple Additive Weighting (SAW).</p>
+                    <p style="color:#475569; font-size:0.88rem; margin-top:4px;">Pengajuan ini langsung dicatat ke basis data survei dan dievaluasi menggunakan metode Best-Worst Method (BWM) & Simple Additive Weighting (SAW)[cite: 1, 9].</p>
                 </div>
 
-                <form id="formPendaftaranWarga" onsubmit="window.daftarMandiri(event)">
+                <form id="formPendaftaranWarga" onsubmit="window.daftarMandiri ? window.daftarMandiri(event) : window.kirimPendaftaranMandiri(event)">
                     <h4 style="margin-bottom: 14px; color: #009846; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; font-weight:800;">A. Identitas Pemohon Utama</h4>
                     <div class="form-group">
                         <label class="form-label">Nomor Induk Kependudukan (NIK 16 Digit)</label>
@@ -579,10 +735,8 @@
                             <input type="date" id="regTglLahir" class="form-input" required>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Alamat Lengkap</label>
-                        <textarea id="regAlamat" class="form-input" rows="2" placeholder="Nama jalan, RT/RW, Dusun, Desa..." required onblur="window.cariAlamatDiPeta(this.value)"></textarea>
-                    </div>
+
+                    <!-- No. HP / WhatsApp & Alamat Email -->
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
                         <div class="form-group">
                             <label class="form-label">No. HP / WhatsApp</label>
@@ -594,18 +748,79 @@
                         </div>
                     </div>
 
-                    <h4 style="margin: 30px 0 14px 0; color: #009846; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; font-weight:800;">B. Kuesioner Kelayakan (10 Indikator SPK)</h4>
-                    <div class="q-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; background: #f8fafc; padding: 20px; border-radius: 14px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                    <!-- Alamat Lengkap Tempat Tinggal -->
+                    <div class="form-group">
+                        <label class="form-label">Alamat Lengkap Tempat Tinggal</label>
+                        <textarea id="regAlamat" class="form-input" rows="2" placeholder="Nama jalan, RT/RW, Dusun, Desa..." required onblur="window.cariAlamatDiPeta(this.value)"></textarea>
+                    </div>
+
+                    <!-- TITIK LOKASI RUMAH PETA LEAFLET -->
+                    <div class="form-group">
+                        <label class="form-label" style="color:var(--info); font-weight:800;"><i class="fas fa-map-pin"></i> titik lokasi rumah</label>
+                        <div class="map-wrapper" style="border:1.5px solid #cbd5e1; border-radius:16px; overflow:hidden;">
+                            <div id="mapPublik" class="map-box-area"></div>
+                        </div>
+                        <div style="display:flex; gap:8px; margin-top:10px;">
+                            <input type="text" id="latPublik" class="form-input" placeholder="Latitude" readonly style="background:#f1f5f9; text-align:center;">
+                            <input type="text" id="lngPublik" class="form-input" placeholder="Longitude" readonly style="background:#f1f5f9; text-align:center;">
+                            <button type="button" onclick="window.ambilLokasiGPS()" class="btn btn-secondary" style="color:var(--info); border-color:var(--info); white-space:nowrap; padding: 10px 18px; border-radius: 16px; cursor: pointer;"><i class="fas fa-crosshairs"></i> GPS Gawai</button>
+                        </div>
+                    </div>
+
+                    <!-- B. KUESIONER 10 KRITERIA KELAYAKAN -->
+                    <h4 style="margin: 30px 0 14px 0; color: #009846; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; font-weight:800;">B. kuesioner 10 kriteria kelayakan</h4>
+                    <div class="q-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; background: #f8fafc; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
                         <div class="form-group"><label class="form-label">C1. Ekonomi / Pendapatan Bulanan (Rp)</label><input type="number" id="regC1" class="form-input" value="1200000" required></div>
                         <div class="form-group"><label class="form-label">C2. Nilai Aset Pribadi (Rp)</label><input type="number" id="regC2" class="form-input" value="3000000" required></div>
                         <div class="form-group"><label class="form-label">C3. Umur Kepala Keluarga (Thn)</label><input type="number" id="regC3" class="form-input" value="45" required></div>
-                        <div class="form-group"><label class="form-label">C4. Jenis Kelamin</label><select id="regC4" class="form-select"><option value="1">Laki-laki</option><option value="2">Perempuan</option></select></div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">C4. Jenis Kelamin</label>
+                            <select id="regC4" class="form-select">
+                                <option value="1">Laki-laki</option>
+                                <option value="2">Perempuan</option>
+                            </select>
+                        </div>
+                        
                         <div class="form-group"><label class="form-label">C5. Jumlah Tanggungan Jiwa</label><input type="number" id="regC5" class="form-input" value="3" required></div>
-                        <div class="form-group"><label class="form-label">C6. Status Pernikahan</label><select id="regC6" class="form-select"><option value="1">Belum Menikah</option><option value="2" selected>Menikah</option><option value="3">Cerai Hidup/Mati</option></select></div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">C6. Status Pernikahan</label>
+                            <select id="regC6" class="form-select">
+                                <option value="1">Belum Menikah</option>
+                                <option value="2" selected>Menikah</option>
+                                <option value="3">Cerai Hidup/Mati</option>
+                            </select>
+                        </div>
+                        
                         <div class="form-group"><label class="form-label">C7. Kepemilikan Anak Sekolah</label><input type="number" id="regC7" class="form-input" value="2" required></div>
-                        <div class="form-group"><label class="form-label">C8. Status Tempat Tinggal</label><select id="regC8" class="form-select"><option value="1">Milik Sendiri</option><option value="2">Sewa / Kontrak</option><option value="3" selected>Menumpang / Tidak Layak</option></select></div>
-                        <div class="form-group" style="grid-column: span 2;"><label class="form-label">C9. Pendidikan Terakhir</label><select id="regC9" class="form-select"><option value="1" selected>Tidak Sekolah / SD</option><option value="2">SMP Sederajat</option><option value="3">SMA / SMK</option><option value="4">Perguruan Tinggi</option></select></div>
-                        <div class="form-group" style="grid-column: span 2;"><label class="form-label">C10. Kondisi Kesehatan</label><select id="regC10" class="form-select"><option value="1" selected>Sehat</option><option value="2">Sakit Menahun / Disabilitas Fisik</option></select></div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">C8. Status Tempat Tinggal</label>
+                            <select id="regC8" class="form-select">
+                                <option value="1">Milik Sendiri</option>
+                                <option value="2">Sewa / Kontrak</option>
+                                <option value="3" selected>Menumpang / Tidak Layak</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label class="form-label">C9. Pendidikan Terakhir</label>
+                            <select id="regC9" class="form-select">
+                                <option value="1" selected>Tidak Sekolah / SD</option>
+                                <option value="2">SMP Sederajat</option>
+                                <option value="3">SMA / SMK</option>
+                                <option value="4">Diploma/Sarjana</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label class="form-label">C10. Kondisi Kesehatan</label>
+                            <select id="regC10" class="form-select">
+                                <option value="1" selected>Sehat</option>
+                                <option value="2">Sakit Menahun / Disabilitas Fisik</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -613,21 +828,8 @@
                         <textarea id="regCatatan" class="form-input" rows="3" placeholder="Jelaskan kondisi ekonomi spesifik keluarga..." required></textarea>
                     </div>
 
-                    <!-- GEOTAGGING PETA PRESISI LEAFLET -->
-                    <div class="form-group">
-                        <label class="form-label" style="color:var(--info); font-weight:800;"><i class="fas fa-map-pin"></i> Kunci Titik Geotagging GPS Rumah</label>
-                        <div class="map-wrapper" style="border:1px solid #cbd5e1; border-radius:12px; overflow:hidden;">
-                            <div id="mapPublik" class="map-box-area"></div>
-                        </div>
-                        <div style="display:flex; gap:8px; margin-top:10px;">
-                            <input type="text" id="latPublik" class="form-input" placeholder="Latitude" readonly style="background:#f1f5f9; text-align:center;">
-                            <input type="text" id="lngPublik" class="form-input" placeholder="Longitude" readonly style="background:#f1f5f9; text-align:center;">
-                            <button type="button" onclick="window.ambilLokasiGPS()" class="btn btn-secondary" style="color:var(--info); border-color:var(--info); white-space:nowrap;"><i class="fas fa-crosshairs"></i> GPS Gawai</button>
-                        </div>
-                    </div>
-
                     <!-- CAPTCHA ARITMATIKA -->
-                    <div style="background:#fef3c7; border:1px solid #fde68a; padding:15px 20px; border-radius:14px; margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+                    <div style="background:#fef3c7; border:1px solid #fde68a; padding:15px 20px; border-radius:16px; margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
                         <div>
                             <div id="wargaCaptchaQ" style="font-size:1.25rem; font-weight:900; color:#b45309; font-family:monospace;">4 + 5 = ?</div>
                             <small style="color:#92400e;">Hitung verifikasi anti-bot di atas sebelum mengirim berkas.</small>
@@ -641,113 +843,224 @@
                 </form>
             </div>
 
-            <!-- 4. TAB BANTUAN (FAQ) -->
+            <!-- 4. TAB BANTUAN (FAQ) DENGAN KARTU TERPISAH & MODERN -->
             <div id="bantuanSection" class="tab-content-portal">
-                <div style="text-align:center; margin-bottom:28px;">
-                    <div style="width: 70px; height: 70px; background: #ecfdf5; border-radius: 50%; color: #009846; font-size: 2.2rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px auto;">
+                <div style="text-align:center; margin-bottom: 28px;">
+                    <div style="width: 65px; height: 65px; background: #e6f9f0; color: #009846; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.9rem; margin: 0 auto 12px auto;">
                         <i class="fas fa-book-reader"></i>
                     </div>
-                    <h2 style="font-size: 1.4rem; font-weight: 800; color: #0f172a;">Pusat Edukasi & Tanya Jawab</h2>
+                    <h2 style="font-size: 1.45rem; font-weight: 800; color: #0f172a;">Pusat Edukasi & Panduan Teknis Lengkap</h2>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">Informasi komprehensif mengenai mekanisme SPK, penetapan desil, dan jalur pengaduan bansos.</p>
                 </div>
-                <div style="display:flex; flex-direction:column; gap:12px;">
-                    <div class="guide-box" style="display:flex; gap:15px; padding:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px;">
-                        <i class="fas fa-question-circle text-primary" style="font-size:1.5rem; margin-top:2px;"></i>
-                        <div>
-                            <h4 style="font-size:0.95rem; font-weight:800; color:#0f172a;">Apa yang dimaksud kategori Desil 1–4?</h4>
-                            <p style="font-size:0.86rem; color:#64748b; margin-top:4px;">Desil 1 hingga 4 merupakan klaster keluarga dengan tingkat kesejahteraan terendah yang berhak menerima prioritas program Bantuan Sosial Kabupaten Sidoarjo.</p>
+
+                <div class="faq-modern-container">
+                    <div class="faq-modern-card" onclick="window.toggleFaqCard(this)">
+                        <div class="faq-card-header">
+                            <div class="faq-header-left">
+                                <div class="faq-icon-badge"><i class="fas fa-layer-group"></i></div>
+                                <div class="faq-question-title">1. Apa yang dimaksud kategori Desil 1–4 dan Desil 5–10?</div>
+                            </div>
+                            <i class="fas fa-chevron-down faq-chevron"></i>
+                        </div>
+                        <div class="faq-card-body">
+                            Desil 1 hingga 4 merupakan kelompok keluarga dengan tingkat kesejahteraan terendah (sangat miskin hingga rentan miskin) yang menjadi <b>prioritas utama penerima bantuan sosial</b> Pemerintah Kabupaten Sidoarjo. Desil 5 hingga 10 diklasifikasikan sebagai keluarga dengan kondisi ekonomi cukup atau mandiri sehingga tidak diprioritaskan.
                         </div>
                     </div>
-                    <div class="guide-box" style="display:flex; gap:15px; padding:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px;">
-                        <i class="fas fa-shield-alt text-info" style="font-size:1.5rem; margin-top:2px;"></i>
-                        <div>
-                            <h4 style="font-size:0.95rem; font-weight:800; color:#0f172a;">Bagaimana jika bantuan fisik belum saya terima?</h4>
-                            <p style="font-size:0.86rem; color:#64748b; margin-top:4px;">Anda dapat melaporkan aduan melalui tombol robot Asisten Virtual di pojok kanan bawah atau masuk ke Dashboard Mandiri untuk memulai mediasi langsung.</p>
+
+                    <div class="faq-modern-card" onclick="window.toggleFaqCard(this)">
+                        <div class="faq-card-header">
+                            <div class="faq-header-left">
+                                <div class="faq-icon-badge" style="background:#e0f2fe; color:#0284c7;"><i class="fas fa-calculator"></i></div>
+                                <div class="faq-question-title">2. Bagaimana sistem SPK menentukan kelayakan penerima bansos?</div>
+                            </div>
+                            <i class="fas fa-chevron-down faq-chevron"></i>
+                        </div>
+                        <div class="faq-card-body">
+                            Sistem menggunakan metode pembobotan <b>Best-Worst Method (BWM)</b> untuk menentukan tingkat kepentingan dari 10 kriteria (kondisi ekonomi, nilai aset, usia, tanggungan, status tempat tinggal, kesehatan, dll), lalu dinormalisasi secara matematis menggunakan algoritma <b>Simple Additive Weighting (SAW)</b> untuk mendapatkan peringkat kelayakan yang objektif tanpa manipulasi manual[cite: 1, 9].
+                        </div>
+                    </div>
+
+                    <div class="faq-modern-card" onclick="window.toggleFaqCard(this)">
+                        <div class="faq-card-header">
+                            <div class="faq-header-left">
+                                <div class="faq-icon-badge" style="background:#fef3c7; color:#b45309;"><i class="fas fa-user-clock"></i></div>
+                                <div class="faq-question-title">3. Bagaimana jika saya belum terdaftar tetapi mengalami kendala pendaftaran?</div>
+                            </div>
+                            <i class="fas fa-chevron-down faq-chevron"></i>
+                        </div>
+                        <div class="faq-card-body">
+                            Anda dapat menggunakan fitur <b>Asisten Virtual (Chatbot)</b> di pojok kanan bawah dan memilih menu <i>"Laporkan Masalah / Gagal Daftar ke Admin"</i>. Anda akan langsung diarahkan ke <b>Dashboard Khusus Pengaduan</b> untuk memantau proses tindak lanjut verifikasi tanpa perlu menunggu terdaftar terlebih dahulu.
+                        </div>
+                    </div>
+
+                    <div class="faq-modern-card" onclick="window.toggleFaqCard(this)">
+                        <div class="faq-card-header">
+                            <div class="faq-header-left">
+                                <div class="faq-icon-badge" style="background:#f3e8ff; color:#7e22ce;"><i class="fas fa-sync-alt"></i></div>
+                                <div class="faq-question-title">4. Bagaimana cara mengajukan sanggah jika desil saya dinilai tidak sesuai?</div>
+                            </div>
+                            <i class="fas fa-chevron-down faq-chevron"></i>
+                        </div>
+                        <div class="faq-card-body">
+                            Jika Anda sudah terdaftar namun kondisi ekonomi berubah (misal terjadi pemutusan hubungan kerja atau sakit menahun), laporkan pengaduan sanggah desil. Petugas Dinas Sosial akan memverifikasi ulang 10 kriteria faktual lapangan Anda, dan algoritma SPK akan menghitung ulang skor desil Anda secara otomatis berdasarkan data terbaru[cite: 9].
+                        </div>
+                    </div>
+
+                    <div class="faq-modern-card" onclick="window.toggleFaqCard(this)">
+                        <div class="faq-card-header">
+                            <div class="faq-header-left">
+                                <div class="faq-icon-badge" style="background:#fee2e2; color:#dc2626;"><i class="fas fa-shield-alt"></i></div>
+                                <div class="faq-question-title">5. Apa yang harus dilakukan jika data tercatat 'Telah Menerima' tetapi belum menerima fisik bansos?</div>
+                            </div>
+                            <i class="fas fa-chevron-down faq-chevron"></i>
+                        </div>
+                        <div class="faq-card-body">
+                            Laporkan segera melalui ruang obrolan warga (Live Chat) pada Dashboard Pribadi Anda. Aduan Anda akan memunculkan tanda <b>Sengketa Penyaluran (Perisai Merah)</b> pada dasbor petugas, sehingga petugas wajib melakukan investigasi fisik dan menyelesaikan serah terima bantuan secara sah dengan dokumentasi foto serah terima[cite: 9].
                         </div>
                     </div>
                 </div>
+            </section>
+        </div>
+
+        <!-- 5. TAMPILAN DASHBOARD PRIBADI SETELAH LOGIN -->
+        <div id="dashboardWargaSection" class="portal-card" style="display: none;">
+            <div style="background: linear-gradient(135deg, #009846, #007a37); padding: 18px 24px; border-radius: 18px; color: white; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; box-shadow: 0 4px 14px rgba(0,0,0,0.08);">
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display:flex; justify-content:center; align-items:center; font-size: 1.5rem;"><i class="fas fa-user-check"></i></div>
+                    <div>
+                        <h2 style="margin:0; font-size:1.3rem; font-weight: 800;">Dashboard Pribadi Anda</h2>
+                        <div style="font-size:0.85rem; opacity:0.9;">Pusat Layanan Terpadu Warga Sidoarjo</div>
+                    </div>
+                </div>
+                <button type="button" onclick="window.logoutWarga()" class="btn-tour-nav" style="background: #ef4444; border: none; padding: 8px 18px; font-size: 0.85rem; cursor:pointer;"><i class="fas fa-sign-out-alt"></i> Keluar Aman</button>
             </div>
 
-        </div>
-    </div>
-
-    <!-- 5. TAMPILAN DASHBOARD PRIBADI SETELAH LOGIN (FULL TWO-COLUMN WITH CHAT & CALL) -->
-    <div id="dashboardWargaSection" style="display:none; padding-bottom: 60px;">
-        <div style="background: linear-gradient(135deg, #009846, #007a37); padding: 20px 5%; color: white; display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-            <div style="display:flex; align-items:center; gap:16px;">
-                <div style="width: 50px; height: 50px; background: rgba(255,255,255,0.2); border-radius: 14px; display:flex; justify-content:center; align-items:center; font-size: 1.6rem;"><i class="fas fa-user-check"></i></div>
+            <div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 24px;" class="grid-layout">
+                <!-- PANEL KIRI: INFO & PROGRES -->
                 <div>
-                    <h2 style="margin:0; font-size:1.35rem; font-weight: 800;">Dashboard Pribadi Anda</h2>
-                    <div style="font-size:0.85rem; opacity:0.9;">Pusat Layanan Terpadu Warga Sidoarjo</div>
-                </div>
-            </div>
-            <button onclick="window.logoutWarga()" class="btn btn-secondary" style="border:none; padding:10px 22px; font-size:0.9rem; border-radius:24px; cursor:pointer;"><i class="fas fa-sign-out-alt text-danger"></i> Keluar Aman</button>
-        </div>
-
-        <div style="max-width: 1400px; margin: 30px auto; padding: 0 20px; display:grid; grid-template-columns: 1fr 1.25fr; gap: 25px;" class="grid-layout">
-            <!-- PANEL KIRI: INFO & PROGRES -->
-            <div style="display:flex; flex-direction:column; gap:20px;">
-                <div class="card-portal-shell" style="padding:26px; border-left: 6px solid #009846; margin:0;">
-                    <h3 style="margin:0 0 10px 0; font-size:1.4rem; font-weight:800;">Halo, <span id="wNama" style="color:#009846;"></span></h3>
-                    <p style="margin:0; font-size:0.95rem; color:#64748b;"><i class="fas fa-id-card text-primary"></i> NIK: <b id="wNik" style="color:#0f172a; font-family:monospace;"></b></p>
-                    <p style="margin:8px 0 0 0; font-size:0.9rem; color:#64748b;"><i class="fas fa-map-marker-alt text-danger"></i> Alamat: <span id="wAlamat"></span></p>
-                </div>
-
-                <div class="card-portal-shell" style="padding:26px; margin:0;">
-                    <h3 style="margin:0 0 18px 0; border-bottom:1px solid #f1f5f9; padding-bottom:12px; font-size:1.15rem; font-weight:800;"><i class="fas fa-tasks text-primary"></i> Pantauan Progres Penetapan</h3>
-                    <div style="display:flex; justify-content:space-between; align-items:center; background: #f8fafc; padding: 14px 18px; border-radius: 12px;">
-                        <span style="font-weight:700; font-size:0.9rem; color:#475569;">STATUS REAL-TIME:</span>
-                        <div id="wStatus" class="status-badge badge-proses" style="font-size:0.92rem; padding:6px 16px; font-weight:800;">Diproses</div>
+                    <div style="background: #f8fafc; padding: 18px; border-radius: 14px; border: 1px solid #e2e8f0; margin-bottom: 18px; border-left: 6px solid #009846;">
+                        <h3 id="wNama" style="font-weight: 800; font-size: 1.25rem; color: #0f172a; margin-bottom: 6px;">-</h3>
+                        <p style="font-size: 0.88rem; color: #64748b; margin-top: 4px;"><i class="fas fa-id-card text-primary"></i> NIK: <b id="wNik" class="font-mono" style="color: #0f172a;">-</b></p>
+                        <p style="font-size: 0.88rem; color: #64748b; margin-top: 4px;"><i class="fas fa-map-marker-alt text-danger"></i> Alamat: <span id="wAlamat">-</span></p>
                     </div>
-                    <div style="margin-top:16px; background:#e2e8f0; border-radius:10px; height:12px; overflow:hidden;">
-                        <div id="progressFill" style="width: 40%; height:100%; background:#009846; transition: width 0.8s;"></div>
-                    </div>
-                    <div id="actionContainer" style="margin-top:18px;"></div>
-                </div>
-            </div>
 
-            <!-- PANEL KANAN: LIVE CHAT DENGAN VOICE NOTE, MEDIA & WEBRTC CALL -->
-            <div class="card-portal-shell" style="padding:0; overflow:hidden; display:flex; flex-direction:column; height: 680px; margin:0;">
-                <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:white;">
-                    <div style="display:flex; align-items:center; gap:12px;">
-                        <div style="width:42px; height:42px; border-radius:50%; background:linear-gradient(135deg, #0284c7, #1d4ed8); color:white; display:flex; align-items:center; justify-content:center; font-size:1.2rem;"><i class="fas fa-headset"></i></div>
-                        <div>
-                            <h4 style="margin:0; font-size:1.05rem; font-weight:800;">Live Chat Dinas Sosial</h4>
-                            <small style="color:#009846; font-weight:700;"><i class="fas fa-circle" style="font-size:0.55rem;"></i> Petugas Online</small>
+                    <div style="border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 18px; background: #ffffff;">
+                        <h4 style="margin-bottom: 14px; font-size: 1rem; font-weight: 800; color: #0f172a; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;"><i class="fas fa-tasks text-primary"></i> Pantauan Progres Penetapan</h4>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #f8fafc; padding: 10px 14px; border-radius: 10px;">
+                            <span style="font-size: 0.85rem; font-weight: 700; color: #64748b;">STATUS REAL-TIME:</span>
+                            <div id="wStatus" class="status-badge" style="background:#e0f2fe; color:#0284c7; padding:4px 12px; border-radius:20px; font-size:0.85rem; font-weight:800;">Diproses</div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #f8fafc; padding: 10px 14px; border-radius: 10px;">
+                            <span style="font-size: 0.85rem; font-weight: 700; color: #64748b;">GOLONGAN DESIL:</span>
+                            <span id="dashWargaDesilBadge" class="badge" style="background: #e6f9f0; color: #009846; font-weight: 800; padding: 4px 12px; border-radius: 20px;">-</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #f8fafc; padding: 10px 14px; border-radius: 10px;">
+                            <span style="font-size: 0.85rem; font-weight: 700; color: #64748b;">STATUS PENYALURAN:</span>
+                            <span id="dashWargaStatusSalur" style="font-weight: 800; color: #0f172a;">-</span>
+                        </div>
+                        <div id="actionContainer" style="margin-top: 14px;"></div>
+                    </div>
+                </div>
+
+                <!-- PANEL KANAN: LIVE CHAT DENGAN VOICE NOTE & WEBRTC CALL -->
+                <div style="display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; height: 500px; background: #ffffff;">
+                    <div style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg, #0284c7, #1d4ed8); color:white; display:flex; align-items:center; justify-content:center; font-size:1.1rem;"><i class="fas fa-headset"></i></div>
+                            <div>
+                                <h4 style="margin:0; font-size:0.95rem; font-weight:800; color: #0f172a;">Live Chat Dinas Sosial</h4>
+                                <small style="color:#009846; font-weight:700;"><i class="fas fa-circle" style="font-size:0.5rem;"></i> Petugas Online</small>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" onclick="window.startCallAdmin('audio')" class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:20px; padding:5px 12px; font-weight:700; cursor:pointer;"><i class="fas fa-phone-alt"></i> Suara</button>
+                            <button type="button" onclick="window.startCallAdmin('video')" class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:20px; padding:5px 12px; font-weight:700; cursor:pointer;"><i class="fas fa-video"></i> Video</button>
                         </div>
                     </div>
-                    <div style="display:flex; gap:8px;">
-                        <button type="button" onclick="window.startCallAdmin('audio')" class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:20px; padding:6px 14px; font-weight:700;"><i class="fas fa-phone-alt"></i> Suara</button>
-                        <button type="button" onclick="window.startCallAdmin('video')" class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:20px; padding:6px 14px; font-weight:700;"><i class="fas fa-video"></i> Video</button>
+
+                    <div id="wargaChatMessages" style="flex:1; padding:16px; overflow-y:auto; background:#f8fafc; display:flex; flex-direction:column; gap:10px;"></div>
+
+                    <!-- BILAH INPUT WARGA TERPADU -->
+                    <div style="padding: 12px 16px; border-top: 1px solid #e2e8f0; background:white; display:flex; align-items:center; gap:8px; position:relative;">
+                        <button type="button" onclick="window.toggleEmojiPickerWarga(event)" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer;"><i class="fas fa-smile"></i></button>
+                        
+                        <input type="file" id="wargaChatFile" style="display:none;" accept="image/*,video/*,.pdf" onchange="window.handleWargaFileSelected(this)">
+                        <button type="button" onclick="document.getElementById('wargaChatFile').click()" style="background:none; border:none; font-size:1.1rem; color:#64748b; cursor:pointer;"><i class="fas fa-paperclip"></i></button>
+
+                        <input type="text" id="wargaChatInput" placeholder="Ketik pesan koordinasi..." class="chat-pill-input" onkeypress="if(event.key==='Enter') window.sendWargaChat()">
+
+                        <!-- CONTROLLER VOICE RECORD WARGA -->
+                        <div id="wargaRecordingUI" style="display:none; flex:1; align-items:center; gap:10px; background:#fff1f2; border:1px solid #fecdd3; padding:4px 14px; border-radius:25px;">
+                            <span id="wargaRecordTime" style="font-weight:800; font-family:monospace; color:#e11d48;">00:00</span>
+                            <div style="flex:1; height:4px; background:#fca5a5; border-radius:2px;"></div>
+                            <button type="button" onclick="window.cancelVoiceRecordWarga()" style="background:none; border:none; color:#e11d48; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+
+                        <button type="button" id="btnRecordWarga" onclick="window.toggleVoiceRecordWarga()" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer;"><i class="fas fa-microphone"></i></button>
+                        <button type="button" id="btnSendWarga" onclick="window.sendWargaChat()" style="background:#009846; color:white; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;"><i class="fas fa-paper-plane"></i></button>
                     </div>
-                </div>
-
-                <div id="wargaChatMessages" style="flex:1; padding:20px; overflow-y:auto; background:#f8fafc; display:flex; flex-direction:column; gap:14px;"></div>
-
-                <!-- BILAH INPUT WARGA TERPADU -->
-                <div style="padding: 12px 18px; border-top: 1px solid #e2e8f0; background:white; display:flex; align-items:center; gap:10px; position:relative;">
-                    <button type="button" onclick="window.toggleEmojiPickerWarga(event)" style="background:none; border:none; font-size:1.3rem; color:#64748b; cursor:pointer;"><i class="fas fa-smile"></i></button>
-                    
-                    <input type="file" id="wargaChatFile" style="display:none;" accept="image/*,video/*,.pdf" onchange="window.handleWargaFileSelected(this)">
-                    <button type="button" onclick="document.getElementById('wargaChatFile').click()" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer;"><i class="fas fa-paperclip"></i></button>
-
-                    <input type="text" id="wargaChatInput" placeholder="Ketik pesan..." style="flex:1; border:1px solid #cbd5e1; background:#f8fafc; padding:10px 16px; border-radius:25px; outline:none;" onkeypress="if(event.key==='Enter') window.sendWargaChat()">
-
-                    <!-- CONTROLLER VOICE RECORD WARGA -->
-                    <div id="wargaRecordingUI" style="display:none; flex:1; align-items:center; gap:10px; background:#fff1f2; border:1px solid #fecdd3; padding:4px 14px; border-radius:25px;">
-                        <span id="wargaRecordTime" style="font-weight:800; font-family:monospace; color:#e11d48;">00:00</span>
-                        <div style="flex:1; height:4px; background:#fca5a5; border-radius:2px;"></div>
-                        <button type="button" onclick="window.cancelVoiceRecordWarga()" style="background:none; border:none; color:#e11d48; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
-                    </div>
-
-                    <button type="button" id="btnRecordWarga" onclick="window.toggleVoiceRecordWarga()" style="background:none; border:none; font-size:1.3rem; color:#64748b; cursor:pointer;"><i class="fas fa-microphone"></i></button>
-                    <button type="button" id="btnSendWarga" onclick="window.sendWargaChat()" style="background:#009846; color:white; border:none; width:42px; height:42px; border-radius:50%; cursor:pointer;"><i class="fas fa-paper-plane"></i></button>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- MODAL PANDUAN AKSES LAYANAN PERSIS SEPERTI LOGIN.HTML (TIDAK MENGHALANGI SAAT DIKLIK) -->
-    <div id="modalPanduanPortal" class="modal-blur-overlay" style="display:none; z-index:100000;">
+        <!-- 6. DASHBOARD KHUSUS PENGADUAN (WARGA BELUM TERDAFTAR / GAGAL DAFTAR) -->
+        <div id="sectionDashboardPengaduan" class="portal-card" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <h2 style="font-size: 1.3rem; font-weight: 800; color: #dc2626;"><i class="fas fa-shield-virus"></i> Dashboard Pantauan Pengaduan</h2>
+                        <span style="background: #fee2e2; color: #dc2626; font-size: 0.75rem; font-weight: 800; padding: 3px 10px; border-radius: 20px;">Khusus Warga Belum Terdaftar</span>
+                    </div>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Pantau status tindak lanjut penanganan kendala pendaftaran bansos Anda oleh petugas.</p>
+                </div>
+                <button type="button" class="btn-tour-nav" style="background: #64748b; border: none; padding: 8px 18px; font-size: 0.85rem;" onclick="window.keluarDashboardPengaduan()"><i class="fas fa-times"></i> Tutup Aduan</button>
+            </div>
+
+            <!-- Tahapan Alur Penanganan Aduan -->
+            <div class="stepper-complaint">
+                <div class="step-node done" id="stepNode1">
+                    <div class="step-circle"><i class="fas fa-check"></i></div>
+                    <div class="step-title">1. Aduan Masuk</div>
+                </div>
+                <div class="step-node active" id="stepNode2">
+                    <div class="step-circle"><i class="fas fa-sync fa-spin"></i></div>
+                    <div class="step-title">2. Ditinjau Petugas</div>
+                </div>
+                <div class="step-node" id="stepNode3">
+                    <div class="step-circle">3</div>
+                    <div class="step-title">3. Investigasi Lapangan</div>
+                </div>
+                <div class="step-node" id="stepNode4">
+                    <div class="step-circle">4</div>
+                    <div class="step-title">4. Selesai Ditangani</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div style="background: #fffdf5; border: 1.5px solid #fde68a; border-radius: 14px; padding: 20px;">
+                    <h4 style="color: #b45309; font-weight: 800; margin-bottom: 10px;"><i class="fas fa-info-circle"></i> Ringkasan Kendala Anda</h4>
+                    <p style="font-size: 0.88rem; margin-bottom: 8px;"><b>Nama Pelapor:</b> <span id="aduanNamaDisplay">-</span></p>
+                    <p style="font-size: 0.88rem; margin-bottom: 8px;"><b>Identitas NIK:</b> <span id="aduanNikDisplay">-</span></p>
+                    <div style="margin-top: 12px; padding: 12px; background: white; border-radius: 8px; border: 1px dashed #cbd5e1; font-size: 0.85rem; color: #334155;" id="aduanUraianDisplay">-</div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; border: 1.5px solid #fca5a5; border-radius: 16px; overflow: hidden; height: 380px;">
+                    <div style="background: #fef2f2; padding: 12px 16px; border-bottom: 1px solid #fecdd3; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; font-size: 0.88rem; color: #dc2626;"><i class="fas fa-comment-dots"></i> Jalur Aduan Langsung ke Admin</span>
+                        <span style="background: #dc2626; color: white; font-size: 0.68rem; font-weight: 800; padding: 2px 8px; border-radius: 10px;">BELUM TERDAFTAR</span>
+                    </div>
+                    <div id="aduanChatMessages" style="flex: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background: #ffffff;"></div>
+                    <div style="padding: 10px; border-top: 1px solid #e2e8f0; display: flex; gap: 8px; background: #f8fafc;">
+                        <input type="text" id="aduanChatInput" placeholder="Ketik pesan kendala..." class="chat-pill-input" onkeypress="if(event.key==='Enter') window.kirimPesanAduan()">
+                        <button type="button" onclick="window.kirimPesanAduan()" style="background: #dc2626; color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL PANDUAN AKSES LAYANAN -->
+    <div id="modalPanduanPortal" class="modal-blur-overlay">
         <div class="panduan-modal-card">
             <div class="panduan-header">
                 <h3>Panduan Akses Layanan Portal Bansos</h3>
@@ -793,7 +1106,7 @@
         </div>
     </div>
 
-    <!-- WIDGET CHATBOT INTERAKTIF FLOATING -->
+    <!-- FLOATING CHATBOT WIDGET -->
     <div id="chatbotWindow" class="chatbot-window">
         <div class="chatbot-header">
             <h4><i class="fas fa-robot"></i> Asisten Virtual Sidoarjo</h4>
@@ -803,10 +1116,10 @@
             <div class="bot-bubble">
                 Halo! Saya adalah asisten pintar bansos Pemkab Sidoarjo. Ada yang bisa saya bantu hari ini?
             </div>
-            <div class="chatbot-quick-actions" id="botQuickActions">
+            <div class="chatbot-quick-actions">
                 <button type="button" class="chat-chip-btn" onclick="window.botReplyFAQ('kriteria')">❓ Siapa yang berhak menerima bansos?</button>
                 <button type="button" class="chat-chip-btn" onclick="window.botReplyFAQ('jadwal')">❓ Kapan bantuan fisik dicairkan?</button>
-                <button type="button" class="chat-chip-btn" onclick="window.botBukaFormLapor()" style="border-color:#fca5a5; color:#dc2626; background:#fef2f2; font-weight:700;"><i class="fas fa-exclamation-triangle"></i> Laporkan Masalah / Sengketa ke Admin</button>
+                <button type="button" class="chat-chip-btn" onclick="window.botBukaFormLapor()" style="border-color:#fca5a5; color:#dc2626; background:#fef2f2; font-weight:700;"><i class="fas fa-exclamation-triangle"></i> Laporkan Masalah / Gagal Daftar ke Admin</button>
             </div>
         </div>
         <div style="padding:10px 14px; background:white; border-top:1px solid #e2e8f0; display:flex; gap:8px;">
@@ -820,7 +1133,7 @@
     </button>
 
     <!-- WEBRTC PANGGILAN WARGA DUA ARAH -->
-    <div id="wargaActiveCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:9999999; justify-content:center; align-items:center;">
+    <div id="wargaActiveCallUI" class="modal-blur-overlay">
         <div class="call-card-modern" style="width:400px; max-width:95vw; background:#0f172a; border-radius:24px; overflow:hidden; border:1px solid #334155;">
             <div style="padding:20px; text-align:center; color:white;">
                 <h3 id="wargaActiveCallName" style="margin:0;">Petugas Dinsos Sidoarjo</h3>
@@ -854,11 +1167,119 @@
 
     <script>
         // =========================================================================
-        // INISIALISASI PETA GEOTAGGING RESMI SIDOARJO (AUTO-RESIZE BERSIH)
+        // INISIALISASI CUSTOM DROPDOWN MEMBULAT SECARA OTOMATIS
+        // =========================================================================
+        function initCustomSelectDropdowns() {
+            document.querySelectorAll('.form-select').forEach(select => {
+                if (select.dataset.customized === 'true') return;
+                select.dataset.customized = 'true';
+                select.style.display = 'none';
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'custom-select-wrapper';
+                select.parentNode.insertBefore(wrapper, select);
+                wrapper.appendChild(select);
+
+                const trigger = document.createElement('div');
+                trigger.className = 'custom-select-trigger';
+                const selectedOption = select.options[select.selectedIndex] || select.options[0];
+                trigger.innerHTML = `<span>${selectedOption ? selectedOption.text : 'Pilih opsi...'}</span><i class="fas fa-chevron-down"></i>`;
+                wrapper.appendChild(trigger);
+
+                const optionsContainer = document.createElement('div');
+                optionsContainer.className = 'custom-select-options';
+
+                Array.from(select.options).forEach(opt => {
+                    const customOpt = document.createElement('div');
+                    customOpt.className = 'custom-option' + (opt.selected ? ' selected' : '');
+                    customOpt.dataset.value = opt.value;
+                    customOpt.innerText = opt.text;
+
+                    customOpt.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        select.value = opt.value;
+                        select.dispatchEvent(new Event('change'));
+
+                        trigger.querySelector('span').innerText = opt.text;
+                        optionsContainer.querySelectorAll('.custom-option').forEach(o => o.classList.remove('selected'));
+                        customOpt.classList.add('selected');
+                        wrapper.classList.remove('open');
+                    });
+
+                    optionsContainer.appendChild(customOpt);
+                });
+
+                wrapper.appendChild(optionsContainer);
+
+                trigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isOpen = wrapper.classList.contains('open');
+                    document.querySelectorAll('.custom-select-wrapper.open').forEach(w => w.classList.remove('open'));
+                    if (!isOpen) wrapper.classList.add('open');
+                });
+            });
+
+            document.addEventListener('click', () => {
+                document.querySelectorAll('.custom-select-wrapper.open').forEach(w => w.classList.remove('open'));
+            });
+
+            document.querySelectorAll('form').forEach(form => {
+                form.addEventListener('reset', () => {
+                    setTimeout(() => {
+                        document.querySelectorAll('.custom-select-wrapper').forEach(wrapper => {
+                            const select = wrapper.querySelector('select');
+                            if (select) {
+                                const selectedOption = select.options[select.selectedIndex] || select.options[0];
+                                const triggerSpan = wrapper.querySelector('.custom-select-trigger span');
+                                if (triggerSpan && selectedOption) triggerSpan.innerText = selectedOption.text;
+                                wrapper.querySelectorAll('.custom-option').forEach(opt => {
+                                    opt.classList.toggle('selected', opt.dataset.value === select.value);
+                                });
+                            }
+                        });
+                    }, 50);
+                });
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initCustomSelectDropdowns();
+        });
+
+        // =========================================================================
+        // INISIALISASI PETA GEOTAGGING RESMI SIDOARJO
         // =========================================================================
         let mapPublik = null;
         let markerPublik = null;
         const DEFAULT_SIDOARJO = [-7.4478, 112.7183];
+
+        async function updateAlamatFromCoordsRealtime(lat, lng) {
+            const latEl = document.getElementById('latPublik');
+            const lngEl = document.getElementById('lngPublik');
+            const alamatEl = document.getElementById('regAlamat');
+
+            if (latEl) latEl.value = Number(lat).toFixed(6);
+            if (lngEl) lngEl.value = Number(lng).toFixed(6);
+
+            if (!alamatEl) return;
+
+            const prevPlaceholder = alamatEl.getAttribute('placeholder') || '';
+            alamatEl.setAttribute('placeholder', 'Sedang melacak alamat presisi titik...');
+
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.display_name) {
+                        alamatEl.value = data.display_name;
+                    }
+                }
+            } catch (err) {
+                console.warn('Gagal reverse geocoding:', err);
+            } finally {
+                alamatEl.setAttribute('placeholder', prevPlaceholder);
+            }
+        }
 
         function initGeotaggingMap() {
             const container = document.getElementById('mapPublik');
@@ -886,12 +1307,12 @@
 
             markerPublik.on('dragend', function(e) {
                 const pos = e.target.getLatLng();
-                setCoords(pos.lat, pos.lng);
+                updateAlamatFromCoordsRealtime(pos.lat, pos.lng);
             });
 
             mapPublik.on('click', function(e) {
                 markerPublik.setLatLng(e.latlng);
-                setCoords(e.latlng.lat, e.latlng.lng);
+                updateAlamatFromCoordsRealtime(e.latlng.lat, e.latlng.lng);
             });
 
             setTimeout(() => { mapPublik.invalidateSize(); }, 350);
@@ -906,12 +1327,11 @@
                         mapPublik.setView([lat, lng], 16);
                         markerPublik.setLatLng([lat, lng]);
                     }
-                    const latEl = document.getElementById('latPublik');
-                    const lngEl = document.getElementById('lngPublik');
-                    if (latEl) latEl.value = lat.toFixed(6);
-                    if (lngEl) lngEl.value = lng.toFixed(6);
+                    updateAlamatFromCoordsRealtime(lat, lng);
                 }, () => {
-                    Swal.fire('GPS Gagal', 'Izinkan akses geolokasi pada peramban Anda.', 'warning');
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire('GPS Gagal', 'Izinkan akses geolokasi pada peramban Anda.', 'warning');
+                    }
                 });
             }
         };
@@ -919,7 +1339,7 @@
         window.cariAlamatDiPeta = async function(query) {
             if (!query || query.trim().length < 4) return;
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Kabupaten Sidoarjo')}&limit=1`);
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Sidoarjo, Jawa Timur')}&limit=1`);
                 if (res.ok) {
                     const data = await res.json();
                     if (data && data.length > 0) {
@@ -928,198 +1348,14 @@
                         if (mapPublik && markerPublik) {
                             mapPublik.setView([lat, lng], 16);
                             markerPublik.setLatLng([lat, lng]);
-                            const latEl = document.getElementById('latPublik');
-                            const lngEl = document.getElementById('lngPublik');
-                            if (latEl) latEl.value = lat.toFixed(6);
-                            if (lngEl) lngEl.value = lng.toFixed(6);
                         }
+                        const latEl = document.getElementById('latPublik');
+                        const lngEl = document.getElementById('lngPublik');
+                        if (latEl) latEl.value = lat.toFixed(6);
+                        if (lngEl) lngEl.value = lng.toFixed(6);
                     }
                 }
             } catch(e) {}
-        };
-
-        // =========================================================================
-        // PERGANTIAN TAB DINAMIS MENGIKUTI KARTU YANG DIKLIK
-        // =========================================================================
-        window.switchTabPublik = function (targetId, btnEl) {
-            document.querySelectorAll('.tab-btn-portal').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content-portal').forEach(sec => sec.classList.remove('active'));
-
-            if (btnEl) {
-                btnEl.classList.add('active');
-            } else {
-                const mapBtn = {
-                    'loginWargaSection': 'btn-login',
-                    'cekStatusSection': 'btn-cek',
-                    'daftarMandiriSection': 'btn-daftar',
-                    'bantuanSection': 'btn-panduan'
-                };
-                const b = document.getElementById(mapBtn[targetId]);
-                if (b) b.classList.add('active');
-            }
-
-            const targetSec = document.getElementById(targetId);
-            if (targetSec) {
-                targetSec.classList.add('active');
-            }
-
-            if (targetId === 'daftarMandiriSection') {
-                setTimeout(initGeotaggingMap, 200);
-            }
-        };
-
-        // =========================================================================
-        // TUR INTERAKTIF SEPERTI LOGIN.HTML (TIDAK MENGHALANGI CARD)
-        // =========================================================================
-        window.bukaModalPanduanPortal = function () {
-            const m = document.getElementById('modalPanduanPortal');
-            if (m) m.style.display = 'flex';
-        };
-
-        window.tutupModalPanduan = function () {
-            const m = document.getElementById('modalPanduanPortal');
-            if (m) m.style.display = 'none';
-        };
-
-        window.navigasiPanduan = function (targetId) {
-            window.tutupModalPanduan();
-
-            if (targetId === 'chatbot') {
-                window.toggleChatbotWindow();
-                return;
-            }
-
-            let btnRef = null;
-            if (targetId === 'loginWargaSection') btnRef = document.getElementById('btn-login');
-            else if (targetId === 'cekStatusSection') btnRef = document.getElementById('btn-cek');
-            else if (targetId === 'daftarMandiriSection') btnRef = document.getElementById('btn-daftar');
-            else if (targetId === 'bantuanSection') btnRef = document.getElementById('btn-panduan');
-
-            window.switchTabPublik(targetId, btnRef);
-
-            const card = document.getElementById(targetId);
-            if (card) {
-                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                card.classList.remove('highlight-focus');
-                void card.offsetWidth;
-                card.classList.add('highlight-focus');
-            }
-        };
-
-        // =========================================================================
-        // CHATBOT ASISTEN CERDAS, INVESTIGASI & ALIH KE RUANG OBROLAN WARGA
-        // =========================================================================
-        window.toggleChatbotWindow = function () {
-            const win = document.getElementById('chatbotWindow');
-            if (!win) return;
-            win.style.display = (win.style.display === 'flex') ? 'none' : 'flex';
-        };
-
-        window.botReplyFAQ = function (topic) {
-            const body = document.getElementById('chatbotMsgBody');
-            let qText = topic === 'kriteria' ? 'Siapa yang berhak menerima bansos?' : 'Kapan bantuan fisik dicairkan?';
-            let aText = topic === 'kriteria'
-                ? 'Bansos diprioritaskan bagi keluarga yang masuk dalam Desil 1–4 hasil kalkulasi kriteria BWM-SAW yang akuntabel.'
-                : 'Penyaluran fisik dilaksanakan terjadwal di kantor kelurahan/desa setempat membawa KTP dan KK asli.';
-
-            body.innerHTML += `<div class="user-bubble">${qText}</div>`;
-            setTimeout(() => {
-                body.innerHTML += `<div class="bot-bubble">${aText}</div>`;
-                body.scrollTop = body.scrollHeight;
-            }, 300);
-        };
-
-        window.botSendMessage = function () {
-            const inp = document.getElementById('botInputText');
-            const txt = inp.value.trim();
-            if (!txt) return;
-
-            const body = document.getElementById('chatbotMsgBody');
-            body.innerHTML += `<div class="user-bubble">${txt}</div>`;
-            inp.value = '';
-
-            setTimeout(() => {
-                body.innerHTML += `<div class="bot-bubble">Terima kasih atas pertanyaannya. Jika Anda menemui kendala spesifik dalam penyaluran atau verifikasi, silakan gunakan tombol <b>Laporkan Masalah / Sengketa ke Admin</b> di atas.</div>`;
-                body.scrollTop = body.scrollHeight;
-            }, 350);
-        };
-
-        window.botBukaFormLapor = async function () {
-            window.toggleChatbotWindow();
-            const { value: formValues } = await Swal.fire({
-                title: '<i class="fas fa-shield-virus text-danger"></i> Laporkan Masalah ke Admin',
-                html: `
-                    <div style="text-align:left; font-size:0.88rem; color:#64748b; margin-bottom:12px;">
-                        Laporan akan otomatis tercatat ke <b>Pusat Investigasi Aduan</b> dan memicu notifikasi prioritas di layar Admin.
-                    </div>
-                    <input id="botSwalNik" class="swal2-input" placeholder="NIK 16 Digit" maxlength="16">
-                    <input id="botSwalNama" class="swal2-input" placeholder="Nama Lengkap">
-                    <textarea id="botSwalPesan" class="swal2-textarea" placeholder="Jelaskan kendala atau sengketa bansos Anda..."></textarea>
-                `,
-                showCancelButton: true,
-                confirmButtonText: 'Kirimkan ke Investigasi',
-                confirmButtonColor: '#dc2626',
-                cancelButtonText: 'Batal',
-                preConfirm: () => {
-                    const nik = document.getElementById('botSwalNik').value.trim();
-                    const nama = document.getElementById('botSwalNama').value.trim();
-                    const pesan = document.getElementById('botSwalPesan').value.trim();
-                    if (!nik || nik.length !== 16) {
-                        Swal.showValidationMessage('Masukkan tepat 16 digit NIK!');
-                        return false;
-                    }
-                    if (!pesan) {
-                        Swal.showValidationMessage('Isi uraian kendala wajib ditulis!');
-                        return false;
-                    }
-                    return { nik, nama: nama || 'Warga', pesan };
-                }
-            });
-
-            if (formValues) {
-                try {
-                    const baseUrl = window.API_BASE_URL || 'http://127.0.0.1:5000';
-                    const res = await fetch(`${baseUrl}/api/publik/pengaduan`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            nik: formValues.nik,
-                            nama_pelapor: formValues.nama,
-                            kategori: 'Aduan Sengketa Chatbot Warga',
-                            isi_laporan: formValues.pesan
-                        })
-                    });
-
-                    if (res.ok) {
-                        await Swal.fire({
-                            icon: 'success',
-                            title: 'Laporan Diterima di Investigasi',
-                            html: '<p style="font-size:0.92rem; color:#475569;">Laporan Anda telah berhasil dicatat ke <b>Pusat Investigasi Laporan</b>. Anda sekarang dialihkan langsung ke <b>Live Chat Dashboard</b> agar dapat berinteraksi langsung dengan Petugas.</p>',
-                            confirmButtonText: 'Buka Live Chat Mediasi →',
-                            confirmButtonColor: '#009846'
-                        });
-
-                        // Otomatis Beralih ke Ruang Dashboard Warga
-                        document.getElementById('landingView').style.display = 'none';
-                        document.getElementById('dashboardWargaSection').style.display = 'block';
-                        
-                        document.getElementById('wNama').innerText = formValues.nama;
-                        document.getElementById('wNik').innerText = formValues.nik;
-                        document.getElementById('wAlamat').innerText = 'Kabupaten Sidoarjo (Terverifikasi Pelapor)';
-                        
-                        window.currentWargaNik = formValues.nik;
-                        window.currentWargaNama = formValues.nama;
-                        
-                        if (typeof window.loadChatWarga === 'function') {
-                            window.loadChatWarga();
-                        }
-                    } else {
-                        Swal.fire('Gagal', 'Terjadi kendala saat mengirimkan laporan ke peladen.', 'error');
-                    }
-                } catch (e) {
-                    Swal.fire('Error', 'Koneksi ke peladen terputus.', 'error');
-                }
-            }
         };
     </script>
 </body>

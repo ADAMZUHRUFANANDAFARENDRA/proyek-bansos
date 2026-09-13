@@ -6,7 +6,7 @@
    Lokasi: frontend/static/js/admin.js
    ========================================================================= */
 
-// Injeksi CSS Dinamis untuk Komponen DataTables, Badge, & FAB Melayang
+// Injeksi CSS Dinamis untuk Komponen DataTables, Badge, & FAB Melayang[cite: 12]
 const dtStyle = document.createElement('style');
 dtStyle.innerHTML = `
     .dataTables_length { margin-bottom: 15px; margin-top: 5px; font-weight: 600; color: var(--text-muted, #64748b); }
@@ -26,7 +26,7 @@ dtStyle.innerHTML = `
 document.head.appendChild(dtStyle);
 
 // =========================================================================
-// 1. STATE & KONFIGURASI GLOBAL
+// 1. STATE & KONFIGURASI GLOBAL[cite: 12]
 // =========================================================================
 const BASE_URL = (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
     ? window.CONFIG.BASE_URL.replace(/\/+$/, '')
@@ -60,7 +60,7 @@ try {
 }
 
 // =========================================================================
-// 2. HELPER UTILITY & SANITASI
+// 2. HELPER UTILITY & SANITASI[cite: 12]
 // =========================================================================
 window.safeHtml = function (str) {
     if (!str) return '';
@@ -95,10 +95,9 @@ window.getCleanToken = function () {
 };
 
 // =========================================================================
-// 3. LIFECYCLE DOM & INISIALISASI
+// 3. LIFECYCLE DOM & INISIALISASI[cite: 12]
 // =========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
-    // Sesi Autentikasi Keamanan
     if (window.Auth && typeof window.Auth.requireAuth === 'function') {
         if (!window.Auth.requireAuth(['admin', 'operator', 'petugas'])) return;
     } else {
@@ -109,7 +108,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Identitas Pengguna & Hak Akses Dasbor
     const currentUser = (window.Auth && typeof window.Auth.getUser === 'function') ? window.Auth.getUser() : user;
     const currentRole = ((window.Auth && typeof window.Auth.getRole === 'function') ? window.Auth.getRole() : currentUser?.role || 'operator').toLowerCase();
 
@@ -133,10 +131,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Muat Dataset & Statistik
     await window.loadDashboardData();
 
-    // Inisialisasi Map Picker Geotagging & Peta Makro
     setTimeout(() => {
         window.initFormMapPicker();
         if (typeof window.initMacroDistributionMap === 'function') {
@@ -144,13 +140,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }, 350);
 
-    // Sistem Notifikasi Aktivitas Real-time
-    window.loadNotifikasiAktivitas();
-    setInterval(() => window.loadNotifikasiAktivitas(), 15000);
+    if (typeof window.loadNotifikasiAktivitas === 'function') {
+        window.loadNotifikasiAktivitas();
+        setInterval(() => window.loadNotifikasiAktivitas(), 15000);
+    }
 });
 
 // =========================================================================
-// 4. MEMUAT DATA DASHBOARD & STATISTIK REAL-TIME
+// 4. MEMUAT DATA DASHBOARD & STATISTIK REAL-TIME[cite: 12]
 // =========================================================================
 window.loadDashboardData = async function (showToast = false) {
     try {
@@ -216,7 +213,7 @@ window.loadDashboardData = async function (showToast = false) {
 };
 
 // =========================================================================
-// 5. VALIDASI & AUTO-FILL INTEGRASI DUKCAPIL
+// 5. VALIDASI & AUTO-FILL INTEGRASI DUKCAPIL[cite: 12]
 // =========================================================================
 window.cekDukcapilLokal = async function () {
     const nik = document.getElementById('nik')?.value.trim();
@@ -258,7 +255,7 @@ window.cekDukcapilLokal = async function () {
 };
 
 // =========================================================================
-// 6. GEOTAGGING FORM PENDAFTARAN & PENCARIAN ALAMAT PETA
+// 6. GEOTAGGING FORM PENDAFTARAN & PENCARIAN ALAMAT PETA[cite: 12]
 // =========================================================================
 window.initFormMapPicker = function () {
     const mapBox = document.getElementById('formCoordMap');
@@ -342,14 +339,13 @@ window.ambilLokasiGPS = function () {
 };
 
 // =========================================================================
-// 7. GRAFIK STATISTIK DASBOR (CHART.JS)
+// 7. GRAFIK STATISTIK DASBOR (CHART.JS)[cite: 12]
 // =========================================================================
 window.render3DashboardCharts = function (data) {
     if (typeof Chart === 'undefined') return;
     if (!Array.isArray(data)) data = [];
     const total = data.length;
 
-    // Grafik Distribusi Desil (D1 - D10)
     const ctxDesil = document.getElementById('chartDesil10');
     if (ctxDesil) {
         const desilCounts = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -378,7 +374,6 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
-    // Grafik Status Persetujuan
     const ctxValid = document.getElementById('chartPersetujuan');
     if (ctxValid) {
         const disetujui = data.filter(w => w.is_verified).length;
@@ -404,7 +399,6 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
-    // Grafik Status Penyaluran
     const ctxSalur = document.getElementById('chartPenyaluran');
     if (ctxSalur) {
         const telahSalur = data.filter(w => w.status_salur === 'Telah Menerima').length;
@@ -430,7 +424,6 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
-    // Grafik Status Mediasi Sengketa
     const ctxSengketa = document.getElementById('chartSengketa');
     if (ctxSengketa) {
         const sengketa = data.filter(w => String(w.status_salur).includes('Sengketa')).length;
@@ -458,20 +451,17 @@ window.render3DashboardCharts = function (data) {
 };
 
 // =========================================================================
-// 8. CRUD WARGA, FILTERING & SINKRONISASI WAKTU (TANGGAL, BULAN, TAHUN BEBAS)
+// 8. CRUD WARGA, FILTERING & SINKRONISASI WAKTU[cite: 12]
 // =========================================================================
-
 window.activeDateFilter = {
-    mode: 'tanggal', // 'tanggal' | 'bulan' | 'tahun'
+    mode: 'tanggal',
     val: ''
 };
 
-// Pengurai Format Tanggal Pendaftaran Warga (created_at)
 function parseWaktuPendaftaran(dateStr) {
     if (!dateStr) return null;
     const s = String(dateStr).trim();
 
-    // 1. Format standar aplikasi: DD/MM/YYYY HH:mm WIB atau DD-MM-YYYY
     const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
     if (dmy) {
         return {
@@ -481,7 +471,6 @@ function parseWaktuPendaftaran(dateStr) {
         };
     }
 
-    // 2. Format ISO / Database: YYYY-MM-DD
     const ymd = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
     if (ymd) {
         return {
@@ -491,7 +480,6 @@ function parseWaktuPendaftaran(dateStr) {
         };
     }
 
-    // 3. Fallback Objek Date Bawaan
     const d = new Date(s);
     if (!isNaN(d.getTime())) {
         return {
@@ -503,7 +491,6 @@ function parseWaktuPendaftaran(dateStr) {
     return null;
 }
 
-// Beralih Mode Filter Waktu (Input Tahun Fleksibel Bebas Ketik)
 window.changeDateFilterMode = function (mode) {
     window.activeDateFilter.mode = mode;
     window.activeDateFilter.val = '';
@@ -521,7 +508,6 @@ window.changeDateFilterMode = function (mode) {
                    style="border:1px solid #e2e8f0; border-radius:8px; padding:3px 8px; font-family:'Inter'; font-size:0.8rem; outline:none; color:#0f172a; cursor:pointer; background:#f8fafc;" title="Pilih Bulan Tertentu">
         `;
     } else if (mode === 'tahun') {
-        // Bebas mengetik tahun berapa saja
         container.innerHTML = `
             <input type="number" id="filterTahunPicker" min="1900" max="2100" placeholder="Ketik Tahun (contoh: 2026)" oninput="window.applyDateFilter()" 
                    style="width:160px; border:1px solid #e2e8f0; border-radius:8px; padding:3px 8px; font-family:'Inter'; font-size:0.8rem; outline:none; color:#0f172a; background:#f8fafc;" title="Ketik tahun pendaftaran bebas">
@@ -531,7 +517,6 @@ window.changeDateFilterMode = function (mode) {
     window.filterAndRenderData();
 };
 
-// Mengambil Nilai Waktu yang Dipilih Sesuai Mode
 window.applyDateFilter = function () {
     const mode = window.activeDateFilter.mode;
 
@@ -546,7 +531,6 @@ window.applyDateFilter = function () {
     window.filterAndRenderData();
 };
 
-// Reset Filter Waktu
 window.resetDateFilter = function () {
     window.activeDateFilter = { mode: 'tanggal', val: '' };
     const modeEl = document.getElementById('dateFilterMode');
@@ -554,14 +538,12 @@ window.resetDateFilter = function () {
     window.changeDateFilterMode('tanggal');
 };
 
-// Pemfilteran Data Warga dengan Sinkronisasi Tanggal, Bulan, & Tahun yang Tepat
 window.filterAndRenderData = function () {
     let dataList = (window.BansosApp && window.BansosApp.State) 
         ? window.BansosApp.State.wargaList 
         : (window.globalDataWarga || []);
     let filtered = [...dataList];
 
-    // Filter Kategori Status
     if (window.currentFilter === 'layak') {
         filtered = filtered.filter(w => w.is_verified && ((w.desil || 5) <= 4));
     } else if (window.currentFilter === 'menerima') {
@@ -570,7 +552,6 @@ window.filterAndRenderData = function () {
         filtered = filtered.filter(w => String(w.status_salur).includes('Sengketa') || !w.is_verified);
     }
 
-    // Sinkronisasi Presisi Tanggal / Bulan / Tahun Pendaftaran
     const { mode, val } = window.activeDateFilter;
     if (val) {
         if (mode === 'tanggal') {
@@ -596,7 +577,6 @@ window.filterAndRenderData = function () {
         }
     }
 
-    // Pengurutan (Sorting)
     if (window.currentSort === 'nik_asc') {
         filtered.sort((a, b) => BigInt(String(a.nik).replace(/\D/g, '') || 0) < BigInt(String(b.nik).replace(/\D/g, '') || 0) ? -1 : 1);
     } else if (window.currentSort === 'nik_desc') {
@@ -701,12 +681,11 @@ window.toggleSortAz = function (btnEl) {
 };
 
 // =========================================================================
-// 9. RENDER DATATABLES TERINTEGRASI (CLEAN LIFECYCLE)
+// 9. RENDER DATATABLES TERINTEGRASI DENGAN TOMBOL PERISAI KONDISIONAL
 // =========================================================================
 window.renderTable = function (data) {
     if (!Array.isArray(data)) data = [];
 
-    // Hancurkan instance DataTables lama secara bersih tanpa .clear() agar DOM tersinkron
     if (typeof $ !== 'undefined' && $.fn.DataTable && $.fn.DataTable.isDataTable('#dataTable')) {
         $('#dataTable').DataTable().destroy();
     }
@@ -749,6 +728,16 @@ window.renderTable = function (data) {
             statusSalurBadge = `<span class="badge badge-red" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-exclamation-triangle"></i> Sengketa</span>`;
         }
 
+        // Deteksi apakah warga sedang mengajukan sengketa (Penyaluran / Keberatan Desil)
+        const isSengketa = String(w.status_salur || '').toLowerCase().includes('sengketa') || 
+                           String(w.catatan || '').toLowerCase().includes('sengketa') ||
+                           String(w.catatan || '').toLowerCase().includes('sanggah');
+
+        // Tombol Perisai HANYA muncul jika terdapat status sengketa aktif
+        const btnSengketa = isSengketa
+            ? `<button type="button" onclick="window.bukaAksiCepatSengketa(${w.id}, '${window.escapeInlineJS(w.nama)}', '${w.nik}')" class="btn btn-sm" style="padding:5px 8px; background:#fee2e2; color:#dc2626; font-size:0.8rem; border-radius:6px; margin-right:3px; border:1px solid #fca5a5;" title="Mediasi Sengketa Aktif"><i class="fas fa-shield-alt"></i></button>`
+            : '';
+
         const btnToggleVerif = isVerified
             ? `<button onclick="window.toggleVerifySingle(${w.id}, '${window.escapeInlineJS(w.nama)}')" class="btn btn-secondary btn-sm" style="border:1px solid #cbd5e1; border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px;"><i class="fas fa-undo"></i> Batal</button>`
             : `<button onclick="window.toggleVerifySingle(${w.id}, '${window.escapeInlineJS(w.nama)}')" class="btn btn-primary btn-sm" style="border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px;"><i class="fas fa-check"></i> Setujui</button>`;
@@ -781,9 +770,9 @@ window.renderTable = function (data) {
                 <td style="text-align:center;">${verifBadge}</td>
                 <td style="text-align:center; white-space:nowrap;">
                     ${btnToggleVerif}
-                    <button onclick="window.bukaModalEdit(${w.id})" class="btn" style="padding:5px 8px; background:#fef3c7; color:#b45309; font-size:0.8rem; border-radius:6px; margin-right:3px;" title="Edit Data"><i class="fas fa-edit"></i></button>
+                    <button onclick="window.bukaModalEdit(${w.id})" class="btn" style="padding:5px 8px; background:#fef3c7; color:#b45309; font-size:0.8rem; border-radius:6px; margin-right:3px;" title="Edit Data & 10 Kriteria"><i class="fas fa-edit"></i></button>
                     ${btnKamera}
-                    <button onclick="window.bukaAksiCepatSengketa(${w.id}, '${window.escapeInlineJS(w.nama)}', '${w.nik}')" class="btn" style="padding:5px 8px; background:#fee2e2; color:#dc2626; font-size:0.8rem; border-radius:6px; margin-right:3px;" title="Mediasi Sengketa"><i class="fas fa-shield-alt"></i></button>
+                    ${btnSengketa}
                     ${btnDelete}
                 </td>
             </tr>
@@ -792,7 +781,6 @@ window.renderTable = function (data) {
 
     tbody.innerHTML = html;
 
-    // Inisialisasi DataTable Baru dengan Bahasa Indonesia
     if (typeof $ !== 'undefined' && $.fn.DataTable) {
         dtTable = $('#dataTable').DataTable({
             pageLength: 10,
@@ -822,7 +810,7 @@ document.addEventListener('change', function (e) {
 });
 
 // =========================================================================
-// 10. AKSI BULK, PERSETUJUAN & SINKRONISASI BPS
+// 10. AKSI BULK, PERSETUJUAN & SINKRONISASI BPS[cite: 12]
 // =========================================================================
 window.bulkProcess = async function (action) {
     const checked = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
@@ -915,7 +903,7 @@ window.syncBPS = async function () {
 };
 
 // =========================================================================
-// 11. SPK ALGORITMA BWM-SAW & KOMPARASI WP (JEMBATAN MODULAR AMAN)
+// 11. SPK ALGORITMA BWM-SAW & KOMPARASI WP[cite: 12]
 // =========================================================================
 window.bukaModalKomparasi = function () {
     if (window.AdminSPK && typeof window.AdminSPK.bukaModalKomparasi === 'function') {
@@ -932,7 +920,7 @@ window.hitungSPK = function () {
 };
 
 // =========================================================================
-// 12. EKSPOR & IMPOR EXCEL (SHEETJS XLSX)
+// 12. EKSPOR & IMPOR EXCEL (SHEETJS XLSX)[cite: 12]
 // =========================================================================
 window.exportExcelLengkap = function () {
     const dataList = (window.BansosApp && window.BansosApp.State) ? window.BansosApp.State.wargaList : window.globalDataWarga;
@@ -1176,114 +1164,357 @@ window.bukaUploadBuktiSalur = function (id, namaWarga, existingPhoto) {
 };
 
 window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
+    const dataList = (window.BansosApp && window.BansosApp.State) ? window.BansosApp.State.wargaList : window.globalDataWarga;
+    const w = dataList.find(item => item.id === id);
+    const catatanSengketa = w?.catatan || 'Warga melaporkan kendala pada data penerimaan bansos.';
+
     showAdminAlert({
         title: '<i class="fas fa-shield-alt text-danger"></i> Mediasi Sengketa Bansos',
-        html: `<div style="text-align:left; font-size:0.9rem; line-height:1.6;">
-            <b>Warga:</b> ${window.safeHtml(namaWarga)} (NIK: ${nik})<br>
-            Tentukan tindakan penanganan sengketa untuk data ini:
-        </div>`,
+        html: `
+            <div style="text-align:left; font-size:0.88rem; line-height:1.6; color:#1e293b;">
+                <div style="background:#f8fafc; padding:12px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:12px;">
+                    <div><b>Warga:</b> ${window.safeHtml(namaWarga)} (NIK: ${nik})</div>
+                    <div><b>Status Saat Ini:</b> <span style="color:#dc2626; font-weight:700;">${w?.status_salur || 'Sengketa'}</span></div>
+                    <div style="margin-top:6px; font-size:0.82rem; color:#475569;"><b>Rincian Aduan:</b><br>${window.safeHtml(catatanSengketa)}</div>
+                </div>
+                <p style="margin:0; font-size:0.84rem; color:#334155;">Pilih tindakan penanganan untuk menyelesaikan sengketa ini:</p>
+            </div>
+        `,
         showCancelButton: true,
         showDenyButton: true,
-        confirmButtonText: '<i class="fas fa-check-circle"></i> Selesaikan Sengketa',
-        denyButtonText: '<i class="fas fa-search"></i> Investigasi Lapangan',
+        confirmButtonText: '<i class="fas fa-check-circle"></i> Selesai (Bansos Diterima)',
+        denyButtonText: '<i class="fas fa-sync-alt"></i> Verifikasi Ulang Kriteria (Sanggah Desil)',
         cancelButtonText: 'Tutup',
-        confirmButtonColor: '#10b981',
-        denyButtonColor: '#f59e0b'
+        confirmButtonColor: '#009846',
+        denyButtonColor: '#0284c7'
     }).then(async (result) => {
-        let aksi = null;
-        if (result.isConfirmed) aksi = 'selesai';
-        else if (result.isDenied) aksi = 'investigasi';
-
-        if (aksi) {
-            await (window.fetchWithAuth ? window.fetchWithAuth(`/warga/${id}/lapor-sengketa`, { method: 'POST', body: { aksi } }) : (window.fetchData ? window.fetchData(`/warga/${id}/lapor-sengketa`, { method: 'POST', body: JSON.stringify({ aksi }) }) : null));
-            window.loadDashboardData();
+        if (result.isConfirmed) {
+            const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+            await (window.fetchWithAuth 
+                ? window.fetchWithAuth(`/warga/${id}/lapor-sengketa`, { method: 'POST', body: { aksi: 'selesai' } }) 
+                : fetch(`${baseUrl}/api/warga/${id}/lapor-sengketa`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${window.getCleanToken()}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ aksi: 'selesai' })
+                }));
+            await window.loadDashboardData(true);
+            showAdminAlert({ icon: 'success', title: 'Sengketa Selesai', text: `Status bantuan untuk ${namaWarga} telah diperbarui menjadi Telah Menerima.` });
+        } else if (result.isDenied) {
+            window.bukaModalEdit(id);
         }
     });
 };
 
 // =========================================================================
-// 14. MANAJEMEN PENGGUNA SISTEM (USER CRUD)
+// 14. MODUL MANAJEMEN PENGGUNA SISTEM (DENGAN INSPEKSI PASSWORD LAMA & BARU)[cite: 12]
 // =========================================================================
+
+// 1. Buka Modal dan Muat Tabel Pengguna[cite: 12]
 window.bukaModalPengguna = async function () {
     const modal = document.getElementById('modalPengguna');
     if (modal) modal.style.display = 'flex';
-    window.loadTablePengguna();
+    window.resetFormUser();
+    await window.loadUserTable();
 };
 
-window.loadTablePengguna = async function () {
+// 2. Tarik dan Render Data Tabel Pengguna[cite: 12]
+window.loadUserTable = async function () {
     const tbody = document.getElementById('userTableBody');
     if (!tbody) return;
 
-    try {
-        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/users') : (window.fetchData ? window.fetchData('/users') : fetch(`${BASE_URL}/users`)));
-        const users = await res.json();
-        tbody.innerHTML = '';
-        users.forEach((u, idx) => {
-            const btnDel = u.username !== 'admin'
-                ? `<button onclick="window.hapusUser(${u.id}, '${window.escapeInlineJS(u.username)}')" class="btn btn-sm" style="background:#fee2e2; color:#dc2626; border-radius:8px; padding:4px 8px;"><i class="fas fa-trash"></i></button>`
-                : '<span style="font-size:0.75rem; color:#64748b; font-weight:700;">Utama</span>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Memuat data akun...</td></tr>';
 
-            tbody.innerHTML += `
-                <tr style="background:${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-                    <td style="font-weight:700; color:#64748b; text-align:center;">#${u.id}</td>
-                    <td><b style="color:#0f172a;">${window.safeHtml(u.username)}</b></td>
-                    <td style="text-align:center;"><span class="badge badge-blue">${u.role}</span></td>
-                    <td style="text-align:center;">${btnDel}</td>
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('access_token') || localStorage.getItem('bansosToken');
+        const res = await fetch('http://127.0.0.1:5000/users', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!res.ok) throw new Error('Gagal mengambil daftar pengguna.');
+        const users = await res.json();
+
+        if (!users.length) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#94a3b8;">Belum ada akun terdaftar.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = users.map(u => {
+            const isAdmin = (u.role === 'admin');
+            const roleBadge = isAdmin
+                ? `<span class="badge" style="background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe; font-weight:800; padding:3px 10px; border-radius:12px; font-size:0.75rem;">ADMIN</span>`
+                : `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; padding:3px 10px; border-radius:12px; font-size:0.75rem;">OPERATOR</span>`;
+
+            const btnEdit = `
+                <button type="button" class="btn btn-sm" onclick="window.editUser(${u.id}, '${window.escapeInlineJS(u.username)}', '${u.role}', '${window.escapeInlineJS(u.current_password || '')}')" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:8px; padding:5px 9px; cursor:pointer;" title="Edit Akun & Password">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+            `;
+
+            const btnDelete = (u.id === 1 || u.username === 'admin')
+                ? `<span style="font-size:0.75rem; color:#94a3b8; font-weight:600; padding:4px 6px;">Utama</span>`
+                : `
+                <button type="button" class="btn btn-sm" onclick="window.hapusUser(${u.id}, '${window.escapeInlineJS(u.username)}')" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:8px; padding:5px 9px; cursor:pointer;" title="Hapus Akun">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            `;
+
+            return `
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="font-weight:700; color:#64748b; font-size:0.85rem;">#${u.id}</td>
+                    <td style="font-weight:800; color:#0f172a; font-size:0.9rem;">${window.safeHtml(u.username)}</td>
+                    <td>${roleBadge}</td>
+                    <td style="text-align:center;">
+                        <div style="display:inline-flex; align-items:center; gap:6px;">
+                            ${btnEdit}
+                            ${btnDelete}
+                        </div>
+                    </td>
                 </tr>
             `;
-        });
-    } catch (e) { }
+        }).join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#dc2626;">${err.message}</td></tr>`;
+    }
 };
 
+window.loadTablePengguna = window.loadUserTable;
+
+// 3. Masuk ke Mode Edit Akun (Menampilkan Password Aktif & Kolom Password Baru)[cite: 12]
+window.editUser = function (id, username, role, currentPassword) {
+    document.getElementById('userId').value = id;
+    document.getElementById('manageUsername').value = username;
+    document.getElementById('manageRole').value = role || 'operator';
+
+    let groupCurrent = document.getElementById('groupCurrentPassword');
+    const passInput = document.getElementById('managePassword');
+    const passGroup = passInput ? passInput.closest('.form-group') : null;
+
+    if (!groupCurrent && passGroup && passGroup.parentNode) {
+        groupCurrent = document.createElement('div');
+        groupCurrent.id = 'groupCurrentPassword';
+        groupCurrent.className = 'form-group';
+        groupCurrent.innerHTML = `
+            <label class="form-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <span>Password Saat Ini (Aktif)</span>
+                <span style="font-size:0.7rem; color:#009846; font-weight:700;"><i class="fas fa-lock"></i> Aktif</span>
+            </label>
+            <div style="position:relative; display:flex; align-items:center;">
+                <input type="password" id="manageCurrentPassword" class="form-input" readonly style="background:#f1f5f9; font-weight:700; color:#0f172a; width:100%; padding-right:44px; border:1.5px solid #cbd5e1;">
+                <button type="button" onclick="const p=document.getElementById('manageCurrentPassword'); p.type=p.type==='password'?'text':'password'; this.innerHTML=p.type==='password'?'<i class=\\'fas fa-eye\\'></i>':'<i class=\\'fas fa-eye-slash\\'></i>';" style="position:absolute; right:10px; background:none; border:none; color:#64748b; cursor:pointer; padding:4px;" title="Lihat Password Saat Ini">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </div>
+        `;
+        passGroup.parentNode.insertBefore(groupCurrent, passGroup);
+    }
+
+    if (groupCurrent) {
+        groupCurrent.style.display = 'block';
+        const curPassInput = document.getElementById('manageCurrentPassword');
+        if (curPassInput) {
+            curPassInput.value = currentPassword || (username === 'admin' ? 'admin123' : '12345');
+            curPassInput.type = 'password';
+        }
+    }
+
+    const labelPass = passGroup ? passGroup.querySelector('.form-label') : null;
+    if (labelPass) {
+        labelPass.innerText = 'Kata Sandi Baru (Opsional)';
+    }
+
+    if (passInput) {
+        passInput.value = '';
+        passInput.required = false;
+        passInput.placeholder = 'Masukkan kata sandi baru (kosongkan jika tetap)';
+    }
+
+    const title = document.getElementById('formUserTitle');
+    if (title) {
+        title.innerHTML = `<i class="fas fa-user-edit text-primary"></i> Edit Akun: <span style="color:#009846;">${window.safeHtml(username)}</span>`;
+    }
+
+    const submitBtn = document.querySelector('#formUser button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-save"></i> Simpan Perubahan';
+        submitBtn.style.background = 'linear-gradient(135deg, #0284c7, #0369a1)';
+    }
+
+    document.getElementById('manageUsername').focus();
+};
+
+// 4. Eksekusi Simpan Perubahan / Tambah Akun Baru[cite: 12]
 window.simpanUser = async function (e) {
-    if (e && e.preventDefault) e.preventDefault();
-    const payload = {
-        username: document.getElementById('manageUsername')?.value.trim(),
-        password: document.getElementById('managePassword')?.value.trim(),
-        role: document.getElementById('manageRole')?.value || 'operator'
-    };
+    e.preventDefault();
 
-    if (!payload.username || !payload.password) {
-        return showAdminAlert({ icon: 'warning', title: 'Perhatian', text: 'Username dan password wajib diisi.' });
+    const id = document.getElementById('userId').value.trim();
+    const username = document.getElementById('manageUsername').value.trim();
+    const password = document.getElementById('managePassword').value.trim();
+    const role = document.getElementById('manageRole').value;
+
+    if (!username) {
+        return Swal.fire('Peringatan', 'Username wajib diisi!', 'warning');
     }
 
-    const res = await (window.fetchWithAuth ? window.fetchWithAuth('/users', { method: 'POST', body: payload }) : (window.fetchData ? window.fetchData('/users', { method: 'POST', body: JSON.stringify(payload) }) : fetch(`${BASE_URL}/users`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })));
+    if (!id && !password) {
+        return Swal.fire('Peringatan', 'Password wajib diisi untuk akun baru!', 'warning');
+    }
 
-    if (res && res.ok) {
-        showAdminAlert({ toast: true, position: 'top-end', icon: 'success', title: 'Akun berhasil ditambahkan!', timer: 1500, showConfirmButton: false });
+    const token = localStorage.getItem('token') || localStorage.getItem('access_token') || localStorage.getItem('bansosToken');
+    const isEdit = Boolean(id);
+    const url = isEdit ? `http://127.0.0.1:5000/users/${id}` : 'http://127.0.0.1:5000/users';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const payload = { username, role };
+    if (password) {
+        payload.password = password;
+    }
+
+    try {
+        const res = await fetch(url, {
+            method: method,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+
+        if (!res.ok) {
+            throw new Error(result.message || 'Gagal memproses data akun.');
+        }
+
+        const loggedUser = localStorage.getItem('username');
+        if (isEdit && loggedUser === username) {
+            const navUser = document.getElementById('navUsername');
+            if (navUser) navUser.innerText = username;
+        }
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Berhasil!',
+            text: isEdit 
+                ? `Akun '${username}' berhasil diperbarui! Perubahan telah dicatat ke notifikasi.` 
+                : `Akun '${username}' berhasil ditambahkan dan siap digunakan!`,
+            timer: 2000,
+            showConfirmButton: false
+        });
+
         window.resetFormUser();
-        window.loadTablePengguna();
+        await window.loadUserTable();
+
+        if (typeof window.fetchNotifications === 'function') {
+            window.fetchNotifications();
+        }
+    } catch (err) {
+        Swal.fire('Kendala Penyimpanan', err.message, 'error');
     }
 };
 
+// 5. Kembalikan Form ke Mode Tambah Akun Baru[cite: 12]
 window.resetFormUser = function () {
-    document.getElementById('formUser')?.reset();
-    if (document.getElementById('userId')) document.getElementById('userId').value = '';
-    if (document.getElementById('formUserTitle')) document.getElementById('formUserTitle').innerText = 'Tambah Akun Baru';
+    document.getElementById('userId').value = '';
+    document.getElementById('manageUsername').value = '';
+
+    const groupCurrent = document.getElementById('groupCurrentPassword');
+    if (groupCurrent) {
+        groupCurrent.style.display = 'none';
+    }
+
+    const passInput = document.getElementById('managePassword');
+    const passGroup = passInput ? passInput.closest('.form-group') : null;
+    const labelPass = passGroup ? passGroup.querySelector('.form-label') : null;
+    if (labelPass) {
+        labelPass.innerText = 'Kata Sandi (Password)';
+    }
+
+    if (passInput) {
+        passInput.value = '';
+        passInput.required = true;
+        passInput.placeholder = 'Masukkan kata sandi';
+        passInput.type = 'password';
+    }
+
+    document.getElementById('manageRole').value = 'operator';
+
+    const title = document.getElementById('formUserTitle');
+    if (title) title.innerText = 'Tambah Akun Baru';
+
+    const submitBtn = document.querySelector('#formUser button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-save"></i> Simpan Akun';
+        submitBtn.style.background = 'linear-gradient(135deg, var(--primary), var(--primary-dark))';
+    }
 };
 
+// 6. Hapus Akun[cite: 12]
 window.hapusUser = async function (id, username) {
-    const konfirmasi = confirm(`Hapus akun dinas "${username}"?`);
-    if (konfirmasi) {
-        await (window.fetchWithAuth ? window.fetchWithAuth(`/users/${id}`, { method: 'DELETE' }) : (window.fetchData ? window.fetchData(`/users/${id}`, { method: 'DELETE' }) : fetch(`${BASE_URL}/users/${id}`, { method: 'DELETE' })));
-        window.loadTablePengguna();
+    const { isConfirmed } = await Swal.fire({
+        title: `Hapus Akun '${username}'?`,
+        text: 'Akun ini tidak akan dapat digunakan lagi untuk masuk ke dalam sistem dashboard.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="fas fa-trash-alt"></i> Ya, Hapus',
+        cancelButtonText: 'Batal'
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('access_token') || localStorage.getItem('bansosToken');
+        const res = await fetch(`http://127.0.0.1:5000/users/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.message || 'Gagal menghapus akun.');
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Terhapus',
+            text: result.message,
+            timer: 1500,
+            showConfirmButton: false
+        });
+
+        await window.loadUserTable();
+        if (typeof window.fetchNotifications === 'function') {
+            window.fetchNotifications();
+        }
+    } catch (err) {
+        Swal.fire('Gagal Menghapus', err.message, 'error');
     }
 };
 
 // =========================================================================
-// 15. PUSAT PENGENDALI NOTIFIKASI AKTIVITAS (CLEAN, PIN, ARSIP & DETAIL)
+// 15. PUSAT PENGENDALI NOTIFIKASI AKTIVITAS (STABIL, ANTI-GLITCH & MODAL STAY)[cite: 12]
 // =========================================================================
-
 window.currentNotifTab = 'all';
 window.cachedNotifList = [];
 
-// Buka / Tutup Dropdown Notifikasi
+// Buka / Tutup Dropdown Notifikasi[cite: 12]
 window.toggleNotifPanel = function (e) {
-    if (e) e.stopPropagation();
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
     const panel = document.getElementById('notifPanel');
     if (!panel) return;
 
-    const isVisible = panel.style.display === 'block' || panel.style.display === 'flex';
+    const isVisible = (panel.style.display === 'block' || panel.style.display === 'flex');
     panel.style.display = isVisible ? 'none' : 'block';
 
     if (!isVisible) {
@@ -1291,10 +1522,15 @@ window.toggleNotifPanel = function (e) {
     }
 };
 
-// Tutup Panel Saat Mengklik Area Luar
+// Tutup Panel Hanya Jika Mengklik Luar Area (Kecualikan SweetAlert Popup)[cite: 12]
 document.addEventListener('click', function (e) {
     const panel = document.getElementById('notifPanel');
     const wrapper = document.querySelector('.notif-wrapper');
+
+    if (e.target.closest('.swal2-container') || e.target.closest('.swal2-popup') || document.body.classList.contains('swal2-shown')) {
+        return;
+    }
+
     if (panel && (panel.style.display === 'block' || panel.style.display === 'flex')) {
         if (!panel.contains(e.target) && !wrapper.contains(e.target)) {
             panel.style.display = 'none';
@@ -1302,24 +1538,128 @@ document.addEventListener('click', function (e) {
     }
 });
 
-// Mengambil dan Me-render Log Aktivitas dengan Tampilan Bersih & Aksi Lengkap
-window.loadNotifikasiAktivitas = async function (filterTab = window.currentNotifTab) {
-    window.currentNotifTab = filterTab;
+// Render Tampilan Notifikasi (Menjaga Posisi Scroll & Urutan Stabil)
+window.renderNotifikasiListDOM = function () {
     const container = document.getElementById('notifList');
-    const badge = document.getElementById('notifBadge');
+    if (!container) return;
 
-    if (container && container.children.length === 0) {
-        container.innerHTML = '<div style="padding:22px; text-align:center; color:#94a3b8; font-size:0.83rem;">Memuat aktivitas...</div>';
+    const prevScrollTop = container.scrollTop;
+    const filterTab = window.currentNotifTab;
+    const list = window.cachedNotifList || [];
+
+    let filtered = [];
+    if (filterTab === 'arsip') {
+        filtered = list.filter(n => Boolean(n.is_archived));
+    } else if (filterTab === 'urgent') {
+        filtered = list.filter(n => !n.is_archived && (
+            n.pesan.includes('🚨') || 
+            n.pesan.toLowerCase().includes('sengketa') || 
+            n.pesan.toLowerCase().includes('urgent') ||
+            n.pesan.toLowerCase().includes('keamanan')
+        ));
+    } else {
+        filtered = list.filter(n => !Boolean(n.is_archived));
     }
+
+    // Urutan Mutlak: 1. Pinned (Sematkan) di atas, 2. ID Terbesar (Terbaru) di atas
+    filtered.sort((a, b) => {
+        const pinA = a.is_pinned ? 1 : 0;
+        const pinB = b.is_pinned ? 1 : 0;
+        if (pinB !== pinA) return pinB - pinA;
+        return (Number(b.id) || 0) - (Number(a.id) || 0);
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div style="padding:36px 16px; text-align:center; color:#94a3b8; font-size:0.83rem;">
+                <i class="fas fa-inbox" style="font-size:1.8rem; opacity:0.35; margin-bottom:8px; display:block;"></i>
+                Tidak ada notifikasi pada kategori ini.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = filtered.map(item => {
+        let cleanMsg = item.pesan
+            .replace(/👑|📌|🔒|🚨|⚠️/g, '')
+            .replace(/\[Admin\]/gi, '')
+            .replace(/\[Petugas\]/gi, '')
+            .replace(/\[Warga\]/gi, '')
+            .replace(/\[Sistem\]/gi, '')
+            .replace(/\[Keamanan\]/gi, '')
+            .trim();
+
+        let roleBadge = '<span style="background:#f1f5f9; color:#475569; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px;">SISTEM</span>';
+        if (item.pesan.includes('[Admin]')) {
+            roleBadge = '<span style="background:#e0e7ff; color:#4f46e5; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px;">ADMIN</span>';
+        } else if (item.pesan.includes('[Petugas]')) {
+            roleBadge = '<span style="background:#e0f2fe; color:#0284c7; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px;">PETUGAS</span>';
+        } else if (item.pesan.includes('[Warga]')) {
+            roleBadge = '<span style="background:#fef3c7; color:#b45309; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px;">WARGA</span>';
+        } else if (item.pesan.includes('🚨') || item.pesan.toLowerCase().includes('sengketa') || item.pesan.toLowerCase().includes('keamanan')) {
+            roleBadge = '<span style="background:#fee2e2; color:#dc2626; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px;">URGENT</span>';
+        }
+
+        const isPinned = Boolean(item.is_pinned);
+        const isArchived = Boolean(item.is_archived);
+        const cardBg = isPinned ? '#fffdf7' : (item.is_read ? '#ffffff' : '#f0fdf4');
+        const pinAccent = isPinned ? 'border-left: 4px solid #f59e0b;' : 'border-left: 4px solid transparent;';
+        const pinIconColor = isPinned ? '#f59e0b' : '#94a3b8';
+        const pinTitle = isPinned ? 'Lepas Sematan' : 'Sematkan ke Atas';
+        const archiveTitle = isArchived ? 'Pulihkan dari Arsip' : 'Arsipkan';
+
+        return `
+            <div style="padding:12px 16px; border-bottom:1px solid #f1f5f9; background:${cardBg}; ${pinAccent} display:flex; gap:10px; align-items:flex-start; cursor:pointer; transition:background 0.15s ease;" 
+                 onclick="window.lihatDetailNotifikasi(event, ${item.id})" 
+                 onmouseover="this.style.background='#f8fafc'" 
+                 onmouseout="this.style.background='${cardBg}'">
+                
+                <div style="flex:1;">
+                    <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                        ${roleBadge}
+                        ${isPinned ? '<span style="font-size:0.68rem; font-weight:800; color:#d97706; background:#fef3c7; padding:1px 6px; border-radius:4px;"><i class="fas fa-thumbtack"></i> SEMATAN</span>' : ''}
+                        <span style="font-size:0.7rem; color:#94a3b8; margin-left:auto;">${item.waktu}</span>
+                    </div>
+                    <div style="color:#0f172a; font-size:0.83rem; font-weight:${item.is_read ? '500' : '700'}; line-height:1.45;">
+                        ${window.safeHtml(cleanMsg)}
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:3px; margin-left:4px;" onclick="event.stopPropagation()">
+                    <button type="button" onclick="window.togglePinNotif(${item.id})" title="${pinTitle}" style="background:none; border:none; color:${pinIconColor}; cursor:pointer; padding:5px 6px; font-size:0.85rem; border-radius:6px;" onmouseover="this.style.background='#f1f5f9'">
+                        <i class="fas fa-thumbtack"></i>
+                    </button>
+                    <button type="button" onclick="window.toggleArsipNotif(${item.id})" title="${archiveTitle}" style="background:none; border:none; color:#64748b; cursor:pointer; padding:5px 6px; font-size:0.85rem; border-radius:6px;" onmouseover="this.style.background='#f1f5f9'">
+                        <i class="fas ${isArchived ? 'fa-box-open' : 'fa-archive'}"></i>
+                    </button>
+                    <button type="button" onclick="window.hapusNotif(${item.id})" title="Hapus Notifikasi" style="background:none; border:none; color:#94a3b8; cursor:pointer; padding:5px 6px; font-size:0.85rem; border-radius:6px;" onmouseover="this.style.color='#ef4444'; this.style.background='#fee2e2'">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.scrollTop = prevScrollTop;
+};
+
+// Memuat Notifikasi Tanpa Redraw Acak[cite: 12]
+window.loadNotifikasiAktivitas = async function (filterTab = window.currentNotifTab, forceRender = false) {
+    window.currentNotifTab = filterTab;
+    const badge = document.getElementById('notifBadge');
+    const panel = document.getElementById('notifPanel');
+    const isPanelOpen = panel && (panel.style.display === 'block' || panel.style.display === 'flex');
+
+    if (window.isNotifUpdating) return;
+    window.isNotifUpdating = true;
 
     try {
         const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
-        const res = await window.fetchData(`${baseUrl}/api/notifikasi`);
-        if (!res) return;
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/api/notifikasi') : fetch(`${baseUrl}/api/notifikasi`));
+        if (!res || !res.ok) return;
 
         const result = await res.json();
-        const list = result.data || [];
-        window.cachedNotifList = list;
+        window.cachedNotifList = result.data || [];
         const unreadCount = result.unread || 0;
 
         if (badge) {
@@ -1327,229 +1667,237 @@ window.loadNotifikasiAktivitas = async function (filterTab = window.currentNotif
             badge.style.display = unreadCount > 0 ? 'inline-block' : 'none';
         }
 
-        if (!container) return;
-
-        // Pemisahan Tab: Semua (Aktif), Urgent, Arsip
-        let filtered = list;
-        if (filterTab === 'arsip') {
-            filtered = list.filter(n => n.is_archived);
-        } else if (filterTab === 'urgent') {
-            filtered = list.filter(n => !n.is_archived && (n.pesan.includes('🚨') || n.pesan.toLowerCase().includes('sengketa') || n.pesan.toLowerCase().includes('urgent')));
-        } else {
-            // Urutkan yang di-pin agar selalu berada di posisi paling atas
-            filtered = list.filter(n => !n.is_archived).sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0));
+        if (forceRender || isPanelOpen) {
+            window.renderNotifikasiListDOM();
         }
-
-        if (filtered.length === 0) {
-            container.innerHTML = `
-                <div style="padding:36px 16px; text-align:center; color:#94a3b8; font-size:0.83rem;">
-                    <i class="fas fa-inbox" style="font-size:1.8rem; opacity:0.35; margin-bottom:8px; display:block;"></i>
-                    Tidak ada notifikasi pada kategori ini.
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = filtered.map(item => {
-            // Pembersihan string dari emoji dan prefix mentah
-            let cleanMsg = item.pesan
-                .replace(/👑|📌|🔒|🚨|⚠️/g, '')
-                .replace(/\[Admin\]/gi, '')
-                .replace(/\[Petugas\]/gi, '')
-                .replace(/\[Warga\]/gi, '')
-                .replace(/SISTEM:/gi, '')
-                .trim();
-
-            // Label Peran Bersih (Text Badge)
-            let roleBadge = '<span style="background:#f1f5f9; color:#475569; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; letter-spacing:0.3px;">SISTEM</span>';
-            if (item.pesan.includes('[Admin]')) {
-                roleBadge = '<span style="background:#e0e7ff; color:#4f46e5; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; letter-spacing:0.3px;">ADMIN</span>';
-            } else if (item.pesan.includes('[Petugas]')) {
-                roleBadge = '<span style="background:#e0f2fe; color:#0284c7; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; letter-spacing:0.3px;">PETUGAS</span>';
-            } else if (item.pesan.includes('[Warga]')) {
-                roleBadge = '<span style="background:#fef3c7; color:#b45309; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; letter-spacing:0.3px;">WARGA</span>';
-            } else if (item.pesan.includes('🚨') || item.pesan.toLowerCase().includes('sengketa')) {
-                roleBadge = '<span style="background:#fee2e2; color:#dc2626; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; letter-spacing:0.3px;">URGENT</span>';
-            }
-
-            // Aksen Khusus untuk Notifikasi yang Disematkan (PIN)
-            const isPinned = Boolean(item.is_pinned);
-            const isArchived = Boolean(item.is_archived);
-            
-            const cardBg = isPinned ? '#fffdf7' : (item.is_read ? '#ffffff' : '#f0fdf4');
-            const pinAccent = isPinned ? 'border-left: 4px solid #f59e0b;' : 'border-left: 4px solid transparent;';
-            const pinIconColor = isPinned ? '#f59e0b' : '#94a3b8';
-            const pinTitle = isPinned ? 'Lepas Sematan (Unpin)' : 'Sematkan ke Atas (Pin)';
-            const archiveTitle = isArchived ? 'Pulihkan dari Arsip' : 'Arsipkan';
-
-            return `
-                <div style="padding:12px 16px; border-bottom:1px solid #f1f5f9; background:${cardBg}; ${pinAccent} display:flex; gap:10px; align-items:flex-start; cursor:pointer; transition:background 0.2s;" 
-                     onclick="window.lihatDetailNotifikasi(${item.id})" 
-                     onmouseover="this.style.background='#f8fafc'" 
-                     onmouseout="this.style.background='${cardBg}'">
-                    
-                    <div style="flex:1;">
-                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
-                            ${roleBadge}
-                            ${isPinned ? '<span style="font-size:0.68rem; font-weight:800; color:#d97706; background:#fef3c7; padding:1px 6px; border-radius:4px;"><i class="fas fa-thumbtack"></i> SEMATAN</span>' : ''}
-                            <span style="font-size:0.7rem; color:#94a3b8; margin-left:auto;">${item.waktu}</span>
-                        </div>
-                        <div style="color:#0f172a; font-size:0.83rem; font-weight:${item.is_read ? '500' : '700'}; line-height:1.45;">
-                            ${window.safeHtml(cleanMsg)}
-                        </div>
-                    </div>
-
-                    <!-- Panel Aksi Cepat (Bebas Klik Detail) -->
-                    <div style="display:flex; gap:3px; margin-left:4px;" onclick="event.stopPropagation()">
-                        <button type="button" onclick="window.togglePinNotif(${item.id})" title="${pinTitle}" style="background:none; border:none; color:${pinIconColor}; cursor:pointer; padding:5px 6px; font-size:0.85rem; border-radius:6px;" onmouseover="this.style.background='#f1f5f9'">
-                            <i class="fas fa-thumbtack"></i>
-                        </button>
-                        <button type="button" onclick="window.toggleArsipNotif(${item.id})" title="${archiveTitle}" style="background:none; border:none; color:#64748b; cursor:pointer; padding:5px 6px; font-size:0.85rem; border-radius:6px;" onmouseover="this.style.background='#f1f5f9'">
-                            <i class="fas ${isArchived ? 'fa-box-open' : 'fa-archive'}"></i>
-                        </button>
-                        <button type="button" onclick="window.hapusNotif(${item.id})" title="Hapus Notifikasi" style="background:none; border:none; color:#94a3b8; cursor:pointer; padding:5px 6px; font-size:0.85rem; border-radius:6px;" onmouseover="this.style.color='#ef4444'; this.style.background='#fee2e2'">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
     } catch (err) {
-        if (container) {
-            container.innerHTML = '<div style="padding:15px; text-align:center; color:#ef4444; font-size:0.82rem;">Gagal memuat notifikasi.</div>';
-        }
+        console.warn('Gagal memuat notifikasi:', err);
+    } finally {
+        window.isNotifUpdating = false;
     }
 };
 
-// Modal Detail Notifikasi Lengkap Saat Diklik
-window.lihatDetailNotifikasi = function (id) {
-    const item = (window.cachedNotifList || []).find(n => n.id === id);
-    if (!item) return;
-
-    // Tandai otomatis sudah dibaca jika belum
-    if (!item.is_read) {
-        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
-        window.fetchData(`${baseUrl}/api/notifikasi/${id}/read`, { method: 'PATCH' }).then(() => {
-            item.is_read = true;
-            window.loadNotifikasiAktivitas(window.currentNotifTab);
-        });
+// Modal Pratinjau Detail Notifikasi yang Lebih Lengkap & Panel Tetap Berdiri[cite: 12]
+window.lihatDetailNotifikasi = function (e, id) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
     }
 
-    let cleanMsg = item.pesan.replace(/👑|📌|🔒|🚨|⚠️/g, '').trim();
+    const item = (window.cachedNotifList || []).find(n => Number(n.id) === Number(id));
+    if (!item) return;
+
+    if (!item.is_read) {
+        item.is_read = true;
+        window.renderNotifikasiListDOM();
+        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+        fetch(`${baseUrl}/api/notifikasi/${id}/read`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
+        }).catch(() => {});
+    }
+
+    let kategori = 'Aktivitas Operasional';
+    let labelBadge = '<span style="background:#e0f2fe; color:#0369a1; padding:3px 10px; border-radius:12px; font-weight:800; font-size:0.75rem;">OPERATOR</span>';
+    
+    if (item.pesan.includes('[Admin]')) {
+        kategori = 'Pengaturan Administrator';
+        labelBadge = '<span style="background:#e0e7ff; color:#4338ca; padding:3px 10px; border-radius:12px; font-weight:800; font-size:0.75rem;">SUPER ADMIN</span>';
+    } else if (item.pesan.includes('[Warga]')) {
+        kategori = 'Aduan Pelayanan Warga';
+        labelBadge = '<span style="background:#fef3c7; color:#b45309; padding:3px 10px; border-radius:12px; font-weight:800; font-size:0.75rem;">WARGA</span>';
+    } else if (item.pesan.includes('🚨') || item.pesan.toLowerCase().includes('keamanan') || item.pesan.toLowerCase().includes('sengketa')) {
+        kategori = 'Keamanan & Penanganan Sengketa';
+        labelBadge = '<span style="background:#fee2e2; color:#dc2626; padding:3px 10px; border-radius:12px; font-weight:800; font-size:0.75rem;">URGENT</span>';
+    }
+
+    const cleanMsg = item.pesan.replace(/👑|📌|🔒|🚨|⚠️/g, '').trim();
 
     Swal.fire({
         title: 'Detail Aktivitas Sistem',
         html: `
             <div style="text-align:left; font-size:0.88rem; line-height:1.6; color:#1e293b;">
-                <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:14px;">
-                    <div style="margin-bottom:6px;"><b>Waktu:</b> ${item.waktu}</div>
-                    <div style="margin-bottom:6px;"><b>Status:</b> ${item.is_pinned ? '<span style="color:#d97706; font-weight:700;">Disematkan (Pinned)</span>' : 'Reguler'} • ${item.is_archived ? 'Diarsipkan' : 'Aktif'}</div>
-                    <div><b>Keterangan:</b></div>
-                    <div style="font-size:0.95rem; font-weight:600; color:#0f172a; margin-top:4px;">${window.safeHtml(cleanMsg)}</div>
+                <div style="padding:14px; background:#f8fafc; border-radius:14px; border:1px solid #e2e8f0; margin-bottom:14px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid #e2e8f0; padding-bottom:8px;">
+                        <div>${labelBadge}</div>
+                        <div style="font-size:0.75rem; color:#64748b; font-weight:600;"><i class="fas fa-tag"></i> ID Log: #${item.id}</div>
+                    </div>
+                    <div style="margin-bottom:6px;"><b>Kategori:</b> ${kategori}</div>
+                    <div style="margin-bottom:6px;"><b>Waktu Eksekusi:</b> ${item.waktu}</div>
+                    <div style="margin-bottom:6px;">
+                        <b>Status:</b> 
+                        ${item.is_pinned ? '<span style="color:#d97706; font-weight:700;">Disematkan</span>' : 'Reguler'} • 
+                        ${item.is_archived ? '<span style="color:#64748b; font-weight:700;">Diarsipkan</span>' : '<span style="color:#059669; font-weight:700;">Aktif</span>'} • 
+                        <span style="color:#2563eb; font-weight:700;">Sudah Dibaca</span>
+                    </div>
+                    <div style="margin-top:10px;"><b>Uraian Aktivitas:</b></div>
+                    <div style="font-size:0.92rem; font-weight:600; color:#0f172a; margin-top:4px; padding:10px; background:#ffffff; border-radius:8px; border:1px solid #cbd5e1; word-break:break-word;">
+                        ${window.safeHtml(cleanMsg)}
+                    </div>
                 </div>
             </div>
         `,
         showCancelButton: true,
         showDenyButton: true,
         confirmButtonText: item.is_pinned ? 'Lepas Pin' : 'Sematkan (Pin)',
-        denyButtonText: item.is_archived ? 'Batal Arsip' : 'Arsipkan',
+        denyButtonText: item.is_archived ? 'Pulihkan' : 'Arsipkan',
         cancelButtonText: 'Tutup',
         confirmButtonColor: '#f59e0b',
-        denyButtonColor: '#64748b'
+        denyButtonColor: '#475569',
+        focusConfirm: false
     }).then(async (result) => {
         if (result.isConfirmed) {
             await window.togglePinNotif(id);
         } else if (result.isDenied) {
             await window.toggleArsipNotif(id);
         }
+
+        const panel = document.getElementById('notifPanel');
+        if (panel) {
+            panel.style.display = 'block';
+        }
     });
 };
 
-// Kompatibilitas panggilan background periodik
-window.fetchNotifikasiRealtime = () => window.loadNotifikasiAktivitas(window.currentNotifTab);
-
-// Toggle Pin / Unpin
-window.togglePinNotif = async function (id) {
-    try {
-        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
-        await window.fetchData(`${baseUrl}/api/notifikasi/${id}/pin`, { method: 'PATCH' });
-        window.loadNotifikasiAktivitas(window.currentNotifTab);
-    } catch (e) {
-        console.error('Gagal mengubah status pin:', e);
-    }
-};
-
-// Toggle Arsip
-window.toggleArsipNotif = async function (id) {
-    try {
-        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
-        await window.fetchData(`${baseUrl}/api/notifikasi/${id}/archive`, { method: 'PATCH' });
-        window.loadNotifikasiAktivitas(window.currentNotifTab);
-    } catch (e) {
-        console.error('Gagal mengubah status arsip:', e);
-    }
-};
-
-// Hapus Notifikasi
-window.hapusNotif = async function (id) {
-    try {
-        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
-        await window.fetchData(`${baseUrl}/api/notifikasi/${id}`, { method: 'DELETE' });
-        window.loadNotifikasiAktivitas(window.currentNotifTab);
-    } catch (e) {
-        console.error('Gagal menghapus notifikasi:', e);
-    }
-};
-
-// Bersihkan Seluruh Notifikasi Non-Pin
-window.hapusSemuaNotif = async function () {
-    const konfirmasi = confirm('Bersihkan seluruh daftar riwayat notifikasi yang tidak disematkan?');
-    if (!konfirmasi) return;
-
-    try {
-        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
-        await window.fetchData(`${baseUrl}/api/notifikasi/clear-all`, { method: 'POST' });
-        window.loadNotifikasiAktivitas(window.currentNotifTab);
-    } catch (e) {
-        console.error('Gagal membersihkan notifikasi:', e);
-    }
-};
-
-// Pergantian Tab Notifikasi
+// Pergantian Tab Notifikasi & Perubahan Warna Tab Urgent Menjadi Merah Solid[cite: 12]
 window.switchNotifTab = function (tab) {
+    window.currentNotifTab = tab;
+
     document.querySelectorAll('.ntf-tab-btn').forEach(b => {
         b.classList.remove('active');
         b.style.background = 'transparent';
         b.style.color = '#475569';
+        b.style.boxShadow = 'none';
     });
 
     const activeBtn = document.getElementById(
         tab === 'urgent' ? 'tabNotifUrgent' : (tab === 'arsip' ? 'tabNotifArsip' : 'tabNotifAll')
     );
+
     if (activeBtn) {
         activeBtn.classList.add('active');
-        activeBtn.style.background = '#ffffff';
-        activeBtn.style.color = tab === 'urgent' ? '#dc2626' : '#0f172a';
-        activeBtn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
+        if (tab === 'urgent') {
+            activeBtn.style.background = '#dc2626';
+            activeBtn.style.color = '#ffffff';
+            activeBtn.style.boxShadow = '0 2px 6px rgba(220, 38, 38, 0.35)';
+        } else {
+            activeBtn.style.background = '#ffffff';
+            activeBtn.style.color = '#0f172a';
+            activeBtn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
+        }
     }
 
-    window.loadNotifikasiAktivitas(tab);
+    window.renderNotifikasiListDOM();
 };
 
-// Tandai Semua Notifikasi Sudah Dibaca
-window.tandaiSemuaNotifDibaca = async function () {
+// Pin Notifikasi Tanpa Menutup Panel[cite: 12]
+window.togglePinNotif = async function (id) {
+    const item = (window.cachedNotifList || []).find(n => Number(n.id) === Number(id));
+    if (item) {
+        item.is_pinned = !item.is_pinned;
+        window.renderNotifikasiListDOM();
+    }
+
     try {
         const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
-        await window.fetchData(`${baseUrl}/api/notifikasi/read-all`, { method: 'POST' });
-        window.loadNotifikasiAktivitas(window.currentNotifTab);
+        await fetch(`${baseUrl}/api/notifikasi/${id}/pin`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
+        });
     } catch (e) {
-        console.error('Gagal menandai dibaca:', e);
+        console.error(e);
+    } finally {
+        const panel = document.getElementById('notifPanel');
+        if (panel) panel.style.display = 'block';
+    }
+};
+
+// Arsip Notifikasi Tanpa Menutup Panel[cite: 12]
+window.toggleArsipNotif = async function (id) {
+    const item = (window.cachedNotifList || []).find(n => Number(n.id) === Number(id));
+    if (item) {
+        item.is_archived = !item.is_archived;
+        window.renderNotifikasiListDOM();
+    }
+
+    try {
+        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+        await fetch(`${baseUrl}/api/notifikasi/${id}/archive`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
+        });
+    } catch (e) {
+        console.error(e);
+    } finally {
+        const panel = document.getElementById('notifPanel');
+        if (panel) panel.style.display = 'block';
+    }
+};
+
+// Hapus Notifikasi Tanpa Menutup Panel[cite: 12]
+window.hapusNotif = async function (id) {
+    window.cachedNotifList = (window.cachedNotifList || []).filter(n => Number(n.id) !== Number(id));
+    window.renderNotifikasiListDOM();
+
+    try {
+        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+        await fetch(`${baseUrl}/api/notifikasi/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
+        });
+    } catch (e) {
+        console.error(e);
+    } finally {
+        const panel = document.getElementById('notifPanel');
+        if (panel) panel.style.display = 'block';
+    }
+};
+
+// Bersihkan Semua Notifikasi Tanpa Menutup Panel[cite: 12]
+window.hapusSemuaNotif = async function () {
+    const konfirmasi = confirm('Bersihkan seluruh riwayat notifikasi yang tidak disematkan?');
+    if (!konfirmasi) return;
+
+    window.cachedNotifList = (window.cachedNotifList || []).filter(n => Boolean(n.is_pinned));
+    window.renderNotifikasiListDOM();
+
+    try {
+        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+        await fetch(`${baseUrl}/api/notifikasi/clear-all`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
+        });
+    } catch (e) {
+        console.error(e);
+    } finally {
+        const panel = document.getElementById('notifPanel');
+        if (panel) panel.style.display = 'block';
+    }
+};
+
+// Tandai Semua Notifikasi Dibaca Tanpa Menutup Panel[cite: 12]
+window.tandaiSemuaNotifDibaca = async function () {
+    (window.cachedNotifList || []).forEach(n => { n.is_read = true; });
+    const badge = document.getElementById('notifBadge');
+    if (badge) badge.style.display = 'none';
+    window.renderNotifikasiListDOM();
+
+    try {
+        const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+        await fetch(`${baseUrl}/api/notifikasi/read-all`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
+        });
+    } catch (e) {
+        console.error(e);
+    } finally {
+        const panel = document.getElementById('notifPanel');
+        if (panel) panel.style.display = 'block';
     }
 };
 
 // =========================================================================
-// 16. MODAL RINCIAN WILAYAH, INVESTIGASI & LIGHTBOX
+// 16. MODAL RINCIAN WILAYAH, INVESTIGASI & LIGHTBOX[cite: 12]
 // =========================================================================
 window.bukaMediaLightbox = function (url) {
     const modal = document.getElementById('mediaLightbox');
@@ -1629,7 +1977,7 @@ window.bukaWilayahDetail = function (kecamatanNama) {
     modal.style.display = 'flex';
 };
 
-// Fallback Helper Studio Editor & Chat
+// Fallback Helper Studio Editor & Chat[cite: 12]
 window.batalImageEditor = () => window.closeModal('imageEditorModal');
 window.batalVideoEditor = () => window.closeModal('videoEditorModal');
 window.vTogglePlay = () => {};
@@ -1638,7 +1986,7 @@ window.vProcessAndSave = () => {};
 window.vUpdateTrim = () => {};
 
 // =========================================================================
-// 17. KONTROL MODAL & LOGOUT
+// 17. KONTROL MODAL & LOGOUT[cite: 12]
 // =========================================================================
 window.toggleSelectAll = function (source) {
     document.querySelectorAll('.row-checkbox').forEach(cb => {

@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     
     <!-- =========================================================================
          CSS INTERNAL MODULAR & EMBEDDED STYLING LENGKAP
@@ -21,9 +22,6 @@
     <link rel="stylesheet" href="static/css/admin.css">
 
     <style>
-        /* =====================================================================
-           TEMA GLOBAL & ROOT VARIABEL (DILENGKAPI VIEWPORT LOCK)
-           ===================================================================== */
         :root {
             --primary: #009846;
             --primary-dark: #007a37;
@@ -79,7 +77,6 @@
             box-sizing: border-box;
         }
 
-        /* Mencegah Grid Kolom Kanan Melebar Melebihi Layar */
         .grid-layout {
             display: grid;
             grid-template-columns: 420px minmax(0, 1fr) !important;
@@ -313,15 +310,11 @@
         }
 
         @media (max-width: 1300px) {
-            .chart-row-4 {
-                grid-template-columns: repeat(2, 1fr);
-            }
+            .chart-row-4 { grid-template-columns: repeat(2, 1fr); }
         }
 
         @media (max-width: 768px) {
-            .chart-row-4 {
-                grid-template-columns: 1fr;
-            }
+            .chart-row-4 { grid-template-columns: 1fr; }
         }
 
         .chart-box-mini {
@@ -366,15 +359,11 @@
         }
 
         @media (max-width: 1300px) {
-            .dashboard-grid-4 {
-                grid-template-columns: repeat(2, 1fr);
-            }
+            .dashboard-grid-4 { grid-template-columns: repeat(2, 1fr); }
         }
 
         @media (max-width: 768px) {
-            .dashboard-grid-4 {
-                grid-template-columns: 1fr;
-            }
+            .dashboard-grid-4 { grid-template-columns: 1fr; }
         }
 
         .stat-card {
@@ -405,15 +394,8 @@
             flex-shrink: 0;
         }
 
-        .stat-blue {
-            background: #eff6ff;
-            color: var(--info);
-        }
-
-        .stat-green {
-            background: #ecfdf5;
-            color: var(--primary);
-        }
+        .stat-blue { background: #eff6ff; color: var(--info); }
+        .stat-green { background: #ecfdf5; color: var(--primary); }
 
         .stat-card h2 {
             font-size: 1.85rem;
@@ -432,7 +414,6 @@
             margin: 0;
         }
 
-        /* Wadah Tabel yang Terkunci Aman */
         .card {
             background: white;
             border-radius: 16px;
@@ -492,6 +473,96 @@
             box-shadow: 0 0 0 3px rgba(0, 152, 70, 0.15);
         }
 
+        /* --- CUSTOM SELECT WRAPPER & DROPDOWN MEMBULAT --- */
+        .custom-select-wrapper {
+            position: relative;
+            user-select: none;
+            width: 100%;
+        }
+
+        .custom-select-trigger {
+            width: 100%;
+            padding: 11px 16px;
+            border-radius: 14px;
+            border: 1.5px solid #cbd5e1;
+            font-size: 0.92rem;
+            background: #ffffff;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #0f172a;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .custom-select-trigger:hover {
+            border-color: #94a3b8;
+        }
+
+        .custom-select-wrapper.open .custom-select-trigger {
+            border-color: #009846;
+            box-shadow: 0 0 0 3px rgba(0, 152, 70, 0.12);
+        }
+
+        .custom-select-trigger i {
+            font-size: 0.8rem;
+            color: #64748b;
+            transition: transform 0.25s ease;
+        }
+
+        .custom-select-wrapper.open .custom-select-trigger i {
+            transform: rotate(180deg);
+            color: #009846;
+        }
+
+        .custom-select-options {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 18px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+            display: none;
+            z-index: 1050;
+            padding: 6px;
+            max-height: 220px;
+            overflow-y: auto;
+            animation: dropdownFadeIn 0.2s ease-out;
+        }
+
+        .custom-select-wrapper.open .custom-select-options {
+            display: block;
+        }
+
+        .custom-option {
+            padding: 9px 14px;
+            font-size: 0.9rem;
+            color: #334155;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            margin-bottom: 2px;
+        }
+
+        .custom-option:hover {
+            background: #e6f9f0;
+            color: #009846;
+            font-weight: 700;
+        }
+
+        .custom-option.selected {
+            background: #009846;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        @keyframes dropdownFadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .btn {
             padding: 10px 18px;
             border-radius: 8px;
@@ -524,9 +595,7 @@
             color: var(--text-main);
         }
 
-        .btn-secondary:hover {
-            background: #f1f5f9;
-        }
+        .btn-secondary:hover { background: #f1f5f9; }
 
         .table-container {
             padding: 1.25rem;
@@ -557,7 +626,6 @@
             color: var(--text-main);
         }
 
-        /* Modal Dialog Terkunci di Tengah Layar */
         .modal-blur-overlay {
             position: fixed;
             top: 0;
@@ -628,6 +696,13 @@
             align-items: center;
             gap: 4px;
         }
+
+        .big-map-area {
+            height: 440px;
+            width: 100%;
+            z-index: 1;
+            position: relative;
+        }
     </style>
 
     <!-- AUTH FAST SECURITY CHECK -->
@@ -648,11 +723,10 @@
 <body class="page-dashboard">
 
     <!-- =====================================================================
-         NAVBAR RESMI PEMKAB SIDOARJO (CLEAN & FRESH)
+         NAVBAR RESMI PEMKAB SIDOARJO
          ===================================================================== -->
     <nav>
         <div class="nav-container">
-            <!-- Brand & Logo Resmi Sidoarjo -->
             <a href="#" class="logo" style="display:flex; align-items:center; gap:12px; text-decoration:none;">
                 <img src="static/img/logo-sidoarjo.png" 
                      onerror="this.onerror=null; this.src='https://upload.wikimedia.org/wikipedia/commons/7/70/Lambang_Kabupaten_Sidoarjo.png';" 
@@ -669,16 +743,15 @@
                     <i class="fas fa-comments"></i> Chat Warga
                 </button>
                 
-                <!-- Lonceng Notifikasi & Dropdown Bersih -->
                 <div class="notif-wrapper" onclick="window.toggleNotifPanel(event)">
                     <i class="fas fa-bell notif-icon"></i>
                     <span id="notifBadge" class="notif-badge">0</span>
 
+                    <!-- PANEL NOTIFIKASI -->
                     <div id="notifPanel" onclick="event.stopPropagation()">
-                        <!-- Header Notifikasi Ringkas -->
                         <div style="padding:14px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; background:#ffffff;">
-                            <div style="font-size:0.92rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
-                                <i class="fas fa-bell" style="color:#009846;"></i> Notifikasi
+                            <div style="font-size:0.95rem; font-weight:800; color:#0f172a;">
+                                Notifikasi
                             </div>
                             <div style="display:flex; gap:6px;">
                                 <button type="button" onclick="window.tandaiSemuaNotifDibaca()" title="Tandai semua dibaca" style="background:#f1f5f9; border:none; padding:6px 10px; border-radius:8px; font-size:0.75rem; font-weight:700; color:#475569; cursor:pointer;">
@@ -690,14 +763,18 @@
                             </div>
                         </div>
 
-                        <!-- Tab Filter Bersih -->
                         <div style="display:flex; background:#f8fafc; padding:8px 12px; gap:6px; border-bottom:1px solid #e2e8f0;">
-                            <button id="tabNotifAll" onclick="window.switchNotifTab('all')" class="ntf-tab-btn active" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer;">Semua</button>
-                            <button id="tabNotifUrgent" onclick="window.switchNotifTab('urgent')" class="ntf-tab-btn" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; color:#dc2626; cursor:pointer;">🚨 Urgent</button>
-                            <button id="tabNotifArsip" onclick="window.switchNotifTab('arsip')" class="ntf-tab-btn" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; color:#475569; cursor:pointer;">📁 Arsip</button>
+                            <button id="tabNotifAll" onclick="window.switchNotifTab('all')" class="ntf-tab-btn active" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; background:#ffffff; color:#0f172a; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+                                Semua
+                            </button>
+                            <button id="tabNotifUrgent" onclick="window.switchNotifTab('urgent')" class="ntf-tab-btn" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; background:transparent; color:#475569;">
+                                Urgent
+                            </button>
+                            <button id="tabNotifArsip" onclick="window.switchNotifTab('arsip')" class="ntf-tab-btn" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; background:transparent; color:#475569;">
+                                Arsip
+                            </button>
                         </div>
 
-                        <!-- Daftar Kartu Notifikasi -->
                         <div id="notifList" class="notif-list-container" style="max-height:380px; overflow-y:auto; padding:4px 0;"></div>
                     </div>
                 </div>
@@ -720,8 +797,8 @@
         <!-- PUSAT KENDALI ADMINISTRATOR -->
         <div id="adminCommandCenter" class="card" style="display: none;">
             <div class="card-header">
-                <div class="card-title cmd-title">
-                    <i class="fas fa-chess-king"></i> Pusat Kendali Administrator
+                <div class="card-title cmd-title" style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-main);">
+                    Pusat Kendali Administrator
                 </div>
             </div>
             <div class="cmd-grid">
@@ -743,14 +820,58 @@
             </div>
         </div>
 
-        <!-- PETA KERENTANAN GEOGRAFIS KECAMATAN -->
-        <div class="card" id="distributionMapCard" style="border: 1px solid #bae6fd; margin-bottom: 20px;">
-            <div class="card-header" style="background-color:#f0f9ff;">
-                <div class="card-title" style="color:var(--info); font-size:1.1rem;">
-                    <i class="fas fa-map-marked-alt"></i> Peta Kerentanan Geografis (Rata-rata Desil Per Wilayah Sidoarjo)
+        <!-- PETA KERENTANAN GEOGRAFIS WILAYAH SIDOARJO -->
+        <div class="card" id="distributionMapCard" style="border: 1px solid #bae6fd; margin-bottom: 24px; overflow: hidden; border-radius: 18px; background: #ffffff;">
+            <div class="card-header" style="background-color:#f0f9ff; padding: 16px 22px; border-bottom: 1px solid #e0f2fe; display: flex; justify-content: space-between; align-items: center;">
+                <div class="card-title" style="color: #009846; font-size: 1.15rem; font-weight: 800; margin: 0;">
+                    peta kerentanan geografis wilayah sidoarjo
                 </div>
             </div>
-            <div class="big-map-area" id="bigMapContainer" style="height: 400px; width: 100%;"></div>
+
+            <div style="position: relative; width: 100%; height: 440px;">
+                <div id="mapWilayah" style="height: 100%; width: 100%; z-index: 1;"></div>
+
+                <div style="position: absolute; top: 14px; right: 14px; z-index: 1000;">
+                    <div class="custom-map-dropdown" id="customMapDropdown" style="position: relative;">
+                        <button type="button" id="btnCustomMapMode" onclick="window.toggleCustomMapDropdown(event)" style="background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(8px); border: 1.5px solid #cbd5e1; border-radius: 24px; padding: 8px 18px; font-weight: 800; font-size: 0.86rem; color: #0f172a; cursor: pointer; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); transition: all 0.2s ease;">
+                            <span id="customMapModeText">Mode: 18 Kecamatan</span>
+                            <i class="fas fa-chevron-down" id="customMapModeIcon" style="font-size: 0.75rem; color: #64748b; transition: transform 0.2s;"></i>
+                        </button>
+
+                        <div id="dropdownMapMenu" style="display: none; position: absolute; top: calc(100% + 8px); right: 0; min-width: 185px; background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(12px); border-radius: 16px; box-shadow: 0 12px 28px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; padding: 6px; z-index: 1500; animation: fadeIn 0.15s ease-out;">
+                            <div class="custom-map-item active" id="optModeKecamatan" onclick="window.pilihModePeta('kecamatan', 'Mode: 18 Kecamatan')" style="padding: 10px 14px; font-size: 0.85rem; font-weight: 700; color: #009846; background: #e6f9f0; border-radius: 12px; cursor: pointer; transition: all 0.15s ease; margin-bottom: 3px;">
+                                Mode: 18 Kecamatan
+                            </div>
+                            <div class="custom-map-item" id="optModeKelurahan" onclick="window.pilihModePeta('kelurahan', 'Mode: 31 Kelurahan')" style="padding: 10px 14px; font-size: 0.85rem; font-weight: 700; color: #334155; border-radius: 12px; cursor: pointer; transition: all 0.15s ease; margin-bottom: 3px;">
+                                Mode: 31 Kelurahan
+                            </div>
+                            <div class="custom-map-item" id="optModeDesa" onclick="window.pilihModePeta('desa', 'Mode: 318 Desa')" style="padding: 10px 14px; font-size: 0.85rem; font-weight: 700; color: #334155; border-radius: 12px; cursor: pointer; transition: all 0.15s ease;">
+                                Mode: 318 Desa
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="petaLegendCard" style="position: absolute; bottom: 16px; right: 16px; z-index: 1000; background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(8px); border-radius: 14px; padding: 12px 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); border: 1px solid #cbd5e1; min-width: 210px;">
+                    <div id="legendModeTitle" style="font-size: 0.88rem; font-weight: 800; color: #0f172a; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
+                        Kerentanan 18 Kecamatan
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 5px; font-size: 0.82rem; font-weight: 700;">
+                        <div style="display: flex; align-items: center; gap: 8px; color: #dc2626;">
+                            <span style="width: 14px; height: 14px; border-radius: 4px; background: rgba(239, 68, 68, 0.5); border: 2px solid #dc2626; display: inline-block;"></span>
+                            <span>Tinggi: Desil 1–2 (Merah)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; color: #d97706;">
+                            <span style="width: 14px; height: 14px; border-radius: 4px; background: rgba(245, 158, 11, 0.5); border: 2px solid #d97706; display: inline-block;"></span>
+                            <span>Sedang: Desil 3–4 (Kuning)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; color: #15803d;">
+                            <span style="width: 14px; height: 14px; border-radius: 4px; background: rgba(34, 197, 94, 0.5); border: 2px solid #15803d; display: inline-block;"></span>
+                            <span>Rendah: Desil 5–10 (Hijau)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- 4 GRAFIK STATISTIK REAL-TIME -->
@@ -828,9 +949,7 @@
         </div>
 
         <div class="grid-layout">
-            <!-- =====================================================================
-                 FORM PENDATAAN WARGA (10 KRITERIA LENGKAP)
-                 ===================================================================== -->
+            <!-- FORM PENDATAAN WARGA -->
             <div>
                 <div class="card" style="position: sticky; top: 90px;">
                     <div class="card-header">
@@ -881,9 +1000,10 @@
                             <textarea id="alamat" class="form-input" rows="2" placeholder="Nama jalan, RT/RW, Dusun, Desa, Kecamatan..." onblur="window.cariAlamatDiPeta(this.value)"></textarea>
                         </div>
                         
+                        <!-- TITIK LOKASI RUMAH & GEOTAGGING PRESISI REAL-TIME -->
                         <div class="form-group">
                             <label class="form-label" style="color:var(--info); font-weight:800;">
-                                <i class="fas fa-map-pin"></i> Kunci Geotagging Presisi Rumah
+                                titik lokasi rumah
                             </label>
                             <div class="map-wrapper" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
                                 <div id="formCoordMap" class="map-box-area" style="height: 280px; width:100%;"></div>
@@ -897,8 +1017,9 @@
                             </div>
                         </div>
 
+                        <!-- KUESIONER 10 KRITERIA KELAYAKAN -->
                         <label class="form-label" style="margin-top:15px; font-weight:800; color:var(--text-main);">
-                            <i class="fas fa-list-ol text-primary"></i> Kuesioner Kelayakan Kriteria (10 Indikator BWM-SAW)
+                            kuesioner 10 kriteria kelayakan
                         </label>
                         <div class="q-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; background:var(--bg-body); padding:16px; border-radius:12px; border:1px solid var(--border-color);">
                             <div class="form-group">
@@ -913,49 +1034,61 @@
                                 <label class="form-label">C3. Usia Kepala Keluarga (Thn)</label>
                                 <input type="number" id="c3" class="form-input" value="45" placeholder="Contoh: 48">
                             </div>
+
+                            <!-- C4. Jenis Kelamin -->
                             <div class="form-group">
                                 <label class="form-label">C4. Jenis Kelamin</label>
-                                <select id="c4" class="form-select">
-                                    <option value="1">Laki-laki (1)</option>
+                                <select id="inputC4" class="form-select custom-rounded-select">
+                                    <option value="1" selected>Laki-laki (1)</option>
                                     <option value="2">Perempuan (2)</option>
                                 </select>
                             </div>
+
                             <div class="form-group">
                                 <label class="form-label">C5. Jumlah Tanggungan (Jiwa)</label>
                                 <input type="number" id="c5" class="form-input" value="3" placeholder="Contoh: 4">
                             </div>
+
+                            <!-- C6. Status Pernikahan -->
                             <div class="form-group">
                                 <label class="form-label">C6. Status Pernikahan</label>
-                                <select id="c6" class="form-select">
+                                <select id="inputC6" class="form-select custom-rounded-select">
                                     <option value="1">Belum Menikah (1)</option>
                                     <option value="2" selected>Menikah (2)</option>
                                     <option value="3">Cerai Hidup / Cerai Mati (3)</option>
                                 </select>
                             </div>
+
                             <div class="form-group">
                                 <label class="form-label">C7. Kepemilikan Anak Sekolah</label>
                                 <input type="number" id="c7" class="form-input" value="2" placeholder="Jumlah anak">
                             </div>
+
+                            <!-- C8. Status Tempat Tinggal -->
                             <div class="form-group">
                                 <label class="form-label">C8. Status Tempat Tinggal</label>
-                                <select id="c8" class="form-select">
+                                <select id="inputC8" class="form-select custom-rounded-select">
                                     <option value="1">Milik Sendiri (1)</option>
                                     <option value="2">Sewa / Kontrak (2)</option>
                                     <option value="3" selected>Menumpang / Tidak Layak (3)</option>
                                 </select>
                             </div>
+
+                            <!-- C9. Tingkat Pendidikan Terakhir -->
                             <div class="form-group" style="grid-column: span 2;">
                                 <label class="form-label">C9. Tingkat Pendidikan Terakhir</label>
-                                <select id="c9" class="form-select">
+                                <select id="inputC9" class="form-select custom-rounded-select">
                                     <option value="1" selected>Tidak Sekolah / SD (1)</option>
-                                    <option value="2">SMP / Sederajat (2)</option>
+                                    <option value="2">SMP Sederajat (2)</option>
                                     <option value="3">SMA / SMK (3)</option>
-                                    <option value="4">Diploma / Sarjana (4)</option>
+                                    <option value="4">Diploma/Sarjana (4)</option>
                                 </select>
                             </div>
+
+                            <!-- C10. Status Kesehatan -->
                             <div class="form-group" style="grid-column: span 2;">
                                 <label class="form-label">C10. Status Kesehatan</label>
-                                <select id="c10" class="form-select">
+                                <select id="inputC10" class="form-select custom-rounded-select">
                                     <option value="1" selected>Sehat (1)</option>
                                     <option value="2">Sakit Menahun / Disabilitas Fisik (2)</option>
                                 </select>
@@ -973,9 +1106,7 @@
                 </div>
             </div>
 
-            <!-- =====================================================================
-                 ARSIP DATA & HASIL REKOMENDASI SPK
-                 ===================================================================== -->
+            <!-- ARSIP DATA & HASIL REKOMENDASI SPK -->
             <div>
                 <div class="card">
                     <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
@@ -983,24 +1114,20 @@
                             <i class="fas fa-folder-open" style="color:var(--accent)"></i> Arsip Data Warga
                         </div>
                         
-                        <!-- TOMBOL AKSI BERWARNA KONTRAS -->
                         <div class="header-action-btns" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
                             <button type="button" onclick="window.loadDashboardData(true)" class="btn" style="background:#f8fafc; border:1px solid #cbd5e1; color:#475569; padding:8px 12px;" title="Refresh Data">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
                             
-                            <!-- 1. Ekspor Excel (Hijau Emerald) -->
                             <button type="button" onclick="window.exportExcelLengkap()" class="btn" style="background:#ecfdf5; color:#065f46; border:1px solid #6ee7b7; font-weight:700; padding:8px 14px; transition:0.2s;" onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='#ecfdf5'" title="Ekspor Seluruh Kolom ke Excel">
                                 <i class="fas fa-file-excel" style="color:#059669;"></i> Ekspor Excel
                             </button>
 
-                            <!-- 2. Impor Excel (Ungu Indigo) -->
                             <button type="button" onclick="document.getElementById('fileImport').click()" class="btn" style="background:#f5f3ff; color:#5b21b6; border:1px solid #c4b5fd; font-weight:700; padding:8px 14px; transition:0.2s;" onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='#f5f3ff'" title="Import dari Excel">
                                 <i class="fas fa-file-import" style="color:#7c3aed;"></i> Impor Excel
                             </button>
                             <input type="file" id="fileImport" style="display:none;" accept=".xlsx, .xls, .csv" onchange="window.smartImportPreview(this)">
 
-                            <!-- 3. Sinkronisasi BPS (Biru Langit) -->
                             <button type="button" onclick="window.syncBPS()" class="btn" style="background:#f0f9ff; color:#0369a1; border:1px solid #7dd3fc; font-weight:700; padding:8px 14px; transition:0.2s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f0f9ff'" title="Tarik Sinkronisasi BPS">
                                 <i class="fas fa-cloud-download-alt" style="color:#0284c7;"></i> BPS
                             </button>
@@ -1035,20 +1162,17 @@
 
                             <div style="border-left: 2px solid var(--border-color); height: 28px; margin: 0 4px;"></div>
                             
-                            <!-- KENDALI FILTER WAKTU MINIMALIS & TERPADU -->
                             <div class="filter-date-capsule" style="display:inline-flex; align-items:center; gap:8px; background:white; padding:4px 12px; border-radius:24px; border:1px solid #cbd5e1; font-size:0.82rem; font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
                                 <i class="fas fa-calendar-alt text-primary" style="font-size:0.88rem;"></i>
                                 
-                                <!-- Pemilih Mode Filter -->
-                                <select id="dateFilterMode" onchange="window.changeDateFilterMode(this.value)" style="border:none; outline:none; background:transparent; font-family:'Inter'; font-size:0.8rem; font-weight:700; color:#334155; cursor:pointer; padding-right:2px;">
-                                    <option value="tanggal">Tanggal</option>
+                                <select id="filterTipeTanggal" class="form-select custom-rounded-select" onchange="if(window.changeDateFilterMode) window.changeDateFilterMode(this.value)" style="width: 120px;">
+                                    <option value="tanggal" selected>Tanggal</option>
                                     <option value="bulan">Bulan</option>
                                     <option value="tahun">Tahun</option>
                                 </select>
 
                                 <span style="color:#e2e8f0; font-weight:300;">|</span>
 
-                                <!-- Input Dinamis Tunggal (Dikelola oleh JavaScript) -->
                                 <div id="dateFilterInputContainer" style="display:flex; align-items:center;">
                                     <input type="date" id="filterTglPicker" onchange="window.applyDateFilter()" style="border:1px solid #e2e8f0; border-radius:8px; padding:3px 8px; font-family:'Inter'; font-size:0.8rem; outline:none; color:#0f172a; cursor:pointer; background:#f8fafc;" title="Pilih Tanggal Tertentu">
                                 </div>
@@ -1124,7 +1248,7 @@
                             <th style="text-align:center;">Desil</th>
                             <th>Penyaluran Terakhir</th>
                             <th>Nominal / Bentuk Bantuan</th>
-                            <th style="text-align:center;">Bukti Foto</th>
+                            <th style="text-align:center;">Bukti Penyaluran</th>
                             <th style="text-align:center;">Titik Lokasi GPS</th>
                         </tr>
                     </thead>
@@ -1148,20 +1272,43 @@
                     <h4 id="formUserTitle" style="margin-bottom:15px; color:var(--text-main);">Tambah Akun Baru</h4>
                     <form id="formUser" onsubmit="window.simpanUser(event)" style="padding:0;">
                         <input type="hidden" id="userId">
+                        
                         <div class="form-group">
                             <label class="form-label">Username</label>
-                            <input type="text" id="manageUsername" class="form-input" required>
+                            <input type="text" id="manageUsername" class="form-input" required placeholder="Masukkan username">
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Kata Sandi (Password)</label>
-                            <div style="display:flex; gap:10px;">
-                                <input type="password" id="managePassword" class="form-input" required style="flex:1;">
-                                <button type="button" onclick="const p=document.getElementById('managePassword'); p.type=p.type==='password'?'text':'password'; this.innerHTML=p.type==='password'?'<i class=\'fas fa-eye\'></i>':'<i class=\'fas fa-eye-slash\'></i>';" class="btn btn-secondary" style="padding: 0 15px;"><i class="fas fa-eye"></i></button>
+
+                        <div class="form-group" id="groupCurrentPassword" style="display:none;">
+                            <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+                                <span>Password Saat Ini (Aktif)</span>
+                                <span style="font-size:0.7rem; color:#009846; font-weight:700;"><i class="fas fa-lock"></i> Aktif</span>
+                            </label>
+                            <div style="position:relative; display:flex; align-items:center;">
+                                <input type="password" id="manageCurrentPassword" class="form-input" readonly style="background:#f1f5f9; font-weight:700; color:#0f172a; width:100%; padding-right:44px; border:1.5px solid #cbd5e1;">
+                                <button type="button" onclick="const p=document.getElementById('manageCurrentPassword'); p.type=p.type==='password'?'text':'password'; this.innerHTML=p.type==='password'?'<i class=\'fas fa-eye\'></i>':'<i class=\'fas fa-eye-slash\'></i>';" style="position:absolute; right:10px; background:none; border:none; color:#64748b; cursor:pointer; padding:4px;" title="Lihat/Sembunyikan Password Saat Ini">
+                                    <i class="fas fa-eye"></i>
+                                </button>
                             </div>
                         </div>
-                        <div class="form-group"><label class="form-label">Level Akses (Role)</label>
-                            <select id="manageRole" class="form-select"><option value="operator">Petugas / Operator</option><option value="admin">Administrator</option></select>
+
+                        <div class="form-group" id="groupManagePassword">
+                            <label class="form-label" id="labelManagePassword">Kata Sandi (Password)</label>
+                            <div style="position:relative; display:flex; align-items:center;">
+                                <input type="password" id="managePassword" class="form-input" required placeholder="Masukkan kata sandi" style="width:100%; padding-right:44px;">
+                                <button type="button" onclick="const p=document.getElementById('managePassword'); p.type=p.type==='password'?'text':'password'; this.innerHTML=p.type==='password'?'<i class=\'fas fa-eye\'></i>':'<i class=\'fas fa-eye-slash\'></i>';" style="position:absolute; right:10px; background:none; border:none; color:#64748b; cursor:pointer; padding:4px;" title="Lihat/Sembunyikan Kata Sandi">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
                         </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Level Akses (Role)</label>
+                            <select id="manageRole" class="form-select custom-rounded-select">
+                                <option value="operator">Petugas / Operator</option>
+                                <option value="admin">Administrator</option>
+                            </select>
+                        </div>
+
                         <div style="display:flex; gap:10px; margin-top:20px;">
                             <button type="button" onclick="window.resetFormUser()" class="btn btn-secondary" style="flex:1;">Batal</button>
                             <button type="submit" class="btn btn-primary" style="flex:2;"><i class="fas fa-save"></i> Simpan Akun</button>
@@ -1179,7 +1326,7 @@
     </div>
 
     <!-- =====================================================================
-         UI PANGGILAN MASUK & AKTIF WEBRTC DENGAN BADGE LIVE & FLOATING EMOJI
+         UI PANGGILAN MASUK & AKTIF WEBRTC
          ===================================================================== -->
     <div id="incomingCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); backdrop-filter:blur(10px); z-index:9999999; justify-content:center; align-items:center; flex-direction:column;">
         <div style="text-align:center; animation: scaleUp 0.3s ease-out;">
@@ -1202,7 +1349,6 @@
                 <p id="callStatusText" style="margin:2px 0;">Terhubung</p>
                 <div id="callDuration">00:00</div>
                 
-                <!-- INDIKATOR STATUS LIVE MIC & KAMERA -->
                 <div class="call-status-badges-container">
                     <span id="callMicStatus" class="call-live-badge badge-mic-on"><i class="fas fa-microphone"></i> Mikrofon Aktif</span>
                     <span id="callCamStatus" class="call-live-badge badge-cam-off"><i class="fas fa-video-slash"></i> Kamera Mati</span>
@@ -1217,7 +1363,6 @@
                 <div class="audio-avatar"><i class="fas fa-user"></i><div class="ripple-ring"></div></div>
             </div>
 
-            <!-- EMOJI REACTIONS SAAT PANGGILAN -->
             <div class="call-floating-emojis">
                 <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('❤️')">❤️</button>
                 <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('👍')">👍</button>
@@ -1282,18 +1427,18 @@
                 </div>
                 <div class="form-group"><label class="form-label">Alamat Lengkap</label><textarea id="editAlamat" class="form-input" rows="2"></textarea></div>
                 
-                <label class="form-label" style="font-weight:800; color:var(--text-main); margin-top:15px;"><i class="fas fa-list-ol text-primary"></i> Kuesioner Kelayakan (10 Indikator Lengkap)</label>
+                <label class="form-label" style="font-weight:800; color:var(--text-main); margin-top:15px;">kuesioner 10 kriteria kelayakan</label>
                 <div class="q-grid">
                     <div><label class="form-label">C1. Kondisi Ekonomi / Penghasilan Bulanan (Rp)</label><input type="number" id="editC1" class="form-input" value="0"></div>
                     <div><label class="form-label">C2. Estimasi Nilai Kepemilikan Aset (Rp)</label><input type="number" id="editC2" class="form-input" value="0"></div>
                     <div><label class="form-label">C3. Usia / Umur Kepala Keluarga (Tahun)</label><input type="number" id="editC3" class="form-input" value="0"></div>
-                    <div><label class="form-label">C4. Jenis Kelamin Kepala Keluarga</label><select id="editC4" class="form-select"><option value="1">Laki-laki (1)</option><option value="2">Perempuan (2)</option></select></div>
+                    <div><label class="form-label">C4. Jenis Kelamin Kepala Keluarga</label><select id="editC4" class="form-select custom-rounded-select"><option value="1">Laki-laki (1)</option><option value="2">Perempuan (2)</option></select></div>
                     <div><label class="form-label">C5. Jumlah Tanggungan Keluarga (Jiwa)</label><input type="number" id="editC5" class="form-input" value="0"></div>
-                    <div><label class="form-label">C6. Status Pernikahan</label><select id="editC6" class="form-select"><option value="1">Belum Menikah (1)</option><option value="2">Menikah (2)</option></select></div>
+                    <div><label class="form-label">C6. Status Pernikahan</label><select id="editC6" class="form-select custom-rounded-select"><option value="1">Belum Menikah (1)</option><option value="2">Menikah (2)</option></select></div>
                     <div><label class="form-label">C7. Kepemilikan Anak Usia Sekolah</label><input type="number" id="editC7" class="form-input" value="0"></div>
-                    <div><label class="form-label">C8. Status Kepemilikan Tempat Tinggal</label><select id="editC8" class="form-select"><option value="1">Milik Sendiri (1)</option><option value="2">Sewa / Kontrak (2)</option><option value="3">Menumpang / Tidak Layak (3)</option></select></div>
-                    <div style="grid-column: span 2;"><label class="form-label">C9. Tingkat Pendidikan Terakhir</label><select id="editC9" class="form-select"><option value="1">Tidak Sekolah / SD (1)</option><option value="2">SMP / Sederajat (2)</option><option value="3">SMA / SMK (3)</option><option value="4">Diploma / Sarjana (4)</option></select></div>
-                    <div style="grid-column: span 2;"><label class="form-label">C10. Status Kesehatan / Riwayat Penyakit</label><select id="editC10" class="form-select"><option value="1">Sehat (1)</option><option value="2">Sakit Menahun / Disabilitas Fisik (2)</option></select></div>
+                    <div><label class="form-label">C8. Status Kepemilikan Tempat Tinggal</label><select id="editC8" class="form-select custom-rounded-select"><option value="1">Milik Sendiri (1)</option><option value="2">Sewa / Kontrak (2)</option><option value="3">Menumpang / Tidak Layak (3)</option></select></div>
+                    <div style="grid-column: span 2;"><label class="form-label">C9. Tingkat Pendidikan Terakhir</label><select id="editC9" class="form-select custom-rounded-select"><option value="1">Tidak Sekolah / SD (1)</option><option value="2">SMP Sederajat (2)</option><option value="3">SMA / SMK (3)</option><option value="4">Diploma/Sarjana (4)</option></select></div>
+                    <div style="grid-column: span 2;"><label class="form-label">C10. Status Kesehatan / Riwayat Penyakit</label><select id="editC10" class="form-select custom-rounded-select"><option value="1">Sehat (1)</option><option value="2">Sakit Menahun / Disabilitas Fisik (2)</option></select></div>
                 </div>
                 <div class="form-group"><label class="form-label">Catatan Tambahan</label><textarea id="editCatatan" class="form-input" rows="1"></textarea></div>
                 <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fas fa-save"></i> Simpan Perubahan</button>
@@ -1355,7 +1500,7 @@
     </div>
 
     <!-- =====================================================================
-         SK BUPATI PRINT AREA (PDF FALLBACK DOM)
+         SK BUPATI PRINT AREA
          ===================================================================== -->
     <div id="skBupatiPrintArea" style="display:none; padding: 50px 60px; background: white; font-family: 'Times New Roman', Times, serif; color: #000; font-size: 11pt; line-height: 1.5; position: relative;">
         <div class="sk-header" style="text-align: center; border-bottom: 4px double #000; padding-bottom: 15px; margin-bottom: 25px;">
@@ -1425,7 +1570,7 @@
         <div style="width: 100%; height: 100vh; position: relative;">
             <div style="position: absolute; top: 15px; right: 85px; z-index: 46000; background: white; padding: 6px 12px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 8px;">
                 <label style="font-size: 0.8rem; font-weight: bold; margin: 0;">Kualitas:</label>
-                <select id="imgQualityAdmin" style="border: 1px solid var(--border-color); border-radius: 4px; outline: none; font-size: 0.8rem; cursor: pointer;"><option value="high">FullHD Asli</option><option value="medium" selected>Menengah (HD)</option><option value="low">SD (Hemat Data)</option></select>
+                <select id="imgQualityAdmin" class="form-select custom-rounded-select" style="font-size: 0.8rem; cursor: pointer;"><option value="high">FullHD Asli</option><option value="medium" selected>Menengah (HD)</option><option value="low">SD (Hemat Data)</option></select>
             </div>
             <button onclick="window.batalImageEditor()" style="position: absolute; top: 15px; right: 25px; z-index: 46000; background: var(--danger); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"><i class="fas fa-times"></i></button>
             <div id="filerobotContainer" style="width: 100%; height: 100%;"></div>
@@ -1459,7 +1604,7 @@
                         <div style="display: flex; align-items: center; background: #334155; height: 45px; border-radius: 8px; padding: 0 10px; cursor:pointer;" onclick="document.getElementById('vidMuteAdmin').click()"><input type="checkbox" id="vidMuteAdmin" style="margin-right:8px; cursor:pointer;"><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1; cursor:pointer;"><i class="fas fa-volume-mute"></i> Mute</label></div>
                         <div style="display: flex; align-items: center; background: #334155; height: 45px; border-radius: 8px; padding: 0 10px;">
                             <label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1; margin-right: 8px;">Kualitas:</label>
-                            <select id="vidQualityAdmin" style="background: transparent; color: white; border: none; font-weight: bold; outline: none; cursor: pointer;"><option value="high" style="color: black;">FullHD Asli</option><option value="medium" selected style="color: black;">Menengah (HD)</option><option value="low" style="color: black;">SD (Hemat Data)</option></select>
+                            <select id="vidQualityAdmin" class="form-select custom-rounded-select" style="background: transparent; color: white; border: none; font-weight: bold; outline: none; cursor: pointer;"><option value="high" style="color: black;">FullHD Asli</option><option value="medium" selected style="color: black;">Menengah (HD)</option><option value="low" style="color: black;">SD (Hemat Data)</option></select>
                         </div>
                         <button onclick="window.vProcessAndSave()" style="background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; border: none; height: 45px; padding: 0 24px; border-radius: 8px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(16,185,129,0.3); transition: 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'"><i class="fas fa-paper-plane" style="margin-right: 8px;"></i> Kirim</button>
                     </div>
@@ -1475,7 +1620,7 @@
     </div>
 
     <!-- =====================================================================
-         MODAL CHAT ADMIN (LENGKAP: VOICE PAUSE, REPLY, PIN, MEDIA & CALL)
+         MODAL CHAT ADMIN
          ===================================================================== -->
     <div id="modalAdminChat" class="modal-blur-overlay">
         <div class="modal-card-premium card" style="width:95%; max-width:1200px; height:92vh; padding:0; display:flex; flex-direction:row; overflow:visible; background:var(--bg-body); border-radius:var(--radius-xl);">
@@ -1527,10 +1672,10 @@
                     </div>
                     
                     <div style="display:none; gap:10px; align-items:center;" id="chatHeaderActions">
-                        <button type="button" onclick="window.startCallWarga('audio')" class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:20px; padding:6px 14px; font-weight:700;">
+                        <button type="button" onclick="window.startCallWarga('audio')" class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:20px; font-weight:700;">
                             <i class="fas fa-phone-alt"></i> Suara
                         </button>
-                        <button type="button" onclick="window.startCallWarga('video')" class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:20px; padding:6px 14px; font-weight:700;">
+                        <button type="button" onclick="window.startCallWarga('video')" class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:20px; font-weight:700;">
                             <i class="fas fa-video"></i> Video
                         </button>
                         
@@ -1583,17 +1728,14 @@
 
                     <button type="button" onclick="window.toggleEmojiPicker(event)" style="background:none; border:none; font-size:1.35rem; color:#64748b; cursor:pointer;" title="Emoji"><i class="fas fa-smile"></i></button>
                     
-                    <!-- Input Berkas Mendukung Semua Media & Dokumen -->
                     <input type="file" id="adminMediaFileInput" style="display:none;" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" onchange="window.handleAdminMediaSelection(this)">
                     <button type="button" onclick="document.getElementById('adminMediaFileInput').click()" title="Kirim Foto, Video atau Dokumen" style="background:none; border:none; font-size:1.3rem; color:#64748b; cursor:pointer;"><i class="fas fa-paperclip"></i></button>
                     
                     <input type="text" id="adminChatInput" placeholder="Ketik balasan Anda..." style="flex:1; border:1px solid #cbd5e1; background:#f8fafc; padding:10px 18px; border-radius:25px; outline:none;" onkeypress="if(event.key==='Enter') window.sendAdminChat()">
                     
-                    <!-- VOICE CONTROLLER DENGAN REAL-TIME AUDIO WAVEFORM CANVAS -->
                     <div id="adminVoiceControlUI" class="voice-recorder-bar" style="display:none; align-items:center; gap:10px; background:#fff1f2; border:1px solid #fecdd3; border-radius:25px; padding:4px 14px; flex:1;">
                         <span id="adminVoiceTimer" style="font-weight:800; font-family:monospace; color:#e11d48; font-size:0.85rem;">00:00</span>
                         
-                        <!-- Canvas Gelombang Suara Nyata -->
                         <canvas id="voiceWaveCanvas" width="180" height="24" style="flex:1; height:24px;"></canvas>
                         
                         <button type="button" class="voice-btn-ctrl" onclick="window.cancelVoiceRecording()" title="Batalkan" style="background:none; border:none; color:#e11d48; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
@@ -1620,7 +1762,7 @@
                 <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 20px;">Pilih Admin atau Petugas lain untuk mengambil alih percakapan dengan <b id="transferWargaName" style="color:var(--text-main);"></b>.</p>
                 <div class="form-group">
                     <label class="form-label">Pilih Petugas Tujuan:</label>
-                    <select id="selectAdminTransfer" class="form-select">
+                    <select id="selectAdminTransfer" class="form-select custom-rounded-select">
                         <option value="">Memuat daftar petugas...</option>
                     </select>
                 </div>
@@ -1662,10 +1804,9 @@
     <!-- Audio Telepon Admin -->
     <audio id="ringtoneAudio" src="https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg" loop style="display:none;"></audio>
 
-    <!-- =====================================================================
+    <!-- =========================================================================
          SCRIPTS & MODUL SISTEM (URUTAN EKSEKUSI TERPADU)
-         ===================================================================== -->
-    <!-- 1. Pustaka Pihak Ketiga -->
+         ========================================================================= -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1676,20 +1817,290 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.scaleflex.it/plugins/filerobot-image-editor/3.12.17/filerobot-image-editor.min.js"></script>
 
-    <!-- 2. Core (Konfigurasi, Sesi, State, API & Utilitas Global) -->
+    <!-- Core -->
     <script src="static/js/core/config.js"></script>
     <script src="static/js/core/auth.js"></script>
     <script src="static/js/core/state.js"></script>
     <script src="static/js/core/api.js"></script>
     <script src="static/js/global.js"></script>
 
-    <!-- 3. Modul Fitur Mandiri -->
+    <!-- Modul Fitur Mandiri -->
     <script src="static/js/modules/admin-map.js"></script>
     <script src="static/js/modules/admin-spk.js"></script>
     <script src="static/js/modules/admin-print.js"></script>
     <script src="static/js/modules/admin-chat.js"></script>
 
-    <!-- 4. Orchestrator Utama Dasbor -->
+    <!-- Orchestrator Utama Dasbor -->
     <script src="static/js/admin.js"></script>
+
+    <!-- =========================================================================
+         LOGIKA SINKRONISASI GEOTAGGING & PROXY ID
+         ========================================================================= -->
+    <script>
+        // Compatibility proxy ID
+        (function() {
+            const origGetElementById = document.getElementById.bind(document);
+            document.getElementById = function(id) {
+                let el = origGetElementById(id);
+                if (!el) {
+                    if (id === 'c4') el = origGetElementById('inputC4');
+                    else if (id === 'c6') el = origGetElementById('inputC6');
+                    else if (id === 'c8') el = origGetElementById('inputC8');
+                    else if (id === 'c9') el = origGetElementById('inputC9');
+                    else if (id === 'c10') el = origGetElementById('inputC10');
+                    else if (id === 'dateFilterMode') el = origGetElementById('filterTipeTanggal');
+                }
+                return el;
+            };
+        })();
+
+        let formMapInstance = null;
+        let formMarkerInstance = null;
+        const DEFAULT_SIDOARJO_COORD = [-7.4478, 112.7183];
+
+        async function updateAlamatFromCoordsRealtime(lat, lng) {
+            const latEl = document.getElementById('lat');
+            const lngEl = document.getElementById('lng');
+            const alamatEl = document.getElementById('alamat');
+
+            if (latEl) latEl.value = Number(lat).toFixed(6);
+            if (lngEl) lngEl.value = Number(lng).toFixed(6);
+
+            if (!alamatEl) return;
+
+            const prevPlaceholder = alamatEl.getAttribute('placeholder') || '';
+            alamatEl.setAttribute('placeholder', 'Sedang melacak alamat presisi titik...');
+
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.display_name) {
+                        alamatEl.value = data.display_name;
+                    }
+                }
+            } catch (err) {
+                console.warn('Gagal reverse geocoding:', err);
+            } finally {
+                alamatEl.setAttribute('placeholder', prevPlaceholder);
+            }
+        }
+
+        function initFormCoordMap() {
+            const mapBox = document.getElementById('formCoordMap');
+            if (!mapBox || typeof L === 'undefined') return;
+
+            if (formMapInstance) {
+                setTimeout(() => formMapInstance.invalidateSize(), 200);
+                return;
+            }
+
+            formMapInstance = L.map('formCoordMap', {
+                center: DEFAULT_SIDOARJO_COORD,
+                zoom: 13,
+                attributionControl: false
+            });
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19
+            }).addTo(formMapInstance);
+
+            formMarkerInstance = L.marker(DEFAULT_SIDOARJO_COORD, { draggable: true }).addTo(formMapInstance);
+
+            formMarkerInstance.on('dragend', function (e) {
+                const pos = e.target.getLatLng();
+                updateAlamatFromCoordsRealtime(pos.lat, pos.lng);
+            });
+
+            formMapInstance.on('click', function (e) {
+                formMarkerInstance.setLatLng(e.latlng);
+                updateAlamatFromCoordsRealtime(e.latlng.lat, e.latlng.lng);
+            });
+
+            setTimeout(() => formMapInstance.invalidateSize(), 300);
+        }
+
+        window.ambilLokasiGPS = function () {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    if (formMapInstance && formMarkerInstance) {
+                        formMapInstance.setView([lat, lng], 16);
+                        formMarkerInstance.setLatLng([lat, lng]);
+                    }
+                    updateAlamatFromCoordsRealtime(lat, lng);
+                }, () => {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire('GPS Gagal', 'Izinkan akses geolokasi pada peramban Anda.', 'warning');
+                    }
+                });
+            }
+        };
+
+        window.cariAlamatDiPeta = async function (query) {
+            if (!query || query.trim().length < 4) return;
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Sidoarjo, Jawa Timur')}&limit=1`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.length > 0) {
+                        const lat = parseFloat(data[0].lat);
+                        const lng = parseFloat(data[0].lon);
+                        if (formMapInstance && formMarkerInstance) {
+                            formMapInstance.setView([lat, lng], 16);
+                            formMarkerInstance.setLatLng([lat, lng]);
+                        }
+                        const latEl = document.getElementById('lat');
+                        const lngEl = document.getElementById('lng');
+                        if (latEl) latEl.value = lat.toFixed(6);
+                        if (lngEl) lngEl.value = lng.toFixed(6);
+                    }
+                }
+            } catch (e) {}
+        };
+
+        window.toggleCustomMapDropdown = function (e) {
+            if (e) e.stopPropagation();
+            const menu = document.getElementById('dropdownMapMenu');
+            const icon = document.getElementById('customMapModeIcon');
+            if (!menu) return;
+            const isShow = menu.style.display === 'block';
+            menu.style.display = isShow ? 'none' : 'block';
+            if (icon) icon.style.transform = isShow ? 'rotate(0deg)' : 'rotate(180deg)';
+        };
+
+        document.addEventListener('click', function (e) {
+            const dropdown = document.getElementById('customMapDropdown');
+            const menu = document.getElementById('dropdownMapMenu');
+            const icon = document.getElementById('customMapModeIcon');
+            if (menu && menu.style.display === 'block') {
+                if (!dropdown || !dropdown.contains(e.target)) {
+                    menu.style.display = 'none';
+                    if (icon) icon.style.transform = 'rotate(0deg)';
+                }
+            }
+        });
+
+        window.pilihModePeta = function (mode, labelText) {
+            const txt = document.getElementById('customMapModeText');
+            if (txt) txt.innerText = labelText;
+
+            document.querySelectorAll('.custom-map-item').forEach(el => {
+                el.style.background = 'transparent';
+                el.style.color = '#334155';
+                el.classList.remove('active');
+            });
+
+            const activeMap = {
+                'kecamatan': 'optModeKecamatan',
+                'kelurahan': 'optModeKelurahan',
+                'desa': 'optModeDesa'
+            };
+            const activeEl = document.getElementById(activeMap[mode]);
+            if (activeEl) {
+                activeEl.style.background = '#e6f9f0';
+                activeEl.style.color = '#009846';
+                activeEl.classList.add('active');
+            }
+
+            const menu = document.getElementById('dropdownMapMenu');
+            const icon = document.getElementById('customMapModeIcon');
+            if (menu) menu.style.display = 'none';
+            if (icon) icon.style.transform = 'rotate(0deg)';
+
+            if (typeof window.ubahModePeta === 'function') {
+                window.ubahModePeta(mode);
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initFormCoordMap, 400);
+        });
+    </script>
+
+    <!-- Taruh tepat sebelum tag </body> di index.html -->
+    <script>
+        // Fungsi Otomatisasi Custom Rounded Dropdown
+        function applyCustomRoundedDropdowns() {
+            document.querySelectorAll('select.custom-rounded-select').forEach(select => {
+                if (select.dataset.customized === 'true') return;
+                select.dataset.customized = 'true';
+                select.style.display = 'none';
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'custom-select-wrapper';
+                select.parentNode.insertBefore(wrapper, select);
+                wrapper.appendChild(select);
+
+                const trigger = document.createElement('div');
+                trigger.className = 'custom-select-trigger';
+                const selectedOpt = select.options[select.selectedIndex] || select.options[0];
+                trigger.innerHTML = `<span>${selectedOpt ? selectedOpt.text : 'Pilih opsi...'}</span><i class="fas fa-chevron-down"></i>`;
+                wrapper.appendChild(trigger);
+
+                const optionsBox = document.createElement('div');
+                optionsBox.className = 'custom-select-options';
+
+                Array.from(select.options).forEach(opt => {
+                    const item = document.createElement('div');
+                    item.className = 'custom-option' + (opt.selected ? ' selected' : '');
+                    item.dataset.value = opt.value;
+                    item.innerText = opt.text;
+
+                    item.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        select.value = opt.value;
+                        select.dispatchEvent(new Event('change'));
+
+                        trigger.querySelector('span').innerText = opt.text;
+                        optionsBox.querySelectorAll('.custom-option').forEach(o => o.classList.remove('selected'));
+                        item.classList.add('selected');
+                        wrapper.classList.remove('open');
+                    });
+
+                    optionsBox.appendChild(item);
+                });
+
+                wrapper.appendChild(optionsBox);
+
+                trigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isOpen = wrapper.classList.contains('open');
+                    document.querySelectorAll('.custom-select-wrapper.open').forEach(w => w.classList.remove('open'));
+                    if (!isOpen) wrapper.classList.add('open');
+                });
+            });
+
+            // Tutup dropdown jika klik di luar
+            document.addEventListener('click', () => {
+                document.querySelectorAll('.custom-select-wrapper.open').forEach(w => w.classList.remove('open'));
+            });
+
+            // Sinkronisasi saat form di-reset
+            document.querySelectorAll('form').forEach(form => {
+                form.addEventListener('reset', () => {
+                    setTimeout(() => {
+                        document.querySelectorAll('.custom-select-wrapper').forEach(wrapper => {
+                            const select = wrapper.querySelector('select');
+                            if (select) {
+                                const selectedOption = select.options[select.selectedIndex] || select.options[0];
+                                const triggerSpan = wrapper.querySelector('.custom-select-trigger span');
+                                if (triggerSpan && selectedOption) triggerSpan.innerText = selectedOption.text;
+                                wrapper.querySelectorAll('.custom-option').forEach(opt => {
+                                    opt.classList.toggle('selected', opt.dataset.value === select.value);
+                                });
+                            }
+                        });
+                    }, 50);
+                });
+            });
+        }
+
+        // Panggil saat halaman selesai dimuat
+        document.addEventListener('DOMContentLoaded', () => {
+            applyCustomRoundedDropdowns();
+        });
+    </script>
 </body>
 </html>
