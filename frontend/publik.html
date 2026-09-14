@@ -122,7 +122,7 @@
 
         /* --- CONTAINER UTAMA --- */
         .container-public {
-            max-width: 1100px;
+            max-width: 1350px;
             margin: -36px auto 60px auto;
             padding: 0 20px;
             position: relative;
@@ -138,16 +138,22 @@
             margin-bottom: 30px;
         }
 
-        /* --- TABS NAVIGASI --- */
+        /* --- TABS NAVIGASI 5 KOLOM --- */
         .tabs-portal {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             gap: 8px;
             background: #f1f5f9;
             padding: 6px;
             border-radius: 16px;
             margin-bottom: 28px;
             border: 1px solid var(--border-color);
+        }
+
+        @media (max-width: 900px) {
+            .tabs-portal {
+                grid-template-columns: 1fr;
+            }
         }
 
         .tab-btn-portal {
@@ -172,6 +178,12 @@
             background: #009846;
             color: #ffffff;
             box-shadow: 0 2px 8px rgba(0, 152, 70, 0.25);
+        }
+
+        #btn-aduan.tab-btn-portal.active {
+            background: #dc2626;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
         }
 
         .tab-content-portal {
@@ -420,7 +432,7 @@
         .stepper-complaint::before {
             content: '';
             position: absolute;
-            top: 20px;
+            top: 22px;
             left: 30px;
             right: 30px;
             height: 3px;
@@ -431,11 +443,11 @@
             position: relative;
             z-index: 2;
             text-align: center;
-            width: 100px;
+            width: 120px;
         }
         .step-circle {
-            width: 42px;
-            height: 42px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
             background: #cbd5e1;
             color: white;
@@ -444,10 +456,11 @@
             justify-content: center;
             font-weight: 800;
             margin: 0 auto 6px auto;
+            transition: all 0.3s ease;
         }
         .step-node.done .step-circle { background: #009846; }
-        .step-node.active .step-circle { background: #dc2626; box-shadow: 0 0 12px rgba(220,38,38,0.4); }
-        .step-title { font-size: 0.78rem; font-weight: 700; color: #475569; }
+        .step-node.active .step-circle { background: #dc2626; box-shadow: 0 0 14px rgba(220,38,38,0.45); }
+        .step-title { font-size: 0.8rem; font-weight: 700; color: #475569; }
 
         /* --- MODAL PANDUAN PORTAL --- */
         .modal-blur-overlay {
@@ -634,10 +647,10 @@
 
     <!-- MAIN CONTAINER PORTAL -->
     <div class="container-public" id="landingView">
-        <div class="card-portal-shell">
+        <div class="card-portal-shell" id="portalTabsShell">
             
-            <!-- 4 TAB NAVIGASI MANDIRI -->
-            <div class="tabs-portal" id="portalTabsBar">
+            <!-- 5 TAB NAVIGASI MANDIRI (TERMASUK PANTAU ADUAN) -->
+            <div class="tabs-portal" id="portalTabsBar" style="grid-template-columns: repeat(5, 1fr);">
                 <button class="tab-btn-portal active" id="btn-login" onclick="window.switchTabPublik('loginWargaSection', this)">
                     <i class="fas fa-sign-in-alt"></i> Masuk Dashboard
                 </button>
@@ -646,6 +659,9 @@
                 </button>
                 <button class="tab-btn-portal" id="btn-daftar" onclick="window.switchTabPublik('daftarMandiriSection', this)">
                     <i class="fas fa-user-plus"></i> Daftar Mandiri
+                </button>
+                <button class="tab-btn-portal" id="btn-aduan" onclick="window.switchTabPublik('pantauAduanSection', this)">
+                    <i class="fas fa-clipboard-check"></i> Pantau Aduan
                 </button>
                 <button class="tab-btn-portal" id="btn-panduan" onclick="window.switchTabPublik('bantuanSection', this)">
                     <i class="fas fa-info-circle"></i> Bantuan (FAQ)
@@ -712,7 +728,7 @@
             <div id="daftarMandiriSection" class="tab-content-portal">
                 <div style="background: #eff6ff; padding: 18px 22px; border-radius: 14px; border: 1px solid #bfdbfe; border-left: 6px solid #0284c7; margin-bottom: 25px;">
                     <b style="font-size:1rem; color:#1e3a8a;"><i class="fas fa-bolt"></i> Terintegrasi Langsung ke Sistem Pusat Dinsos Sidoarjo</b>
-                    <p style="color:#475569; font-size:0.88rem; margin-top:4px;">Pengajuan ini langsung dicatat ke basis data survei dan dievaluasi menggunakan metode Best-Worst Method (BWM) & Simple Additive Weighting (SAW)[cite: 1, 9].</p>
+                    <p style="color:#475569; font-size:0.88rem; margin-top:4px;">Pengajuan ini langsung dicatat ke basis data survei dan dievaluasi menggunakan metode Best-Worst Method (BWM) & Simple Additive Weighting (SAW).</p>
                 </div>
 
                 <form id="formPendaftaranWarga" onsubmit="window.daftarMandiri ? window.daftarMandiri(event) : window.kirimPendaftaranMandiri(event)">
@@ -843,7 +859,35 @@
                 </form>
             </div>
 
-            <!-- 4. TAB BANTUAN (FAQ) DENGAN KARTU TERPISAH & MODERN -->
+            <!-- 4. TAB PANTAU ADUAN (AKSES CEPAT TANPA LAPOR ULANG) -->
+            <div id="pantauAduanSection" class="tab-content-portal">
+                <div style="max-width: 600px; margin: 0 auto; text-align: center; padding: 20px 0;">
+                    <div style="width: 70px; height: 70px; background: #fee2e2; border-radius: 50%; color: #dc2626; font-size: 2.2rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+                        <i class="fas fa-shield-virus"></i>
+                    </div>
+                    <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 8px;">Pantau Status Pengaduan Warga</h2>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px;">Masukkan NIK Anda untuk langsung masuk ke Dashboard Pantauan tanpa perlu mengajukan laporan baru.</p>
+
+                    <!-- Card Resume Aduan Cepat Jika Ada di LocalStorage -->
+                    <div id="cardResumeAduanCepat" style="display:none; background:#eff6ff; border:1.5px solid #93c5fd; border-radius:16px; padding:16px; margin-bottom:20px; text-align:left;">
+                        <div style="font-weight:800; color:#1e40af; font-size:0.92rem; margin-bottom:4px;"><i class="fas fa-history"></i> Laporan Aduan Terakhir Anda Ditemukan:</div>
+                        <div style="font-size:0.88rem; color:#334155; margin-bottom:10px;">Pelapor: <b id="resumeAduanNama">-</b> (NIK: <span id="resumeAduanNik" class="font-mono">-</span>)</div>
+                        <button type="button" onclick="window.bukaAduanTersimpan()" class="btn btn-primary btn-sm" style="border-radius:20px; padding:8px 18px; font-weight:700;"><i class="fas fa-external-link-alt"></i> Buka Pantauan Langsung</button>
+                    </div>
+
+                    <form onsubmit="window.lacakAduanWarga(event)" style="width: 100%;">
+                        <div class="form-group">
+                            <label class="form-label" style="text-align: left;">Nomor Induk Kependudukan (NIK 16 Digit)</label>
+                            <input type="text" inputmode="numeric" maxlength="16" id="inputNikPantauAduan" class="form-input" placeholder="Masukkan 16 digit NIK pelapor..." required>
+                        </div>
+                        <button type="submit" class="btn-action" style="padding: 14px; border-radius: 30px; background: linear-gradient(135deg, #dc2626, #991b1b);">
+                            <i class="fas fa-search-location"></i> Buka Dashboard Pantauan Aduan
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 5. TAB BANTUAN (FAQ) DENGAN KARTU TERPISAH & MODERN -->
             <div id="bantuanSection" class="tab-content-portal">
                 <div style="text-align:center; margin-bottom: 28px;">
                     <div style="width: 65px; height: 65px; background: #e6f9f0; color: #009846; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.9rem; margin: 0 auto 12px auto;">
@@ -876,7 +920,7 @@
                             <i class="fas fa-chevron-down faq-chevron"></i>
                         </div>
                         <div class="faq-card-body">
-                            Sistem menggunakan metode pembobotan <b>Best-Worst Method (BWM)</b> untuk menentukan tingkat kepentingan dari 10 kriteria (kondisi ekonomi, nilai aset, usia, tanggungan, status tempat tinggal, kesehatan, dll), lalu dinormalisasi secara matematis menggunakan algoritma <b>Simple Additive Weighting (SAW)</b> untuk mendapatkan peringkat kelayakan yang objektif tanpa manipulasi manual[cite: 1, 9].
+                            Sistem menggunakan metode pembobotan <b>Best-Worst Method (BWM)</b> untuk menentukan tingkat kepentingan dari 10 kriteria (kondisi ekonomi, nilai aset, usia, tanggungan, status tempat tinggal, kesehatan, dll), lalu dinormalisasi secara matematis menggunakan algoritma <b>Simple Additive Weighting (SAW)</b> untuk mendapatkan peringkat kelayakan yang objektif tanpa manipulasi manual.
                         </div>
                     </div>
 
@@ -902,7 +946,7 @@
                             <i class="fas fa-chevron-down faq-chevron"></i>
                         </div>
                         <div class="faq-card-body">
-                            Jika Anda sudah terdaftar namun kondisi ekonomi berubah (misal terjadi pemutusan hubungan kerja atau sakit menahun), laporkan pengaduan sanggah desil. Petugas Dinas Sosial akan memverifikasi ulang 10 kriteria faktual lapangan Anda, dan algoritma SPK akan menghitung ulang skor desil Anda secara otomatis berdasarkan data terbaru[cite: 9].
+                            Jika Anda sudah terdaftar namun kondisi ekonomi berubah (misal terjadi pemutusan hubungan kerja atau sakit menahun), laporkan pengaduan sanggah desil. Petugas Dinas Sosial akan memverifikasi ulang 10 kriteria faktual lapangan Anda, dan algoritma SPK akan menghitung ulang skor desil Anda secara otomatis berdasarkan data terbaru.
                         </div>
                     </div>
 
@@ -915,14 +959,14 @@
                             <i class="fas fa-chevron-down faq-chevron"></i>
                         </div>
                         <div class="faq-card-body">
-                            Laporkan segera melalui ruang obrolan warga (Live Chat) pada Dashboard Pribadi Anda. Aduan Anda akan memunculkan tanda <b>Sengketa Penyaluran (Perisai Merah)</b> pada dasbor petugas, sehingga petugas wajib melakukan investigasi fisik dan menyelesaikan serah terima bantuan secara sah dengan dokumentasi foto serah terima[cite: 9].
+                            Laporkan segera melalui ruang obrolan warga (Live Chat) pada Dashboard Pribadi Anda. Aduan Anda akan memunculkan tanda <b>Sengketa Penyaluran (Perisai Merah)</b> pada dasbor petugas, sehingga petugas wajib melakukan investigasi fisik dan menyelesaikan serah terima bantuan secara sah dengan dokumentasi foto serah terima.
                         </div>
                     </div>
                 </div>
-            </section>
+            </div>
         </div>
 
-        <!-- 5. TAMPILAN DASHBOARD PRIBADI SETELAH LOGIN -->
+        <!-- TAMPILAN DASHBOARD PRIBADI WARGA TERDAFTAR SETELAH LOGIN -->
         <div id="dashboardWargaSection" class="portal-card" style="display: none;">
             <div style="background: linear-gradient(135deg, #009846, #007a37); padding: 18px 24px; border-radius: 18px; color: white; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; box-shadow: 0 4px 14px rgba(0,0,0,0.08);">
                 <div style="display:flex; align-items:center; gap:16px;">
@@ -1003,61 +1047,114 @@
             </div>
         </div>
 
-        <!-- 6. DASHBOARD KHUSUS PENGADUAN (WARGA BELUM TERDAFTAR / GAGAL DAFTAR) -->
-        <div id="sectionDashboardPengaduan" class="portal-card" style="display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px;">
+        <!-- DASHBOARD KHUSUS PENGADUAN (FULL-WIDTH MODERN & FITUR KOMPLET) -->
+        <div id="sectionDashboardPengaduan" style="display: none; width: 100%; max-width: 1350px; margin: 0 auto 30px auto; background: #ffffff; border-radius: 24px; padding: 2.2rem; box-shadow: 0 10px 35px rgba(0,0,0,0.06); border: 1.5px solid #e2e8f0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 18px; margin-bottom: 24px; flex-wrap:wrap; gap:12px;">
                 <div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <h2 style="font-size: 1.3rem; font-weight: 800; color: #dc2626;"><i class="fas fa-shield-virus"></i> Dashboard Pantauan Pengaduan</h2>
-                        <span style="background: #fee2e2; color: #dc2626; font-size: 0.75rem; font-weight: 800; padding: 3px 10px; border-radius: 20px;">Khusus Warga Belum Terdaftar</span>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 46px; height: 46px; border-radius: 12px; background: #fee2e2; color: #dc2626; display:flex; align-items:center; justify-content:center; font-size:1.4rem;"><i class="fas fa-shield-virus"></i></div>
+                        <div>
+                            <h2 style="font-size: 1.35rem; font-weight: 800; color: #dc2626; margin:0;">Dashboard Pantauan Pengaduan</h2>
+                            <small style="color: var(--text-muted); font-size: 0.85rem;">Pusat Investigasi & Mediasi Sengketa Warga Pemkab Sidoarjo</small>
+                        </div>
                     </div>
-                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Pantau status tindak lanjut penanganan kendala pendaftaran bansos Anda oleh petugas.</p>
                 </div>
-                <button type="button" class="btn-tour-nav" style="background: #64748b; border: none; padding: 8px 18px; font-size: 0.85rem;" onclick="window.keluarDashboardPengaduan()"><i class="fas fa-times"></i> Tutup Aduan</button>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <button type="button" onclick="window.startCallAdminFromAduan('audio')" class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:20px; font-weight:700; padding:8px 16px;"><i class="fas fa-phone-alt"></i> Panggilan Suara</button>
+                    <button type="button" onclick="window.startCallAdminFromAduan('video')" class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:20px; font-weight:700; padding:8px 16px;"><i class="fas fa-video"></i> Video Call</button>
+                    <button type="button" class="btn-tour-nav" style="background: #64748b; border: none; padding: 8px 18px; font-size: 0.85rem; border-radius:20px;" onclick="window.keluarDashboardPengaduan()"><i class="fas fa-times"></i> Tutup Aduan</button>
+                </div>
             </div>
 
-            <!-- Tahapan Alur Penanganan Aduan -->
-            <div class="stepper-complaint">
+            <!-- Tahapan Alur Dinamis 1 - 4 -->
+            <div class="stepper-complaint" style="margin: 25px 0 35px 0;">
                 <div class="step-node done" id="stepNode1">
-                    <div class="step-circle"><i class="fas fa-check"></i></div>
+                    <div class="step-circle" id="stepCircle1"><i class="fas fa-check"></i></div>
                     <div class="step-title">1. Aduan Masuk</div>
                 </div>
                 <div class="step-node active" id="stepNode2">
-                    <div class="step-circle"><i class="fas fa-sync fa-spin"></i></div>
+                    <div class="step-circle" id="stepCircle2"><i class="fas fa-sync fa-spin"></i></div>
                     <div class="step-title">2. Ditinjau Petugas</div>
                 </div>
                 <div class="step-node" id="stepNode3">
-                    <div class="step-circle">3</div>
+                    <div class="step-circle" id="stepCircle3">3</div>
                     <div class="step-title">3. Investigasi Lapangan</div>
                 </div>
                 <div class="step-node" id="stepNode4">
-                    <div class="step-circle">4</div>
+                    <div class="step-circle" id="stepCircle4">4</div>
                     <div class="step-title">4. Selesai Ditangani</div>
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <div style="background: #fffdf5; border: 1.5px solid #fde68a; border-radius: 14px; padding: 20px;">
-                    <h4 style="color: #b45309; font-weight: 800; margin-bottom: 10px;"><i class="fas fa-info-circle"></i> Ringkasan Kendala Anda</h4>
-                    <p style="font-size: 0.88rem; margin-bottom: 8px;"><b>Nama Pelapor:</b> <span id="aduanNamaDisplay">-</span></p>
-                    <p style="font-size: 0.88rem; margin-bottom: 8px;"><b>Identitas NIK:</b> <span id="aduanNikDisplay">-</span></p>
-                    <div style="margin-top: 12px; padding: 12px; background: white; border-radius: 8px; border: 1px dashed #cbd5e1; font-size: 0.85rem; color: #334155;" id="aduanUraianDisplay">-</div>
+            <div style="display: grid; grid-template-columns: 1fr 1.35fr; gap: 24px;" class="grid-layout">
+                <!-- PANEL KIRI: INFO STATUS & CATATAN INVESTIGASI -->
+                <div>
+                    <div style="background: #fffdf5; border: 1.5px solid #fde68a; border-radius: 16px; padding: 22px; margin-bottom: 20px;">
+                        <h4 style="color: #b45309; font-weight: 800; margin-bottom: 12px; font-size: 1.05rem;"><i class="fas fa-info-circle"></i> Berkas Pengaduan Terverifikasi</h4>
+                        <p style="font-size: 0.9rem; margin-bottom: 8px;"><b>Nama Pelapor:</b> <span id="aduanNamaDisplay" style="font-weight:700;">-</span></p>
+                        <p style="font-size: 0.9rem; margin-bottom: 8px;"><b>Identitas NIK:</b> <span id="aduanNikDisplay" class="font-mono" style="font-weight:700;">-</span></p>
+                        <p style="font-size: 0.9rem; margin-bottom: 8px;"><b>Status Tahapan:</b> <span id="aduanStatusTextBadge" class="badge" style="background:#fee2e2; color:#dc2626; font-weight:800; padding:4px 12px;">Ditinjau Petugas</span></p>
+                        <label style="font-size:0.8rem; font-weight:700; color:#64748b; margin-top:10px; display:block;">URAIAN KENDALA AWAL:</label>
+                        <div style="margin-top: 4px; padding: 12px; background: white; border-radius: 10px; border: 1px dashed #cbd5e1; font-size: 0.88rem; color: #334155; line-height:1.5;" id="aduanUraianDisplay">-</div>
+                    </div>
+
+                    <div style="background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 16px; padding: 20px;">
+                        <h4 style="color: #15803d; font-weight: 800; margin-bottom: 8px;"><i class="fas fa-user-shield"></i> Tanggapan / Tindak Lanjut Petugas:</h4>
+                        <div id="aduanCatatanPetugasDisplay" style="font-size: 0.88rem; color: #166534; line-height: 1.6;">Menunggu tim investigasi lapangan meninjau kasus ini...</div>
+                    </div>
                 </div>
 
-                <div style="display: flex; flex-direction: column; border: 1.5px solid #fca5a5; border-radius: 16px; overflow: hidden; height: 380px;">
-                    <div style="background: #fef2f2; padding: 12px 16px; border-bottom: 1px solid #fecdd3; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 800; font-size: 0.88rem; color: #dc2626;"><i class="fas fa-comment-dots"></i> Jalur Aduan Langsung ke Admin</span>
-                        <span style="background: #dc2626; color: white; font-size: 0.68rem; font-weight: 800; padding: 2px 8px; border-radius: 10px;">BELUM TERDAFTAR</span>
+                <!-- PANEL KANAN: RUANG CHAT MULTIMEDIA LENGKAP -->
+                <div style="display: flex; flex-direction: column; border: 1.5px solid #e2e8f0; border-radius: 18px; overflow: hidden; height: 530px; background: #ffffff;">
+                    <div style="background: #f8fafc; padding: 14px 18px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; font-size: 0.92rem; color: #dc2626;"><i class="fas fa-comments"></i> Ruang Koordinasi Khusus Pengaduan</span>
+                        <span style="background: #fee2e2; color: #dc2626; font-size: 0.72rem; font-weight: 800; padding: 3px 10px; border-radius: 12px;">LIVE ENCRYPTED</span>
                     </div>
-                    <div id="aduanChatMessages" style="flex: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background: #ffffff;"></div>
-                    <div style="padding: 10px; border-top: 1px solid #e2e8f0; display: flex; gap: 8px; background: #f8fafc;">
-                        <input type="text" id="aduanChatInput" placeholder="Ketik pesan kendala..." class="chat-pill-input" onkeypress="if(event.key==='Enter') window.kirimPesanAduan()">
-                        <button type="button" onclick="window.kirimPesanAduan()" style="background: #dc2626; color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;"><i class="fas fa-paper-plane"></i></button>
+
+                    <div id="aduanChatMessages" style="flex: 1; padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #f8fafc;"></div>
+
+                    <!-- BANNER REPLY ADUAN -->
+                    <div id="replyPreviewContainerAduan" style="display:none; padding:8px 16px; background:#f1f5f9; border-top:1px solid #cbd5e1; justify-content:space-between; align-items:center;">
+                        <div style="font-size:0.82rem; color:#334155;">
+                            <b style="color:#dc2626;"><i class="fas fa-reply"></i> Membalas <span id="replyPreviewSenderAduan"></span>:</b>
+                            <span id="replyPreviewTextAduan" style="margin-left:6px; color:#64748b;"></span>
+                        </div>
+                        <button type="button" onclick="window.batalReplyAduan()" style="background:none; border:none; color:#94a3b8; font-size:1.1rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+                    </div>
+
+                    <!-- PREVIEW MEDIA PRA-KIRIM ADUAN -->
+                    <div id="preSendPreviewAduan" style="display:none; padding:8px 16px; background:#e0f2fe; border-top:1px solid #bae6fd; align-items:center; justify-content:space-between;">
+                        <div id="previewMediaContainerAduan" style="display:flex; align-items:center; gap:8px;"></div>
+                        <button type="button" onclick="window.batalLampiranAduan()" style="background:none; border:none; color:#dc2626; font-size:1.2rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+                    </div>
+
+                    <!-- BILAH INPUT LENGKAP DENGAN VOICE RECORDER -->
+                    <div style="padding: 12px 16px; border-top: 1px solid #e2e8f0; display: flex; align-items:center; gap: 8px; background: #ffffff; position:relative;">
+                        <!-- EMOJI PICKER ADUAN -->
+                        <div id="emojiPickerAduan" style="display:none; position:absolute; bottom:64px; left:16px; background:#ffffff; border:1px solid #cbd5e1; border-radius:14px; box-shadow:0 10px 25px rgba(0,0,0,0.15); padding:10px; grid-template-columns:repeat(6, 1fr); gap:6px; z-index:1000;"></div>
+
+                        <button type="button" class="emoji-toggle-btn" onclick="window.toggleEmojiPickerAduan(event)" style="background:none; border:none; font-size:1.3rem; color:#64748b; cursor:pointer;"><i class="fas fa-smile"></i></button>
+                        
+                        <!-- File Input Lengkap (Foto, Video, Audio, Dokumen, PPT, PPTX, XLS, XLSX) -->
+                        <input type="file" id="aduanChatFile" style="display:none;" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.zip" onchange="window.handleAduanFileSelected(this)">
+                        <button type="button" onclick="document.getElementById('aduanChatFile').click()" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer;" title="Kirim Berkas / Foto / Video / PPT / Excel"><i class="fas fa-paperclip"></i></button>
+
+                        <input type="text" id="aduanChatInput" placeholder="Ketik pesan atau tanggapan..." class="chat-pill-input" onkeypress="if(event.key==='Enter') window.kirimPesanAduan()">
+
+                        <!-- CONTROLLER VOICE RECORD ADUAN -->
+                        <div id="aduanRecordingUI" style="display:none; flex:1; align-items:center; gap:10px; background:#fff1f2; border:1px solid #fecdd3; padding:4px 14px; border-radius:25px;">
+                            <span id="aduanRecordTime" style="font-weight:800; font-family:monospace; color:#e11d48;">00:00</span>
+                            <div style="flex:1; height:4px; background:#fca5a5; border-radius:2px;"></div>
+                            <button type="button" onclick="window.cancelVoiceRecordAduan()" style="background:none; border:none; color:#e11d48; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+
+                        <button type="button" id="btnRecordAduan" onclick="window.toggleVoiceRecordAduan()" style="background:none; border:none; font-size:1.25rem; color:#64748b; cursor:pointer;" title="Rekam Pesan Suara"><i class="fas fa-microphone"></i></button>
+                        <button type="button" onclick="window.kirimPesanAduan()" style="background: #dc2626; color: white; border: none; width: 42px; height: 42px; border-radius: 50%; cursor: pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><i class="fas fa-paper-plane"></i></button>
                     </div>
                 </div>
             </div>
         </div>
-    </main>
+    </div>
 
     <!-- MODAL PANDUAN AKSES LAYANAN -->
     <div id="modalPanduanPortal" class="modal-blur-overlay">
@@ -1088,16 +1185,23 @@
                     </div>
                     <span class="panduan-link-btn">Buka Form &rarr;</span>
                 </div>
+                <div class="panduan-item" onclick="window.navigasiPanduan('pantauAduanSection')">
+                    <div class="panduan-item-info">
+                        <h4>4. Pantau Progres Penanganan Aduan</h4>
+                        <p>Akses langsung untuk melihat progres 4 tahapan status pengaduan warga tanpa perlu mengirimkan laporan baru berulang kali.</p>
+                    </div>
+                    <span class="panduan-link-btn">Pantau Aduan &rarr;</span>
+                </div>
                 <div class="panduan-item" onclick="window.navigasiPanduan('bantuanSection')">
                     <div class="panduan-item-info">
-                        <h4>4. Pusat Bantuan & Tanya Jawab (FAQ)</h4>
+                        <h4>5. Pusat Bantuan & Tanya Jawab (FAQ)</h4>
                         <p>Informasi edukasi mengenai regulasi desil 1–4, mekanisme pencairan bantuan, dan ketentuan persyaratan administrasi.</p>
                     </div>
                     <span class="panduan-link-btn">Lihat FAQ &rarr;</span>
                 </div>
                 <div class="panduan-item" onclick="window.navigasiPanduan('chatbot')">
                     <div class="panduan-item-info">
-                        <h4>5. Asisten Virtual Bot & Aduan Sengketa</h4>
+                        <h4>6. Asisten Virtual Bot & Aduan Sengketa</h4>
                         <p>Konsultasi otomatis 24 jam dan pelaporan instan masalah penyaluran fisik langsung ke meja Pusat Investigasi Administrator.</p>
                     </div>
                     <span class="panduan-link-btn">Buka Asisten &rarr;</span>

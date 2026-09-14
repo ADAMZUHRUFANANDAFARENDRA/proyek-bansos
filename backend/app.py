@@ -51,7 +51,8 @@ ALLOWED_EXTENSIONS = {
     'jpg', 'jpeg', 'png', 'webp', 'gif',
     'mp4', 'mov', 'avi', 'mkv', 'webm',
     'pdf', 'xlsx', 'xls', 'csv', 'wav', 'mp3', 'ogg',
-    'doc', 'docx', 'txt', 'zip', 'm4a', 'aac'
+    'doc', 'docx', 'txt', 'zip', 'm4a', 'aac',
+    'ppt', 'pptx'
 }
 
 db = SQLAlchemy(app)
@@ -230,6 +231,20 @@ class ChatKeluhan(db.Model):
     is_pinned = db.Column(db.Boolean, default=False)
     reaction = db.Column(db.String(10), nullable=True)
     waktu = db.Column(db.DateTime, default=datetime.now)
+
+class AduanWarga(db.Model):
+    __tablename__ = 'aduan_warga'
+    id = db.Column(db.Integer, primary_key=True)
+    nik = db.Column(db.String(20), unique=True, nullable=False)
+    nama = db.Column(db.String(100), nullable=False)
+    kategori = db.Column(db.String(100), default='Aduan Belum Terdaftar')
+    uraian = db.Column(db.Text, nullable=False)
+    status_step = db.Column(db.Integer, default=2)  # 1=Masuk, 2=Ditinjau, 3=Investigasi, 4=Selesai
+    status_text = db.Column(db.String(100), default='Ditinjau Petugas')
+    catatan_petugas = db.Column(db.Text, nullable=True)
+    petugas_penangan = db.Column(db.String(100), nullable=True)
+    waktu = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
 # ===========================================================================
 # 4. HELPER PENCATATAN AKTIVITAS
@@ -1016,7 +1031,6 @@ def manage_warga():
                 foto_filename = secure_filename(f"foto_{int(datetime.now().timestamp())}_{nik}.{ext}")
                 foto.save(os.path.join(app.config['UPLOAD_FOLDER'], foto_filename))
 
-            # Deteksi apakah diinput petugas berotentikasi atau warga publik
             is_petugas = False
             auth_header = request.headers.get('Authorization', '').strip()
             token = auth_header[7:].strip() if auth_header.startswith('Bearer ') else request.args.get('token')
@@ -1410,7 +1424,7 @@ def import_bulk_warga():
         return jsonify({'status': 'error', 'message': f'Gagal impor data: {str(e)}'}), 500
 
 # ===========================================================================
-# 12. DUKCAPIL VALIDATOR, PUBLIK & BPS SIDOARJO
+# 12. DUKCAPIL VALIDATOR, PUBLIK, ADUAN WARGA & BPS SIDOARJO
 # ===========================================================================
 @app.route('/api/dukcapil/<nik>', methods=['GET'])
 @app.route('/dukcapil/<nik>', methods=['GET'])
@@ -1443,9 +1457,6 @@ def check_dukcapil(nik):
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
-# ===========================================================================
-# ENDPOINT CEK BANSOS PUBLIK & SINKRONISASI REAL-TIME
-# ===========================================================================
 @app.route('/api/publik/cek-bansos', methods=['GET', 'OPTIONS'])
 @app.route('/cek-bansos', methods=['GET', 'OPTIONS'])
 def cek_bansos_publik():
@@ -1496,6 +1507,9 @@ def cek_bansos_publik():
         db.session.rollback()
         return jsonify({'status': 'error', 'message': f'Kesalahan basis data: {str(e)}'}), 500
 
+# ===========================================================================
+# ENDPOINT PENGADUAN & PELAPORAN PESAN TERINTEGRASI INVESTIGASI
+# ===========================================================================
 @app.route('/api/publik/pengaduan', methods=['POST', 'OPTIONS'])
 @app.route('/pengaduan', methods=['POST', 'OPTIONS'])
 def submit_pengaduan_publik():
@@ -1505,33 +1519,202 @@ def submit_pengaduan_publik():
     body = request.get_json(silent=True) or {}
     nik = str(body.get('nik', '')).strip()
     nama = str(body.get('nama_pelapor', body.get('nama', ''))).strip() or f"Warga ({nik[-4:]})"
-    kategori = body.get('kategori', 'Aduan Sengketa Chatbot Warga')
+    kategori = body.get('kategori', 'Pelanggaran Komunikasi Chat Petugas')
     pesan = body.get('isi_laporan', body.get('pesan', '')).strip()
 
     if not nik or not pesan:
         return jsonify({'message': 'NIK dan isi laporan wajib diisi.'}), 400
 
+    # Catat ke tabel AduanWarga (terbaca di Pusat Investigasi Admin)
+    aduan = AduanWarga.query.filter_by(nik=nik).first()
+    if not aduan:
+        aduan = AduanWarga(
+            nik=nik,
+            nama=nama,
+            kategori=kategori,
+            uraian=pesan,
+            status_step=2,
+            status_text='Ditinjau Petugas'
+        )
+        db.session.add(aduan)
+    else:
+        aduan.nama = nama
+        aduan.kategori = kategori
+        aduan.uraian = pesan
+        aduan.status_step = 2
+        aduan.status_text = 'Ditinjau Petugas'
+        aduan.updated_at = datetime.now()
+
+    # Catat log sistem ke riwayat chat
     chat = ChatKeluhan(
         nik_warga=nik,
         nama_warga=nama,
         sender='warga',
-        pesan=f"[{kategori}] {pesan}",
+        pesan=f"🚩 [{kategori}] {pesan}",
         file_type='text'
     )
     db.session.add(chat)
 
-    catat_notifikasi(f"[Warga] NIK {nik} ({nama}) mengirim pengaduan: {kategori} - {pesan[:60]}", role_target='all')
+    catat_notifikasi(f"🚨 [Laporan Chat Warga] NIK {nik} ({nama}) melaporkan: {pesan[:60]}", role_target='admin')
     db.session.commit()
 
     return jsonify({
         'status': 'success',
-        'message': 'Laporan berhasil dicatat ke Pusat Investigasi dan ruang obrolan.',
+        'message': 'Laporan resmi telah tercatat di Pusat Investigasi Pengawas Dinsos.',
         'data': {
             'nik': nik,
             'nama': nama,
-            'pesan': pesan
+            'status_step': aduan.status_step,
+            'status_text': aduan.status_text
         }
     }), 201
+
+# ===========================================================================
+# ENDPOINT TINDAK LANJUT INVESTIGASI OLEH ADMIN (TERIMA -> TANGGAPAN -> SELESAI)
+# ===========================================================================
+@app.route('/api/investigasi/tindak-lanjut', methods=['POST', 'OPTIONS'])
+def tindak_lanjut_laporan_investigasi():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    data = request.get_json(silent=True) or {}
+    nik = str(data.get('nik', '')).strip()
+    aksi = data.get('aksi', 'terima')  # 'terima', 'tanggapi', 'selesai'
+    tanggapan = data.get('tanggapan', '').strip()
+    petugas = data.get('petugas', 'Admin Utama')
+
+    aduan = AduanWarga.query.filter_by(nik=nik).first()
+    if not aduan:
+        return jsonify({'status': 'error', 'message': 'Aduan tidak ditemukan.'}), 404
+
+    if aksi == 'terima':
+        aduan.status_step = 2
+        aduan.status_text = 'Laporan Diterima & Ditinjau'
+        aduan.catatan_petugas = f"Laporan telah diterima oleh {petugas} dan sedang dalam proses peninjauan bukti."
+        pesan_notif = f"📌 [INVESTIGASI DITERIMA] Laporan pengaduan Anda telah diterima dan diverifikasi oleh {petugas}."
+    elif aksi == 'tanggapi':
+        aduan.status_step = 3
+        aduan.status_text = 'Investigasi & Mediasi'
+        aduan.catatan_petugas = tanggapan or f"Tanggapan dari {petugas}: Sedang dilakukan evaluasi etika & klarifikasi."
+        pesan_notif = f"⚠️ [TANGGAPAN INVESTIGASI] Dari {petugas}: {aduan.catatan_petugas}"
+    elif aksi == 'selesai':
+        aduan.status_step = 4
+        aduan.status_text = 'Selesai Ditangani'
+        aduan.catatan_petugas = tanggapan or "Kasus pelaporan telah diselesaikan dan ditutup."
+        pesan_notif = f"✅ [INVESTIGASI SELESAI] Kasus pengaduan resmi diselesaikan oleh {petugas}. Keterangan: {aduan.catatan_petugas}"
+    else:
+        return jsonify({'status': 'error', 'message': 'Aksi tidak valid.'}), 400
+
+    aduan.petugas_penangan = petugas
+    aduan.updated_at = datetime.now()
+
+    chat_sys = ChatKeluhan(
+        nik_warga=nik,
+        nama_warga=aduan.nama,
+        sender='petugas',
+        pesan=pesan_notif,
+        file_type='text'
+    )
+    db.session.add(chat_sys)
+    catat_notifikasi(f"[Investigasi Selesai] Kasus NIK {nik} diubah statusnya menjadi: {aduan.status_text}", role_target='all')
+    db.session.commit()
+
+    return jsonify({
+        'status': 'success',
+        'message': f'Status investigasi berhasil diperbarui ke: {aduan.status_text}',
+        'status_step': aduan.status_step,
+        'status_text': aduan.status_text
+    }), 200
+
+@app.route('/api/publik/cek-aduan', methods=['GET', 'OPTIONS'])
+def cek_aduan_publik():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    nik = request.args.get('nik', '').strip()
+    if not nik:
+        return jsonify({'status': 'error', 'message': 'NIK wajib diisi.'}), 400
+
+    aduan = AduanWarga.query.filter_by(nik=nik).first()
+    if not aduan:
+        chat = ChatKeluhan.query.filter_by(nik_warga=nik).order_by(ChatKeluhan.id.asc()).first()
+        if chat:
+            aduan = AduanWarga(
+                nik=nik,
+                nama=chat.nama_warga,
+                uraian=chat.pesan or 'Kendala Pendaftaran',
+                status_step=2,
+                status_text='Ditinjau Petugas'
+            )
+            db.session.add(aduan)
+            db.session.commit()
+        else:
+            return jsonify({'status': 'error', 'message': 'Tidak ditemukan berkas aduan untuk NIK ini.'}), 404
+
+    return jsonify({
+        'status': 'success',
+        'data': {
+            'nik': aduan.nik,
+            'nama': aduan.nama,
+            'kategori': aduan.kategori,
+            'uraian': aduan.uraian,
+            'status_step': aduan.status_step,
+            'status_text': aduan.status_text,
+            'catatan_petugas': aduan.catatan_petugas or '-',
+            'petugas': aduan.petugas_penangan or 'Tim Investigasi Dinsos',
+            'waktu': aduan.waktu.strftime("%d/%m/%Y %H:%M WIB") if aduan.waktu else '-'
+        }
+    }), 200
+
+@app.route('/api/aduan/update-status', methods=['POST', 'OPTIONS'])
+def update_status_aduan():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    d = request.get_json(silent=True) or {}
+    nik = str(d.get('nik', '')).strip()
+    action = d.get('action', 'investigasi')  # 'investigasi' atau 'selesai'
+    catatan = d.get('catatan', '').strip()
+    petugas = d.get('petugas', 'Petugas Dinsos')
+
+    aduan = AduanWarga.query.filter_by(nik=nik).first()
+    if not aduan:
+        return jsonify({'status': 'error', 'message': 'Data aduan tidak ditemukan.'}), 404
+
+    if action == 'investigasi':
+        aduan.status_step = 3
+        aduan.status_text = 'Investigasi Lapangan'
+        aduan.catatan_petugas = catatan or 'Petugas diterjunkan melakukan verifikasi faktual lapangan.'
+        aduan.petugas_penangan = petugas
+        msg_sys = f"🚨 [STATUS PENGADUAN] Laporan Anda telah ditingkatkan ke tahap: 3. Investigasi Lapangan. Catatan: {aduan.catatan_petugas}"
+    elif action == 'selesai':
+        aduan.status_step = 4
+        aduan.status_text = 'Selesai Ditangani'
+        aduan.catatan_petugas = catatan or 'Permasalahan telah diselesaikan secara tuntas.'
+        aduan.petugas_penangan = petugas
+        msg_sys = f"✅ [STATUS PENGADUAN] Kasus aduan telah ditutup & diselesaikan. Keterangan: {aduan.catatan_petugas}"
+    else:
+        return jsonify({'status': 'error', 'message': 'Aksi tidak valid.'}), 400
+
+    chat_notif = ChatKeluhan(
+        nik_warga=nik,
+        nama_warga=aduan.nama,
+        sender='petugas',
+        pesan=msg_sys,
+        file_type='text'
+    )
+    db.session.add(chat_notif)
+    catat_notifikasi(f"[Investigasi] Aduan '{aduan.nama}' (NIK: {nik}) diubah menjadi: {aduan.status_text}.", role_target='all')
+    db.session.commit()
+
+    return jsonify({
+        'status': 'success',
+        'message': f'Tahapan aduan berhasil diubah ke {aduan.status_text}.',
+        'data': {
+            'status_step': aduan.status_step,
+            'status_text': aduan.status_text
+        }
+    }), 200
 
 @app.route('/api/bps/sync', methods=['POST', 'OPTIONS'])
 @app.route('/bps/sync', methods=['POST', 'OPTIONS'])
@@ -1567,7 +1750,7 @@ def sync_bps():
     return jsonify({"status": "success", "message": "10 data terpadu BPS Sidoarjo berhasil disinkronkan!"})
 
 # ===========================================================================
-# 13. MEDIA SERVER & REAL-TIME CHAT
+# 13. MEDIA SERVER & REAL-TIME CHAT (LENGKAP: REAKSI & HAPUS PESAN)
 # ===========================================================================
 @app.route('/uploads/<path:filename>')
 def serve_uploads(filename):
@@ -1620,15 +1803,15 @@ def handle_chat_nik(nik):
             sender = data.get('sender', 'petugas')
             nama = data.get('nama', 'Petugas Dinsos')
             pesan = data.get('pesan', '').strip()
-            reply_sender = data.get('reply_sender')
-            reply_text = data.get('reply_text')
+            reply_sender = data.get('reply_sender') or data.get('reply_to_sender')
+            reply_text = data.get('reply_text') or data.get('reply_to_text')
             file = None
         else:
             sender = request.form.get('sender', 'petugas')
             nama = request.form.get('nama', 'Petugas Dinsos')
             pesan = request.form.get('pesan', '').strip()
-            reply_sender = request.form.get('reply_sender')
-            reply_text = request.form.get('reply_text')
+            reply_sender = request.form.get('reply_sender') or request.form.get('reply_to_sender')
+            reply_text = request.form.get('reply_text') or request.form.get('reply_to_text')
             file = request.files.get('file')
 
         file_path, file_type = None, None
@@ -1644,7 +1827,7 @@ def handle_chat_nik(nik):
                     file_type = 'video'
                 else:
                     file_type = 'audio'
-            elif ext in {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'zip'}:
+            elif ext in {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'zip', 'ppt', 'pptx'}:
                 file_type = 'document'
             else:
                 file_type = 'document'
@@ -1667,6 +1850,46 @@ def handle_chat_nik(nik):
         db.session.commit()
         return jsonify({"status": "success", "message": "Pesan berhasil dikirim."}), 201
 
+# --- ENDPOINT TINDAKAN CHAT (HAPUS & REAKSI EMOJI) ---
+@app.route('/api/chat/action/<int:id>', methods=['DELETE', 'OPTIONS'])
+@app.route('/chat/action/<int:id>', methods=['DELETE', 'OPTIONS'])
+def action_chat_message(id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    try:
+        data = request.get_json(silent=True) or {}
+        tipe = data.get('type', 'me')
+        chat = ChatKeluhan.query.get_or_404(id)
+
+        if tipe == 'everyone':
+            chat.pesan = "[🚫 Pesan ini telah ditarik oleh pengirim]"
+            chat.file_path = None
+            chat.file_type = 'text'
+        else:
+            db.session.delete(chat)
+
+        db.session.commit()
+        return jsonify({"status": "success", "message": "Pesan berhasil diproses."}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/chat/react/<int:id>', methods=['POST', 'OPTIONS'])
+@app.route('/chat/react/<int:id>', methods=['POST', 'OPTIONS'])
+def react_chat_message(id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    try:
+        data = request.get_json(silent=True) or {}
+        reaction = data.get('reaction', '👍')
+        chat = ChatKeluhan.query.get_or_404(id)
+        chat.reaction = reaction
+        db.session.commit()
+        return jsonify({"status": "success", "reaction": reaction}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 # ===========================================================================
 # 14. PUSAT INVESTIGASI ADUAN
 # ===========================================================================
@@ -1676,27 +1899,47 @@ def get_laporan_chat():
     if request.method == 'OPTIONS':
         return jsonify({'status': 'ok'}), 200
     try:
-        chats = ChatKeluhan.query.filter(
-            (ChatKeluhan.pesan.like('%Aduan%')) |
-            (ChatKeluhan.pesan.like('%Sengketa%')) |
-            (ChatKeluhan.pesan.like('%Kendala%'))
-        ).order_by(ChatKeluhan.id.desc()).all()
+        aduan_list = AduanWarga.query.order_by(AduanWarga.id.desc()).all()
+        hasil = []
+        for a in aduan_list:
+            hasil.append({
+                'id': f"ADU-{a.id:03d}",
+                'nik': a.nik,
+                'warga_nik': a.nik,
+                'nama': a.nama,
+                'warga_nama': a.nama,
+                'kategori': a.kategori,
+                'uraian': a.uraian,
+                'status_step': a.status_step,
+                'status_text': a.status_text,
+                'catatan_petugas': a.catatan_petugas or '-',
+                'waktu': a.waktu.strftime("%H:%M | %d/%m/%Y") if a.waktu else "-",
+                'status': a.status_text
+            })
+        
+        if not hasil:
+            chats = ChatKeluhan.query.filter(
+                (ChatKeluhan.pesan.like('%Aduan%')) |
+                (ChatKeluhan.pesan.like('%Sengketa%')) |
+                (ChatKeluhan.pesan.like('%Kendala%'))
+            ).order_by(ChatKeluhan.id.desc()).all()
+            for c in chats:
+                hasil.append({
+                    'id': f"ADU-{c.id:03d}",
+                    'nik': c.nik_warga or '-',
+                    'warga_nik': c.nik_warga or '-',
+                    'nama': c.nama_warga or f"Warga ({c.nik_warga[-4:]})",
+                    'warga_nama': c.nama_warga or f"Warga ({c.nik_warga[-4:]})",
+                    'kategori': 'Aduan Sengketa Bansos / Sistem',
+                    'uraian': c.pesan or '-',
+                    'status_step': 2,
+                    'status_text': 'Ditinjau Petugas',
+                    'catatan_petugas': '-',
+                    'waktu': c.waktu.strftime("%H:%M | %d/%m/%Y") if c.waktu else "-",
+                    'status': 'Ditinjau Petugas'
+                })
 
-        return jsonify([{
-            'id': f"ADU-{c.id:03d}",
-            'nik': c.nik_warga or '-',
-            'warga_nik': c.nik_warga or '-',
-            'nama': c.nama_warga or f"Warga ({c.nik_warga[-4:]})",
-            'warga_nama': c.nama_warga or f"Warga ({c.nik_warga[-4:]})",
-            'kategori': 'Aduan Sengketa Bansos / Sistem',
-            'uraian': c.pesan or '-',
-            'alasan': c.pesan or '-',
-            'waktu': c.waktu.strftime("%H:%M | %d/%m/%Y") if c.waktu else "-",
-            'created_at': c.waktu.strftime("%H:%M | %d/%m/%Y") if c.waktu else "-",
-            'urgensi': 'urgent',
-            'tipe': 'sengketa',
-            'status': 'Perlu Tinjauan'
-        } for c in chats]), 200
+        return jsonify(hasil), 200
     except Exception as e:
         return jsonify([]), 200
 

@@ -563,6 +563,120 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* --- KOMPONEN DROPDOWN KHUSUS SWEETALERT YANG MEMBULAT & MODERN --- */
+        .swal-custom-select-wrapper {
+            position: relative;
+            user-select: none;
+            width: 100%;
+            margin-bottom: 14px;
+        }
+
+        .swal-custom-select-trigger {
+            width: 100%;
+            padding: 12px 18px;
+            border-radius: 18px;
+            border: 1.5px solid #cbd5e1;
+            font-size: 0.9rem;
+            font-weight: 700;
+            background: #ffffff;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #0f172a;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .swal-custom-select-trigger:hover {
+            border-color: #009846;
+        }
+
+        .swal-custom-select-wrapper.open .swal-custom-select-trigger {
+            border-color: #009846;
+            box-shadow: 0 0 0 4px rgba(0, 152, 70, 0.12);
+        }
+
+        .swal-chevron {
+            font-size: 0.8rem;
+            color: #64748b;
+            transition: transform 0.25s ease;
+        }
+
+        .swal-custom-select-wrapper.open .swal-chevron {
+            transform: rotate(180deg);
+            color: #009846;
+        }
+
+        .swal-custom-select-options {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 20px;
+            box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
+            display: none;
+            z-index: 999999;
+            padding: 8px;
+            animation: dropdownFadeIn 0.2s ease-out;
+        }
+
+        .swal-custom-select-wrapper.open .swal-custom-select-options {
+            display: block;
+        }
+
+        .swal-custom-option {
+            padding: 11px 16px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #334155;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            margin-bottom: 3px;
+            display: flex;
+            align-items: center;
+        }
+
+        .swal-custom-option:hover {
+            background: #e6f9f0;
+            color: #009846;
+        }
+
+        .swal-custom-option.selected {
+            background: #009846;
+            color: #ffffff !important;
+        }
+
+        .swal-custom-option.selected i {
+            color: #ffffff !important;
+        }
+
+        /* --- STILISASI SWEETALERT MODERN & SERBA MEMBULAT --- */
+        .swal2-popup.swal-rounded-popup {
+            border-radius: 26px !important;
+            padding: 24px 28px !important;
+            border: 1.5px solid #e2e8f0 !important;
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2) !important;
+            font-family: 'Inter', sans-serif !important;
+        }
+
+        .swal2-popup.swal-rounded-popup .swal2-title {
+            font-size: 1.3rem !important;
+            font-weight: 800 !important;
+            color: #0f172a !important;
+            padding: 10px 0 0 0 !important;
+        }
+
+        .swal-btn-pill {
+            border-radius: 25px !important;
+            padding: 11px 26px !important;
+            font-weight: 800 !important;
+            font-size: 0.9rem !important;
+            letter-spacing: 0.3px !important;
+        }
+
         .btn {
             padding: 10px 18px;
             border-radius: 8px;
@@ -739,11 +853,11 @@
             </a>
             
             <div class="user-profile" style="display:flex; align-items:center; gap:1.2rem;">
-                <button onclick="window.openAdminChat()" class="btn-chat-nav">
+                <button onclick="window.openAdminChat ? window.openAdminChat() : null" class="btn-chat-nav">
                     <i class="fas fa-comments"></i> Chat Warga
                 </button>
                 
-                <div class="notif-wrapper" onclick="window.toggleNotifPanel(event)">
+                <div class="notif-wrapper" onclick="window.toggleNotifPanel ? window.toggleNotifPanel(event) : null">
                     <i class="fas fa-bell notif-icon"></i>
                     <span id="notifBadge" class="notif-badge">0</span>
 
@@ -754,23 +868,23 @@
                                 Notifikasi
                             </div>
                             <div style="display:flex; gap:6px;">
-                                <button type="button" onclick="window.tandaiSemuaNotifDibaca()" title="Tandai semua dibaca" style="background:#f1f5f9; border:none; padding:6px 10px; border-radius:8px; font-size:0.75rem; font-weight:700; color:#475569; cursor:pointer;">
+                                <button type="button" onclick="window.tandaiSemuaNotifDibaca ? window.tandaiSemuaNotifDibaca() : null" title="Tandai semua dibaca" style="background:#f1f5f9; border:none; padding:6px 10px; border-radius:8px; font-size:0.75rem; font-weight:700; color:#475569; cursor:pointer;">
                                     <i class="fas fa-check-double text-success"></i> Baca Semua
                                 </button>
-                                <button type="button" onclick="window.hapusSemuaNotif()" title="Bersihkan notifikasi" style="background:#fee2e2; border:none; padding:6px 10px; border-radius:8px; font-size:0.75rem; font-weight:700; color:#dc2626; cursor:pointer;">
+                                <button type="button" onclick="window.hapusSemuaNotif ? window.hapusSemuaNotif() : null" title="Bersihkan notifikasi" style="background:#fee2e2; border:none; padding:6px 10px; border-radius:8px; font-size:0.75rem; font-weight:700; color:#dc2626; cursor:pointer;">
                                     <i class="fas fa-trash-alt"></i> Bersihkan
                                 </button>
                             </div>
                         </div>
 
                         <div style="display:flex; background:#f8fafc; padding:8px 12px; gap:6px; border-bottom:1px solid #e2e8f0;">
-                            <button id="tabNotifAll" onclick="window.switchNotifTab('all')" class="ntf-tab-btn active" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; background:#ffffff; color:#0f172a; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+                            <button id="tabNotifAll" onclick="window.switchNotifTab ? window.switchNotifTab('all') : null" class="ntf-tab-btn active" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; background:#ffffff; color:#0f172a; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
                                 Semua
                             </button>
-                            <button id="tabNotifUrgent" onclick="window.switchNotifTab('urgent')" class="ntf-tab-btn" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; background:transparent; color:#475569;">
+                            <button id="tabNotifUrgent" onclick="window.switchNotifTab ? window.switchNotifTab('urgent') : null" class="ntf-tab-btn" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; background:transparent; color:#475569;">
                                 Urgent
                             </button>
-                            <button id="tabNotifArsip" onclick="window.switchNotifTab('arsip')" class="ntf-tab-btn" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; background:transparent; color:#475569;">
+                            <button id="tabNotifArsip" onclick="window.switchNotifTab ? window.switchNotifTab('arsip') : null" class="ntf-tab-btn" style="flex:1; border:none; padding:6px 0; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; background:transparent; color:#475569;">
                                 Arsip
                             </button>
                         </div>
@@ -783,7 +897,7 @@
                     <div class="user-name" id="navUsername">Memuat...</div>
                     <div id="navRoleBadge" class="role-badge">Tamu</div>
                 </div>
-                <button onclick="window.logout()" class="btn-logout-nav" title="Keluar">
+                <button onclick="window.logout ? window.logout() : null" class="btn-logout-nav" title="Keluar">
                     <i class="fas fa-sign-out-alt"></i>
                 </button>
             </div>
@@ -808,7 +922,7 @@
                 <button onclick="window.bukaModalBobot()" class="cmd-btn" style="background: linear-gradient(135deg, #6366f1, #4f46e5);">
                     <i class="fas fa-sliders-h"></i> Input Bobot BWM
                 </button>
-                <button onclick="window.hitungSPK()" class="cmd-btn" style="background: linear-gradient(135deg, #10b981, #059669);">
+                <button onclick="window.hitungSPK ? window.hitungSPK() : null" class="cmd-btn" style="background: linear-gradient(135deg, #10b981, #059669);">
                     <i class="fas fa-calculator"></i> Proses Algoritma SAW
                 </button>
                 <button onclick="window.bukaModalKomparasi()" class="cmd-btn" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
@@ -1115,32 +1229,32 @@
                         </div>
                         
                         <div class="header-action-btns" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                            <button type="button" onclick="window.loadDashboardData(true)" class="btn" style="background:#f8fafc; border:1px solid #cbd5e1; color:#475569; padding:8px 12px;" title="Refresh Data">
+                            <button type="button" onclick="window.loadDashboardData ? window.loadDashboardData(true) : location.reload()" class="btn" style="background:#f8fafc; border:1px solid #cbd5e1; color:#475569; padding:8px 12px;" title="Refresh Data">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
                             
-                            <button type="button" onclick="window.exportExcelLengkap()" class="btn" style="background:#ecfdf5; color:#065f46; border:1px solid #6ee7b7; font-weight:700; padding:8px 14px; transition:0.2s;" onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='#ecfdf5'" title="Ekspor Seluruh Kolom ke Excel">
+                            <button type="button" onclick="window.exportExcelLengkap ? window.exportExcelLengkap() : null" class="btn" style="background:#ecfdf5; color:#065f46; border:1px solid #6ee7b7; font-weight:700; padding:8px 14px; transition:0.2s;" onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='#ecfdf5'" title="Ekspor Seluruh Kolom ke Excel">
                                 <i class="fas fa-file-excel" style="color:#059669;"></i> Ekspor Excel
                             </button>
 
                             <button type="button" onclick="document.getElementById('fileImport').click()" class="btn" style="background:#f5f3ff; color:#5b21b6; border:1px solid #c4b5fd; font-weight:700; padding:8px 14px; transition:0.2s;" onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='#f5f3ff'" title="Import dari Excel">
                                 <i class="fas fa-file-import" style="color:#7c3aed;"></i> Impor Excel
                             </button>
-                            <input type="file" id="fileImport" style="display:none;" accept=".xlsx, .xls, .csv" onchange="window.smartImportPreview(this)">
+                            <input type="file" id="fileImport" style="display:none;" accept=".xlsx, .xls, .csv" onchange="window.smartImportPreview ? window.smartImportPreview(this) : null">
 
-                            <button type="button" onclick="window.syncBPS()" class="btn" style="background:#f0f9ff; color:#0369a1; border:1px solid #7dd3fc; font-weight:700; padding:8px 14px; transition:0.2s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f0f9ff'" title="Tarik Sinkronisasi BPS">
+                            <button type="button" onclick="window.syncBPS ? window.syncBPS() : null" class="btn" style="background:#f0f9ff; color:#0369a1; border:1px solid #7dd3fc; font-weight:700; padding:8px 14px; transition:0.2s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f0f9ff'" title="Tarik Sinkronisasi BPS">
                                 <i class="fas fa-cloud-download-alt" style="color:#0284c7;"></i> BPS
                             </button>
                             
-                            <button type="button" id="btnVerifyAll" onclick="window.verifyAllData(event)" class="btn btn-primary btn-verify-all" title="Konfirmasi & Setujui Seluruh Data Warga">
+                            <button type="button" id="btnVerifyAll" onclick="window.verifyAllData ? window.verifyAllData(event) : null" class="btn btn-primary btn-verify-all" title="Konfirmasi & Setujui Seluruh Data Warga">
                                 <i class="fas fa-check-double"></i> Setujui Semua
                             </button>
 
-                            <button type="button" id="btnUnverifyAll" onclick="window.unverifyAllData(event)" class="btn" style="background:#fffbeb; color:#b45309; border:1px solid #fde68a; font-weight:700;" title="Batalkan Seluruh Persetujuan Warga">
+                            <button type="button" id="btnUnverifyAll" onclick="window.unverifyAllData ? window.unverifyAllData(event) : null" class="btn" style="background:#fffbeb; color:#b45309; border:1px solid #fde68a; font-weight:700;" title="Batalkan Seluruh Persetujuan Warga">
                                 <i class="fas fa-undo-alt"></i> Batalkan Semua
                             </button>
                             
-                            <button type="button" onclick="window.hapusSemuaWarga()" class="btn" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700;" title="Hapus Seluruh Data Warga">
+                            <button type="button" onclick="window.hapusSemuaWarga ? window.hapusSemuaWarga() : null" class="btn" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700;" title="Hapus Seluruh Data Warga">
                                 <i class="fas fa-trash-alt"></i> Hapus Semua
                             </button>
                         </div>
@@ -1148,17 +1262,17 @@
 
                     <div class="table-container">
                         <div class="filter-btn-group" style="display:flex; gap:8px; flex-wrap:wrap; padding:12px; background:#f8fafc; border-radius:12px; border:1px solid var(--border-color); margin-bottom:15px; align-items:center;">
-                            <button class="filter-btn active filter-kategori" onclick="window.applyFilter('all', this)"><i class="fas fa-border-all"></i> Semua</button>
-                            <button class="filter-btn filter-kategori" onclick="window.applyFilter('layak', this)"><i class="fas fa-check-circle text-primary"></i> Disetujui</button>
-                            <button class="filter-btn filter-kategori" onclick="window.applyFilter('menerima', this)"><i class="fas fa-box-open text-info"></i> Telah Menerima</button>
-                            <button class="filter-btn filter-btn-danger filter-kategori" onclick="window.applyFilter('bermasalah', this)"><i class="fas fa-exclamation-triangle"></i> Bermasalah</button>
+                            <button class="filter-btn active filter-kategori" onclick="window.applyFilter ? window.applyFilter('all', this) : null"><i class="fas fa-border-all"></i> Semua</button>
+                            <button class="filter-btn filter-kategori" onclick="window.applyFilter ? window.applyFilter('layak', this) : null"><i class="fas fa-check-circle text-primary"></i> Disetujui</button>
+                            <button class="filter-btn filter-kategori" onclick="window.applyFilter ? window.applyFilter('menerima', this) : null"><i class="fas fa-box-open text-info"></i> Telah Menerima</button>
+                            <button class="filter-btn filter-btn-danger filter-kategori" onclick="window.applyFilter ? window.applyFilter('bermasalah', this) : null"><i class="fas fa-exclamation-triangle"></i> Bermasalah</button>
                             
                             <div style="border-left: 2px solid var(--border-color); height: 28px; margin: 0 4px;"></div>
                             
-                            <button class="filter-btn" id="btnSortNik" onclick="window.toggleSortNik()"><i class="fas fa-sort-numeric-down"></i> Urutkan NIK</button>
-                            <button class="filter-btn" id="btnSortTerbaru" onclick="window.applySort('terbaru', this)"><i class="fas fa-sort-amount-down"></i> Terbaru</button>
-                            <button class="filter-btn" id="btnSortTerlama" onclick="window.applySort('terlama', this)"><i class="fas fa-sort-amount-up"></i> Terlama</button>
-                            <button class="filter-btn" id="btnSortAz" onclick="window.toggleSortAz(this)"><i class="fas fa-sort-alpha-down"></i> A - Z</button>
+                            <button class="filter-btn" id="btnSortNik" onclick="window.toggleSortNik ? window.toggleSortNik() : null"><i class="fas fa-sort-numeric-down"></i> Urutkan NIK</button>
+                            <button class="filter-btn" id="btnSortTerbaru" onclick="window.applySort ? window.applySort('terbaru', this) : null"><i class="fas fa-sort-amount-down"></i> Terbaru</button>
+                            <button class="filter-btn" id="btnSortTerlama" onclick="window.applySort ? window.applySort('terlama', this) : null"><i class="fas fa-sort-amount-up"></i> Terlama</button>
+                            <button class="filter-btn" id="btnSortAz" onclick="window.toggleSortAz ? window.toggleSortAz(this) : null"><i class="fas fa-sort-alpha-down"></i> A - Z</button>
 
                             <div style="border-left: 2px solid var(--border-color); height: 28px; margin: 0 4px;"></div>
                             
@@ -1174,10 +1288,10 @@
                                 <span style="color:#e2e8f0; font-weight:300;">|</span>
 
                                 <div id="dateFilterInputContainer" style="display:flex; align-items:center;">
-                                    <input type="date" id="filterTglPicker" onchange="window.applyDateFilter()" style="border:1px solid #e2e8f0; border-radius:8px; padding:3px 8px; font-family:'Inter'; font-size:0.8rem; outline:none; color:#0f172a; cursor:pointer; background:#f8fafc;" title="Pilih Tanggal Tertentu">
+                                    <input type="date" id="filterTglPicker" onchange="window.applyDateFilter ? window.applyDateFilter() : null" style="border:1px solid #e2e8f0; border-radius:8px; padding:3px 8px; font-family:'Inter'; font-size:0.8rem; outline:none; color:#0f172a; cursor:pointer; background:#f8fafc;" title="Pilih Tanggal Tertentu">
                                 </div>
 
-                                <button type="button" onclick="window.resetDateFilter()" style="background:none; border:none; cursor:pointer; color:#94a3b8; padding:2px 4px; display:flex; align-items:center;" title="Reset Filter Waktu">
+                                <button type="button" onclick="window.resetDateFilter ? window.resetDateFilter() : null" style="background:none; border:none; cursor:pointer; color:#94a3b8; padding:2px 4px; display:flex; align-items:center;" title="Reset Filter Waktu">
                                     <i class="fas fa-times-circle"></i>
                                 </button>
                             </div>
@@ -1186,7 +1300,7 @@
                         <table id="dataTable" class="modern-table">
                             <thead>
                                 <tr>
-                                    <th style="width:20px; text-align:center;"><input type="checkbox" id="selectAll" onchange="window.toggleSelectAll(this)"></th>
+                                    <th style="width:20px; text-align:center;"><input type="checkbox" id="selectAll" onchange="window.toggleSelectAll ? window.toggleSelectAll(this) : null"></th>
                                     <th>Nomor NIK</th>
                                     <th>Identitas Warga</th>
                                     <th>Waktu Pendaftaran</th>
@@ -1207,7 +1321,7 @@
                         </div>
                         <div style="display:flex; gap:8px;">
                             <button type="button" onclick="window.bukaModalMatriksKerja()" class="btn btn-secondary" style="color:var(--admin-color); border-color: #c7d2fe; background: white;"><i class="fas fa-table"></i> Lihat Matriks Kerja</button>
-                            <button type="button" id="btnCetakSKBupati" onclick="window.AdminPrint ? window.AdminPrint.cetakSKBupati() : window.cetakSKBupati()" class="btn btn-primary" style="background: linear-gradient(135deg, var(--danger), #be123c); box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);"><i class="fas fa-file-contract"></i> Cetak SK Bupati</button>
+                            <button type="button" id="btnCetakSKBupati" onclick="window.AdminPrint ? window.AdminPrint.cetakSKBupati() : (window.cetakSKBupati ? window.cetakSKBupati() : null)" class="btn btn-primary" style="background: linear-gradient(135deg, var(--danger), #be123c); box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);"><i class="fas fa-file-contract"></i> Cetak SK Bupati</button>
                         </div>
                     </div>
                     <div class="table-container" style="max-height: 600px; overflow-y:auto; padding: 0;">
@@ -1336,8 +1450,8 @@
             <h2 id="callerNameText" style="color:white; font-size: 1.8rem; margin: 0 0 10px 0;">Memanggil...</h2>
             <p id="callerTypeText" style="color: #94a3b8; font-size: 1.1rem; margin-bottom: 40px; font-weight:600;">Menerima Panggilan Baru</p>
             <div style="display:flex; gap: 40px; justify-content:center;">
-                <button onclick="window.rejectCall()" style="width: 70px; height: 70px; border-radius: 50%; background: #ef4444; border: none; color: white; font-size: 1.8rem; cursor: pointer;"><i class="fas fa-phone-slash"></i></button>
-                <button onclick="window.acceptCall()" style="width: 70px; height: 70px; border-radius: 50%; background: #10b981; border: none; color: white; font-size: 1.8rem; cursor: pointer;"><i class="fas fa-phone"></i></button>
+                <button onclick="window.rejectCall ? window.rejectCall() : null" style="width: 70px; height: 70px; border-radius: 50%; background: #ef4444; border: none; color: white; font-size: 1.8rem; cursor: pointer;"><i class="fas fa-phone-slash"></i></button>
+                <button onclick="window.acceptCall ? window.acceptCall() : null" style="width: 70px; height: 70px; border-radius: 50%; background: #10b981; border: none; color: white; font-size: 1.8rem; cursor: pointer;"><i class="fas fa-phone"></i></button>
             </div>
         </div>
     </div>
@@ -1364,19 +1478,19 @@
             </div>
 
             <div class="call-floating-emojis">
-                <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('❤️')">❤️</button>
-                <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('👍')">👍</button>
-                <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('😂')">😂</button>
-                <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('👏')">👏</button>
-                <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('🔥')">🔥</button>
+                <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction ? window.sendCallReaction('❤️') : null">❤️</button>
+                <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction ? window.sendCallReaction('👍') : null">👍</button>
+                <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction ? window.sendCallReaction('😂') : null">😂</button>
+                <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction ? window.sendCallReaction('👏') : null">👏</button>
+                <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction ? window.sendCallReaction('🔥') : null">🔥</button>
             </div>
             <div id="callReactionAnimationArea"></div>
 
             <div class="call-controls-modern">
-                <button id="btnMute" onclick="window.toggleMuteCall()" class="ctrl-btn" title="Nyalakan/Matikan Suara"><i class="fas fa-microphone"></i></button>
-                <button id="btnVideo" onclick="window.toggleVideoCall()" class="ctrl-btn" title="Beralih ke Video / Matikan Kamera"><i class="fas fa-video"></i></button>
-                <button id="btnBlur" onclick="window.toggleBlur()" class="ctrl-btn" title="Blur Latar Belakang"><i class="fas fa-magic"></i></button>
-                <button onclick="window.endCall()" class="ctrl-btn btn-end" title="Akhiri Panggilan"><i class="fas fa-phone-slash"></i></button>
+                <button id="btnMute" onclick="window.toggleMuteCall ? window.toggleMuteCall() : null" class="ctrl-btn" title="Nyalakan/Matikan Suara"><i class="fas fa-microphone"></i></button>
+                <button id="btnVideo" onclick="window.toggleVideoCall ? window.toggleVideoCall() : null" class="ctrl-btn" title="Beralih ke Video / Matikan Kamera"><i class="fas fa-video"></i></button>
+                <button id="btnBlur" onclick="window.toggleBlur ? window.toggleBlur() : null" class="ctrl-btn" title="Blur Latar Belakang"><i class="fas fa-magic"></i></button>
+                <button onclick="window.endCall ? window.endCall() : null" class="ctrl-btn btn-end" title="Akhiri Panggilan"><i class="fas fa-phone-slash"></i></button>
             </div>
         </div>
     </div>
@@ -1392,7 +1506,7 @@
                     <label><input type="checkbox" value="nik" checked> NIK</label><label><input type="checkbox" value="nama" checked> Nama Lengkap</label><label><input type="checkbox" value="alamat" checked> Alamat Lengkap</label><label><input type="checkbox" value="c1_ekonomi" checked> C1 (Ekonomi)</label><label><input type="checkbox" value="c2_aset" checked> C2 (Aset)</label><label><input type="checkbox" value="c3_umur" checked> C3 (Umur)</label><label><input type="checkbox" value="is_verified" checked> Status Validasi</label>
                 </div>
             </div>
-            <button onclick="window.executeCustomExport()" class="btn btn-primary" style="width:100%;"><i class="fas fa-download"></i> Unduh File .xlsx</button>
+            <button onclick="window.executeCustomExport ? window.executeCustomExport() : null" class="btn btn-primary" style="width:100%;"><i class="fas fa-download"></i> Unduh File .xlsx</button>
         </div>
     </div>
 
@@ -1403,7 +1517,7 @@
         <div class="modal-card-premium card" style="width:95%; max-width:900px; height:85%; padding:24px; display:flex; flex-direction:column;">
             <div class="card-header" style="flex-shrink:0;"><div class="card-title" style="color:var(--admin-color);"><i class="fas fa-magic"></i> Validasi Pra-Import Data</div><button onclick="window.closeModal('modalImportPreview')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button></div>
             <div style="flex-grow:1; overflow-y:auto; padding:15px 0;"><p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:15px;">Ditemukan <b id="importCount" style="color:var(--text-main);">0</b> baris dari Excel.</p><div class="table-container" style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0;"><table id="importPreviewTable"><thead><tr><th>Baris</th><th>NIK</th><th>Nama Lengkap</th><th>Status Cek</th></tr></thead><tbody></tbody></table></div></div>
-            <div style="flex-shrink:0; text-align:right; margin-top:15px; padding-top:15px; border-top:1px solid var(--border-color);"><button onclick="window.executeBulkImport()" class="btn btn-primary"><i class="fas fa-cloud-upload-alt"></i> Eksekusi Import ke Database</button></div>
+            <div style="flex-shrink:0; text-align:right; margin-top:15px; padding-top:15px; border-top:1px solid var(--border-color);"><button onclick="window.executeBulkImport ? window.executeBulkImport() : null" class="btn btn-primary"><i class="fas fa-cloud-upload-alt"></i> Eksekusi Import ke Database</button></div>
         </div>
     </div>
 
@@ -1413,7 +1527,7 @@
     <div id="modalEdit" class="modal-blur-overlay">
         <div class="modal-card-premium card" style="width:600px; max-height:85vh; display:flex; flex-direction:column;">
             <div class="card-header" style="flex-shrink:0;"><div class="card-title" style="color:var(--accent);"><i class="fas fa-edit"></i> Edit Data Warga</div><button onclick="window.closeModal('modalEdit')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button></div>
-            <form id="editForm" onsubmit="window.simpanEdit(event)" style="flex:1; overflow-y:auto; padding:20px;">
+            <form id="editForm" onsubmit="window.simpanEdit ? window.simpanEdit(event) : null" style="flex:1; overflow-y:auto; padding:20px;">
                 <input type="hidden" id="editId">
                 <div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" id="editNama" class="form-input" required></div>
                 <div class="form-group"><label class="form-label">NIK (16 Digit)</label><input type="text" inputmode="numeric" maxlength="16" id="editNik" class="form-input" required></div>
@@ -1434,7 +1548,7 @@
                     <div><label class="form-label">C3. Usia / Umur Kepala Keluarga (Tahun)</label><input type="number" id="editC3" class="form-input" value="0"></div>
                     <div><label class="form-label">C4. Jenis Kelamin Kepala Keluarga</label><select id="editC4" class="form-select custom-rounded-select"><option value="1">Laki-laki (1)</option><option value="2">Perempuan (2)</option></select></div>
                     <div><label class="form-label">C5. Jumlah Tanggungan Keluarga (Jiwa)</label><input type="number" id="editC5" class="form-input" value="0"></div>
-                    <div><label class="form-label">C6. Status Pernikahan</label><select id="editC6" class="form-select custom-rounded-select"><option value="1">Belum Menikah (1)</option><option value="2">Menikah (2)</option></select></div>
+                    <div><label class="form-label">C6. Status Pernikahan</label><select id="editC6" class="form-select custom-rounded-select"><option value="1">Belum Menikah (1)</option><option value="2">Menikah (2)</option><option value="3">Cerai Hidup / Cerai Mati (3)</option></select></div>
                     <div><label class="form-label">C7. Kepemilikan Anak Usia Sekolah</label><input type="number" id="editC7" class="form-input" value="0"></div>
                     <div><label class="form-label">C8. Status Kepemilikan Tempat Tinggal</label><select id="editC8" class="form-select custom-rounded-select"><option value="1">Milik Sendiri (1)</option><option value="2">Sewa / Kontrak (2)</option><option value="3">Menumpang / Tidak Layak (3)</option></select></div>
                     <div style="grid-column: span 2;"><label class="form-label">C9. Tingkat Pendidikan Terakhir</label><select id="editC9" class="form-select custom-rounded-select"><option value="1">Tidak Sekolah / SD (1)</option><option value="2">SMP Sederajat (2)</option><option value="3">SMA / SMK (3)</option><option value="4">Diploma/Sarjana (4)</option></select></div>
@@ -1452,7 +1566,7 @@
     <div id="modalBobot" class="modal-blur-overlay">
         <div class="modal-card-premium card" style="width:450px; padding:24px;">
             <div class="card-header"><div class="card-title" style="color:var(--admin-color)"><i class="fas fa-sliders-h"></i> Input Bobot BWM</div><button onclick="window.closeModal('modalBobot')" style="background:none;border:none;font-size:1.2rem; cursor:pointer; color:var(--text-muted);">×</button></div>
-            <form onsubmit="window.simpanBobot(event)" style="padding-top:10px;"><p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px;">Masukkan nilai akhir vektor bobot (W) hasil komputasi Best-Worst Method.</p><div id="bobotInputs" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; max-height: 40vh; overflow-y:auto; padding:5px;"></div><button type="submit" class="btn btn-primary" style="margin-top:20px; width:100%; background:var(--admin-color);"><i class="fas fa-save"></i> Terapkan ke Algoritma</button></form>
+            <form onsubmit="window.simpanBobot ? window.simpanBobot(event) : null" style="padding-top:10px;"><p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px;">Masukkan nilai akhir vektor bobot (W) hasil komputasi Best-Worst Method.</p><div id="bobotInputs" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; max-height: 40vh; overflow-y:auto; padding:5px;"></div><button type="submit" class="btn btn-primary" style="margin-top:20px; width:100%; background:var(--admin-color);"><i class="fas fa-save"></i> Terapkan ke Algoritma</button></form>
         </div>
     </div>
 
@@ -1474,7 +1588,7 @@
             <div class="card-header" style="background: linear-gradient(135deg, #fffbeb, #fef3c7); border-bottom: 1px solid #fde68a; padding: 1.5rem; flex-shrink: 0;">
                 <div class="card-title" style="color:var(--accent-dark); font-size: 1.25rem;"><i class="fas fa-balance-scale text-accent"></i> Verifikasi Hasil Algoritma (SAW vs WP)</div>
                 <div style="display: flex; gap: 15px; align-items: center;">
-                    <button type="button" id="btnCetakLaporan" onclick="window.AdminPrint ? window.AdminPrint.cetakLaporanKomparasi() : window.cetakLaporanKomparasi()" class="btn btn-primary" style="background: linear-gradient(135deg, var(--admin-color), #4f46e5); box-shadow: 0 4px 10px rgba(99,102,241,0.3); border-radius: 30px;">
+                    <button type="button" id="btnCetakLaporan" onclick="window.AdminPrint ? window.AdminPrint.cetakLaporanKomparasi() : (window.cetakLaporanKomparasi ? window.cetakLaporanKomparasi() : null)" class="btn btn-primary" style="background: linear-gradient(135deg, var(--admin-color), #4f46e5); box-shadow: 0 4px 10px rgba(99,102,241,0.3); border-radius: 30px;">
                         <i class="fas fa-print"></i> Cetak Laporan
                     </button>
                     <button onclick="window.closeModal('modalKomparasi')" style="background:none;border:none;font-size:1.8rem; cursor:pointer; color:var(--text-muted);"><i class="fas fa-times-circle"></i></button>
@@ -1547,17 +1661,17 @@
          PUSAT INVESTIGASI ADUAN & SENGKETA TERPADU
          ===================================================================== -->
     <div id="modalLaporanChat" class="modal-blur-overlay">
-        <div class="modal-card-premium card" style="width:95%; max-width:1050px; height:88%; display: flex; flex-direction: column; overflow: hidden; padding: 0;">
+        <div class="modal-card-premium card" style="width:95%; max-width:1050px; height:88%; display: flex; flex-direction: column; overflow: hidden; padding: 0; border-radius: 24px;">
             <div class="card-header" style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border-bottom: 1px solid #fca5a5; padding: 1.25rem 1.75rem; flex-shrink: 0;">
                 <div class="card-title" style="color:var(--danger); font-size: 1.25rem;"><i class="fas fa-shield-virus text-danger"></i> Pusat Investigasi Aduan & Sengketa Terpadu</div>
                 <button type="button" onclick="window.closeModal('modalLaporanChat')" style="background:none;border:none;font-size:1.5rem; cursor:pointer; color:var(--text-muted);"><i class="fas fa-times"></i></button>
             </div>
-            <div style="background:#ffffff; padding:10px 24px; border-bottom:1px solid #e2e8f0; display:flex; gap:10px; flex-wrap:wrap;">
-                <button onclick="window.filterInvestigasi('all', this)" class="btn btn-primary btn-sm"><i class="fas fa-border-all"></i> Semua Aduan</button>
-                <button onclick="window.filterInvestigasi('urgent', this)" class="btn btn-secondary btn-sm" style="color:#dc2626; border-color:#fca5a5;"><i class="fas fa-exclamation-circle"></i> Sangat Urgent</button>
-                <button onclick="window.filterInvestigasi('sengketa', this)" class="btn btn-secondary btn-sm"><i class="fas fa-truck-loading text-info"></i> Penyaluran Fisik</button>
-                <button onclick="window.filterInvestigasi('data', this)" class="btn btn-secondary btn-sm"><i class="fas fa-id-card text-accent"></i> Manipulasi Data</button>
-                <button onclick="window.filterInvestigasi('chat', this)" class="btn btn-secondary btn-sm"><i class="fas fa-comments text-primary"></i> Pelanggaran Chat</button>
+            <div style="background:#ffffff; padding:12px 24px; border-bottom:1px solid #e2e8f0; display:flex; gap:10px; flex-wrap:wrap;">
+                <button onclick="window.filterInvestigasi('all', this)" class="btn btn-primary btn-sm" style="border-radius:20px;"><i class="fas fa-border-all"></i> Semua Aduan</button>
+                <button onclick="window.filterInvestigasi('urgent', this)" class="btn btn-secondary btn-sm" style="color:#dc2626; border-color:#fca5a5; border-radius:20px;"><i class="fas fa-exclamation-circle"></i> Sangat Urgent</button>
+                <button onclick="window.filterInvestigasi('sengketa', this)" class="btn btn-secondary btn-sm" style="border-radius:20px;"><i class="fas fa-truck-loading text-info"></i> Penyaluran Fisik</button>
+                <button onclick="window.filterInvestigasi('data', this)" class="btn btn-secondary btn-sm" style="border-radius:20px;"><i class="fas fa-id-card text-accent"></i> Manipulasi Data</button>
+                <button onclick="window.filterInvestigasi('chat', this)" class="btn btn-secondary btn-sm" style="border-radius:20px;"><i class="fas fa-comments text-primary"></i> Pelanggaran Chat</button>
             </div>
             <div style="flex: 1; overflow-y: auto; padding: 1.5rem 2rem; background: var(--bg-body);" id="laporanChatList"></div>
         </div>
@@ -1572,7 +1686,7 @@
                 <label style="font-size: 0.8rem; font-weight: bold; margin: 0;">Kualitas:</label>
                 <select id="imgQualityAdmin" class="form-select custom-rounded-select" style="font-size: 0.8rem; cursor: pointer;"><option value="high">FullHD Asli</option><option value="medium" selected>Menengah (HD)</option><option value="low">SD (Hemat Data)</option></select>
             </div>
-            <button onclick="window.batalImageEditor()" style="position: absolute; top: 15px; right: 25px; z-index: 46000; background: var(--danger); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"><i class="fas fa-times"></i></button>
+            <button onclick="window.batalImageEditor ? window.batalImageEditor() : window.closeModal('imageEditorModal')" style="position: absolute; top: 15px; right: 25px; z-index: 46000; background: var(--danger); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"><i class="fas fa-times"></i></button>
             <div id="filerobotContainer" style="width: 100%; height: 100%;"></div>
         </div>
     </div>
@@ -1584,7 +1698,7 @@
         <div class="card" style="width: 95%; max-width: 900px; background: #0f172a; padding: 0; overflow: hidden; display: flex; flex-direction: column; height: 90vh; border: 1px solid #334155; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8);">
             <div style="padding: 15px 25px; background: #1e293b; color: white; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; flex-shrink: 0;">
                 <div style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 10px;"><div style="background: var(--info); width: 32px; height: 32px; border-radius: 8px; display: flex; justify-content: center; align-items: center;"><i class="fas fa-film text-white"></i></div> Studio Pemotong Video</div>
-                <button onclick="window.batalVideoEditor()" style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer; transition: 0.2s;" onmouseover="this.style.color='white'"><i class="fas fa-times"></i></button>
+                <button onclick="window.batalVideoEditor ? window.batalVideoEditor() : window.closeModal('videoEditorModal')" style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer; transition: 0.2s;" onmouseover="this.style.color='white'"><i class="fas fa-times"></i></button>
             </div>
             <div style="flex: 1; position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden; background: #000; background-image: radial-gradient(circle at center, #1e293b 0%, #000 100%);">
                 <video id="vEditorPlayer" style="max-width: 100%; max-height: 100%; transition: transform 0.3s;" playsinline preload="auto" crossorigin="anonymous"></video>
@@ -1596,23 +1710,23 @@
             <div style="padding: 25px; background: #1e293b; color: white; flex-shrink: 0; border-top: 1px solid #334155;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                     <div style="display:flex; gap:20px; align-items:center;">
-                        <button onclick="window.vTogglePlay()" id="vPlayBtn" style="background: white; color: #0f172a; border: none; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; font-size:1.3rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'"><i class="fas fa-play" style="margin-left: 3px;"></i></button>
+                        <button onclick="window.vTogglePlay ? window.vTogglePlay() : null" id="vPlayBtn" style="background: white; color: #0f172a; border: none; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; font-size:1.3rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'"><i class="fas fa-play" style="margin-left: 3px;"></i></button>
                         <div style="font-family: 'Inter', monospace; font-size: 1.15rem; font-weight: 700; letter-spacing: 1px; color: #e2e8f0; background: #0f172a; padding: 6px 14px; border-radius: 8px; border: 1px solid #334155;"><span id="vTimeDisplay">00:00 / 00:00</span></div>
                     </div>
                     <div style="display:flex; gap:12px; align-items: center;">
-                        <button onclick="window.vRotate()" style="background:#334155; color:white; border:none; height:45px; width:45px; border-radius: 8px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#475569'" title="Putar Video"><i class="fas fa-sync-alt"></i></button>
+                        <button onclick="window.vRotate ? window.vRotate() : null" style="background:#334155; color: white; border:none; height:45px; width:45px; border-radius: 8px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#475569'" title="Putar Video"><i class="fas fa-sync-alt"></i></button>
                         <div style="display: flex; align-items: center; background: #334155; height: 45px; border-radius: 8px; padding: 0 10px; cursor:pointer;" onclick="document.getElementById('vidMuteAdmin').click()"><input type="checkbox" id="vidMuteAdmin" style="margin-right:8px; cursor:pointer;"><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1; cursor:pointer;"><i class="fas fa-volume-mute"></i> Mute</label></div>
                         <div style="display: flex; align-items: center; background: #334155; height: 45px; border-radius: 8px; padding: 0 10px;">
                             <label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1; margin-right: 8px;">Kualitas:</label>
                             <select id="vidQualityAdmin" class="form-select custom-rounded-select" style="background: transparent; color: white; border: none; font-weight: bold; outline: none; cursor: pointer;"><option value="high" style="color: black;">FullHD Asli</option><option value="medium" selected style="color: black;">Menengah (HD)</option><option value="low" style="color: black;">SD (Hemat Data)</option></select>
                         </div>
-                        <button onclick="window.vProcessAndSave()" style="background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; border: none; height: 45px; padding: 0 24px; border-radius: 8px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(16,185,129,0.3); transition: 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'"><i class="fas fa-paper-plane" style="margin-right: 8px;"></i> Kirim</button>
+                        <button onclick="window.vProcessAndSave ? window.vProcessAndSave() : null" style="background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; border: none; height: 45px; padding: 0 24px; border-radius: 8px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(16,185,129,0.3); transition: 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'"><i class="fas fa-paper-plane" style="margin-right: 8px;"></i> Kirim</button>
                     </div>
                 </div>
                 <div class="video-trim-container">
                     <div class="trim-track"><div id="vTrimActive" class="trim-active-area"></div></div>
-                    <input type="range" id="vTrimStart" class="trim-slider" min="0" max="100" value="0" step="0.1" oninput="window.vUpdateTrim('start')">
-                    <input type="range" id="vTrimEnd" class="trim-slider" min="0" max="100" value="100" step="0.1" oninput="window.vUpdateTrim('end')">
+                    <input type="range" id="vTrimStart" class="trim-slider" min="0" max="100" value="0" step="0.1" oninput="window.vUpdateTrim ? window.vUpdateTrim('start') : null">
+                    <input type="range" id="vTrimEnd" class="trim-slider" min="0" max="100" value="100" step="0.1" oninput="window.vUpdateTrim ? window.vUpdateTrim('end') : null">
                 </div>
             </div>
             <canvas id="vRenderCanvas" style="display:none;"></canvas>
@@ -1633,18 +1747,18 @@
                     </div>
                     
                     <div class="chat-tab-container">
-                        <button id="tabInboxBtn" type="button" onclick="window.switchChatTab('inbox')" class="chat-tab-btn active">
+                        <button id="tabInboxBtn" type="button" onclick="window.switchChatTab ? window.switchChatTab('inbox') : null" class="chat-tab-btn active">
                             <i class="fas fa-inbox"></i> Pesan Masuk
                         </button>
-                        <button id="tabKontakBtn" type="button" onclick="window.switchChatTab('kontak')" class="chat-tab-btn">
+                        <button id="tabKontakBtn" type="button" onclick="window.switchChatTab ? window.switchChatTab('kontak') : null" class="chat-tab-btn">
                             <i class="fas fa-users"></i> Buku Kontak
                         </button>
                     </div>
 
                     <div class="modern-search-chat-wrapper">
                         <i class="fas fa-search search-icon-left"></i>
-                        <input type="text" id="searchChatInput" placeholder="Ketik atau ucapkan Nama / NIK..." oninput="window.filterChatList()">
-                        <button type="button" id="btnVoiceSearchChat" class="btn-voice-search-chat" onclick="window.startVoiceSearchChat()" title="Cari menggunakan suara">
+                        <input type="text" id="searchChatInput" placeholder="Ketik atau ucapkan Nama / NIK..." oninput="window.filterChatList ? window.filterChatList() : null">
+                        <button type="button" id="btnVoiceSearchChat" class="btn-voice-search-chat" onclick="window.startVoiceSearchChat ? window.startVoiceSearchChat() : null" title="Cari menggunakan suara">
                             <i class="fas fa-microphone"></i>
                         </button>
                     </div>
@@ -1664,7 +1778,7 @@
                             <p id="chatActiveInfoDisplay" style="display:none;">
                                 <span class="nik-badge"><i class="fas fa-id-card text-muted"></i> <span id="chatActiveNikDisplay">-</span></span>
                                 <span style="color:#cbd5e1;">•</span>
-                                <button type="button" class="handler-badge-btn" onclick="window.quickSwitchPetugas()">
+                                <button type="button" class="handler-badge-btn" onclick="window.quickSwitchPetugas ? window.quickSwitchPetugas() : null">
                                     <i class="fas fa-user-shield text-primary"></i> Ditangani: <b id="chatActiveHandlerDisplay">Petugas Dinsos</b> <i class="fas fa-caret-down"></i>
                                 </button>
                             </p>
@@ -1672,26 +1786,26 @@
                     </div>
                     
                     <div style="display:none; gap:10px; align-items:center;" id="chatHeaderActions">
-                        <button type="button" onclick="window.startCallWarga('audio')" class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:20px; font-weight:700;">
+                        <button type="button" onclick="window.startCallWarga ? window.startCallWarga('audio') : null" class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:20px; font-weight:700;">
                             <i class="fas fa-phone-alt"></i> Suara
                         </button>
-                        <button type="button" onclick="window.startCallWarga('video')" class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:20px; font-weight:700;">
+                        <button type="button" onclick="window.startCallWarga ? window.startCallWarga('video') : null" class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:20px; font-weight:700;">
                             <i class="fas fa-video"></i> Video
                         </button>
                         
                         <div style="width: 1px; height: 26px; background: #e2e8f0; margin: 0 2px;"></div>
                         
                         <div class="chat-action-menu">
-                            <button type="button" class="chat-action-btn" onclick="window.toggleChatActionDropdown(event)">
+                            <button type="button" class="chat-action-btn" onclick="window.toggleChatActionDropdown ? window.toggleChatActionDropdown(event) : null">
                                 <i class="fas fa-ellipsis-v"></i>
                             </button>
                             <div class="chat-dropdown-content" id="chatActionDropdown" onclick="event.stopPropagation()">
                                 <button type="button" onclick="window.bukaModalLaporRiwayat()"><i class="fas fa-shield-virus text-danger"></i> Laporkan ke Investigasi</button>
-                                <button type="button" onclick="window.hapusRiwayatLokal()" class="text-danger"><i class="fas fa-trash-alt"></i> Bersihkan Obrolan Lokal</button>
+                                <button type="button" onclick="window.hapusRiwayatLokal ? window.hapusRiwayatLokal() : null" class="text-danger"><i class="fas fa-trash-alt"></i> Bersihkan Obrolan Lokal</button>
                             </div>
                         </div>
 
-                        <button type="button" onclick="window.tutupObrolanAktif()" class="btn btn-secondary btn-sm" style="border-radius:20px; padding:6px 12px; font-size:0.8rem; border-color:#cbd5e1;">
+                        <button type="button" onclick="window.tutupObrolanAktif ? window.tutupObrolanAktif() : null" class="btn btn-secondary btn-sm" style="border-radius:20px; padding:6px 12px; font-size:0.8rem; border-color:#cbd5e1;">
                             <i class="fas fa-times"></i> Tutup
                         </button>
                     </div>
@@ -1703,7 +1817,7 @@
                         <i class="fas fa-thumbtack"></i>
                         <span><b>Pesan Tersemat:</b> <span id="pinnedMessageText"></span></span>
                     </div>
-                    <button type="button" onclick="window.unpinCurrentMessage()" style="background:none; border:none; color:#92400e; cursor:pointer; font-weight:bold;"><i class="fas fa-times"></i></button>
+                    <button type="button" onclick="window.unpinCurrentMessage ? window.unpinCurrentMessage() : null" style="background:none; border:none; color:#92400e; cursor:pointer; font-weight:bold;"><i class="fas fa-times"></i></button>
                 </div>
 
                 <!-- AREA GELEMBUNG PESAN -->
@@ -1715,7 +1829,7 @@
                         <small style="font-weight:700; color:#009846;"><i class="fas fa-reply"></i> Membalas <span id="replyTargetSender"></span>:</small>
                         <div id="replyTargetText" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:550px; font-size:0.85rem;"></div>
                     </div>
-                    <button type="button" onclick="window.cancelReplyMessage()" style="background:none; border:none; color:#dc2626; cursor:pointer;"><i class="fas fa-times"></i></button>
+                    <button type="button" onclick="window.cancelReplyMessage ? window.cancelReplyMessage() : null" style="background:none; border:none; color:#dc2626; cursor:pointer;"><i class="fas fa-times"></i></button>
                 </div>
 
                 <!-- INPUT BAR DENGAN WAVE VISUALIZER & DUKUNGAN SEMUA FORMAT -->
@@ -1726,24 +1840,24 @@
                         <div id="emojiGridList" class="emoji-grid-section"></div>
                     </div>
 
-                    <button type="button" onclick="window.toggleEmojiPicker(event)" style="background:none; border:none; font-size:1.35rem; color:#64748b; cursor:pointer;" title="Emoji"><i class="fas fa-smile"></i></button>
+                    <button type="button" onclick="window.toggleEmojiPicker ? window.toggleEmojiPicker(event) : null" style="background:none; border:none; font-size:1.35rem; color:#64748b; cursor:pointer;" title="Emoji"><i class="fas fa-smile"></i></button>
                     
-                    <input type="file" id="adminMediaFileInput" style="display:none;" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" onchange="window.handleAdminMediaSelection(this)">
+                    <input type="file" id="adminMediaFileInput" style="display:none;" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.ppt,.pptx" onchange="window.handleAdminMediaSelection ? window.handleAdminMediaSelection(this) : null">
                     <button type="button" onclick="document.getElementById('adminMediaFileInput').click()" title="Kirim Foto, Video atau Dokumen" style="background:none; border:none; font-size:1.3rem; color:#64748b; cursor:pointer;"><i class="fas fa-paperclip"></i></button>
                     
-                    <input type="text" id="adminChatInput" placeholder="Ketik balasan Anda..." style="flex:1; border:1px solid #cbd5e1; background:#f8fafc; padding:10px 18px; border-radius:25px; outline:none;" onkeypress="if(event.key==='Enter') window.sendAdminChat()">
+                    <input type="text" id="adminChatInput" placeholder="Ketik balasan Anda..." style="flex:1; border:1px solid #cbd5e1; background:#f8fafc; padding:10px 18px; border-radius:25px; outline:none;" onkeypress="if(event.key==='Enter') window.sendAdminChat ? window.sendAdminChat() : null">
                     
                     <div id="adminVoiceControlUI" class="voice-recorder-bar" style="display:none; align-items:center; gap:10px; background:#fff1f2; border:1px solid #fecdd3; border-radius:25px; padding:4px 14px; flex:1;">
                         <span id="adminVoiceTimer" style="font-weight:800; font-family:monospace; color:#e11d48; font-size:0.85rem;">00:00</span>
                         
                         <canvas id="voiceWaveCanvas" width="180" height="24" style="flex:1; height:24px;"></canvas>
                         
-                        <button type="button" class="voice-btn-ctrl" onclick="window.cancelVoiceRecording()" title="Batalkan" style="background:none; border:none; color:#e11d48; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
-                        <button type="button" class="voice-btn-ctrl" onclick="window.stopAndSendVoiceRecording()" title="Kirim Pesan Suara" style="background:#e11d48; color:white; border:none; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer;"><i class="fas fa-paper-plane" style="font-size:0.75rem;"></i></button>
+                        <button type="button" class="voice-btn-ctrl" onclick="window.cancelVoiceRecording ? window.cancelVoiceRecording() : null" title="Batalkan" style="background:none; border:none; color:#e11d48; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
+                        <button type="button" class="voice-btn-ctrl" onclick="window.stopAndSendVoiceRecording ? window.stopAndSendVoiceRecording() : null" title="Kirim Pesan Suara" style="background:#e11d48; color:white; border:none; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer;"><i class="fas fa-paper-plane" style="font-size:0.75rem;"></i></button>
                     </div>
 
-                    <button type="button" id="btnMicAdmin" onclick="window.startVoiceRecording()" style="background:none; border:none; font-size:1.35rem; color:#64748b; cursor:pointer;" title="Rekam Suara"><i class="fas fa-microphone"></i></button>
-                    <button type="button" id="btnSendAdmin" onclick="window.sendAdminChat()" style="background:#009846; color:white; border:none; width:42px; height:42px; border-radius:50%; cursor:pointer;"><i class="fas fa-paper-plane"></i></button>
+                    <button type="button" id="btnMicAdmin" onclick="window.startVoiceRecording ? window.startVoiceRecording() : null" style="background:none; border:none; font-size:1.35rem; color:#64748b; cursor:pointer;" title="Rekam Suara"><i class="fas fa-microphone"></i></button>
+                    <button type="button" id="btnSendAdmin" onclick="window.sendAdminChat ? window.sendAdminChat() : null" style="background:#009846; color:white; border:none; width:42px; height:42px; border-radius:50%; cursor:pointer;"><i class="fas fa-paper-plane"></i></button>
                 </div>
             </div>
         </div>
@@ -1767,7 +1881,7 @@
                     </select>
                 </div>
             </div>
-            <button onclick="window.eksekusiAlihkanAdmin()" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1rem;"><i class="fas fa-paper-plane"></i> Pindahkan Penanganan</button>
+            <button onclick="window.eksekusiAlihkanAdmin ? window.eksekusiAlihkanAdmin() : null" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1rem;"><i class="fas fa-paper-plane"></i> Pindahkan Penanganan</button>
         </div>
     </div>
 
@@ -1790,14 +1904,14 @@
                     <textarea id="inputAlasanLaporChat" class="form-input" rows="3" placeholder="Jelaskan mengapa riwayat chat ini perlu diinvestigasi (Misal: Ancaman, Penipuan data, dll)..."></textarea>
                 </div>
             </div>
-            <button onclick="window.eksekusiLaporRiwayat()" class="btn" style="background:var(--danger); color:white; width: 100%; padding: 14px; font-size: 1rem;"><i class="fas fa-flag"></i> Kirim ke Pusat Investigasi</button>
+            <button onclick="window.eksekusiLaporRiwayat ? window.eksekusiLaporRiwayat() : null" class="btn" style="background:var(--danger); color:white; width: 100%; padding: 14px; font-size: 1rem;"><i class="fas fa-flag"></i> Kirim ke Pusat Investigasi</button>
         </div>
     </div>
 
     <!-- =====================================================================
          ELEMEN MENGAPUNG (FAB) DAN MEDIA LIGHTBOX
          ===================================================================== -->
-    <div id="fabBulk" class="fab-bulk"><div class="fab-text"><span id="bulkCount">0</span> Baris Terpilih</div><button onclick="window.bulkProcess('verify')" class="btn btn-primary" style="padding:6px 14px; border-radius:20px; font-size: 0.85rem;"><i class="fas fa-check-double"></i> Verifikasi</button><button onclick="window.bulkProcess('delete')" class="btn" style="background:var(--danger); color:white; padding:6px 14px; border-radius:20px; font-size: 0.85rem;"><i class="fas fa-trash"></i> Hapus</button></div>
+    <div id="fabBulk" class="fab-bulk"><div class="fab-text"><span id="bulkCount">0</span> Baris Terpilih</div><button onclick="window.bulkProcess ? window.bulkProcess('verify') : null" class="btn btn-primary" style="padding:6px 14px; border-radius:20px; font-size: 0.85rem;"><i class="fas fa-check-double"></i> Verifikasi</button><button onclick="window.bulkProcess ? window.bulkProcess('delete') : null" class="btn" style="background:var(--danger); color:white; padding:6px 14px; border-radius:20px; font-size: 0.85rem;"><i class="fas fa-trash"></i> Hapus</button></div>
     
     <div id="mediaLightbox" class="modal-blur-overlay" style="z-index: 999999 !important; flex-direction: column;" onclick="window.closeLightbox(event)"><div style="position: absolute; top: 20px; right: 30px; font-size: 2.5rem; color: white; cursor: pointer; transition: 0.2s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='white'" class="close-lightbox-btn">&times;</div><div id="lightboxContent" style="max-width: 90%; max-height: 85vh; display: flex; justify-content: center; align-items: center;"></div></div>
     
@@ -1837,7 +1951,6 @@
          LOGIKA SINKRONISASI GEOTAGGING & PROXY ID
          ========================================================================= -->
     <script>
-        // Compatibility proxy ID
         (function() {
             const origGetElementById = document.getElementById.bind(document);
             document.getElementById = function(id) {
@@ -1980,6 +2093,17 @@
                     if (icon) icon.style.transform = 'rotate(0deg)';
                 }
             }
+
+            const notifPanel = document.getElementById('notifPanel');
+            const notifWrapper = document.querySelector('.notif-wrapper');
+            if (notifPanel && notifWrapper && notifPanel.style.display === 'flex' && !notifWrapper.contains(e.target)) {
+                notifPanel.style.display = 'none';
+            }
+
+            const swalSelect = document.getElementById('swalSelectWrapper');
+            if (swalSelect && swalSelect.classList.contains('open') && !swalSelect.contains(e.target)) {
+                swalSelect.classList.remove('open');
+            }
         });
 
         window.pilihModePeta = function (mode, labelText) {
@@ -2019,9 +2143,8 @@
         });
     </script>
 
-    <!-- Taruh tepat sebelum tag </body> di index.html -->
+    <!-- Custom Select Dropdowns -->
     <script>
-        // Fungsi Otomatisasi Custom Rounded Dropdown
         function applyCustomRoundedDropdowns() {
             document.querySelectorAll('select.custom-rounded-select').forEach(select => {
                 if (select.dataset.customized === 'true') return;
@@ -2070,14 +2193,22 @@
                     document.querySelectorAll('.custom-select-wrapper.open').forEach(w => w.classList.remove('open'));
                     if (!isOpen) wrapper.classList.add('open');
                 });
+
+                select.addEventListener('change', () => {
+                    const selectedOption = select.options[select.selectedIndex];
+                    if (selectedOption && trigger.querySelector('span')) {
+                        trigger.querySelector('span').innerText = selectedOption.text;
+                    }
+                    optionsBox.querySelectorAll('.custom-option').forEach(o => {
+                        o.classList.toggle('selected', o.dataset.value === select.value);
+                    });
+                });
             });
 
-            // Tutup dropdown jika klik di luar
             document.addEventListener('click', () => {
                 document.querySelectorAll('.custom-select-wrapper.open').forEach(w => w.classList.remove('open'));
             });
 
-            // Sinkronisasi saat form di-reset
             document.querySelectorAll('form').forEach(form => {
                 form.addEventListener('reset', () => {
                     setTimeout(() => {
@@ -2097,10 +2228,382 @@
             });
         }
 
-        // Panggil saat halaman selesai dimuat
+        window.applyCustomRoundedDropdowns = applyCustomRoundedDropdowns;
+
         document.addEventListener('DOMContentLoaded', () => {
             applyCustomRoundedDropdowns();
         });
+    </script>
+
+    <!-- AKSI LANJUTAN INVESTIGASI ADUAN (ADMIN SIDE) -->
+    <script>
+        window.API_URL = window.API_URL || ((typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
+            ? window.CONFIG.BASE_URL.replace(/\/+$/, '')
+            : ((typeof window.API_BASE_URL !== 'undefined') ? window.API_BASE_URL.replace(/\/+$/, '') : 'http://127.0.0.1:5000'));
+
+        window.allLaporanChatData = [];
+
+        window.openModal = function(id) {
+            const m = document.getElementById(id);
+            if (m) m.style.display = 'flex';
+        };
+
+        window.closeModal = function(id) {
+            const m = document.getElementById(id);
+            if (m) m.style.display = 'none';
+        };
+
+        window.bukaModalPengguna = window.bukaModalPengguna || function() {
+            window.openModal('modalPengguna');
+            if (typeof window.loadUserData === 'function') window.loadUserData();
+        };
+
+        window.bukaModalBobot = window.bukaModalBobot || function() {
+            window.openModal('modalBobot');
+            if (typeof window.loadBobotData === 'function') window.loadBobotData();
+        };
+
+        window.bukaModalKomparasi = window.bukaModalKomparasi || function() {
+            window.openModal('modalKomparasi');
+            if (typeof window.loadKomparasiData === 'function') window.loadKomparasiData();
+        };
+
+        window.bukaModalMatriksKerja = window.bukaModalMatriksKerja || function() {
+            window.openModal('modalDetail');
+            if (typeof window.loadMatriksData === 'function') window.loadMatriksData();
+        };
+
+        window.bukaModalLaporRiwayat = window.bukaModalLaporRiwayat || function() {
+            window.openModal('modalLaporRiwayat');
+        };
+
+        window.bukaModalLaporanChat = function() {
+            window.openModal('modalLaporanChat');
+            window.loadLaporanChatData();
+        };
+
+        window.closeLightbox = function(e) {
+            if (!e || e.target.id === 'mediaLightbox' || e.target.classList.contains('close-lightbox-btn') || e.target.closest('.close-lightbox-btn')) {
+                const lb = document.getElementById('mediaLightbox');
+                if (lb) {
+                    lb.style.display = 'none';
+                    const content = document.getElementById('lightboxContent');
+                    if (content) content.innerHTML = '';
+                }
+            }
+        };
+
+        window.openLightbox = function(type, src) {
+            const lb = document.getElementById('mediaLightbox');
+            const content = document.getElementById('lightboxContent');
+            if (!lb || !content) return;
+            if (type === 'image') {
+                content.innerHTML = `<img src="${src}" style="max-width:100%; max-height:80vh; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">`;
+            } else if (type === 'video') {
+                content.innerHTML = `<video src="${src}" controls autoplay style="max-width:100%; max-height:80vh; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5);"></video>`;
+            } else {
+                window.open(src, '_blank');
+                return;
+            }
+            lb.style.display = 'flex';
+        };
+
+        window.bukaChatDariAduan = function(nik) {
+            window.closeModal('modalLaporanChat');
+            if (typeof window.openAdminChat === 'function') {
+                window.openAdminChat();
+            }
+            setTimeout(() => {
+                const search = document.getElementById('searchChatInput');
+                if (search) {
+                    search.value = nik;
+                    if (typeof window.filterChatList === 'function') {
+                        window.filterChatList();
+                    }
+                }
+                if (typeof window.selectWargaChat === 'function') {
+                    window.selectWargaChat(nik);
+                }
+            }, 300);
+        };
+
+        window.toggleSwalSelect = function() {
+            const wrapper = document.getElementById('swalSelectWrapper');
+            if (wrapper) wrapper.classList.toggle('open');
+        };
+
+        window.selectSwalAksi = function(val, text, iconClass) {
+            const hidden = document.getElementById('swalAksiInvestigasi');
+            const label = document.getElementById('swalSelectedLabel');
+            const wrapper = document.getElementById('swalSelectWrapper');
+            if (hidden) hidden.value = val;
+            if (label) label.innerHTML = `<i class="fas ${iconClass}" style="margin-right:8px;"></i> ${text}`;
+            if (wrapper) {
+                wrapper.querySelectorAll('.swal-custom-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                wrapper.classList.remove('open');
+            }
+            const clickedOption = event?.currentTarget;
+            if (clickedOption) clickedOption.classList.add('selected');
+        };
+
+        window.tindakLanjutInvestigasi = async function(nik) {
+            const { value: formValues } = await Swal.fire({
+                title: '<i class="fas fa-shield-alt text-warning"></i> Tindak Lanjut Investigasi Laporan',
+                html: `
+                    <div style="text-align:left; font-size:0.88rem; margin-top:10px;">
+                        <label style="font-weight:700; display:block; margin-bottom:6px; color:#334155;">Pilih Tahap Tindakan:</label>
+                        
+                        <div class="swal-custom-select-wrapper" id="swalSelectWrapper" onclick="event.stopPropagation()">
+                            <div class="swal-custom-select-trigger" onclick="window.toggleSwalSelect()">
+                                <span id="swalSelectedLabel"><i class="fas fa-search-location text-warning" style="margin-right:8px;"></i> 2. Kirim Tanggapan / Investigasi Lapangan (Step 3)</span>
+                                <i class="fas fa-chevron-down swal-chevron"></i>
+                            </div>
+                            <div class="swal-custom-select-options" id="swalSelectOptions">
+                                <div class="swal-custom-option" onclick="window.selectSwalAksi('terima', '1. Terima & Mulai Peninjauan Bukti (Step 2)', 'fa-clipboard-check text-primary')">
+                                    <i class="fas fa-clipboard-check text-primary" style="margin-right:8px;"></i> 1. Terima & Mulai Peninjauan Bukti (Step 2)
+                                </div>
+                                <div class="swal-custom-option selected" onclick="window.selectSwalAksi('tanggapi', '2. Kirim Tanggapan / Investigasi Lapangan (Step 3)', 'fa-search-location text-warning')">
+                                    <i class="fas fa-search-location text-warning" style="margin-right:8px;"></i> 2. Kirim Tanggapan / Investigasi Lapangan (Step 3)
+                                </div>
+                                <div class="swal-custom-option" onclick="window.selectSwalAksi('selesai', '3. Selesaikan & Tutup Laporan (Step 4 Selesai)', 'fa-check-double text-success')">
+                                    <i class="fas fa-check-double text-success" style="margin-right:8px;"></i> 3. Selesaikan & Tutup Laporan (Step 4 Selesai)
+                                </div>
+                            </div>
+                            <input type="hidden" id="swalAksiInvestigasi" value="tanggapi">
+                        </div>
+
+                        <label style="font-weight:700; display:block; margin-bottom:6px; color:#334155;">Catatan / Tanggapan Petugas:</label>
+                        <textarea id="swalCatatanInvestigasi" class="form-input" rows="3" placeholder="Tuliskan catatan tindak lanjut resmi untuk warga..." style="width:100%; padding:14px 16px; border-radius:18px; border:1.5px solid #cbd5e1; font-family:'Inter'; font-size:0.9rem; outline:none; resize:vertical;"></textarea>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Terapkan Status',
+                confirmButtonColor: '#009846',
+                cancelButtonText: 'Batal',
+                cancelButtonColor: '#64748b',
+                customClass: {
+                    popup: 'swal-rounded-popup',
+                    confirmButton: 'swal-btn-pill',
+                    cancelButton: 'swal-btn-pill'
+                },
+                preConfirm: () => {
+                    const aksi = document.getElementById('swalAksiInvestigasi')?.value || 'tanggapi';
+                    const tanggapan = document.getElementById('swalCatatanInvestigasi')?.value.trim();
+                    return { aksi, tanggapan };
+                }
+            });
+
+            if (formValues) {
+                try {
+                    const targetUrl = `${window.API_URL}/api/investigasi/tindak-lanjut`;
+                    const res = await fetch(targetUrl, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                        },
+                        body: JSON.stringify({
+                            nik: nik,
+                            aksi: formValues.aksi,
+                            tanggapan: formValues.tanggapan,
+                            petugas: localStorage.getItem('username') || 'Admin 1 (Super Admin)'
+                        })
+                    });
+                    const json = await res.json();
+                    if (res.ok) {
+                        Swal.fire({
+                            title: 'Berhasil',
+                            text: json.message,
+                            icon: 'success',
+                            customClass: {
+                                popup: 'swal-rounded-popup',
+                                confirmButton: 'swal-btn-pill'
+                            }
+                        });
+                        window.loadLaporanChatData();
+                    } else {
+                        Swal.fire({
+                            title: 'Gagal',
+                            text: json.message || 'Terjadi kesalahan.',
+                            icon: 'error',
+                            customClass: {
+                                popup: 'swal-rounded-popup',
+                                confirmButton: 'swal-btn-pill'
+                            }
+                        });
+                    }
+                } catch (e) {
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Gagal menyambung ke server.',
+                        icon: 'error',
+                        customClass: {
+                            popup: 'swal-rounded-popup',
+                            confirmButton: 'swal-btn-pill'
+                        }
+                    });
+                }
+            }
+        };
+
+        window.selesaikanAduan = async function(nik) {
+            const { value: keterangan } = await Swal.fire({
+                title: '<i class="fas fa-check-circle text-success"></i> Selesaikan & Tutup Laporan',
+                html: `
+                    <div style="text-align:left; font-size:0.88rem; margin-top:10px;">
+                        <label style="font-weight:700; display:block; margin-bottom:8px; color:#334155;">Rangkuman Solusi / Hasil Penyelesaian:</label>
+                        <textarea id="swalCatatanSelesai" class="form-input" rows="4" placeholder="Contoh: Masalah NIK telah diperbaiki dan berkas warga berhasil diverifikasi..." style="width:100%; padding:14px 16px; border-radius:18px; border:1.5px solid #cbd5e1; font-family:'Inter'; font-size:0.9rem; outline:none; resize:vertical;"></textarea>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Tutup Aduan (Step 4)',
+                confirmButtonColor: '#10b981',
+                cancelButtonText: 'Batal',
+                cancelButtonColor: '#64748b',
+                customClass: {
+                    popup: 'swal-rounded-popup',
+                    confirmButton: 'swal-btn-pill',
+                    cancelButton: 'swal-btn-pill'
+                },
+                preConfirm: () => {
+                    const val = document.getElementById('swalCatatanSelesai')?.value.trim();
+                    if (!val) {
+                        Swal.showValidationMessage('Catatan penyelesaian wajib diisi!');
+                        return false;
+                    }
+                    return val;
+                }
+            });
+
+            if (keterangan) {
+                try {
+                    const res = await fetch(`${window.API_URL}/api/investigasi/tindak-lanjut`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                        },
+                        body: JSON.stringify({
+                            nik: nik,
+                            aksi: 'selesai',
+                            tanggapan: keterangan,
+                            petugas: localStorage.getItem('username') || 'Petugas Dinsos'
+                        })
+                    });
+                    if (res.ok) {
+                        Swal.fire({
+                            title: 'Selesai',
+                            text: 'Kasus aduan resmi ditutup dan warga mendapatkan notifikasi penyelesaian.',
+                            icon: 'success',
+                            customClass: {
+                                popup: 'swal-rounded-popup',
+                                confirmButton: 'swal-btn-pill'
+                            }
+                        });
+                        window.loadLaporanChatData();
+                    } else {
+                        const json = await res.json();
+                        Swal.fire({
+                            title: 'Gagal',
+                            text: json.message || 'Gagal menutup laporan.',
+                            icon: 'error',
+                            customClass: {
+                                popup: 'swal-rounded-popup',
+                                confirmButton: 'swal-btn-pill'
+                            }
+                        });
+                    }
+                } catch (e) {
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Gagal menutup laporan.',
+                        icon: 'error',
+                        customClass: {
+                            popup: 'swal-rounded-popup',
+                            confirmButton: 'swal-btn-pill'
+                        }
+                    });
+                }
+            }
+        };
+
+        function renderLaporanChat(data) {
+            const container = document.getElementById('laporanChatList');
+            if (!container) return;
+
+            if (!Array.isArray(data) || data.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8;">Tidak ada laporan yang sesuai kriteria filter.</div>';
+                return;
+            }
+
+            container.innerHTML = data.map(item => `
+                <div class="card" style="padding:20px; margin-bottom:16px; border:1.5px solid #e2e8f0; border-radius:20px; box-shadow:0 4px 14px rgba(0,0,0,0.03); background:#ffffff;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span style="font-weight:800; font-size:0.88rem; color:#dc2626;"><i class="fas fa-shield-virus"></i> ${item.id} — ${item.kategori}</span>
+                        <span style="font-size:0.75rem; color:#64748b; font-weight:700;">${item.waktu}</span>
+                    </div>
+                    <div style="font-size:0.95rem; font-weight:800; color:#0f172a; margin-bottom:6px;">Pelapor: ${item.nama} • NIK: <span class="font-mono text-primary">${item.nik}</span></div>
+                    <div style="background:#f8fafc; padding:12px 16px; border-radius:14px; font-size:0.88rem; color:#334155; margin-bottom:14px; border:1px solid #e2e8f0; line-height:1.5;">${item.uraian}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                        <span class="badge" style="background:#fee2e2; color:#dc2626; font-weight:800; padding: 6px 14px; border-radius: 20px; font-size:0.78rem;">Tahap: ${item.status_text || item.status}</span>
+                        <div style="display:flex; gap:8px;">
+                            <button onclick="window.bukaChatDariAduan('${item.nik}')" class="btn btn-primary btn-sm" style="border-radius:24px; padding:7px 16px;"><i class="fas fa-comments"></i> Buka Chat Mediasi Warga</button>
+                            <button onclick="window.tindakLanjutInvestigasi('${item.nik}')" class="btn btn-sm" style="background:#f59e0b; color:white; border-radius:24px; padding:7px 16px; font-weight:700;"><i class="fas fa-search-plus"></i> Tindak Lanjut / Investigasi</button>
+                            <button onclick="window.selesaikanAduan('${item.nik}')" class="btn btn-sm" style="background:#10b981; color:white; border-radius:24px; padding:7px 16px; font-weight:700;"><i class="fas fa-check-circle"></i> Selesaikan Aduan</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.filterInvestigasi = function(filterType, btn) {
+            if (btn && btn.parentElement) {
+                btn.parentElement.querySelectorAll('button').forEach(b => {
+                    b.className = 'btn btn-secondary btn-sm';
+                    b.style.color = '';
+                    b.style.borderColor = '';
+                    b.style.borderRadius = '20px';
+                });
+                btn.className = 'btn btn-primary btn-sm';
+                btn.style.borderRadius = '20px';
+            }
+
+            let filtered = window.allLaporanChatData || [];
+            if (filterType === 'urgent') {
+                filtered = filtered.filter(x => 
+                    (x.kategori && (x.kategori.toLowerCase().includes('urgent') || x.kategori.toLowerCase().includes('darurat'))) || 
+                    (x.uraian && (x.uraian.toLowerCase().includes('urgent') || x.uraian.toLowerCase().includes('darurat')))
+                );
+            } else if (filterType === 'sengketa') {
+                filtered = filtered.filter(x => 
+                    (x.kategori && (x.kategori.toLowerCase().includes('sengketa') || x.kategori.toLowerCase().includes('salur') || x.kategori.toLowerCase().includes('terima')))
+                );
+            } else if (filterType === 'data') {
+                filtered = filtered.filter(x => 
+                    (x.kategori && (x.kategori.toLowerCase().includes('data') || x.kategori.toLowerCase().includes('nik') || x.kategori.toLowerCase().includes('daftar')))
+                );
+            } else if (filterType === 'chat') {
+                filtered = filtered.filter(x => 
+                    (x.kategori && (x.kategori.toLowerCase().includes('chat') || x.kategori.toLowerCase().includes('komunikasi') || x.kategori.toLowerCase().includes('pesan')))
+                );
+            }
+            renderLaporanChat(filtered);
+        };
+
+        window.loadLaporanChatData = async function() {
+            const container = document.getElementById('laporanChatList');
+            if (!container) return;
+            try {
+                const res = await fetch(`${window.API_URL}/api/laporan-chat`);
+                const data = await res.json();
+                window.allLaporanChatData = Array.isArray(data) ? data : [];
+                renderLaporanChat(window.allLaporanChatData);
+            } catch (e) {
+                container.innerHTML = '<div style="text-align:center; padding:40px; color:#ef4444;">Gagal mengambil data laporan dari server.</div>';
+            }
+        };
     </script>
 </body>
 </html>
