@@ -1,8 +1,9 @@
 /* =========================================================================
    PUBLIK.JS - PORTAL WARGA SPK BANSOS PEMKAB SIDOARJO (FULL ACTIONS)
    MENGELOLA: OTENTIKASI, DASHBOARD PRIBADI, LACAK BANSOS REAL-TIME,
-              LIVE CHAT, WEBRTC DUA ARAH, VOICE RECORDER SPEED CONTROL,
-              TUR INTERAKTIF, CHATBOT & DASHBOARD PENGADUAN LENGKAP
+              LIVE CHAT, WEBRTC DUA ARAH, DYNAMIC AUDIO WAVE VISUALIZER,
+              AUDIO PREVIEW SEBELUM KIRIM, TUR INTERAKTIF, CHATBOT &
+              DASHBOARD PENGADUAN LENGKAP
    Lokasi: frontend/static/js/publik.js
    ========================================================================= */
 
@@ -33,20 +34,36 @@ let chatIntervalWarga = null;
 let aduanChatInterval = null;
 let lastAduanChatHash = '';
 
-// Voice Recording State (Ruang Warga Terdaftar)
+// Voice Recording & Preview State (Ruang Warga Terdaftar)
 let mediaRecorderWarga = null;
 let audioChunksWarga = [];
 let voiceTimerIntervalWarga = null;
 let voiceSecondsWarga = 0;
+let recordAudioCtxWarga = null;
+let recordAnalyserWarga = null;
+let recordAnimFrameWarga = null;
+let tempPreviewWargaBlob = null;
+let tempPreviewWargaAudio = null;
+let tempPreviewWargaPCM = null;
+let tempPreviewWargaAnim = null;
 
-// Voice Recording State (Ruang Pengaduan Khusus)
+// Voice Recording & Preview State (Ruang Pengaduan Khusus)
 let mediaRecorderAduan = null;
 let audioChunksAduan = [];
 let voiceTimerIntervalAduan = null;
 let voiceSecondsAduan = 0;
 let isVoicePausedAduan = false;
+let recordAudioCtxAduan = null;
+let recordAnalyserAduan = null;
+let recordSourceAduan = null;
+let recordAnimFrameAduan = null;
+let tempPreviewAduanBlob = null;
+let tempPreviewAduanAudio = null;
+let tempPreviewAduanPCM = null;
+let tempPreviewAduanAnim = null;
 
-// Audio Visualizer Animation State
+// State Playback Voice Note PCM Waveform Data
+const audioWaveformDataMap = {};
 const activeAudioAnimators = {};
 const audioWavePhases = {};
 
@@ -62,6 +79,10 @@ window.editedAduanMediaBlob = null;
 window.editedAduanMediaExt = '';
 window.editedAduanMediaType = '';
 let replyToDataAduan = null;
+
+// Peta Geotagging Mandiri
+let mapGeotaggingInstance = null;
+let markerGeotaggingInstance = null;
 
 // Captcha State
 let captchaAnswerPendaftaran = 0;
@@ -86,7 +107,7 @@ portalStyle.innerHTML = `
     /* Popover Menu Titik Tiga Melengkung & Elegan */
     .aduan-dropdown-menu {
         position: absolute;
-        top: 32px;
+        top: 34px;
         background: #ffffff;
         border: 1.5px solid #e2e8f0;
         border-radius: 20px;
@@ -134,8 +155,8 @@ portalStyle.innerHTML = `
         border: none;
         color: #64748b;
         cursor: pointer;
-        width: 26px;
-        height: 26px;
+        width: 28px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1158,14 +1179,66 @@ window.sinkronStatusStepperAduan = async function () {
 };
 
 // =========================================================================
-// VOICE RECORDER UNTUK RUANG PENGADUAN (PAUSE/RESUME & KIRIM INSTAN)
+// VOICE RECORDER & PRATINJAU DENGAN DYNAMIC LIVE AUDIO VISUALIZER (PENGADUAN)
 // =========================================================================
+function drawLiveRecordWaveAduan() {
+    const canvas = document.getElementById('aduanRecordWaveCanvas');
+    if (!canvas || !recordAnalyserAduan) return;
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const centerY = height / 2;
+
+    const bufferLength = recordAnalyserAduan.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    recordAnalyserAduan.getByteTimeDomainData(dataArray);
+
+    let sum = 0;
+    for (let i = 0; i < bufferLength; i++) {
+        const val = (dataArray[i] - 128) / 128;
+        sum += Math.abs(val);
+    }
+    const avgVolume = sum / bufferLength;
+
+    ctx.clearRect(0, 0, width, height);
+
+    if (isVoicePausedAduan || avgVolume < 0.015) {
+        // BATANG LURUS DATAR (KETIKA DIAM / TIDAK ADA DESIBEL SUARA NYATA)
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(width, centerY);
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = '#fca5a5';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+    } else {
+        // GELOMBANG LIUK DINAMIS (SAAT DESIBEL SUARA TERDETEKSI)
+        ctx.beginPath();
+        const sliceWidth = width / bufferLength;
+        let x = 0;
+        for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = (v * height) / 2;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+            x += sliceWidth;
+        }
+        ctx.lineTo(width, centerY);
+        ctx.lineWidth = 2.8;
+        ctx.strokeStyle = '#e11d48';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+    }
+
+    recordAnimFrameAduan = requestAnimationFrame(drawLiveRecordWaveAduan);
+}
+
 window.toggleVoiceRecordAduan = async function () {
     const ui = document.getElementById('aduanRecordingUI');
     const btnRecord = document.getElementById('btnRecordAduan');
 
     if (mediaRecorderAduan && mediaRecorderAduan.state !== 'inactive') {
-        window.selesaiDanKirimVoiceAduan();
+        window.stopAndPreviewVoiceAduan();
         return;
     }
 
@@ -1175,18 +1248,30 @@ window.toggleVoiceRecordAduan = async function () {
         isVoicePausedAduan = false;
         mediaRecorderAduan = new MediaRecorder(stream);
 
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            recordAudioCtxAduan = new AudioCtx();
+            recordAnalyserAduan = recordAudioCtxAduan.createAnalyser();
+            recordAnalyserAduan.fftSize = 256;
+            recordSourceAduan = recordAudioCtxAduan.createMediaStreamSource(stream);
+            recordSourceAduan.connect(recordAnalyserAduan);
+        } catch (e) {
+            console.warn('[AudioContext Mic Warning]', e);
+        }
+
         mediaRecorderAduan.ondataavailable = e => {
             if (e.data.size > 0) audioChunksAduan.push(e.data);
         };
 
         mediaRecorderAduan.onstop = () => {
             stream.getTracks().forEach(t => t.stop());
+            if (recordAnimFrameAduan) cancelAnimationFrame(recordAnimFrameAduan);
+            if (recordAudioCtxAduan && recordAudioCtxAduan.state !== 'closed') {
+                recordAudioCtxAduan.close().catch(() => {});
+            }
             if (audioChunksAduan.length > 0) {
-                const audioBlob = new Blob(audioChunksAduan, { type: 'audio/webm' });
-                window.editedAduanMediaBlob = audioBlob;
-                window.editedAduanMediaExt = 'webm';
-                window.editedAduanMediaType = 'audio';
-                window.kirimPesanAduan();
+                tempPreviewAduanBlob = new Blob(audioChunksAduan, { type: 'audio/webm' });
+                window.renderPreviewVoiceAduan(tempPreviewAduanBlob);
             }
         };
 
@@ -1195,13 +1280,16 @@ window.toggleVoiceRecordAduan = async function () {
         if (ui) {
             ui.style.display = 'flex';
             ui.innerHTML = `
-                <span id="aduanRecordTime" style="font-weight:800; font-family:monospace; color:#e11d48;">00:00</span>
-                <div style="flex:1; height:4px; background:#fca5a5; border-radius:2px;"></div>
+                <span id="aduanRecordTime" style="font-weight:800; font-family:monospace; color:#e11d48; font-size:0.85rem;">00:00</span>
+                <canvas id="aduanRecordWaveCanvas" width="160" height="24" style="flex:1; height:24px; display:block;"></canvas>
                 <button type="button" onclick="window.pauseResumeVoiceRecordAduan()" id="btnPauseVoiceAduan" style="background:none; border:none; color:#e11d48; cursor:pointer;" title="Jeda / Lanjut"><i class="fas fa-pause"></i></button>
                 <button type="button" onclick="window.cancelVoiceRecordAduan()" style="background:none; border:none; color:#e11d48; cursor:pointer;" title="Batalkan"><i class="fas fa-trash-alt"></i></button>
+                <button type="button" onclick="window.stopAndPreviewVoiceAduan()" style="background:#009846; color:white; border:none; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer;" title="Selesai & Pratinjau"><i class="fas fa-check" style="font-size:0.75rem;"></i></button>
             `;
         }
         if (btnRecord) btnRecord.style.color = '#dc2626';
+
+        drawLiveRecordWaveAduan();
 
         if (voiceTimerIntervalAduan) clearInterval(voiceTimerIntervalAduan);
         voiceTimerIntervalAduan = setInterval(() => {
@@ -1232,25 +1320,250 @@ window.pauseResumeVoiceRecordAduan = function () {
     }
 };
 
-window.selesaiDanKirimVoiceAduan = function () {
+window.stopAndPreviewVoiceAduan = function () {
     if (voiceTimerIntervalAduan) clearInterval(voiceTimerIntervalAduan);
     if (mediaRecorderAduan && mediaRecorderAduan.state !== 'inactive') {
         mediaRecorderAduan.stop();
     }
-    const ui = document.getElementById('aduanRecordingUI');
     const btnRecord = document.getElementById('btnRecordAduan');
-    if (ui) ui.style.display = 'none';
     if (btnRecord) btnRecord.style.color = '#64748b';
+};
+
+window.renderPreviewVoiceAduan = function (blob) {
+    const ui = document.getElementById('aduanRecordingUI');
+    if (!ui) return;
+    const previewUrl = URL.createObjectURL(blob);
+    tempPreviewAduanAudio = new Audio(previewUrl);
+
+    // Ambil sampel audio PCM untuk mendeteksi suara vs hening saat pemutaran pratinjau
+    const reader = new FileReader();
+    reader.onload = async function () {
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            const tempCtx = new AudioCtx();
+            const buffer = await tempCtx.decodeAudioData(reader.result);
+            tempPreviewAduanPCM = {
+                data: buffer.getChannelData(0),
+                sampleRate: buffer.sampleRate
+            };
+            tempCtx.close().catch(() => {});
+        } catch (e) {
+            tempPreviewAduanPCM = null;
+        }
+    };
+    reader.readAsArrayBuffer(blob);
+
+    ui.style.display = 'flex';
+    ui.innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px; width:100%; background:#ffffff; border:1.5px solid #009846; border-radius:24px; padding:6px 14px; box-shadow:0 4px 12px rgba(0,152,70,0.15);">
+            <button type="button" onclick="window.togglePlayPreviewAduan(this)" style="background:#009846; color:white; border:none; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">
+                <i class="fas fa-play" style="margin-left:2px; font-size:0.85rem;"></i>
+            </button>
+            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                <div style="display:flex; justify-content:space-between; font-size:0.72rem; font-weight:800; color:#0f172a;">
+                    <span style="color:#009846;"><i class="fas fa-headphones"></i> Pratinjau Suara</span>
+                    <span id="aduanPreviewTimer">00:00 / ${formatAudioTime(voiceSecondsAduan)}</span>
+                </div>
+                <div style="position:relative; width:100%; height:18px; display:flex; align-items:center;">
+                    <canvas id="aduanPreviewCanvas" width="160" height="18" style="width:100%; height:18px; display:block;"></canvas>
+                    <input type="range" id="aduanPreviewSeek" min="0" max="100" value="0" step="0.1" oninput="window.seekPreviewAduan(this.value)" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; margin:0; z-index:5;">
+                </div>
+            </div>
+            <button type="button" class="audio-speed-btn" onclick="window.changePreviewAudioSpeedAduan(this)" title="Atur Kecepatan Suara">1x</button>
+            <button type="button" onclick="window.cancelVoiceRecordAduan()" style="background:#fee2e2; color:#dc2626; border:none; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;" title="Hapus / Rekam Ulang">
+                <i class="fas fa-trash-alt" style="font-size:0.8rem;"></i>
+            </button>
+        </div>
+    `;
+
+    tempPreviewAduanAudio.onloadedmetadata = () => {
+        const t = document.getElementById('aduanPreviewTimer');
+        if (t) t.innerText = `00:00 / ${formatAudioTime(tempPreviewAduanAudio.duration)}`;
+        window.drawPreviewWaveAduan(false);
+    };
+
+    tempPreviewAduanAudio.ontimeupdate = () => {
+        const t = document.getElementById('aduanPreviewTimer');
+        const s = document.getElementById('aduanPreviewSeek');
+        if (t) t.innerText = `${formatAudioTime(tempPreviewAduanAudio.currentTime)} / ${formatAudioTime(tempPreviewAduanAudio.duration || voiceSecondsAduan)}`;
+        if (s && tempPreviewAduanAudio.duration) {
+            s.value = (tempPreviewAduanAudio.currentTime / tempPreviewAduanAudio.duration) * 100;
+        }
+    };
+
+    tempPreviewAduanAudio.onended = () => {
+        const btn = ui.querySelector('button[onclick*="togglePlayPreviewAduan"]');
+        if (btn) btn.innerHTML = '<i class="fas fa-play" style="margin-left:2px; font-size:0.85rem;"></i>';
+        const s = document.getElementById('aduanPreviewSeek');
+        if (s) s.value = 0;
+        if (tempPreviewAduanAnim) cancelAnimationFrame(tempPreviewAduanAnim);
+        window.drawPreviewWaveAduan(false);
+    };
+
+    window.drawPreviewWaveAduan(false);
+};
+
+function checkPreviewAduanHasSound() {
+    if (!tempPreviewAduanAudio || tempPreviewAduanAudio.paused) return false;
+    if (!tempPreviewAduanPCM) return true;
+    const curTime = tempPreviewAduanAudio.currentTime;
+    const idx = Math.floor(curTime * tempPreviewAduanPCM.sampleRate);
+    const win = Math.floor(tempPreviewAduanPCM.sampleRate * 0.05);
+    let sum = 0;
+    const start = Math.max(0, idx - win);
+    const end = Math.min(tempPreviewAduanPCM.data.length, idx + win);
+    for (let i = start; i < end; i += 4) {
+        sum += Math.abs(tempPreviewAduanPCM.data[i]);
+    }
+    const avg = sum / ((end - start) / 4 || 1);
+    return avg > 0.015;
+}
+
+window.drawPreviewWaveAduan = function (isWavy) {
+    const canvas = document.getElementById('aduanPreviewCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const centerY = height / 2;
+    const progress = (tempPreviewAduanAudio && tempPreviewAduanAudio.duration) ? (tempPreviewAduanAudio.currentTime / tempPreviewAduanAudio.duration) : 0;
+    const progressX = Math.max(0, Math.min(width, progress * width));
+
+    ctx.clearRect(0, 0, width, height);
+
+    if (!isWavy) {
+        // BATANG LURUS JIKA HENING / DIAM / PAUSED
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(progressX, centerY);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#009846';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(progressX, centerY);
+        ctx.lineTo(width, centerY);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(Math.max(3, Math.min(width - 3, progressX)), centerY, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#009846';
+        ctx.fill();
+    } else {
+        // GELOMBANG BERLIUK DINAMIS KETIKA ADA SUARA
+        ctx.beginPath();
+        for (let x = 0; x <= progressX; x++) {
+            const envelope = Math.sin((x / width) * Math.PI) * 6;
+            const y = centerY + Math.sin(x * 0.18 + Date.now() * 0.015) * envelope;
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#009846';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        for (let x = progressX; x <= width; x++) {
+            const envelope = Math.sin((x / width) * Math.PI) * 4;
+            const y = centerY + Math.sin(x * 0.18 + Date.now() * 0.015) * envelope;
+            if (x === progressX) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(Math.max(3, Math.min(width - 3, progressX)), centerY, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#009846';
+        ctx.fill();
+    }
+};
+
+window.togglePlayPreviewAduan = function (btn) {
+    if (!tempPreviewAduanAudio) return;
+    if (tempPreviewAduanAudio.paused) {
+        tempPreviewAduanAudio.play().then(() => {
+            btn.innerHTML = '<i class="fas fa-pause" style="font-size:0.85rem;"></i>';
+            const loop = () => {
+                if (tempPreviewAduanAudio && !tempPreviewAduanAudio.paused && !tempPreviewAduanAudio.ended) {
+                    const hasSound = checkPreviewAduanHasSound();
+                    window.drawPreviewWaveAduan(hasSound);
+                    tempPreviewAduanAnim = requestAnimationFrame(loop);
+                } else {
+                    window.drawPreviewWaveAduan(false);
+                }
+            };
+            tempPreviewAduanAnim = requestAnimationFrame(loop);
+        }).catch(() => {});
+    } else {
+        tempPreviewAduanAudio.pause();
+        btn.innerHTML = '<i class="fas fa-play" style="margin-left:2px; font-size:0.85rem;"></i>';
+        if (tempPreviewAduanAnim) cancelAnimationFrame(tempPreviewAduanAnim);
+        window.drawPreviewWaveAduan(false);
+    }
+};
+
+window.seekPreviewAduan = function (val) {
+    if (!tempPreviewAduanAudio || !tempPreviewAduanAudio.duration) return;
+    tempPreviewAduanAudio.currentTime = (parseFloat(val) / 100) * tempPreviewAduanAudio.duration;
+    window.drawPreviewWaveAduan(!tempPreviewAduanAudio.paused && checkPreviewAduanHasSound());
+};
+
+window.changePreviewAudioSpeedAduan = function (btn) {
+    if (!tempPreviewAduanAudio) return;
+    const speeds = [1.0, 1.5, 2.0, 0.5];
+    let cur = tempPreviewAduanAudio.playbackRate || 1.0;
+    let nextIdx = (speeds.indexOf(cur) + 1) % speeds.length;
+    let nextSpeed = speeds[nextIdx];
+    tempPreviewAduanAudio.playbackRate = nextSpeed;
+    if (btn) btn.innerText = `${nextSpeed}x`;
+};
+
+window.sendConfirmedVoiceAduan = function () {
+    if (!tempPreviewAduanBlob) return;
+    if (tempPreviewAduanAudio) {
+        tempPreviewAduanAudio.pause();
+        tempPreviewAduanAudio = null;
+    }
+    if (tempPreviewAduanAnim) cancelAnimationFrame(tempPreviewAduanAnim);
+
+    window.editedAduanMediaBlob = tempPreviewAduanBlob;
+    window.editedAduanMediaExt = 'webm';
+    window.editedAduanMediaType = 'audio';
+
+    const ui = document.getElementById('aduanRecordingUI');
+    if (ui) ui.style.display = 'none';
+
+    tempPreviewAduanBlob = null;
+    window.kirimPesanAduan();
 };
 
 window.cancelVoiceRecordAduan = function () {
     if (voiceTimerIntervalAduan) clearInterval(voiceTimerIntervalAduan);
+    if (recordAnimFrameAduan) cancelAnimationFrame(recordAnimFrameAduan);
+    if (tempPreviewAduanAnim) cancelAnimationFrame(tempPreviewAduanAnim);
+    if (tempPreviewAduanAudio) {
+        tempPreviewAduanAudio.pause();
+        tempPreviewAduanAudio = null;
+    }
+    if (recordAudioCtxAduan && recordAudioCtxAduan.state !== 'closed') {
+        recordAudioCtxAduan.close().catch(() => {});
+    }
     if (mediaRecorderAduan && mediaRecorderAduan.state !== 'inactive') {
         mediaRecorderAduan.ondataavailable = null;
         mediaRecorderAduan.onstop = null;
         mediaRecorderAduan.stop();
     }
     audioChunksAduan = [];
+    tempPreviewAduanBlob = null;
+    tempPreviewAduanPCM = null;
     const ui = document.getElementById('aduanRecordingUI');
     const btnRecord = document.getElementById('btnRecordAduan');
     if (ui) ui.style.display = 'none';
@@ -1517,8 +1830,10 @@ window.selectLaporOption = function (val, text, iconClass) {
     }
 
     if (val === 'Lainnya') {
-        if (manualCont) manualCont.style.display = 'block';
-        if (manualInput) manualInput.focus();
+        if (manualCont) {
+            manualCont.style.display = 'block';
+            setTimeout(() => { if (manualInput) manualInput.focus(); }, 100);
+        }
     } else {
         if (manualCont) manualCont.style.display = 'none';
     }
@@ -1617,8 +1932,47 @@ window.laporPesanAdmin = async function (msgId) {
 };
 
 // =========================================================================
-// FITUR AUDIO DENGAN WAVE VISUALIZER, PROGRESS SCRUBBER & PENGATUR KECEPATAN
+// FITUR AUDIO MURNI (TANPA CORS BLOCK), PCM ANALYSER & PROGRESS SCRUBBER
 // =========================================================================
+async function loadAudioPCMData(audioId, url) {
+    if (audioWaveformDataMap[audioId]) return;
+    try {
+        const res = await fetch(url);
+        const arrayBuf = await res.arrayBuffer();
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const tempCtx = new AudioCtx();
+        const audioBuffer = await tempCtx.decodeAudioData(arrayBuf);
+        audioWaveformDataMap[audioId] = {
+            data: audioBuffer.getChannelData(0),
+            sampleRate: audioBuffer.sampleRate,
+            duration: audioBuffer.duration
+        };
+        tempCtx.close().catch(() => {});
+    } catch (e) {
+        audioWaveformDataMap[audioId] = { fallback: true };
+    }
+}
+
+function checkAudioHasSoundAtCurrentTime(audioId) {
+    const pcm = audioWaveformDataMap[audioId];
+    const audio = document.getElementById(audioId);
+    if (!audio || audio.paused) return false;
+    if (!pcm || pcm.fallback) return true;
+
+    const curTime = audio.currentTime;
+    const index = Math.floor(curTime * pcm.sampleRate);
+    const windowSize = Math.floor(pcm.sampleRate * 0.05); // 50ms window
+    let sum = 0;
+    const start = Math.max(0, index - windowSize);
+    const end = Math.min(pcm.data.length, index + windowSize);
+
+    for (let i = start; i < end; i += 4) {
+        sum += Math.abs(pcm.data[i]);
+    }
+    const avg = sum / ((end - start) / 4 || 1);
+    return avg > 0.015; // Ambang batas suara vokal nyata
+}
+
 window.initAudioMetadata = function (audioId) {
     const audio = document.getElementById(audioId);
     if (!audio) return;
@@ -1626,6 +1980,7 @@ window.initAudioMetadata = function (audioId) {
     if (timeEl) {
         timeEl.innerText = `${formatAudioTime(audio.currentTime)} / ${formatAudioTime(audio.duration)}`;
     }
+    loadAudioPCMData(audioId, audio.src);
     window.drawAudioWave(audioId, false);
 };
 
@@ -1640,7 +1995,6 @@ window.updateAudioTime = function (audioId) {
     if (seekEl && audio.duration) {
         seekEl.value = (audio.currentTime / audio.duration) * 100;
     }
-    window.drawAudioWave(audioId, !audio.paused);
 };
 
 window.onAudioEnded = function (audioId) {
@@ -1670,12 +2024,12 @@ window.drawAudioWave = function (audioId, isWavy) {
     const centerY = height / 2;
     const audio = document.getElementById(audioId);
     const progress = (audio && audio.duration) ? (audio.currentTime / audio.duration) : 0;
-    const progressX = progress * width;
+    const progressX = Math.max(0, Math.min(width, progress * width));
 
     ctx.clearRect(0, 0, width, height);
 
     if (!isWavy) {
-        // BATANG LURUS (TIDAK BERSUARA / PAUSED)
+        // BATANG LURUS (TIDAK ADA SUARA / JEDA DIAM / SEDANG DIHENTIKAN)
         if (progressX > 0) {
             ctx.beginPath();
             ctx.moveTo(0, centerY);
@@ -1701,7 +2055,7 @@ window.drawAudioWave = function (audioId, isWavy) {
         ctx.strokeStyle = '#ffffff';
         ctx.stroke();
     } else {
-        // BATANG BERGELOMBANG BERGERAK (BERSUARA / PLAYING)
+        // GELOMBANG BERGERAK (HANYA KETIKA ADA SUARA NYATA YANG KELUAR)
         audioWavePhases[audioId] = (audioWavePhases[audioId] || 0) + 0.22;
         const phase = audioWavePhases[audioId];
 
@@ -1759,18 +2113,24 @@ window.playAudioModern = function (audioId, btn) {
             }
         });
 
+        // Putar audio secara langsung tanpa dibajak MediaElementSource (menghindari bisu akibat CORS)
+        audio.muted = false;
+        audio.volume = 1.0;
         audio.play().then(() => {
             btn.innerHTML = '<i class="fas fa-pause"></i>';
             const loop = () => {
                 if (!audio.paused && !audio.ended) {
-                    window.drawAudioWave(audioId, true);
+                    const hasSound = checkAudioHasSoundAtCurrentTime(audioId);
+                    window.drawAudioWave(audioId, hasSound);
                     activeAudioAnimators[audioId] = requestAnimationFrame(loop);
                 } else {
                     window.drawAudioWave(audioId, false);
                 }
             };
             activeAudioAnimators[audioId] = requestAnimationFrame(loop);
-        }).catch(() => {});
+        }).catch((err) => {
+            console.error('[Audio Playback Error]', err);
+        });
     } else {
         audio.pause();
         btn.innerHTML = '<i class="fas fa-play"></i>';
@@ -1790,7 +2150,8 @@ window.seekAudioModern = function (audioId, value) {
     if (timeEl) {
         timeEl.innerText = `${formatAudioTime(audio.currentTime)} / ${formatAudioTime(audio.duration)}`;
     }
-    window.drawAudioWave(audioId, !audio.paused);
+    const hasSound = (!audio.paused) && checkAudioHasSoundAtCurrentTime(audioId);
+    window.drawAudioWave(audioId, hasSound);
 };
 
 window.changeAudioSpeed = function (audioId, btn) {
@@ -1801,7 +2162,7 @@ window.changeAudioSpeed = function (audioId, btn) {
     let nextIdx = (speeds.indexOf(cur) + 1) % speeds.length;
     let nextSpeed = speeds[nextIdx];
     audio.playbackRate = nextSpeed;
-    btn.innerText = `${nextSpeed}x`;
+    if (btn) btn.innerText = `${nextSpeed}x`;
 };
 
 window.handleAduanFileSelected = function (input) {
@@ -1861,7 +2222,7 @@ window.toggleEmojiPickerAduan = function (event) {
         ];
         let html = '';
         emojisList.forEach(e => {
-            html += `<div style="cursor:pointer; font-size:1.3rem; text-align:center; padding:4px; transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" onclick="window.addEmojiAduan('${e}')">${e}</div>`;
+            html += `<div style="cursor:pointer; font-size:1.3rem; text-align:center; padding:4px; transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'">${e}</div>`;
         });
         el.innerHTML = html;
         el.style.cssText = `
@@ -1896,8 +2257,15 @@ window.addEmojiAduan = function (emoji) {
 window.kirimPesanAduan = async function (e) {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
 
+    // Jika sedang dalam mode pratinjau suara, kirim suara tersebut via tombol merah ini
+    if (tempPreviewAduanBlob) {
+        window.sendConfirmedVoiceAduan();
+        return;
+    }
+
+    // Jika sedang merekam suara dan tombol kirim ditekan, selesaikan ke pratinjau
     if (mediaRecorderAduan && mediaRecorderAduan.state !== 'inactive') {
-        window.selesaiDanKirimVoiceAduan();
+        window.stopAndPreviewVoiceAduan();
         return;
     }
 
@@ -2090,8 +2458,160 @@ window.muatPesanAduan = async function (forceScroll = false) {
 };
 
 // =========================================================================
-// 10. CHAT MULTIMEDIA RUANG WARGA TERDAFTAR
+// 10. CHAT MULTIMEDIA RUANG WARGA TERDAFTAR (KOMPLET)
 // =========================================================================
+window.loadChatMessagesWarga = async function (forceScroll = false) {
+    const activeNik = wargaNik || (sesiWargaAktif && sesiWargaAktif.nik);
+    if (!activeNik) return;
+    const box = document.getElementById('wargaChatMessages') || document.getElementById('chatMessagesWarga') || document.getElementById('chatBoxWarga');
+    if (!box) return;
+
+    try {
+        const res = await fetch(`${API_URL}/api/chat/${encodeURIComponent(activeNik)}`);
+        const chats = await res.json();
+        if (!Array.isArray(chats)) return;
+
+        const currentHash = JSON.stringify(chats);
+        if (!forceScroll && currentHash === lastChatHashWarga) {
+            return;
+        }
+        lastChatHashWarga = currentHash;
+
+        const isNearBottom = (box.scrollHeight - box.scrollTop - box.clientHeight < 120);
+
+        if (chats.length === 0) {
+            box.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:0.85rem; margin:auto; padding:20px;">Belum ada pesan percakapan. Hubungi petugas jika ada pertanyaan.</div>`;
+            return;
+        }
+
+        box.innerHTML = chats.map((c, idx) => {
+            const isMe = c.sender === 'warga';
+            let mediaHtml = '';
+            if (c.file_path) {
+                const url = `${API_URL}${c.file_path}`;
+                const ext = c.file_path.split('.').pop().toLowerCase();
+
+                if (c.file_type === 'image') {
+                    mediaHtml = `<img src="${url}" style="max-width:240px; border-radius:14px; margin-bottom:6px; cursor:pointer; object-fit:cover;" onclick="window.openLightbox('image', '${url}')">`;
+                } else if (c.file_type === 'video') {
+                    mediaHtml = `<video src="${url}" controls style="max-width:240px; border-radius:14px; margin-bottom:6px; background:#000;"></video>`;
+                } else if (c.file_type === 'audio') {
+                    const audioId = `warga_audio_${c.id}_${idx}`;
+                    mediaHtml = `
+                        <div class="modern-voice-card">
+                            <audio id="${audioId}" src="${url}" preload="metadata" onloadedmetadata="window.initAudioMetadata('${audioId}')" ontimeupdate="window.updateAudioTime('${audioId}')" onended="window.onAudioEnded('${audioId}')"></audio>
+                            <button type="button" class="audio-play-btn" onclick="window.playAudioModern('${audioId}', this)">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <div class="voice-track-col">
+                                <div class="voice-info-row">
+                                    <span class="voice-title"><i class="fas fa-microphone"></i> Pesan Suara</span>
+                                    <span class="voice-timer" id="time_${audioId}">00:00 / --:--</span>
+                                </div>
+                                <div class="voice-seek-wrapper">
+                                    <canvas id="canvas_${audioId}" class="voice-wave-canvas" width="180" height="26"></canvas>
+                                    <input type="range" id="seek_${audioId}" class="voice-seek-input" min="0" max="100" value="0" step="0.1" oninput="window.seekAudioModern('${audioId}', this.value)">
+                                </div>
+                            </div>
+                            <button type="button" class="audio-speed-btn" onclick="window.changeAudioSpeed('${audioId}', this)">1x</button>
+                        </div>
+                    `;
+                } else {
+                    let iconClass = 'fa-file-alt';
+                    let iconColor = '#0284c7';
+                    if (['ppt', 'pptx'].includes(ext)) { iconClass = 'fa-file-powerpoint'; iconColor = '#ea580c'; }
+                    else if (['xls', 'xlsx', 'csv'].includes(ext)) { iconClass = 'fa-file-excel'; iconColor = '#16a34a'; }
+                    else if (['pdf'].includes(ext)) { iconClass = 'fa-file-pdf'; iconColor = '#dc2626'; }
+
+                    mediaHtml = `
+                        <a href="${url}" target="_blank" style="display:flex; align-items:center; gap:12px; background:#ffffff; border:1.5px solid #e2e8f0; padding:10px 14px; border-radius:14px; text-decoration:none; margin-bottom:6px; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                            <i class="fas ${iconClass} fa-2x" style="color:${iconColor};"></i>
+                            <div>
+                                <span style="font-weight:800; font-size:0.85rem; color:#0f172a; display:block;">Unduh Berkas Lampiran</span>
+                                <small style="color:#64748b; text-transform:uppercase; font-weight:700;">Format .${ext}</small>
+                            </div>
+                        </a>
+                    `;
+                }
+            }
+
+            let replyHtml = '';
+            if (c.reply_text) {
+                replyHtml = `
+                    <div style="background:rgba(0,0,0,0.05); padding:6px 10px; border-radius:10px; border-left:4px solid ${isMe ? '#009846' : '#0284c7'}; margin-bottom:6px; font-size:0.8rem; color:#475569;">
+                        <b>${safeHtml(c.reply_sender || 'Pesan')}:</b> <i>${safeHtml(c.reply_text)}</i>
+                    </div>
+                `;
+            }
+
+            let reactionBadge = c.reaction ? `<div style="position:absolute; ${isMe ? 'left:-6px' : 'right:-6px'}; bottom:-10px; background:#ffffff; border-radius:20px; padding:2px 8px; box-shadow:0 3px 8px rgba(0,0,0,0.18); font-size:0.95rem;">${c.reaction}</div>` : '';
+
+            const handlerName = c.nama_warga || c.sender_name || (c.sender === 'admin' ? '🛡️ Admin 1 (Super Admin)' : '👮 Petugas Dinsos');
+
+            return `
+                <div id="msg-warga-${c.id}" style="align-self:${isMe ? 'flex-end' : 'flex-start'}; max-width:80%; background:${isMe ? '#e6f9f0' : '#ffffff'}; color:${isMe ? '#065f46' : '#0f172a'}; padding:12px 16px; border-radius:20px; font-size:0.9rem; border:1.5px solid ${isMe ? '#bbf7d0' : '#e2e8f0'}; box-shadow:0 2px 6px rgba(0,0,0,0.04); position:relative;">
+                    ${!isMe ? `
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid #f1f5f9;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div style="position:relative; z-index:20;">
+                                    <button type="button" class="btn-msg-dots" onclick="window.toggleChatMenuWarga(${c.id}, event)" title="Opsi Tindakan Pesan">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <div id="menu-warga-${c.id}" class="aduan-dropdown-menu menu-left" style="display:none;" onclick="event.stopPropagation()">
+                                        <button type="button" onclick="window.setReplyWarga(${c.id}, '${safeHtml(handlerName)}', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'), '${c.file_type || ''}')" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
+                                        <button type="button" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy"></i> Salin Teks</button>
+                                        <button type="button" onclick="window.reactToMessageWarga(${c.id})" style="color:#d97706;"><i class="fas fa-smile"></i> Reaksi Emoji</button>
+                                        <button type="button" onclick="window.hapusPesanWarga(${c.id}, 'me')" style="color:#64748b;"><i class="fas fa-trash-alt"></i> Hapus untuk Saya</button>
+                                        <button type="button" onclick="window.laporPesanAdmin(${c.id})" style="color:#dc2626;"><i class="fas fa-flag"></i> Laporkan Petugas</button>
+                                    </div>
+                                </div>
+                                <span style="background:#e0f2fe; color:#0284c7; padding:4px 12px; border-radius:14px; font-weight:800; font-size:0.75rem; display:inline-flex; align-items:center; gap:5px;">
+                                    <i class="fas fa-user-shield"></i> ${safeHtml(handlerName)}
+                                </span>
+                            </div>
+                        </div>
+                    ` : `
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid rgba(0,152,70,0.12);">
+                            <span style="font-size:0.75rem; font-weight:800; color:#009846; opacity:0.85;">
+                                <i class="fas fa-user"></i> Anda (Warga)
+                            </span>
+                            <div style="position:relative; z-index:20;">
+                                <button type="button" class="btn-msg-dots" onclick="window.toggleChatMenuWarga(${c.id}, event)" title="Opsi Tindakan Pesan">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <div id="menu-warga-${c.id}" class="aduan-dropdown-menu menu-right" style="display:none;" onclick="event.stopPropagation()">
+                                    <button type="button" onclick="window.setReplyWarga(${c.id}, 'Anda', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'), '${c.file_type || ''}')" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
+                                    <button type="button" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy"></i> Salin Teks</button>
+                                    <button type="button" onclick="window.reactToMessageWarga(${c.id})" style="color:#d97706;"><i class="fas fa-smile"></i> Reaksi Emoji</button>
+                                    <button type="button" onclick="window.hapusPesanWarga(${c.id}, 'me')" style="color:#64748b;"><i class="fas fa-trash-alt"></i> Hapus untuk Saya</button>
+                                    <button type="button" onclick="window.hapusPesanWarga(${c.id}, 'everyone')" style="color:#dc2626;"><i class="fas fa-undo"></i> Tarik untuk Semua</button>
+                                </div>
+                            </div>
+                        </div>
+                    `}
+                    ${replyHtml}
+                    ${mediaHtml}
+                    ${c.pesan ? `<div style="word-break:break-word; line-height:1.5; margin-top:2px;">${safeHtml(c.pesan)}</div>` : ''}
+                    <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:6px; font-size:0.7rem; color:#94a3b8;">
+                        <span>${c.waktu || ''}</span>
+                    </div>
+                    ${reactionBadge}
+                </div>
+            `;
+        }).join('');
+
+        setTimeout(() => {
+            document.querySelectorAll('.modern-voice-card audio').forEach(a => {
+                window.initAudioMetadata(a.id);
+            });
+        }, 100);
+
+        if (forceScroll || isNearBottom) {
+            box.scrollTop = box.scrollHeight;
+        }
+    } catch (e) {}
+};
+
 window.handleWargaFileSelected = function (input) {
     const file = input.files[0];
     if (!file) return;
@@ -2109,6 +2629,18 @@ window.sendWargaChat = window.kirimPesanWarga = async function () {
     const currentNik = wargaNik || (sesiWargaAktif && sesiWargaAktif.nik);
     const currentNama = wargaNama || (sesiWargaAktif && sesiWargaAktif.nama_lengkap) || 'Warga';
     if (!currentNik) return;
+
+    // Jika sedang dalam mode pratinjau suara warga, kirim langsung menggunakan tombol kirim utama
+    if (tempPreviewWargaBlob) {
+        window.sendConfirmedVoiceWarga();
+        return;
+    }
+
+    // Jika sedang merekam suara dan tombol kirim ditekan, selesaikan ke pratinjau
+    if (mediaRecorderWarga && mediaRecorderWarga.state === 'recording') {
+        window.stopAndPreviewVoiceWarga();
+        return;
+    }
 
     const input = document.getElementById('wargaChatInput');
     const pesan = input ? input.value.trim() : '';
@@ -2302,17 +2834,64 @@ window.openLightbox = function (type, src) {
 };
 
 // =========================================================================
-// 11. VOICE RECORDER WARGA (PESAN SUARA DASBOR UTAMA)
+// 11. VOICE RECORDER WARGA DENGAN LIVE VISUALIZER & PRATINJAU (DASBOR UTAMA)
 // =========================================================================
+function drawLiveRecordWaveWarga() {
+    const canvas = document.getElementById('wargaRecordWaveCanvas');
+    if (!canvas || !recordAnalyserWarga) return;
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const centerY = height / 2;
+
+    const bufferLength = recordAnalyserWarga.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    recordAnalyserWarga.getByteTimeDomainData(dataArray);
+
+    let sum = 0;
+    for (let i = 0; i < bufferLength; i++) {
+        const val = (dataArray[i] - 128) / 128;
+        sum += Math.abs(val);
+    }
+    const avgVolume = sum / bufferLength;
+
+    ctx.clearRect(0, 0, width, height);
+
+    if (avgVolume < 0.015) {
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(width, centerY);
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = '#86efac';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+    } else {
+        ctx.beginPath();
+        const sliceWidth = width / bufferLength;
+        let x = 0;
+        for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = (v * height) / 2;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+            x += sliceWidth;
+        }
+        ctx.lineTo(width, centerY);
+        ctx.lineWidth = 2.8;
+        ctx.strokeStyle = '#009846';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+    }
+
+    recordAnimFrameWarga = requestAnimationFrame(drawLiveRecordWaveWarga);
+}
+
 window.toggleVoiceRecordWarga = async function () {
     const ui = document.getElementById('wargaRecordingUI');
     const btnRecord = document.getElementById('btnRecordWarga');
 
     if (mediaRecorderWarga && mediaRecorderWarga.state === 'recording') {
-        mediaRecorderWarga.stop();
-        if (voiceTimerIntervalWarga) clearInterval(voiceTimerIntervalWarga);
-        if (ui) ui.style.display = 'none';
-        if (btnRecord) btnRecord.style.color = '#64748b';
+        window.stopAndPreviewVoiceWarga();
         return;
     }
 
@@ -2321,30 +2900,51 @@ window.toggleVoiceRecordWarga = async function () {
         audioChunksWarga = [];
         mediaRecorderWarga = new MediaRecorder(stream);
 
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            recordAudioCtxWarga = new AudioCtx();
+            recordAnalyserWarga = recordAudioCtxWarga.createAnalyser();
+            recordAnalyserWarga.fftSize = 256;
+            const src = recordAudioCtxWarga.createMediaStreamSource(stream);
+            src.connect(recordAnalyserWarga);
+        } catch (e) {}
+
         mediaRecorderWarga.ondataavailable = e => {
             if (e.data.size > 0) audioChunksWarga.push(e.data);
         };
 
         mediaRecorderWarga.onstop = () => {
             stream.getTracks().forEach(t => t.stop());
-            const audioBlob = new Blob(audioChunksWarga, { type: 'audio/webm' });
-            window.editedMediaBlob = audioBlob;
-            window.editedMediaExt = 'webm';
-            window.editedMediaType = 'audio';
-            window.sendWargaChat();
+            if (recordAnimFrameWarga) cancelAnimationFrame(recordAnimFrameWarga);
+            if (recordAudioCtxWarga && recordAudioCtxWarga.state !== 'closed') {
+                recordAudioCtxWarga.close().catch(() => {});
+            }
+            if (audioChunksWarga.length > 0) {
+                tempPreviewWargaBlob = new Blob(audioChunksWarga, { type: 'audio/webm' });
+                window.renderPreviewVoiceWarga(tempPreviewWargaBlob);
+            }
         };
 
         mediaRecorderWarga.start();
         voiceSecondsWarga = 0;
-        if (ui) ui.style.display = 'flex';
-        if (btnRecord) btnRecord.style.color = '#dc2626';
+        if (ui) {
+            ui.style.display = 'flex';
+            ui.innerHTML = `
+                <span id="wargaRecordTime" style="font-weight:800; font-family:monospace; color:#009846; font-size:0.85rem;">00:00</span>
+                <canvas id="wargaRecordWaveCanvas" width="160" height="24" style="flex:1; height:24px; display:block;"></canvas>
+                <button type="button" onclick="window.cancelVoiceRecordWarga()" style="background:none; border:none; color:#dc2626; cursor:pointer;" title="Batalkan"><i class="fas fa-trash-alt"></i></button>
+                <button type="button" onclick="window.stopAndPreviewVoiceWarga()" style="background:#009846; color:white; border:none; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer;" title="Selesai & Pratinjau"><i class="fas fa-check" style="font-size:0.75rem;"></i></button>
+            `;
+        }
+        if (btnRecord) btnRecord.style.color = '#009846';
 
-        const timeEl = document.getElementById('wargaRecordTime');
-        if (timeEl) timeEl.innerText = '00:00';
+        drawLiveRecordWaveWarga();
+
         voiceTimerIntervalWarga = setInterval(() => {
             voiceSecondsWarga++;
             const m = String(Math.floor(voiceSecondsWarga / 60)).padStart(2, '0');
             const s = String(voiceSecondsWarga % 60).padStart(2, '0');
+            const timeEl = document.getElementById('wargaRecordTime');
             if (timeEl) timeEl.innerText = `${m}:${s}`;
         }, 1000);
     } catch (err) {
@@ -2352,23 +2952,324 @@ window.toggleVoiceRecordWarga = async function () {
     }
 };
 
-window.cancelVoiceRecordWarga = function () {
-    if (mediaRecorderWarga && mediaRecorderWarga.state === 'recording') {
-        mediaRecorderWarga.ondataavailable = null;
-        mediaRecorderWarga.onstop = null;
+window.stopAndPreviewVoiceWarga = function () {
+    if (voiceTimerIntervalWarga) clearInterval(voiceTimerIntervalWarga);
+    if (mediaRecorderWarga && mediaRecorderWarga.state !== 'inactive') {
         mediaRecorderWarga.stop();
     }
-    if (voiceTimerIntervalWarga) clearInterval(voiceTimerIntervalWarga);
-    audioChunksWarga = [];
-    const ui = document.getElementById('wargaRecordingUI');
     const btnRecord = document.getElementById('btnRecordWarga');
-    if (ui) ui.style.display = 'none';
     if (btnRecord) btnRecord.style.color = '#64748b';
 };
 
+window.renderPreviewVoiceWarga = function (blob) {
+    const ui = document.getElementById('wargaRecordingUI');
+    if (!ui) return;
+    const previewUrl = URL.createObjectURL(blob);
+    tempPreviewWargaAudio = new Audio(previewUrl);
+
+    const reader = new FileReader();
+    reader.onload = async function () {
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            const tempCtx = new AudioCtx();
+            const buffer = await tempCtx.decodeAudioData(reader.result);
+            tempPreviewWargaPCM = {
+                data: buffer.getChannelData(0),
+                sampleRate: buffer.sampleRate
+            };
+            tempCtx.close().catch(() => {});
+        } catch (e) {
+            tempPreviewWargaPCM = null;
+        }
+    };
+    reader.readAsArrayBuffer(blob);
+
+    ui.style.display = 'flex';
+    ui.innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px; width:100%; background:#ffffff; border:1.5px solid #009846; border-radius:24px; padding:6px 14px; box-shadow:0 4px 12px rgba(0,152,70,0.15);">
+            <button type="button" onclick="window.togglePlayPreviewWarga(this)" style="background:#009846; color:white; border:none; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">
+                <i class="fas fa-play" style="margin-left:2px; font-size:0.85rem;"></i>
+            </button>
+            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                <div style="display:flex; justify-content:space-between; font-size:0.72rem; font-weight:800; color:#0f172a;">
+                    <span style="color:#009846;"><i class="fas fa-headphones"></i> Pratinjau Suara</span>
+                    <span id="wargaPreviewTimer">00:00 / ${formatAudioTime(voiceSecondsWarga)}</span>
+                </div>
+                <div style="position:relative; width:100%; height:18px; display:flex; align-items:center;">
+                    <canvas id="wargaPreviewCanvas" width="160" height="18" style="width:100%; height:18px; display:block;"></canvas>
+                    <input type="range" id="wargaPreviewSeek" min="0" max="100" value="0" step="0.1" oninput="window.seekPreviewWarga(this.value)" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; margin:0; z-index:5;">
+                </div>
+            </div>
+            <button type="button" class="audio-speed-btn" onclick="window.changePreviewAudioSpeedWarga(this)" title="Atur Kecepatan Suara">1x</button>
+            <button type="button" onclick="window.cancelVoiceRecordWarga()" style="background:#fee2e2; color:#dc2626; border:none; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;" title="Hapus / Rekam Ulang">
+                <i class="fas fa-trash-alt" style="font-size:0.8rem;"></i>
+            </button>
+        </div>
+    `;
+
+    tempPreviewWargaAudio.onloadedmetadata = () => {
+        const t = document.getElementById('wargaPreviewTimer');
+        if (t) t.innerText = `00:00 / ${formatAudioTime(tempPreviewWargaAudio.duration)}`;
+        window.drawPreviewWaveWarga(false);
+    };
+
+    tempPreviewWargaAudio.ontimeupdate = () => {
+        const t = document.getElementById('wargaPreviewTimer');
+        const s = document.getElementById('wargaPreviewSeek');
+        if (t) t.innerText = `${formatAudioTime(tempPreviewWargaAudio.currentTime)} / ${formatAudioTime(tempPreviewWargaAudio.duration || voiceSecondsWarga)}`;
+        if (s && tempPreviewWargaAudio.duration) {
+            s.value = (tempPreviewWargaAudio.currentTime / tempPreviewWargaAudio.duration) * 100;
+        }
+    };
+
+    tempPreviewWargaAudio.onended = () => {
+        const btn = ui.querySelector('button[onclick*="togglePlayPreviewWarga"]');
+        if (btn) btn.innerHTML = '<i class="fas fa-play" style="margin-left:2px; font-size:0.85rem;"></i>';
+        const s = document.getElementById('wargaPreviewSeek');
+        if (s) s.value = 0;
+        if (tempPreviewWargaAnim) cancelAnimationFrame(tempPreviewWargaAnim);
+        window.drawPreviewWaveWarga(false);
+    };
+
+    window.drawPreviewWaveWarga(false);
+};
+
+function checkPreviewWargaHasSound() {
+    if (!tempPreviewWargaAudio || tempPreviewWargaAudio.paused) return false;
+    if (!tempPreviewWargaPCM) return true;
+    const curTime = tempPreviewWargaAudio.currentTime;
+    const idx = Math.floor(curTime * tempPreviewWargaPCM.sampleRate);
+    const win = Math.floor(tempPreviewWargaPCM.sampleRate * 0.05);
+    let sum = 0;
+    const start = Math.max(0, idx - win);
+    const end = Math.min(tempPreviewWargaPCM.data.length, idx + win);
+    for (let i = start; i < end; i += 4) {
+        sum += Math.abs(tempPreviewWargaPCM.data[i]);
+    }
+    const avg = sum / ((end - start) / 4 || 1);
+    return avg > 0.015;
+}
+
+window.drawPreviewWaveWarga = function (isWavy) {
+    const canvas = document.getElementById('wargaPreviewCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const centerY = height / 2;
+    const progress = (tempPreviewWargaAudio && tempPreviewWargaAudio.duration) ? (tempPreviewWargaAudio.currentTime / tempPreviewWargaAudio.duration) : 0;
+    const progressX = Math.max(0, Math.min(width, progress * width));
+
+    ctx.clearRect(0, 0, width, height);
+
+    if (!isWavy) {
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(progressX, centerY);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#009846';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(progressX, centerY);
+        ctx.lineTo(width, centerY);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(Math.max(3, Math.min(width - 3, progressX)), centerY, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#009846';
+        ctx.fill();
+    } else {
+        ctx.beginPath();
+        for (let x = 0; x <= progressX; x++) {
+            const envelope = Math.sin((x / width) * Math.PI) * 6;
+            const y = centerY + Math.sin(x * 0.18 + Date.now() * 0.015) * envelope;
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#009846';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        for (let x = progressX; x <= width; x++) {
+            const envelope = Math.sin((x / width) * Math.PI) * 4;
+            const y = centerY + Math.sin(x * 0.18 + Date.now() * 0.015) * envelope;
+            if (x === progressX) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(Math.max(3, Math.min(width - 3, progressX)), centerY, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#009846';
+        ctx.fill();
+    }
+};
+
+window.togglePlayPreviewWarga = function (btn) {
+    if (!tempPreviewWargaAudio) return;
+    if (tempPreviewWargaAudio.paused) {
+        tempPreviewWargaAudio.play().then(() => {
+            btn.innerHTML = '<i class="fas fa-pause" style="font-size:0.85rem;"></i>';
+            const loop = () => {
+                if (tempPreviewWargaAudio && !tempPreviewWargaAudio.paused && !tempPreviewWargaAudio.ended) {
+                    const hasSound = checkPreviewWargaHasSound();
+                    window.drawPreviewWaveWarga(hasSound);
+                    tempPreviewWargaAnim = requestAnimationFrame(loop);
+                } else {
+                    window.drawPreviewWaveWarga(false);
+                }
+            };
+            tempPreviewWargaAnim = requestAnimationFrame(loop);
+        }).catch(() => {});
+    } else {
+        tempPreviewWargaAudio.pause();
+        btn.innerHTML = '<i class="fas fa-play" style="margin-left:2px; font-size:0.85rem;"></i>';
+        if (tempPreviewWargaAnim) cancelAnimationFrame(tempPreviewWargaAnim);
+        window.drawPreviewWaveWarga(false);
+    }
+};
+
+window.seekPreviewWarga = function (val) {
+    if (!tempPreviewWargaAudio || !tempPreviewWargaAudio.duration) return;
+    tempPreviewWargaAudio.currentTime = (parseFloat(val) / 100) * tempPreviewWargaAudio.duration;
+    window.drawPreviewWaveWarga(!tempPreviewWargaAudio.paused && checkPreviewWargaHasSound());
+};
+
+window.changePreviewAudioSpeedWarga = function (btn) {
+    if (!tempPreviewWargaAudio) return;
+    const speeds = [1.0, 1.5, 2.0, 0.5];
+    let cur = tempPreviewWargaAudio.playbackRate || 1.0;
+    let nextIdx = (speeds.indexOf(cur) + 1) % speeds.length;
+    let nextSpeed = speeds[nextIdx];
+    tempPreviewWargaAudio.playbackRate = nextSpeed;
+    if (btn) btn.innerText = `${nextSpeed}x`;
+};
+
+window.sendConfirmedVoiceWarga = function () {
+    if (!tempPreviewWargaBlob) return;
+    if (tempPreviewWargaAudio) {
+        tempPreviewWargaAudio.pause();
+        tempPreviewWargaAudio = null;
+    }
+    if (tempPreviewWargaAnim) cancelAnimationFrame(tempPreviewWargaAnim);
+
+    window.editedMediaBlob = tempPreviewWargaBlob;
+    window.editedMediaExt = 'webm';
+    window.editedMediaType = 'audio';
+
+    const ui = document.getElementById('wargaRecordingUI');
+    if (ui) ui.style.display = 'none';
+
+    tempPreviewWargaBlob = null;
+    window.sendWargaChat();
+};
+
 // =========================================================================
-// 12. PENDAFTARAN MANDIRI (BEBAS TOKEN AUTENTIKASI)
+// 12. PENDAFTARAN MANDIRI & GEOTAGGING MAP LEAFLET
 // =========================================================================
+function initGeotaggingMap() {
+    const box = document.getElementById('mapPublik') || document.getElementById('formCoordMapPublik');
+    if (!box || typeof L === 'undefined') return;
+
+    const defaultCoord = [-7.4478, 112.7183];
+    if (mapGeotaggingInstance) {
+        setTimeout(() => mapGeotaggingInstance.invalidateSize(), 200);
+        return;
+    }
+
+    mapGeotaggingInstance = L.map(box, {
+        center: defaultCoord,
+        zoom: 13,
+        attributionControl: false
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+    }).addTo(mapGeotaggingInstance);
+
+    markerGeotaggingInstance = L.marker(defaultCoord, { draggable: true }).addTo(mapGeotaggingInstance);
+
+    markerGeotaggingInstance.on('dragend', function (e) {
+        const pos = e.target.getLatLng();
+        window.updateAlamatPublikFromCoords(pos.lat, pos.lng);
+    });
+
+    mapGeotaggingInstance.on('click', function (e) {
+        markerGeotaggingInstance.setLatLng(e.latlng);
+        window.updateAlamatPublikFromCoords(e.latlng.lat, e.latlng.lng);
+    });
+
+    setTimeout(() => mapGeotaggingInstance.invalidateSize(), 300);
+}
+
+window.updateAlamatPublikFromCoords = async function (lat, lng) {
+    const latEl = document.getElementById('latPublik');
+    const lngEl = document.getElementById('lngPublik');
+    const alamatEl = document.getElementById('regAlamat');
+
+    if (latEl) latEl.value = Number(lat).toFixed(6);
+    if (lngEl) lngEl.value = Number(lng).toFixed(6);
+
+    if (!alamatEl) return;
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.display_name) {
+                alamatEl.value = data.display_name;
+            }
+        }
+    } catch (e) {}
+};
+
+window.ambilLokasiGPSPublik = function () {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            if (mapGeotaggingInstance && markerGeotaggingInstance) {
+                mapGeotaggingInstance.setView([lat, lng], 16);
+                markerGeotaggingInstance.setLatLng([lat, lng]);
+            }
+            window.updateAlamatPublikFromCoords(lat, lng);
+        }, () => {
+            showPortalAlert({ icon: 'warning', title: 'GPS Gagal', text: 'Izinkan akses geolokasi pada peramban gawai Anda.' });
+        });
+    }
+};
+
+window.cariAlamatPublik = async function (query) {
+    if (!query || query.trim().length < 4) return;
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Sidoarjo, Jawa Timur')}&limit=1`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.length > 0) {
+                const lat = parseFloat(data[0].lat);
+                const lng = parseFloat(data[0].lon);
+                if (mapGeotaggingInstance && markerGeotaggingInstance) {
+                    mapGeotaggingInstance.setView([lat, lng], 16);
+                    markerGeotaggingInstance.setLatLng([lat, lng]);
+                }
+                const latEl = document.getElementById('latPublik');
+                const lngEl = document.getElementById('lngPublik');
+                if (latEl) latEl.value = lat.toFixed(6);
+                if (lngEl) lngEl.value = lng.toFixed(6);
+            }
+        }
+    } catch (e) {}
+};
+
 window.acakCaptchaPendaftaran = function () {
     const a = Math.floor(Math.random() * 8) + 2;
     const b = Math.floor(Math.random() * 8) + 1;
@@ -2418,14 +3319,20 @@ window.daftarMandiri = window.kirimPendaftaranMandiri = async function (e) {
     showPortalAlert({ title: 'Menyimpan Berkas...', allowOutsideClick: false, didOpen: () => Swal?.showLoading() });
 
     try {
-        const res = await fetch(`${API_URL}/warga`, {
+        let res = await fetch(`${API_URL}/warga`, {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify(payload)
         });
+
+        if (!res.ok) {
+            res = await fetch(`${API_URL}/api/warga`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        }
+
         const json = await res.json().catch(() => ({}));
         Swal?.close();
 
@@ -2492,7 +3399,7 @@ const daftarLangkahTur = [
         targetId: 'daftarMandiriSection',
         badge: 'Pendaftaran',
         title: 'Pendaftaran Mandiri & Geotagging GPS',
-        desc: 'Bagi keluarga yang belum terdata, ajukan data survei mandiri dengan mengisi 10 indikator kelayakan SPK BWM-SAW dan mengunci koordinat titik GPS rumah Anda[cite: 1].'
+        desc: 'Bagi keluarga yang belum terdata, ajukan data survei mandiri dengan mengisi 10 indikator kelayakan SPK BWM-SAW dan mengunci koordinat titik GPS rumah Anda.'
     },
     {
         targetId: 'pantauAduanSection',
@@ -2647,7 +3554,7 @@ window.botReplyFAQ = function (topic) {
 
     let qText = topic === 'kriteria' ? 'Siapa yang berhak menerima bansos?' : 'Kapan bantuan fisik dicairkan?';
     let aText = topic === 'kriteria'
-        ? 'Bansos diprioritaskan bagi keluarga yang masuk dalam <b>Desil 1–4</b> hasil kalkulasi kriteria BWM-SAW yang akuntabel[cite: 1].'
+        ? 'Bansos diprioritaskan bagi keluarga yang masuk dalam <b>Desil 1–4</b> hasil kalkulasi kriteria BWM-SAW yang akuntabel.'
         : 'Penyaluran fisik dilaksanakan terjadwal di kantor kelurahan/desa setempat membawa KTP dan KK asli.';
 
     body.innerHTML += `<div class="user-bubble" style="background:#009846; color:white; padding:10px 14px; border-radius:14px; align-self:flex-end; max-width:80%; margin-bottom:6px;">${qText}</div>`;
@@ -2729,4 +3636,60 @@ window.botBukaFormLapor = window.bukaFormLaporKendalaBot = async function () {
     if (formValues) {
         window.masukDashboardPengaduan(formValues.nik, formValues.nama, formValues.pesan, true);
     }
+};
+
+// =========================================================================
+// 15. CETAK BUKTI BANSOS & DOKUMEN PENETAPAN WARGA
+// =========================================================================
+window.cetakBuktiPendaftaran = function () {
+    const data = wargaDataCache || window.lastLacakData || sesiWargaAktif;
+    if (!data) {
+        return showPortalAlert({ icon: 'warning', title: 'Data Kosong', text: 'Silakan masuk atau lacak NIK Anda terlebih dahulu.' });
+    }
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Tanda Bukti Terdaftar - Pemkab Sidoarjo</title>
+            <style>
+                body { font-family: 'Times New Roman', serif; padding: 40px; color: #000; line-height: 1.6; }
+                .header { text-align: center; border-bottom: 3px double #000; padding-bottom: 12px; margin-bottom: 25px; }
+                .header h2 { margin: 0; font-size: 16pt; }
+                .header h3 { margin: 4px 0; font-size: 14pt; }
+                .content table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                .content td { padding: 8px 12px; border: 1px solid #333; font-size: 11pt; }
+                .content td.label { width: 35%; font-weight: bold; background: #f2f2f2; }
+                .footer { margin-top: 40px; display: flex; justify-content: flex-end; text-align: center; }
+            </style>
+        </head>
+        <body onload="window.print()">
+            <div class="header">
+                <h2>PEMERINTAH KABUPATEN SIDOARJO</h2>
+                <h3>DINAS SOSIAL</h3>
+                <p style="margin:0; font-size:10pt;">Jl. Pahlawan No. 1 Sidoarjo, Jawa Timur | Telp (031) 8921000</p>
+            </div>
+            <div class="content">
+                <h4 style="text-align:center; text-decoration:underline; margin-bottom:15px;">BUKTI PENDAFTARAN & STATUS VERIFIKASI BANSOS</h4>
+                <table>
+                    <tr><td class="label">Nomor Induk Kependudukan (NIK)</td><td>${safeHtml(data.nik || '-')}</td></tr>
+                    <tr><td class="label">Nama Lengkap</td><td>${safeHtml(data.nama_lengkap || data.nama || '-')}</td></tr>
+                    <tr><td class="label">Alamat Domisili</td><td>${safeHtml(data.alamat || 'Kabupaten Sidoarjo')}</td></tr>
+                    <tr><td class="label">Klasifikasi Desil</td><td>Desil ${safeHtml(data.desil || '5')}</td></tr>
+                    <tr><td class="label">Status Penetapan Bansos</td><td>${safeHtml(data.status_bansos || 'Diproses')}</td></tr>
+                    <tr><td class="label">Realisasi Penyaluran</td><td>${safeHtml(data.status_salur || 'Pending')}</td></tr>
+                </table>
+            </div>
+            <div class="footer">
+                <div>
+                    <p>Sidoarjo, ${new Date().toLocaleDateString('id-ID')}</p>
+                    <br><br><br>
+                    <p><b>Petugas Verifikator Dinsos</b></p>
+                </div>
+            </div>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
 };
