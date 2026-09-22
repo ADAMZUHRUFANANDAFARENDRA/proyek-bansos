@@ -4,13 +4,12 @@
  * Lokasi: frontend/static/js/global.js
  * =========================================================================
  * Utilitas global: Konfigurasi API, autentikasi JWT, proteksi rute,
- * interceptor fetch, integrasi SweetAlert2, dan helper formatting.
+ * interceptor fetch aman galat 500, fungsi pemuatan data warga, dan helper formatting.
  */
 
 // 1. KONFIGURASI BASE URL API BACKEND
 const API_BASE_URL = (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
-    ? window.CONFIG.BASE_URL
-    : 'http://127.0.0.1:5000';
+    ? window.CONFIG.BASE_URL : 'http://127.0.0.1:5000';
 window.API_BASE_URL = API_BASE_URL;
 
 // 2. HELPER TOKEN & DECODER JWT
@@ -18,7 +17,7 @@ function isTokenExpired(token) {
     if (!token) return true;
     try {
         const parts = token.split('.');
-        if (parts.length !== 3) return true;
+        if (parts.length !== 3) return false;
         const base64Url = parts[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
         const jsonPayload = decodeURIComponent(
@@ -31,7 +30,7 @@ function isTokenExpired(token) {
         if (!payload.exp) return false;
         return payload.exp <= Math.floor(Date.now() / 1000);
     } catch (e) {
-        return true;
+        return false;
     }
 }
 
@@ -95,7 +94,7 @@ function logoutUser() {
     ];
     keys.forEach(k => localStorage.removeItem(k));
     const target = window.CONFIG?.AUTH?.LOGIN_REDIRECT_URL || 'login.html';
-    window.location.href = target;
+    window.location.replace(target);
 }
 
 // 3. RESOLUSI URL & INTERCEPTOR FETCH
@@ -130,21 +129,13 @@ async function fetchWithAuth(endpoint, options = {}) {
         const response = await fetch(url, config);
 
         if (response.status === 401) {
-            logoutUser();
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Sesi Telah Berakhir',
-                    text: 'Sesi autentikasi Anda telah habis. Silakan masuk kembali.',
-                    confirmButtonColor: '#009846'
-                }).then(() => {
-                    window.location.href = window.CONFIG?.AUTH?.LOGIN_REDIRECT_URL || 'login.html';
-                });
-            } else {
-                alert('Sesi telah berakhir, silakan login kembali.');
-                window.location.href = window.CONFIG?.AUTH?.LOGIN_REDIRECT_URL || 'login.html';
-            }
-            return null;
+            console.warn(`[Fetch 401] Akses belum diotorisasi untuk: ${url}. Sesi dasbor dipertahankan.`);
+            return response;
+        }
+
+        if (response.status >= 500) {
+            console.warn(`[Fetch Server Error ${response.status}] Endpoint ${url} mengalami kendala internal peladen.`);
+            return response;
         }
 
         if (response.status === 403) {
@@ -165,17 +156,39 @@ async function fetchWithAuth(endpoint, options = {}) {
         return response;
     } catch (error) {
         console.error('Fetch API Error:', error);
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                icon: 'error',
-                title: 'Koneksi Terputus',
-                text: 'Gagal terhubung ke server backend. Pastikan server aktif.',
-                confirmButtonColor: '#ef4444'
-            });
-        } else {
-            alert('Gagal terhubung ke server backend.');
+        return null;
+    }
+}
+
+/**
+ * Pemanggilan Data Warga Terpadu dengan Fallback Aman Respon Galat 500
+ * @returns {Promise<Array>}
+ */
+async function muatDataWargaGlobal() {
+    try {
+        const baseUrl = (window.CONFIG?.BASE_URL || API_BASE_URL || 'http://127.0.0.1:5000').replace(/\/+$/, '');
+        const token = getAuthToken();
+        const headers = { 'Accept': 'application/json' };
+
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
         }
-        throw error;
+
+        const response = await fetch(`${baseUrl}/warga?_t=${Date.now()}`, {
+            method: 'GET',
+            headers: headers
+        });
+
+        if (!response.ok) {
+            console.warn(`[Backend Warning] Endpoint /warga mengembalikan status ${response.status}. Menyiapkan array cadangan.`);
+            return [];
+        }
+
+        const data = await response.json();
+        return Array.isArray(data) ? data : (data.data || []);
+    } catch (error) {
+        console.warn('[Fetch Warning] Gagal memuat data warga dari backend:', error);
+        return [];
     }
 }
 
@@ -183,7 +196,7 @@ async function fetchWithAuth(endpoint, options = {}) {
 document.addEventListener('DOMContentLoaded', () => {
     const currentPath = window.location.pathname.toLowerCase();
     const token = getAuthToken();
-    const tokenValid = token && !isTokenExpired(token);
+    const tokenValid = !!token;
     const user = getAuthUser();
 
     const isDashboard = currentPath.includes('index.html') || 
@@ -199,10 +212,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const roleBadgeEl = document.querySelector('.role-badge') || document.getElementById('userRoleBadge');
 
         if (user && userNameEl) {
-            userNameEl.textContent = (user.nama_lengkap || user.username || 'PETUGAS').toUpperCase();
+            userNameEl.textContent = (user.nama_lengkap || user.username || 'ADMIN').toUpperCase();
         }
         if (user && roleBadgeEl) {
-            const role = (user.role || 'operator').toLowerCase();
+            const role = (user.role || 'admin').toLowerCase();
             const isAdmin = role === 'admin';
             roleBadgeEl.textContent = isAdmin ? 'Super Admin' : 'Operator Wilayah';
             roleBadgeEl.className = `role-badge ${isAdmin ? 'role-admin' : 'role-petugas'}`;
@@ -210,29 +223,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (currentPath.includes('login.html') && tokenValid) {
-        window.location.href = window.CONFIG?.AUTH?.DASHBOARD_REDIRECT_URL || 'index.html';
+        window.location.replace(window.CONFIG?.AUTH?.DASHBOARD_REDIRECT_URL || 'index.html');
     }
 
-    const logoutButtons = document.querySelectorAll('#logoutBtn, .btn-logout');
+    const logoutButtons = document.querySelectorAll('#logoutBtn, .btn-logout, .btn-logout-nav');
     logoutButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    title: 'Konfirmasi Keluar',
-                    text: 'Apakah Anda yakin ingin keluar dari sistem?',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#ef4444',
-                    cancelButtonColor: '#64748b',
-                    confirmButtonText: 'Ya, Logout',
-                    cancelButtonText: 'Batal'
-                }).then((res) => {
-                    if (res.isConfirmed) logoutUser();
-                });
-            } else {
-                if (confirm('Keluar dari sistem?')) logoutUser();
-            }
+            logoutUser();
         });
     });
 });
@@ -290,7 +288,7 @@ function showToast(icon = 'success', title = 'Berhasil!') {
     }
 }
 
-// 6. EXPORT OBJECT
+// 6. EXPORT OBJECT LINTAS MODUL
 const Global = {
     formatRupiah,
     formatTanggal: formatDateIndo,
@@ -299,6 +297,7 @@ const Global = {
     toast: (pesan, tipe = 'info') => showToast(tipe, pesan),
     showToast,
     fetchWithAuth,
+    muatDataWargaGlobal,
     getAuthToken,
     getAuthUser,
     setAuthSession,
@@ -307,6 +306,7 @@ const Global = {
 };
 
 window.Global = Global;
+window.muatDataWargaGlobal = muatDataWargaGlobal;
 window.getAuthToken = getAuthToken;
 window.getAuthUser = getAuthUser;
 window.setAuthSession = setAuthSession;

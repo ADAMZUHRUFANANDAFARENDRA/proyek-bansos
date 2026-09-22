@@ -36,18 +36,15 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Nonaktifkan ikon mata bawaan peramban agar tidak bertumpuk */
         input::-ms-reveal,
         input::-ms-clear {
             display: none !important;
         }
 
-        /* Pop-up notifikasi selalu berada di lapisan terdepan */
         .swal2-container {
             z-index: 1000000 !important;
         }
 
-        /* Kustomisasi Scrollbar Membulat Modern Menyatu ke dalam Card */
         .modal-recovery-scroll {
             scrollbar-width: thin;
             scrollbar-color: #cbd5e1 transparent;
@@ -478,17 +475,10 @@
         </form>
     </div>
 
-    <!-- =========================================================================
-         MODAL PEMULIHAN AKUN DARURAT DINAS (ISOLASI ANTI-AUTOFILL & INNER SCROLL)
-         ========================================================================= -->
+    <!-- Modal Pemulihan Akun -->
     <div id="modalLupaSandi" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.7); backdrop-filter:blur(8px); z-index:99999; justify-content:center; align-items:center; padding:32px 18px; box-sizing:border-box;">
-        <!-- Kartu Luar Membulat Sempurna (Bebas Potongan Scrollbar) -->
         <div id="modalRecoveryCard" style="background:#ffffff; border-radius:28px; width:100%; max-width:440px; box-shadow:0 25px 60px -15px rgba(0,0,0,0.35); border:1px solid #e2e8f0; animation:cardFade 0.2s ease-out; position:relative; overflow:hidden; margin:auto;">
-            
-            <!-- Area Pengguliran Halus di Dalam Kartu -->
             <div class="modal-recovery-scroll" style="max-height:calc(90vh - 48px); overflow-y:auto; padding:28px 24px 24px 28px;">
-                
-                <!-- Ikon Lonceng Merah Pemulihan Darurat -->
                 <div style="text-align:center; margin-bottom:18px;">
                     <div style="width:54px; height:54px; background:#fee2e2; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 6px 16px rgba(220,38,38,0.18); border:1.5px solid #fecaca;">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -503,10 +493,8 @@
                 </div>
 
                 <form id="formPemulihanAkun" autocomplete="off" onsubmit="window.eksekusiPemulihanAkun(event)">
-                    <!-- 1. Dropdown Akun Target Membulat (Label: pilih akun) -->
                     <div style="margin-bottom:13px; text-align:left;">
                         <label style="display:block; font-size:0.8rem; font-weight:700; color:#334155; margin-bottom:5px;">pilih akun</label>
-                        
                         <div style="position:relative;" id="customTargetWrapper">
                             <button type="button" id="btnCustomTarget" onclick="window.toggleTargetDropdown(event)" style="width:100%; padding:11px 14px; border-radius:14px; border:1.5px solid #cbd5e1; font-size:0.88rem; font-weight:700; color:#0f172a; background:#f8fafc; display:flex; justify-content:space-between; align-items:center; cursor:pointer; outline:none; transition:all 0.2s ease;">
                                 <span id="txtSelectedTarget">admin utama</span>
@@ -532,13 +520,11 @@
                         <input type="text" id="recIdentifier" autocomplete="off" placeholder="Contoh: petugas atau 2" style="width:100%; padding:11px 14px; border-radius:14px; border:1.5px solid #cbd5e1; font-size:0.88rem; outline:none; background:#f8fafc;">
                     </div>
 
-                    <!-- 2. Username Baru -->
                     <div style="margin-bottom:13px; text-align:left;">
                         <label style="display:block; font-size:0.8rem; font-weight:700; color:#334155; margin-bottom:5px;">Username Baru:</label>
                         <input type="text" id="recNewUsername" value="admin" autocomplete="off" required placeholder="Masukkan username baru" style="width:100%; padding:11px 14px; border-radius:14px; border:1.5px solid #cbd5e1; font-size:0.88rem; font-weight:600; outline:none; background:#f8fafc;">
                     </div>
 
-                    <!-- 3. Kata Sandi Baru (Satu Tombol Mata Saja) -->
                     <div style="margin-bottom:13px; text-align:left;">
                         <label style="display:block; font-size:0.8rem; font-weight:700; color:#334155; margin-bottom:5px;">Kata Sandi Baru:</label>
                         <div style="position:relative; display:flex; align-items:center;">
@@ -552,14 +538,12 @@
                         </div>
                     </div>
 
-                    <!-- 4. Kunci Otorisasi Darurat Dinas (Masked Security, Terisi Otomatis, Anti-Autofill Hijack) -->
                     <div style="margin-bottom:18px; text-align:left;">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
                             <label style="font-size:0.8rem; font-weight:700; color:#b91c1c;">Kunci Otorisasi Dinas (Master Key):</label>
                             <span style="font-size:0.7rem; color:#64748b; font-weight:600;">Kunci peladen</span>
                         </div>
                         <div style="position:relative; display:flex; align-items:center;">
-                            <!-- Input tipe text dengan masking visual agar browser tidak menimpanya dengan kata sandi -->
                             <input type="text" id="recMasterKey" autocomplete="off" required placeholder="Kunci Otorisasi Peladen" style="width:100%; padding:11px 44px 11px 14px; border-radius:14px; border:1.5px solid #fca5a5; font-size:0.92rem; font-weight:700; outline:none; background:#fef2f2; color:#0f172a; -webkit-text-security:disc; text-security:disc;">
                             <button type="button" onclick="window.toggleEyeMasterKey(this)" style="position:absolute; right:12px; background:none; border:none; color:#b91c1c; cursor:pointer; padding:4px; display:flex; align-items:center; justify-content:center;">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -570,7 +554,6 @@
                         </div>
                     </div>
 
-                    <!-- Tombol Aksi -->
                     <div style="display:flex; gap:10px;">
                         <button type="button" onclick="window.tutupModalLupaSandi()" style="flex:1; padding:12px 0; border-radius:14px; border:1px solid #cbd5e1; background:#f8fafc; font-weight:700; color:#64748b; cursor:pointer; font-size:0.9rem;">
                             Batal
@@ -596,13 +579,14 @@
         let expectedCaptcha = 0;
         const DEFAULT_RECOVERY_KEY = 'DINSOS-SDA-2026';
 
-        if (window.Auth && typeof window.Auth.isAuthenticated === 'function' && window.Auth.isAuthenticated()) {
+        // Pemeriksaan awal: hanya redirect jika token fisik benar-benar ada di storage
+        const existingToken = localStorage.getItem('token') || localStorage.getItem('access_token');
+        if (existingToken && window.Auth && typeof window.Auth.isAuthenticated === 'function' && window.Auth.isAuthenticated()) {
             window.location.replace('index.html');
         }
 
         window.addEventListener('DOMContentLoaded', () => {
             generateCaptcha();
-            // Inisialisasi awal nilai Master Key
             const mkInp = document.getElementById('recMasterKey');
             if (mkInp) mkInp.value = DEFAULT_RECOVERY_KEY;
         });
@@ -639,7 +623,6 @@
             }
         }
 
-        // Toggle Mata Kata Sandi Baru
         window.toggleEyeInput = function(inputId, btnEl) {
             const inp = document.getElementById(inputId);
             if (!inp) return;
@@ -663,7 +646,6 @@
             }
         };
 
-        // Toggle Mata Master Key Berbasis Text-Security
         window.toggleEyeMasterKey = function(btnEl) {
             const inp = document.getElementById('recMasterKey');
             if (!inp) return;
@@ -806,9 +788,13 @@
             }
         }
 
+        // =========================================================================
+        // PENGIRIMAN FORM LOGIN LANGSUNG DAN PENULISAN LENGKAP SEMUA KUNCI KE STORAGE
+        // =========================================================================
         document.getElementById('loginForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
+            // 1. Validasi Captcha
             const ansInput = document.getElementById('captchaAnswer');
             const answer = parseInt(ansInput ? ansInput.value : '0');
             if (answer !== expectedCaptcha) {
@@ -825,24 +811,71 @@
             btn.innerText = 'MEMVERIFIKASI...';
 
             try {
-                const result = await window.Auth.login(username, password);
+                const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+                
+                const response = await fetch(`${baseUrl}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
 
-                if (result && result.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Akses Diterima',
-                        text: `Selamat bertugas, ${result.user.toUpperCase()}!`,
-                        timer: 1100,
-                        showConfirmButton: false
-                    }).then(() => {
-                        window.location.replace('index.html');
-                    });
-                } else {
-                    btn.disabled = false;
-                    btn.innerText = 'MASUK DASHBOARD';
-                    generateCaptcha();
+                const data = await response.json();
+
+                if (!response.ok || (data.status && data.status !== 'success' && !data.access_token && !data.token)) {
+                    throw new Error(data.message || 'Username atau kata sandi tidak valid.');
                 }
+
+                // 2. Ekstraksi Token & Identitas
+                const token = data.access_token || data.token || (data.data && (data.data.token || data.data.access_token));
+                const userObj = data.user || (data.data && data.data.user) || { username: username, role: 'admin' };
+                const role = (userObj.role || data.role || 'admin').toLowerCase();
+                const namaUser = userObj.nama_lengkap || userObj.username || username;
+
+                if (!token) {
+                    throw new Error('Peladen tidak mengembalikan token autentikasi yang valid.');
+                }
+
+                // 3. TULIS LENGKAP KE SEMUA VARIASI KUNCI STORAGE AGAR index.html MENERIMA
+                localStorage.setItem('token', token);
+                localStorage.setItem('access_token', token);
+                localStorage.setItem('jwt_token', token);
+                localStorage.setItem('role', role);
+                localStorage.setItem('user_role', role);
+                localStorage.setItem('username', userObj.username || username);
+                localStorage.setItem('user', JSON.stringify(userObj));
+                localStorage.setItem('current_user', JSON.stringify(userObj));
+
+                sessionStorage.setItem('token', token);
+                sessionStorage.setItem('access_token', token);
+                sessionStorage.setItem('role', role);
+                sessionStorage.setItem('user', JSON.stringify(userObj));
+
+                if (window.Auth && typeof window.Auth.setSession === 'function') {
+                    try { window.Auth.setSession(token, userObj); } catch(e) {}
+                }
+
+                // 4. Masuk ke Dashboard
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Akses Diterima',
+                    text: `Selamat bertugas, ${namaUser.toUpperCase()}!`,
+                    timer: 900,
+                    showConfirmButton: false
+                }).then(() => {
+                    window.location.replace('index.html');
+                });
+
             } catch (err) {
+                console.error('Login error:', err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Masuk',
+                    text: err.message || 'Terjadi kesalahan saat memverifikasi akun.',
+                    confirmButtonColor: '#ef4444'
+                });
                 btn.disabled = false;
                 btn.innerText = 'MASUK DASHBOARD';
                 generateCaptcha();
@@ -850,7 +883,7 @@
         });
 
         // =========================================================================
-        // LOGIKA KONTROL MODAL PEMULIHAN AKUN DARURAT
+        // KONTROL MODAL PEMULIHAN AKUN DARURAT
         // =========================================================================
         window.toggleTargetDropdown = function(e) {
             if (e) e.stopPropagation();
@@ -879,7 +912,6 @@
                 el.style.color = '#009846';
             }
 
-            // Selalu isi otomatis Master Key yang valid saat memilih target akun
             const mkInp = document.getElementById('recMasterKey');
             if (mkInp) mkInp.value = DEFAULT_RECOVERY_KEY;
 
@@ -901,7 +933,6 @@
             const m = document.getElementById('modalLupaSandi');
             if (m) m.style.display = 'flex';
 
-            // Otomatis terisi Master Key yang sesuai saat modal dibuka
             const mkInp = document.getElementById('recMasterKey');
             if (mkInp) {
                 mkInp.value = DEFAULT_RECOVERY_KEY;
@@ -929,7 +960,6 @@
             if (mkInp) mkInp.value = DEFAULT_RECOVERY_KEY;
         };
 
-        // Cegah peramban menimpa nilai Master Key saat mengetik kata sandi baru
         document.getElementById('recNewPassword')?.addEventListener('input', function() {
             const mkInp = document.getElementById('recMasterKey');
             if (mkInp && (!mkInp.value || mkInp.value === this.value)) {
@@ -973,7 +1003,6 @@
                     throw new Error(json.message || 'Gagal memulihkan akun.');
                 }
 
-                // Tutup modal agar pop-up sukses langsung tampil bersih tanpa tertumpuk
                 window.tutupModalLupaSandi();
 
                 const mainUserInp = document.getElementById('username');

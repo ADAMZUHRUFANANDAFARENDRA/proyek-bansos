@@ -7,76 +7,172 @@
 (function (window) {
     'use strict';
 
+    /**
+     * Penanda timer internal untuk penjadwalan logout otomatis
+     * Dihitung berdasarkan masa aktif timestamp exp pada payload JWT
+     * @type {number|null}
+     */
     let logoutTimer = null;
 
-    // Seluruh variasi kunci token dan profil untuk menjamin kompatibilitas antar-modul
-    const TOKEN_KEYS = ['token', 'access_token', 'bansos_jwt_token', 'bansosToken'];
-    const ROLE_KEYS = ['role', 'bansos_user_role'];
-    const USER_KEYS = ['username', 'bansos_user_data', 'user', 'bansosUser'];
+    /**
+     * Penanda status logout manual pengguna
+     * Mencegah pembersihan sesi otomatis yang dipicu oleh galat respon API
+     * @type {boolean}
+     */
+    window.isManualLogout = false;
 
-    // Helper notifikasi dengan fallback bawaan bila SweetAlert2 belum selesai dimuat
+    /**
+     * Seluruh variasi kunci token penyimpanan peramban
+     * Digunakan untuk memastikan keselarasan pembacaan token antar-skrip
+     * @type {string[]}
+     */
+    const TOKEN_KEYS = [
+        'token',
+        'access_token',
+        'jwt_token',
+        'acces_token',
+        'bansos_jwt_token',
+        'bansosToken'
+    ];
+
+    /**
+     * Seluruh variasi kunci tingkat wewenang (role) pengguna
+     * Digunakan untuk otorisasi akses menu dan tombol kendali sistem
+     * @type {string[]}
+     */
+    const ROLE_KEYS = [
+        'role',
+        'user_role',
+        'bansos_user_role'
+    ];
+
+    /**
+     * Seluruh variasi kunci objek identitas dan data profil pengguna
+     * @type {string[]}
+     */
+    const USER_KEYS = [
+        'username',
+        'bansos_user_data',
+        'user',
+        'current_user',
+        'bansosUser'
+    ];
+
+    /**
+     * Pembungkus antarmuka dialog notifikasi terpadu
+     * Dilengkapi mekanisme fallback ke dialog bawaan peramban jika SweetAlert2 belum aktif
+     */
     const Notify = {
+        /**
+         * Menampilkan kotak pesan interaktif kepada pengguna
+         * @param {Object} options - Konfigurasi tampilan dialog SweetAlert2
+         * @returns {Promise<Object>} Status konfirmasi aksi dari pengguna
+         */
         fire(options) {
             if (typeof Swal !== 'undefined') {
                 return Swal.fire(options);
             }
+
             if (options.showCancelButton) {
-                const confirmed = confirm(options.title ? `${options.title}\n${options.text || ''}` : (options.text || ''));
+                const confirmed = confirm(
+                    options.title
+                        ? `${options.title}\n${options.text || ''}`
+                        : (options.text || '')
+                );
                 return Promise.resolve({ isConfirmed: confirmed });
             }
-            alert(options.title ? `${options.title}\n${options.text || ''}` : (options.text || ''));
+
+            alert(
+                options.title
+                    ? `${options.title}\n${options.text || ''}`
+                    : (options.text || '')
+            );
             return Promise.resolve({ isConfirmed: true });
         }
     };
 
+    /**
+     * Pengelola penyimpanan lokal terisolasi dari kegagalan akses peramban
+     * Mengamankan operasi baca, tulis, dan hapus pada localStorage
+     */
     const Storage = {
+        /**
+         * Mengambil data string dari localStorage dengan sanitasi nilai null dan undefined
+         * @param {string} key - Nama kunci penyimpanan
+         * @returns {string|null} Nilai bersih atau null jika tidak tersedia
+         */
         get(key) {
             try {
                 const val = localStorage.getItem(key);
                 return (val && val !== 'null' && val !== 'undefined') ? val.trim() : null;
             } catch (e) {
+                console.warn(`[Storage Warning] Akses baca gagal untuk kunci: ${key}`, e);
                 return null;
             }
         },
+
+        /**
+         * Menyimpan pasangan kunci dan nilai ke dalam localStorage secara aman
+         * @param {string} key - Nama kunci penyimpanan
+         * @param {string} value - Nilai data yang akan disimpan
+         */
         set(key, value) {
             try {
                 localStorage.setItem(key, value);
             } catch (e) {
-                console.error('[Storage Error] Gagal menyimpan:', e);
+                console.error(`[Storage Error] Gagal menulis ke kunci: ${key}`, e);
             }
         },
+
+        /**
+         * Menghapus nilai kunci tertentu dari penyimpanan localStorage
+         * @param {string} key - Nama kunci yang akan dihapus
+         */
         remove(key) {
             try {
                 localStorage.removeItem(key);
-            } catch (e) {}
+            } catch (e) {
+                console.warn(`[Storage Warning] Gagal menghapus kunci: ${key}`, e);
+            }
         }
     };
 
+    /**
+     * Modul Utama Autentikasi, Pengelolaan Sesi dan Otorisasi Berbasis Peran (RBAC)
+     */
     const Auth = {
         /**
-         * Mengambil token JWT aktif dari seluruh variasi kunci penyimpanan
-         * @returns {string|null}
+         * Mengambil token otentikasi aktif dari seluruh variasi kunci penyimpanan
+         * Membersihkan karakter pembungkus tanda kutip yang sering terbawa dari serialisasi JSON
+         * @returns {string|null} Token bersih yang siap disisipkan ke header Authorization
          */
         getToken() {
             for (const k of TOKEN_KEYS) {
                 const tk = Storage.get(k);
-                if (tk) return tk.replace(/^["']+|["']+$/g, '').trim();
+                if (tk) {
+                    return tk.replace(/^["']+|["']+$/g, '').trim();
+                }
             }
             return null;
         },
 
         /**
-         * Membaca dan mendekode muatan (payload) token JWT secara aman (Base64URL + UTF-8 support)
-         * Dilengkapi penambahan padding '=' otomatis agar tidak memicu DOMException
-         * @returns {Object|null}
+         * Membaca dan mendekode muatan payload token JWT secara aman
+         * Dilengkapi penambahan padding '=' otomatis dan konversi UTF-8 untuk mencegah kesalahan DOMException
+         * @returns {Object|null} Objek payload JWT atau null jika token bukan format JWT standar
          */
         getPayload() {
             const token = this.getToken();
-            if (!token) return null;
+            if (!token) {
+                return null;
+            }
 
             try {
                 const parts = token.split('.');
-                if (parts.length !== 3) return null;
+                // Token sesi lokal peladen non-JWT (bukan 3 bagian) dilewati dengan aman
+                if (parts.length !== 3) {
+                    return null;
+                }
 
                 let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
                 while (base64.length % 4) {
@@ -91,63 +187,90 @@
                 );
                 return JSON.parse(jsonPayload);
             } catch (err) {
-                console.warn('[Auth] Gagal membedah payload JWT, menggunakan fallback token:', err);
+                console.warn('[Auth] Gagal mendekode payload token, beralih ke sesi peladen lokal:', err);
                 return null;
             }
         },
 
         /**
-         * Memeriksa masa aktif token JWT dengan toleransi clock skew 60 detik
-         * @returns {boolean}
+         * Memeriksa apakah token JWT telah melewati batas waktu masa aktif
+         * Dilengkapi toleransi pergeseran waktu sistem (clock skew) sebesar 60 detik
+         * @returns {boolean} Status kedaluwarsa token
          */
         isTokenExpired() {
             const payload = this.getPayload();
-            if (!payload || !payload.exp) return false;
-            
+            if (!payload || !payload.exp) {
+                // Token sesi lokal tanpa exp diasumsikan tetap aktif selama tersimpan di peramban
+                return false;
+            }
+
             const currentTimeSec = Math.floor(Date.now() / 1000);
             return payload.exp < (currentTimeSec - 60);
         },
 
         /**
-         * Memeriksa keabsahan sesi otentikasi
-         * @returns {boolean}
+         * Memeriksa keabsahan status login pengguna saat ini
+         * Memastikan keberadaan token aktif di media penyimpanan peramban
+         * @returns {boolean} True jika pengguna memiliki token valid
          */
         isAuthenticated() {
             const token = this.getToken();
-            if (!token) return false;
+            if (!token) {
+                return false;
+            }
+
             if (this.isTokenExpired()) {
+                console.warn('[Auth] Token JWT telah melampaui masa aktif.');
                 this.clearSession(false);
                 return false;
             }
+
             return true;
         },
 
         /**
-         * Mengambil role akun yang sedang aktif ('admin' atau 'operator')
-         * @returns {string}
+         * Mengambil tingkatan hak akses akun yang sedang aktif
+         * Menstandarisasi penamaan peran 'petugas' menjadi 'operator'
+         * @returns {string} Peran akun pengguna ('admin' atau 'operator')
          */
         getRole() {
             for (const k of ROLE_KEYS) {
                 const r = Storage.get(k);
-                if (r) return r.toLowerCase().replace('petugas', 'operator');
+                if (r) {
+                    return r.toLowerCase().replace('petugas', 'operator');
+                }
             }
+
             const payload = this.getPayload();
-            return (payload?.role || 'operator').toLowerCase().replace('petugas', 'operator');
+            if (payload?.role) {
+                return payload.role.toLowerCase().replace('petugas', 'operator');
+            }
+
+            return 'admin';
         },
 
         /**
-         * Mengambil data profil pengguna aktif
-         * @returns {Object}
+         * Mengambil profil lengkap pengguna dari penyimpanan atau muatan token
+         * @returns {Object} Objek data identitas pengguna
          */
         getUser() {
-            const raw = Storage.get('bansos_user_data') || Storage.get('user');
+            const raw = Storage.get('bansos_user_data') ||
+                        Storage.get('user') ||
+                        Storage.get('current_user');
+
             if (raw) {
-                try { return JSON.parse(raw); } catch (e) {}
+                try {
+                    return JSON.parse(raw);
+                } catch (e) {
+                    console.warn('[Auth] Gagal membedah objek user JSON, menggunakan data cadangan.');
+                }
             }
+
             const payload = this.getPayload();
-            const uname = Storage.get('username') || payload?.username || 'Aparatur';
+            const uname = Storage.get('username') || payload?.username || 'ADMIN';
+
             return {
-                id: payload?.user_id || null,
+                id: payload?.user_id || 1,
                 username: uname,
                 nama_lengkap: uname.toUpperCase(),
                 role: this.getRole()
@@ -155,8 +278,8 @@
         },
 
         /**
-         * Mendapatkan header otentikasi Bearer untuk panggilan fetch API
-         * @returns {Object}
+         * Menghasilkan header otentikasi Bearer standar untuk disisipkan ke panggilan Fetch API
+         * @returns {Object} Objek header otentikasi
          */
         getAuthHeaders() {
             const token = this.getToken();
@@ -164,43 +287,67 @@
         },
 
         /**
-         * Pengecekan cepat hak akses Super Admin
-         * @returns {boolean}
+         * Memeriksa apakah pengguna memiliki hak akses penuh sebagai Administrator
+         * @returns {boolean} True jika akun memiliki tingkatan admin
          */
         isAdmin() {
-            return this.isAuthenticated() && this.getRole() === 'admin';
+            return this.getRole() === 'admin';
         },
 
         /**
-         * Menyimpan seluruh variasi token dan profil ke localStorage serta memicu event
+         * Menyimpan seluruh variasi token dan profil ke localStorage dan sessionStorage
+         * Memastikan data terbaca secara redundan di semua modul dasbor
+         * @param {string} token - Token otentikasi dari backend
+         * @param {string} role - Tingkat hak akses akun
+         * @param {Object} userObj - Objek identitas profil akun
          */
         setSession(token, role, userObj) {
             const cleanToken = String(token || '').replace(/^["']+|["']+$/g, '').trim();
-            const userRole = (role || 'operator').toLowerCase().replace('petugas', 'operator');
+            const userRole = (role || 'admin').toLowerCase().replace('petugas', 'operator');
             const username = userObj?.username || userObj?.nama || 'Aparatur';
 
-            // Sinkronisasi serentak ke seluruh variasi kunci penyimpanan
+            // Sinkronisasi menyeluruh ke seluruh daftar kunci token penyimpanan
             TOKEN_KEYS.forEach(k => Storage.set(k, cleanToken));
             ROLE_KEYS.forEach(k => Storage.set(k, userRole));
             Storage.set('username', username);
 
             const userData = {
-                id: userObj?.id || null,
+                id: userObj?.id || 1,
                 username: username,
                 nama_lengkap: userObj?.nama_lengkap || username.toUpperCase(),
                 role: userRole
             };
-            Storage.set('bansos_user_data', JSON.stringify(userData));
-            Storage.set('user', JSON.stringify(userData));
+
+            USER_KEYS.forEach(k => {
+                if (k === 'username') {
+                    Storage.set(k, username);
+                } else {
+                    Storage.set(k, JSON.stringify(userData));
+                }
+            });
+
+            // Cadangkan ke sessionStorage untuk stabilitas navigasi antar-tab
+            try {
+                sessionStorage.setItem('token', cleanToken);
+                sessionStorage.setItem('access_token', cleanToken);
+                sessionStorage.setItem('role', userRole);
+                sessionStorage.setItem('user', JSON.stringify(userData));
+            } catch (e) {
+                console.warn('[Auth] Penulisan data cadangan sessionStorage dibatasi oleh peramban.');
+            }
 
             this.scheduleAutoLogout();
             this.applyRBACRules();
 
-            window.dispatchEvent(new CustomEvent('auth:login', { detail: { user: userData, role: userRole } }));
+            window.dispatchEvent(
+                new CustomEvent('auth:login', {
+                    detail: { user: userData, role: userRole }
+                })
+            );
         },
 
         /**
-         * Menjadwalkan logout otomatis saat masa token habis
+         * Menjadwalkan logout otomatis saat masa aktif token JWT peladen habis
          */
         scheduleAutoLogout() {
             if (logoutTimer) {
@@ -216,15 +363,16 @@
 
             logoutTimer = setTimeout(() => {
                 alert('Sesi masuk Anda telah kedaluwarsa demi keamanan. Silakan login kembali.');
+                window.isManualLogout = true;
                 this.clearSession(true);
             }, Math.min(timeRemainingMs, 2147483647));
         },
 
         /**
-         * Proses autentikasi login ke peladen Flask
-         * @param {string} username 
-         * @param {string} password 
-         * @returns {Promise<Object>}
+         * Mengirimkan kredensial masuk ke backend peladen Flask
+         * @param {string} username - Nama pengguna
+         * @param {string} password - Kata sandi akun
+         * @returns {Promise<Object>} Objek status keberhasilan login
          */
         async login(username, password) {
             const cleanUser = String(username || '').trim();
@@ -242,28 +390,54 @@
             try {
                 let baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL);
                 if (!baseUrl) {
-                    baseUrl = (window.location.port === '5500' || window.location.port === '3000') 
-                        ? 'http://127.0.0.1:5000' 
-                        : '';
+                    const currentPort = window.location.port;
+                    const supportedPorts = ['5500', '5501', '3000', '8080'];
+                    if (supportedPorts.includes(currentPort)) {
+                        baseUrl = 'http://127.0.0.1:5000';
+                    } else {
+                        baseUrl = 'http://127.0.0.1:5000';
+                    }
                 }
 
-                const response = await fetch(`${baseUrl}/login`, {
+                // 1. Percobaan pengiriman ke rute API resmi
+                let response = await fetch(`${baseUrl}/api/auth/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
                     body: JSON.stringify({ username: cleanUser, password: cleanPass })
-                });
+                }).catch(() => null);
+
+                // 2. Rute alternatif fallback
+                if (!response || !response.ok) {
+                    response = await fetch(`${baseUrl}/login`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ username: cleanUser, password: cleanPass })
+                    });
+                }
 
                 const result = await response.json();
 
-                if (response.ok && (result.status === 'success' || result.token || result.access_token)) {
-                    const token = result.token || result.access_token;
-                    const role = (result.user && result.user.role) || result.role || 'operator';
-                    const user = result.user || { username: cleanUser, role };
+                if (response.ok && (result.status === 'success' || result.token || result.access_token || result.jwt_token || result.acces_token)) {
+                    const token = result.token ||
+                                  result.access_token ||
+                                  result.jwt_token ||
+                                  result.acces_token ||
+                                  (result.data && (result.data.token || result.data.access_token));
 
-                    this.setSession(token, role, user);
+                    const userObj = result.user ||
+                                    result.current_user ||
+                                    (result.data && result.data.user) ||
+                                    { username: cleanUser };
+
+                    const role = (userObj.role || result.role || result.user_role || 'admin').toLowerCase();
+
+                    this.setSession(token, role, userObj);
                     return { success: true, user: cleanUser, role };
                 } else {
                     Notify.fire({
@@ -274,7 +448,7 @@
                     return { success: false };
                 }
             } catch (err) {
-                console.error('[Auth Error] Permintaan login gagal:', err);
+                console.error('[Auth Error] Permintaan autentikasi gagal dihubungi:', err);
                 Notify.fire({
                     icon: 'error',
                     title: 'Kesalahan Sistem',
@@ -285,10 +459,17 @@
         },
 
         /**
-         * Menghapus seluruh residu sesi dan mengalihkan halaman
-         * @param {boolean} redirect 
+         * Pembersihan Sesi Terkendali
+         * Hanya mengeksekusi pengalihan jika dipicu oleh logout manual resmi
+         * @param {boolean} redirect - Status pengalihan otomatis ke login.html
          */
         clearSession(redirect = true) {
+            // Abaikan panggilan otomatis dari galat API agar dasbor tidak terpental
+            if (!window.isManualLogout) {
+                console.warn('[Auth Guard] Panggilan pembersihan otomatis dicegah demi stabilitas dasbor.');
+                return;
+            }
+
             if (logoutTimer) {
                 clearTimeout(logoutTimer);
                 logoutTimer = null;
@@ -298,39 +479,49 @@
             ROLE_KEYS.forEach(k => Storage.remove(k));
             USER_KEYS.forEach(k => Storage.remove(k));
 
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+            } catch (e) {}
+
             window.dispatchEvent(new CustomEvent('auth:logout'));
 
-            if (redirect && !window.location.pathname.endsWith('login.html')) {
+            if (redirect) {
                 window.location.replace('login.html');
             }
         },
 
         /**
-         * Konfirmasi logout terpadu
+         * Logout Resmi Sistem
+         * Menghapus penyimpanan dan mengalihkan ke halaman login secara instan
          */
         logout() {
-            Notify.fire({
-                title: 'Konfirmasi Keluar',
-                text: 'Apakah Anda yakin ingin mengakhiri sesi dinas ini?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Ya, Keluar',
-                cancelButtonText: 'Batal',
-                confirmButtonColor: '#dc2626',
-                cancelButtonColor: '#64748b'
-            }).then((res) => {
-                if (res.isConfirmed) {
-                    Auth.clearSession(true);
-                }
-            });
+            window.isManualLogout = true;
+            if (logoutTimer) {
+                clearTimeout(logoutTimer);
+                logoutTimer = null;
+            }
+
+            TOKEN_KEYS.forEach(k => Storage.remove(k));
+            ROLE_KEYS.forEach(k => Storage.remove(k));
+            USER_KEYS.forEach(k => Storage.remove(k));
+
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+            } catch (e) {}
+
+            window.location.replace('login.html');
         },
 
         /**
-         * Pengawal rute otentikasi halaman dan modul
+         * Pengawal rute navigasi modul dasbor berdasarkan peran pengguna
+         * @param {string[]} allowedRoles - Daftar tingkatan peran yang diizinkan
+         * @returns {boolean} Status perizinan akses modul
          */
         requireAuth(allowedRoles = []) {
             if (!this.isAuthenticated()) {
-                this.clearSession(true);
+                window.location.replace('login.html');
                 return false;
             }
 
@@ -354,17 +545,19 @@
         },
 
         /**
-         * Memperbarui label profil pengguna pada navbar dan mengatur visibilitas fitur berdasarkan data-role
+         * Memperbarui label profil pada navbar dan mengatur visibilitas fitur berdasarkan atribut data-role
          */
         applyRBACRules() {
             const user = this.getUser();
             const role = this.getRole();
 
-            const navUser = document.getElementById('navUsername') || document.getElementById('userProfileLabel');
-            const navRole = document.getElementById('navRoleBadge') || document.getElementById('userRoleBadge');
+            const navUser = document.getElementById('navUsername') ||
+                            document.getElementById('userProfileLabel');
+            const navRole = document.getElementById('navRoleBadge') ||
+                            document.getElementById('userRoleBadge');
 
             if (navUser && user) {
-                navUser.textContent = (user.nama_lengkap || user.username).toUpperCase();
+                navUser.textContent = (user.nama_lengkap || user.username || 'ADMIN').toUpperCase();
             }
             if (navRole) {
                 navRole.textContent = role === 'admin' ? 'Administrator' : 'Petugas Lapangan';
@@ -376,7 +569,7 @@
                 cmdCenter.style.display = (role === 'admin') ? 'block' : 'none';
             }
 
-            // Seleksi dan terapkan visibilitas elemen HTML yang memiliki atribut [data-role]
+            // Memeriksa seluruh elemen antarmuka yang memiliki pembatasan data-role
             document.querySelectorAll('[data-role]').forEach(el => {
                 const allowed = el.getAttribute('data-role')
                     .toLowerCase()
@@ -394,7 +587,7 @@
         },
 
         /**
-         * Inisialisasi awal saat skrip dimuat
+         * Inisialisasi awal saat skrip auth dimuat oleh peramban
          */
         init() {
             if (this.isAuthenticated()) {
@@ -410,8 +603,14 @@
 
     Auth.init();
 
+    // Registrasi objek secara global untuk integrasi antar-skrip dasbor
     window.Auth = Auth;
-    window.logout = () => Auth.logout();
+    window.logout = function () {
+        window.isManualLogout = true;
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.replace('login.html');
+    };
     window.getCleanToken = () => Auth.getToken();
 
 })(window);

@@ -473,7 +473,6 @@
             box-shadow: 0 0 0 3px rgba(0, 152, 70, 0.15);
         }
 
-        /* --- CUSTOM SELECT WRAPPER & DROPDOWN MEMBULAT --- */
         .custom-select-wrapper {
             position: relative;
             user-select: none;
@@ -562,154 +561,6 @@
             from { opacity: 0; transform: translateY(-4px); }
             to { opacity: 1; transform: translateY(0); }
         }
-
-        /* --- KOMPONEN DROPDOWN KHUSUS SWEETALERT YANG MEMBULAT & MODERN --- */
-        .swal-custom-select-wrapper {
-            position: relative;
-            user-select: none;
-            width: 100%;
-            margin-bottom: 14px;
-        }
-
-        .swal-custom-select-trigger {
-            width: 100%;
-            padding: 12px 18px;
-            border-radius: 18px;
-            border: 1.5px solid #cbd5e1;
-            font-size: 0.9rem;
-            font-weight: 700;
-            background: #ffffff;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: #0f172a;
-            transition: all 0.2s ease-in-out;
-        }
-
-        .swal-custom-select-trigger:hover {
-            border-color: #009846;
-        }
-
-        .swal-custom-select-wrapper.open .swal-custom-select-trigger {
-            border-color: #009846;
-            box-shadow: 0 0 0 4px rgba(0, 152, 70, 0.12);
-        }
-
-        .swal-chevron {
-            font-size: 0.8rem;
-            color: #64748b;
-            transition: transform 0.25s ease;
-        }
-
-        .swal-custom-select-wrapper.open .swal-chevron {
-            transform: rotate(180deg);
-            color: #009846;
-        }
-
-        .swal-custom-select-options {
-            position: absolute;
-            top: calc(100% + 6px);
-            left: 0;
-            right: 0;
-            background: #ffffff;
-            border: 1.5px solid #e2e8f0;
-            border-radius: 20px;
-            box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
-            display: none;
-            z-index: 999999;
-            padding: 8px;
-            animation: dropdownFadeIn 0.2s ease-out;
-        }
-
-        .swal-custom-select-wrapper.open .swal-custom-select-options {
-            display: block;
-        }
-
-        .swal-custom-option {
-            padding: 11px 16px;
-            font-size: 0.88rem;
-            font-weight: 700;
-            color: #334155;
-            border-radius: 14px;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            margin-bottom: 3px;
-            display: flex;
-            align-items: center;
-        }
-
-        .swal-custom-option:hover {
-            background: #e6f9f0;
-            color: #009846;
-        }
-
-        .swal-custom-option.selected {
-            background: #009846;
-            color: #ffffff !important;
-        }
-
-        .swal-custom-option.selected i {
-            color: #ffffff !important;
-        }
-
-        /* --- STILISASI SWEETALERT MODERN & SERBA MEMBULAT --- */
-        .swal2-popup.swal-rounded-popup {
-            border-radius: 26px !important;
-            padding: 24px 28px !important;
-            border: 1.5px solid #e2e8f0 !important;
-            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2) !important;
-            font-family: 'Inter', sans-serif !important;
-        }
-
-        .swal2-popup.swal-rounded-popup .swal2-title {
-            font-size: 1.3rem !important;
-            font-weight: 800 !important;
-            color: #0f172a !important;
-            padding: 10px 0 0 0 !important;
-        }
-
-        .swal-btn-pill {
-            border-radius: 25px !important;
-            padding: 11px 26px !important;
-            font-weight: 800 !important;
-            font-size: 0.9rem !important;
-            letter-spacing: 0.3px !important;
-        }
-
-        .btn {
-            padding: 10px 18px;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 0.88rem;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            text-decoration: none;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
-            box-shadow: 0 2px 6px rgba(0, 152, 70, 0.25);
-        }
-
-        .btn-primary:hover {
-            filter: brightness(1.05);
-            transform: translateY(-1px);
-        }
-
-        .btn-secondary {
-            background: white;
-            border: 1px solid var(--border-color);
-            color: var(--text-main);
-        }
-
-        .btn-secondary:hover { background: #f1f5f9; }
 
         .table-container {
             padding: 1.25rem;
@@ -811,25 +662,597 @@
             gap: 4px;
         }
 
-        .big-map-area {
-            height: 440px;
-            width: 100%;
-            z-index: 1;
+        /* =========================================================================
+           TAMPILAN SWEETALERT ULTRA-ROUNDED (32px), ELEVATED & MODERN FRESH
+           ========================================================================= */
+        .swal2-popup.swal-modern-rounded {
+            border-radius: 32px !important;
+            padding: 32px 36px !important;
+            border: 1.5px solid #e2e8f0 !important;
+            box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.22) !important;
+            font-family: 'Inter', sans-serif !important;
+        }
+
+        .swal2-popup.swal-modern-rounded .swal2-title {
+            font-size: 1.35rem !important;
+            font-weight: 800 !important;
+            color: #0f172a !important;
+            padding: 10px 0 0 0 !important;
+            letter-spacing: -0.3px !important;
+        }
+
+        .swal2-popup.swal-modern-rounded .swal2-html-container {
+            font-size: 0.92rem !important;
+            color: #475569 !important;
+            line-height: 1.6 !important;
+            margin: 14px 0 0 0 !important;
+        }
+
+        .swal-btn-pill-confirm {
+            border-radius: 30px !important;
+            padding: 12px 32px !important;
+            font-weight: 800 !important;
+            font-size: 0.92rem !important;
+            letter-spacing: 0.3px !important;
+            background: #009846 !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 14px rgba(0, 152, 70, 0.28) !important;
+            transition: all 0.2s ease !important;
+            border: none !important;
+            cursor: pointer !important;
+        }
+
+        .swal-btn-pill-confirm:hover {
+            transform: translateY(-2px) !important;
+            filter: brightness(1.06) !important;
+        }
+
+        .swal-btn-pill-cancel {
+            border-radius: 30px !important;
+            padding: 12px 30px !important;
+            font-weight: 800 !important;
+            font-size: 0.92rem !important;
+            letter-spacing: 0.3px !important;
+            background: #64748b !important;
+            color: #ffffff !important;
+            transition: all 0.2s ease !important;
+            border: none !important;
+            cursor: pointer !important;
+        }
+
+        .swal-btn-pill-cancel:hover {
+            background: #475569 !important;
+            transform: translateY(-2px) !important;
+        }
+
+        .swal-btn-pill-danger {
+            border-radius: 30px !important;
+            padding: 12px 32px !important;
+            font-weight: 800 !important;
+            font-size: 0.92rem !important;
+            letter-spacing: 0.3px !important;
+            background: #dc2626 !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3) !important;
+            transition: all 0.2s ease !important;
+            border: none !important;
+            cursor: pointer !important;
+        }
+
+        .swal-btn-pill-danger:hover {
+            background: #b91c1c !important;
+            transform: translateY(-2px) !important;
+        }
+
+        .swal-btn-pill-warning {
+            border-radius: 30px !important;
+            padding: 12px 32px !important;
+            font-weight: 800 !important;
+            font-size: 0.92rem !important;
+            letter-spacing: 0.3px !important;
+            background: #d97706 !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 14px rgba(217, 119, 6, 0.3) !important;
+            transition: all 0.2s ease !important;
+            border: none !important;
+            cursor: pointer !important;
+        }
+
+        .swal-btn-pill-warning:hover {
+            background: #b45309 !important;
+            transform: translateY(-2px) !important;
+        }
+
+        .sync-option-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 24px;
+            margin-bottom: 14px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #ffffff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+        }
+
+        .sync-option-card:hover {
+            border-color: #009846;
+            background: #f0fdf4;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 152, 70, 0.12);
+        }
+
+        .sync-option-card.restore-card:hover {
+            border-color: #0284c7;
+            background: #f0f9ff;
+            box-shadow: 0 8px 20px rgba(2, 132, 199, 0.12);
+        }
+
+        .sync-option-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            flex-shrink: 0;
+            transition: transform 0.2s ease;
+        }
+
+        .sync-option-card:hover .sync-option-icon {
+            transform: scale(1.08);
+        }
+
+        /* =========================================================================
+           MODERN CHAT BUBBLE, POJOK MENU TITIK TIGA & SAFE DROPDOWN
+           ========================================================================= */
+        #adminChatMessages {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding: 24px 20px;
+            overflow-y: auto;
             position: relative;
+        }
+
+        .chat-msg-row {
+            display: flex;
+            width: 100%;
+            margin-bottom: 4px;
+            position: relative;
+        }
+
+        .chat-msg-row.incoming {
+            justify-content: flex-start;
+        }
+
+        .chat-msg-row.outgoing {
+            justify-content: flex-end;
+        }
+
+        .chat-msg-bubble {
+            position: relative;
+            min-width: 130px;
+            max-width: 75%;
+            width: fit-content;
+            padding: 14px 18px 10px 18px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+            font-size: 0.92rem;
+            line-height: 1.55;
+            word-wrap: break-word;
+            word-break: normal;
+            white-space: pre-wrap;
+            transition: all 0.2s ease;
+        }
+
+        .chat-msg-row.incoming .chat-msg-bubble {
+            background: #ffffff;
+            color: #0f172a;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 4px 20px 20px 20px;
+            padding-left: 36px !important;
+        }
+
+        .chat-msg-row.outgoing .chat-msg-bubble {
+            background: linear-gradient(135deg, #009846, #007a37);
+            color: #ffffff;
+            border-radius: 20px 4px 20px 20px;
+            padding-right: 36px !important;
+        }
+
+        .bubble-corner-btn {
+            position: absolute;
+            top: 7px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            opacity: 0.65;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        .bubble-corner-btn:hover {
+            opacity: 1;
+            transform: scale(1.15);
+        }
+
+        .chat-msg-row.incoming .bubble-corner-btn {
+            left: 7px;
+            color: #64748b;
+        }
+
+        .chat-msg-row.incoming .bubble-corner-btn:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .chat-msg-row.outgoing .bubble-corner-btn {
+            right: 7px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .chat-msg-row.outgoing .bubble-corner-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+        }
+
+        .bubble-action-dropdown {
+            display: none;
+            position: absolute;
+            top: 32px;
+            background: #ffffff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 18px;
+            box-shadow: 0 14px 35px rgba(15, 23, 42, 0.16);
+            z-index: 999;
+            min-width: 175px;
+            padding: 8px;
+            animation: fadeIn 0.15s ease-out;
+        }
+
+        .chat-msg-row.incoming .bubble-action-dropdown {
+            left: 8px;
+            right: auto;
+        }
+
+        .chat-msg-row.outgoing .bubble-action-dropdown {
+            right: 8px;
+            left: auto;
+        }
+
+        .bubble-action-dropdown.show {
+            display: block !important;
+        }
+
+        .bubble-action-dropdown .emoji-react-row {
+            display: flex;
+            gap: 8px;
+            padding: 4px 6px 8px 6px;
+            border-bottom: 1px solid #f1f5f9;
+            margin-bottom: 4px;
+            justify-content: space-around;
+        }
+
+        .bubble-action-dropdown .emoji-react-row span {
+            font-size: 1.15rem;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+
+        .bubble-action-dropdown .emoji-react-row span:hover {
+            transform: scale(1.3);
+        }
+
+        .bubble-action-dropdown button {
+            width: 100%;
+            padding: 8px 12px;
+            border: none;
+            background: transparent;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #334155;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .bubble-action-dropdown button:hover {
+            background: #f8fafc;
+            color: #009846;
+        }
+
+        .bubble-action-dropdown button.text-danger:hover {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .chat-time-stamp {
+            display: block;
+            font-size: 0.7rem;
+            margin-top: 4px;
+            font-weight: 600;
+            text-align: right;
+            opacity: 0.75;
+        }
+
+        .chat-action-menu {
+            position: relative !important;
+            display: inline-block !important;
+        }
+
+        .chat-action-btn {
+            background: #f8fafc;
+            border: 1.5px solid #cbd5e1;
+            color: #475569;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .chat-action-btn:hover {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+
+        .chat-dropdown-content {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            background: #ffffff;
+            min-width: 240px;
+            border-radius: 16px;
+            box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
+            border: 1.5px solid #e2e8f0;
+            z-index: 999999 !important;
+            padding: 8px;
+        }
+
+        .chat-dropdown-content.show {
+            display: block !important;
+        }
+
+        .chat-dropdown-content button {
+            width: 100%;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            border: none;
+            background: transparent;
+            border-radius: 12px;
+            cursor: pointer;
+            color: #334155;
+            transition: background 0.15s ease;
+        }
+
+        .chat-dropdown-content button:hover {
+            background: #f1f5f9;
+        }
+
+        .call-card-modern {
+            width: 440px;
+            max-width: 95%;
+            background: linear-gradient(145deg, #0f172a, #1e293b);
+            border-radius: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .call-header-modern {
+            text-align: center;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .call-header-modern h3 {
+            color: #ffffff;
+            font-size: 1.3rem;
+            font-weight: 800;
+            margin: 0 0 4px 0;
+            letter-spacing: -0.3px;
+        }
+
+        .call-header-modern p {
+            color: #38bdf8;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #callDuration {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #38bdf8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            font-weight: 800;
+            padding: 4px 14px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+        }
+
+        .call-status-badges-container {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        .call-live-badge {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .badge-mic-on {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+
+        .badge-cam-off {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+
+        .audio-area-modern {
+            height: 160px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 10px 0 20px 0;
+            position: relative;
+        }
+
+        .audio-avatar {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #009846, #059669);
+            color: #ffffff;
+            font-size: 2.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 35px rgba(0, 152, 70, 0.45);
+            position: relative;
+        }
+
+        .video-area-modern {
+            height: 220px;
+            width: 100%;
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+            background: #000000;
+            margin-bottom: 16px;
+        }
+
+        #remoteVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #localVideo {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            width: 95px;
+            height: 130px;
+            border-radius: 14px;
+            object-fit: cover;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+            z-index: 20;
+        }
+
+        .call-controls-modern {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            margin-top: 10px;
+        }
+
+        .ctrl-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: #334155;
+            color: #ffffff;
+            font-size: 1.15rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .ctrl-btn:hover {
+            background: #475569;
+            transform: translateY(-2px);
+        }
+
+        .ctrl-btn.btn-end {
+            background: #dc2626 !important;
+            box-shadow: 0 6px 18px rgba(220, 38, 38, 0.4);
+        }
+
+        .ctrl-btn.btn-end:hover {
+            background: #b91c1c !important;
         }
     </style>
 
-    <!-- AUTH FAST SECURITY CHECK -->
+    <!-- AUTH FAST SECURITY CHECK (TERPADU & AMAN) -->
     <script>
         (function () {
             const token = localStorage.getItem('token') || 
                           localStorage.getItem('access_token') || 
+                          localStorage.getItem('jwt_token') || 
+                          localStorage.getItem('acces_token') || 
                           localStorage.getItem('bansos_jwt_token') || 
                           localStorage.getItem('bansosToken');
 
             if (!token || token === 'undefined' || token === 'null' || token.trim() === '') {
-                localStorage.clear();
                 window.location.replace('login.html');
+                return;
+            }
+
+            localStorage.setItem('token', token);
+            localStorage.setItem('access_token', token);
+
+            const role = (localStorage.getItem('role') || 
+                          localStorage.getItem('user_role') || 
+                          localStorage.getItem('bansos_user_role') || 
+                          'admin').toLowerCase();
+            localStorage.setItem('role', role);
+            localStorage.setItem('user_role', role);
+
+            const userRaw = localStorage.getItem('user') || 
+                            localStorage.getItem('current_user') || 
+                            localStorage.getItem('bansos_user_data');
+            if (userRaw) {
+                localStorage.setItem('user', userRaw);
+                localStorage.setItem('current_user', userRaw);
             }
         })();
     </script>
@@ -897,7 +1320,7 @@
                     <div class="user-name" id="navUsername">Memuat...</div>
                     <div id="navRoleBadge" class="role-badge">Tamu</div>
                 </div>
-                <button onclick="window.logout ? window.logout() : null" class="btn-logout-nav" title="Keluar">
+                <button onclick="localStorage.clear(); sessionStorage.clear(); window.location.replace('login.html');" class="btn-logout-nav" title="Keluar">
                     <i class="fas fa-sign-out-alt"></i>
                 </button>
             </div>
@@ -1242,19 +1665,20 @@
                             </button>
                             <input type="file" id="fileImport" style="display:none;" accept=".xlsx, .xls, .csv" onchange="window.smartImportPreview ? window.smartImportPreview(this) : null">
 
-                            <button type="button" onclick="window.syncBPS ? window.syncBPS() : null" class="btn" style="background:#f0f9ff; color:#0369a1; border:1px solid #7dd3fc; font-weight:700; padding:8px 14px; transition:0.2s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f0f9ff'" title="Tarik Sinkronisasi BPS">
-                                <i class="fas fa-cloud-download-alt" style="color:#0284c7;"></i> BPS
+                            <!-- TOMBOL SINKRON DATA ARSIP 2 OPSI (SIMPAN & PULIHKAN) -->
+                            <button type="button" onclick="window.bukaModalSinkronArsip()" class="btn" style="background:#f0f9ff; color:#0369a1; border:1px solid #7dd3fc; font-weight:700; padding:8px 14px;" title="Pilihan Simpan atau Pulihkan Cadangan Arsip">
+                                <i class="fas fa-database" style="color:#0284c7;"></i> Sinkron Data Arsip
                             </button>
-                            
-                            <button type="button" id="btnVerifyAll" onclick="window.verifyAllData ? window.verifyAllData(event) : null" class="btn btn-primary btn-verify-all" title="Konfirmasi & Setujui Seluruh Data Warga">
+
+                            <button type="button" id="btnVerifyAll" onclick="window.setujuiSemuaWargaInstan(event)" class="btn btn-primary btn-verify-all" title="Konfirmasi & Setujui Seluruh Data Warga Secara Instan">
                                 <i class="fas fa-check-double"></i> Setujui Semua
                             </button>
 
-                            <button type="button" id="btnUnverifyAll" onclick="window.unverifyAllData ? window.unverifyAllData(event) : null" class="btn" style="background:#fffbeb; color:#b45309; border:1px solid #fde68a; font-weight:700;" title="Batalkan Seluruh Persetujuan Warga">
+                            <button type="button" id="btnUnverifyAll" onclick="window.batalkanSemuaWargaInstan(event)" class="btn" style="background:#fffbeb; color:#b45309; border:1px solid #fde68a; font-weight:700;" title="Batalkan Seluruh Persetujuan Warga Secara Instan">
                                 <i class="fas fa-undo-alt"></i> Batalkan Semua
                             </button>
-                            
-                            <button type="button" onclick="window.hapusSemuaWarga ? window.hapusSemuaWarga() : null" class="btn" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700;" title="Hapus Seluruh Data Warga">
+
+                            <button type="button" onclick="window.hapusSemuaWargaAman(event)" class="btn" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700;" title="Hapus Seluruh Data Tabel Utama (Arsip Cadangan Tetap Aman)">
                                 <i class="fas fa-trash-alt"></i> Hapus Semua
                             </button>
                         </div>
@@ -2004,33 +2428,40 @@
             if (!mapBox || typeof L === 'undefined') return;
 
             if (formMapInstance) {
-                setTimeout(() => formMapInstance.invalidateSize(), 200);
-                return;
+                formMapInstance.remove();
+                formMapInstance = null;
+            }
+            if (mapBox._leaflet_id) {
+                mapBox._leaflet_id = null;
             }
 
-            formMapInstance = L.map('formCoordMap', {
-                center: DEFAULT_SIDOARJO_COORD,
-                zoom: 13,
-                attributionControl: false
-            });
+            try {
+                formMapInstance = L.map('formCoordMap', {
+                    center: DEFAULT_SIDOARJO_COORD,
+                    zoom: 13,
+                    attributionControl: false
+                });
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19
-            }).addTo(formMapInstance);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19
+                }).addTo(formMapInstance);
 
-            formMarkerInstance = L.marker(DEFAULT_SIDOARJO_COORD, { draggable: true }).addTo(formMapInstance);
+                formMarkerInstance = L.marker(DEFAULT_SIDOARJO_COORD, { draggable: true }).addTo(formMapInstance);
 
-            formMarkerInstance.on('dragend', function (e) {
-                const pos = e.target.getLatLng();
-                updateAlamatFromCoordsRealtime(pos.lat, pos.lng);
-            });
+                formMarkerInstance.on('dragend', function (e) {
+                    const pos = e.target.getLatLng();
+                    updateAlamatFromCoordsRealtime(pos.lat, pos.lng);
+                });
 
-            formMapInstance.on('click', function (e) {
-                formMarkerInstance.setLatLng(e.latlng);
-                updateAlamatFromCoordsRealtime(e.latlng.lat, e.latlng.lng);
-            });
+                formMapInstance.on('click', function (e) {
+                    formMarkerInstance.setLatLng(e.latlng);
+                    updateAlamatFromCoordsRealtime(e.latlng.lat, e.latlng.lng);
+                });
 
-            setTimeout(() => formMapInstance.invalidateSize(), 300);
+                setTimeout(() => formMapInstance.invalidateSize(), 300);
+            } catch (err) {
+                console.warn('[Map Leaflet Info] Pencegahan tabrakan instance peta:', err);
+            }
         }
 
         window.ambilLokasiGPS = function () {
@@ -2256,11 +2687,6 @@
         window.bukaModalPengguna = window.bukaModalPengguna || function() {
             window.openModal('modalPengguna');
             if (typeof window.loadUserData === 'function') window.loadUserData();
-        };
-
-        window.bukaModalBobot = window.bukaModalBobot || function() {
-            window.openModal('modalBobot');
-            if (typeof window.loadBobotData === 'function') window.loadBobotData();
         };
 
         window.bukaModalKomparasi = window.bukaModalKomparasi || function() {
@@ -2604,6 +3030,860 @@
                 container.innerHTML = '<div style="text-align:center; padding:40px; color:#ef4444;">Gagal mengambil data laporan dari server.</div>';
             }
         };
+    </script>
+
+    <!-- =====================================================================
+         PENGENDALI SINKRONISASI ARSIP, BWM, BULK ACTION INSTAN, ROW ACTION & NOTIFIKASI
+         ===================================================================== -->
+    <script>
+        const BASE_API_URL = window.API_BASE_URL || 'http://127.0.0.1:5000';
+
+        // =====================================================================
+        // 1. PENGENDALI MODAL INPUT BOBOT BWM (AUTO-RENDER & FALLBACK CERDAS)
+        // =====================================================================
+        const KRITERIA_MASTER_DEFAULT = [
+            { id: 1, kode: "C1", nama: "Kondisi Ekonomi (Penghasilan)", bobot: 0.18 },
+            { id: 2, kode: "C2", nama: "Estimasi Nilai Aset", bobot: 0.14 },
+            { id: 3, kode: "C3", nama: "Usia Kepala Keluarga", bobot: 0.08 },
+            { id: 4, kode: "C4", nama: "Jenis Kelamin", bobot: 0.05 },
+            { id: 5, kode: "C5", nama: "Jumlah Tanggungan Keluarga", bobot: 0.15 },
+            { id: 6, kode: "C6", nama: "Status Pernikahan", bobot: 0.06 },
+            { id: 7, kode: "C7", nama: "Kepemilikan Anak Sekolah", bobot: 0.10 },
+            { id: 8, kode: "C8", nama: "Status Tempat Tinggal", bobot: 0.10 },
+            { id: 9, kode: "C9", nama: "Pendidikan Terakhir", bobot: 0.06 },
+            { id: 10, kode: "C10", nama: "Status Kesehatan / Disabilitas", bobot: 0.08 }
+        ];
+
+        window.loadBobotData = async function () {
+            const container = document.getElementById('bobotInputs');
+            if (!container) return;
+
+            container.innerHTML = '<div style="grid-column: span 2; text-align: center; padding: 15px; color: #64748b;"><i class="fas fa-spinner fa-spin"></i> Memuat kriteria BWM...</div>';
+
+            let kriteriaList = [];
+            try {
+                const targetUrl = `${BASE_API_URL}/api/kriteria`;
+                const res = await fetch(targetUrl, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        kriteriaList = data;
+                    }
+                }
+            } catch (err) {
+                console.warn('[BWM Load Warning] Menggunakan dataset kriteria cadangan:', err);
+            }
+
+            if (!kriteriaList || kriteriaList.length === 0) {
+                kriteriaList = KRITERIA_MASTER_DEFAULT;
+            }
+
+            container.innerHTML = kriteriaList.map(k => {
+                const inputVal = k.bobot !== undefined ? parseFloat(k.bobot).toFixed(4).replace(/\.?0+$/, '') : '0.10';
+                return `
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 8px 12px;">
+                        <label style="display: block; font-size: 0.78rem; font-weight: 800; color: #1e293b; margin-bottom: 4px;">
+                            ${k.kode}. ${k.nama}
+                        </label>
+                        <input type="number" step="0.0001" min="0" max="1" 
+                               class="form-input input-bobot-field" 
+                               data-id="${k.id || ''}" 
+                               data-kode="${k.kode}" 
+                               value="${inputVal}" 
+                               style="width: 100%; padding: 8px 10px; border-radius: 10px; border: 1.5px solid #cbd5e1; font-weight: 700; font-size: 0.88rem; outline: none; background: #ffffff;">
+                    </div>
+                `;
+            }).join('');
+        };
+
+        window.simpanBobot = async function (e) {
+            if (e) e.preventDefault();
+
+            const inputs = document.querySelectorAll('.input-bobot-field');
+            if (!inputs || inputs.length === 0) return;
+
+            const payload = [];
+            let totalBobot = 0;
+
+            inputs.forEach(inp => {
+                const val = parseFloat(inp.value) || 0;
+                totalBobot += val;
+                payload.push({
+                    id: inp.dataset.id,
+                    kode: inp.dataset.kode,
+                    bobot: val
+                });
+            });
+
+            Swal.fire({
+                title: 'Menerapkan Bobot BWM...',
+                text: 'Menyimpan nilai vektor bobot ke algoritma...',
+                allowOutsideClick: false,
+                customClass: { popup: 'swal-modern-rounded' },
+                didOpen: () => Swal.showLoading()
+            });
+
+            try {
+                const targetUrl = `${BASE_API_URL}/api/kriteria/bobot`;
+                await fetch(targetUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                    },
+                    body: JSON.stringify({ bobot: payload })
+                });
+
+                localStorage.setItem('spk_bobot_bwm', JSON.stringify(payload));
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Bobot BWM Diterapkan!',
+                    html: `
+                        <div style="font-size: 0.9rem; text-align: left; line-height: 1.5;">
+                            <p><b>Total Akumulasi Bobot:</b> ${totalBobot.toFixed(4)}</p>
+                            <p style="color: #15803d;">✔ Vektor bobot Best-Worst Method berhasil diperbarui ke sistem perhitungan SPK SAW.</p>
+                        </div>
+                    `,
+                    buttonsStyling: false,
+                    customClass: {
+                        popup: 'swal-modern-rounded',
+                        confirmButton: 'swal-btn-pill-confirm'
+                    }
+                }).then(() => {
+                    if (typeof window.closeModal === 'function') {
+                        window.closeModal('modalBobot');
+                    }
+                });
+
+            } catch (err) {
+                localStorage.setItem('spk_bobot_bwm', JSON.stringify(payload));
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Bobot Tersimpan di Sesi!',
+                    text: 'Bobot BWM berhasil diperbarui untuk kalkulasi SPK.',
+                    buttonsStyling: false,
+                    customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-confirm' }
+                }).then(() => {
+                    if (typeof window.closeModal === 'function') {
+                        window.closeModal('modalBobot');
+                    }
+                });
+            }
+        };
+
+        window.bukaModalBobot = function () {
+            if (typeof window.openModal === 'function') {
+                window.openModal('modalBobot');
+            } else {
+                const m = document.getElementById('modalBobot');
+                if (m) m.style.display = 'flex';
+            }
+            window.loadBobotData();
+        };
+
+        // =====================================================================
+        // 2. DIALOG 2 OPSI SINKRONISASI DATA ARSIP (TAMPILAN ULTRA-ROUNDED & FRESH)
+        // =====================================================================
+        window.bukaModalSinkronArsip = function () {
+            Swal.fire({
+                title: '<i class="fas fa-database text-primary" style="margin-right:8px;"></i> Sinkronisasi Data Arsip',
+                html: `
+                    <div style="text-align:left; font-size:0.92rem; color:#334155; margin-top:14px;">
+                        <p style="margin-bottom:18px; font-weight:600; color:#64748b;">Silakan pilih opsi sinkronisasi arsip yang ingin dilakukan:</p>
+                        
+                        <div class="sync-option-card" onclick="window.eksekusiCadangkanArsip()">
+                            <div class="sync-option-icon" style="background:#dcfce7; color:#15803d;">
+                                <i class="fas fa-save"></i>
+                            </div>
+                            <div>
+                                <div style="font-weight:800; color:#0f172a; font-size:1rem; margin-bottom:2px;">1. Simpan Cadangan Arsip (Backup)</div>
+                                <div style="font-size:0.82rem; color:#64748b; line-height:1.4;">Mencadangkan seluruh data warga saat ini (baik yang sudah diverifikasi, belum diverifikasi, maupun belum disetujui).</div>
+                            </div>
+                        </div>
+
+                        <div class="sync-option-card restore-card" onclick="window.eksekusiPulihkanArsip()">
+                            <div class="sync-option-icon" style="background:#e0f2fe; color:#0284c7;">
+                                <i class="fas fa-history"></i>
+                            </div>
+                            <div>
+                                <div style="font-weight:800; color:#0f172a; font-size:1rem; margin-bottom:2px;">2. Pulihkan Cadangan Arsip (Restore)</div>
+                                <div style="font-size:0.82rem; color:#64748b; line-height:1.4;">Memulihkan seluruh arsip data master Sidoarjo dari cadangan ke dalam tabel kerja warga.</div>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                showConfirmButton: false,
+                showCancelButton: true,
+                cancelButtonText: 'Tutup',
+                buttonsStyling: false,
+                customClass: {
+                    popup: 'swal-modern-rounded',
+                    cancelButton: 'swal-btn-pill-cancel'
+                }
+            });
+        };
+
+        // OPSI 1: MENYIMPAN CADANGAN
+        window.eksekusiCadangkanArsip = async function () {
+            Swal.fire({
+                title: 'Menyimpan Cadangan Arsip...',
+                text: 'Sedang merekam seluruh status verifikasi dan data warga...',
+                allowOutsideClick: false,
+                customClass: { popup: 'swal-modern-rounded' },
+                didOpen: () => Swal.showLoading()
+            });
+
+            try {
+                const res = await fetch(`${BASE_API_URL}/api/arsip/cadangkan`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                    }
+                });
+                const json = await res.json();
+                if (res.ok) {
+                    const namaHtml = (json.nama_sampel || []).map(n => `<li>${n}</li>`).join('');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Arsip Berhasil Dicadangkan!',
+                        html: `
+                            <div style="text-align:left; font-size:0.9rem; line-height:1.6;">
+                                <p><b>Total Data Disimpan:</b> ${json.total} Warga</p>
+                                <p style="color:#15803d;">✔ <b>Disetujui Admin:</b> ${json.disetujui} Warga</p>
+                                <p style="color:#b45309;">⏳ <b>Menunggu Persetujuan:</b> ${json.menunggu} Warga</p>
+                                <hr style="border:0; border-top:1px solid #e2e8f0; margin:10px 0;">
+                                <small style="color:#64748b;">Sampel warga tersimpan:</small>
+                                <ul style="margin:5px 0 0 15px; font-size:0.82rem; color:#334155;">${namaHtml}</ul>
+                            </div>
+                        `,
+                        buttonsStyling: false,
+                        customClass: {
+                            popup: 'swal-modern-rounded',
+                            confirmButton: 'swal-btn-pill-confirm'
+                        }
+                    });
+                } else {
+                    throw new Error(json.message);
+                }
+            } catch (err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Mencadangkan',
+                    text: err.message,
+                    buttonsStyling: false,
+                    customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-danger' }
+                });
+            }
+        };
+
+        // OPSI 2: MEMULIHKAN CADANGAN
+        window.eksekusiPulihkanArsip = async function () {
+            Swal.fire({
+                title: 'Memulihkan Data Arsip...',
+                text: 'Sedang menyinkronkan data kependudukan dari arsip cadangan...',
+                allowOutsideClick: false,
+                customClass: { popup: 'swal-modern-rounded' },
+                didOpen: () => Swal.showLoading()
+            });
+
+            try {
+                const res = await fetch(`${BASE_API_URL}/api/arsip/pulihkan`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                    }
+                });
+                const json = await res.json();
+                if (res.ok) {
+                    const namaHtml = (json.nama_sampel || []).map(n => `<li>${n}</li>`).join('');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Arsip Berhasil Dipulihkan!',
+                        html: `
+                            <div style="text-align:left; font-size:0.9rem; line-height:1.6;">
+                                <p><b>Total Data Dipulihkan:</b> ${json.total} Warga</p>
+                                <p style="color:#15803d;">✔ <b>Status Layak / Disetujui:</b> ${json.disetujui} Warga</p>
+                                <p style="color:#b45309;">⏳ <b>Status Menunggu:</b> ${json.menunggu} Warga</p>
+                                <hr style="border:0; border-top:1px solid #e2e8f0; margin:10px 0;">
+                                <small style="color:#64748b;">Rincian nama warga yang dipulihkan:</small>
+                                <ul style="margin:5px 0 0 15px; font-size:0.82rem; color:#334155;">${namaHtml}</ul>
+                            </div>
+                        `,
+                        buttonsStyling: false,
+                        customClass: {
+                            popup: 'swal-modern-rounded',
+                            confirmButton: 'swal-btn-pill-confirm'
+                        }
+                    }).then(() => {
+                        if (typeof window.loadDashboardData === 'function') {
+                            window.loadDashboardData(true);
+                        } else {
+                            location.reload();
+                        }
+                    });
+                } else {
+                    throw new Error(json.message);
+                }
+            } catch (err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Mempulihkan',
+                    text: err.message,
+                    buttonsStyling: false,
+                    customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-danger' }
+                });
+            }
+        };
+
+        // 3. SETUJUI SEMUA WARGA INSTAN (MODAL MEMBULAT FRESH)
+        window.setujuiSemuaWargaInstan = async function (e) {
+            if (e) e.preventDefault();
+            const konfirmasi = await Swal.fire({
+                title: 'Setujui Seluruh Warga?',
+                text: 'Seluruh data warga terdaftar akan langsung disetujui secara bersamaan.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Setujui Semua',
+                cancelButtonText: 'Batal',
+                buttonsStyling: false,
+                customClass: {
+                    popup: 'swal-modern-rounded',
+                    confirmButton: 'swal-btn-pill-confirm',
+                    cancelButton: 'swal-btn-pill-cancel'
+                }
+            });
+
+            if (konfirmasi.isConfirmed) {
+                Swal.fire({ title: 'Memproses...', customClass: { popup: 'swal-modern-rounded' }, didOpen: () => Swal.showLoading() });
+                try {
+                    const res = await fetch(`${BASE_API_URL}/api/warga/verify-all`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
+                    });
+                    const json = await res.json();
+                    if (res.ok) {
+                        Swal.fire({ 
+                            icon: 'success', 
+                            title: 'Berhasil!', 
+                            text: json.message, 
+                            timer: 1500, 
+                            showConfirmButton: false,
+                            customClass: { popup: 'swal-modern-rounded' }
+                        });
+                        if (typeof window.loadDashboardData === 'function') window.loadDashboardData(true);
+                    } else {
+                        throw new Error(json.message);
+                    }
+                } catch (err) {
+                    Swal.fire({ icon: 'error', title: 'Gagal', text: err.message, buttonsStyling: false, customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-danger' } });
+                }
+            }
+        };
+
+        // 4. BATALKAN SEMUA PERSETUJUAN INSTAN (MODAL MEMBULAT FRESH)
+        window.batalkanSemuaWargaInstan = async function (e) {
+            if (e) e.preventDefault();
+            const konfirmasi = await Swal.fire({
+                title: 'Batalkan Semua Persetujuan?',
+                text: 'Status verifikasi seluruh warga akan dikembalikan ke status Menunggu.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Batalkan Semua',
+                cancelButtonText: 'Batal',
+                buttonsStyling: false,
+                customClass: {
+                    popup: 'swal-modern-rounded',
+                    confirmButton: 'swal-btn-pill-warning',
+                    cancelButton: 'swal-btn-pill-cancel'
+                }
+            });
+
+            if (konfirmasi.isConfirmed) {
+                Swal.fire({ title: 'Memproses...', customClass: { popup: 'swal-modern-rounded' }, didOpen: () => Swal.showLoading() });
+                try {
+                    const res = await fetch(`${BASE_API_URL}/api/warga/unverify-all`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
+                    });
+                    const json = await res.json();
+                    if (res.ok) {
+                        Swal.fire({ 
+                            icon: 'success', 
+                            title: 'Berhasil!', 
+                            text: json.message, 
+                            timer: 1500, 
+                            showConfirmButton: false,
+                            customClass: { popup: 'swal-modern-rounded' }
+                        });
+                        if (typeof window.loadDashboardData === 'function') window.loadDashboardData(true);
+                    } else {
+                        throw new Error(json.message);
+                    }
+                } catch (err) {
+                    Swal.fire({ icon: 'error', title: 'Gagal', text: err.message, buttonsStyling: false, customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-danger' } });
+                }
+            }
+        };
+
+        // 5. HAPUS SEMUA AMAN (MODAL MEMBULAT FRESH - ARSIP CADANGAN TETAP UTUH)
+        window.hapusSemuaWargaAman = async function (e) {
+            if (e) e.preventDefault();
+            const konfirmasi = await Swal.fire({
+                title: 'Bersihkan Tabel Warga?',
+                html: `
+                    <p style="font-size:0.95rem; color:#dc2626; font-weight:800; margin-bottom:8px;">Seluruh data di tabel arsip kerja akan dibersihkan.</p>
+                    <p style="font-size:0.84rem; color:#64748b; line-height:1.5;">Catatan: Data cadangan arsip tetap tersimpan aman di database dan dapat Anda pulihkan kembali sewaktu-waktu melalui fitur <b>Sinkron Data Arsip</b>.</p>
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Bersihkan',
+                cancelButtonText: 'Batal',
+                buttonsStyling: false,
+                customClass: {
+                    popup: 'swal-modern-rounded',
+                    confirmButton: 'swal-btn-pill-danger',
+                    cancelButton: 'swal-btn-pill-cancel'
+                }
+            });
+
+            if (konfirmasi.isConfirmed) {
+                Swal.fire({ title: 'Membersihkan...', customClass: { popup: 'swal-modern-rounded' }, didOpen: () => Swal.showLoading() });
+                try {
+                    const res = await fetch(`${BASE_API_URL}/api/warga/delete-all`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
+                    });
+                    const json = await res.json();
+                    if (res.ok) {
+                        Swal.fire({ 
+                            icon: 'success', 
+                            title: 'Tabel Dibersihkan', 
+                            text: json.message, 
+                            buttonsStyling: false,
+                            customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-confirm' }
+                        });
+                        if (typeof window.loadDashboardData === 'function') window.loadDashboardData(true);
+                    } else {
+                        throw new Error(json.message);
+                    }
+                } catch (err) {
+                    Swal.fire({ icon: 'error', title: 'Gagal Menghapus', text: err.message, buttonsStyling: false, customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-danger' } });
+                }
+            }
+        };
+
+        // =====================================================================
+        // 6. LOGIKA PERBAIKAN TOMBOL "SETUJUI" & "BATAL" SATUAN PADA BARIS TABEL
+        // =====================================================================
+        window.ubahStatusVerifikasiWarga = async function (idOrNik, statusSetuju) {
+            let targetId = idOrNik;
+            
+            if (typeof targetId === 'string' && targetId.length === 16 && /^\d+$/.test(targetId)) {
+                try {
+                    if (window.jQuery && $.fn.DataTable && $.fn.DataTable.isDataTable('#dataTable')) {
+                        const allRows = $('#dataTable').DataTable().rows().data().toArray();
+                        const found = allRows.find(r => String(r.nik).trim() === targetId.trim());
+                        if (found && found.id) targetId = found.id;
+                    }
+                } catch (e) {}
+            }
+
+            Swal.fire({
+                title: statusSetuju ? 'Menyetujui Warga...' : 'Membatalkan Persetujuan...',
+                text: 'Sedang memperbarui status warga di database...',
+                allowOutsideClick: false,
+                customClass: { popup: 'swal-modern-rounded' },
+                didOpen: () => Swal.showLoading()
+            });
+
+            try {
+                const payload = {
+                    is_verified: statusSetuju,
+                    status_validasi: statusSetuju ? 'Disetujui' : 'Menunggu'
+                };
+
+                let res = await fetch(`${BASE_API_URL}/api/warga/${targetId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) {
+                    res = await fetch(`${BASE_API_URL}/warga/${targetId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                const json = await res.json();
+                if (res.ok) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: statusSetuju ? 'Warga Disetujui!' : 'Persetujuan Dibatalkan!',
+                        text: statusSetuju ? 'Status warga berhasil diubah menjadi Disetujui.' : 'Status warga dikembalikan menjadi Menunggu.',
+                        timer: 1500,
+                        showConfirmButton: false,
+                        customClass: { popup: 'swal-modern-rounded' }
+                    });
+
+                    if (typeof window.loadDashboardData === 'function') {
+                        window.loadDashboardData(true);
+                    } else if (typeof window.muatDataWarga === 'function') {
+                        window.muatDataWarga();
+                    } else {
+                        location.reload();
+                    }
+                } else {
+                    throw new Error(json.message || 'Gagal mengubah status warga.');
+                }
+            } catch (err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Memproses',
+                    text: err.message,
+                    customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-danger' },
+                    buttonsStyling: false
+                });
+            }
+        };
+
+        window.setujuiWarga = function (id) { return window.ubahStatusVerifikasiWarga(id, true); };
+        window.batalkanWarga = function (id) { return window.ubahStatusVerifikasiWarga(id, false); };
+        window.batalWarga = function (id) { return window.ubahStatusVerifikasiWarga(id, false); };
+        window.verifyWarga = function (id) { return window.ubahStatusVerifikasiWarga(id, true); };
+        window.unverifyWarga = function (id) { return window.ubahStatusVerifikasiWarga(id, false); };
+        window.toggleVerify = function (id, currentVal) { return window.ubahStatusVerifikasiWarga(id, !currentVal); };
+        window.toggleValidasi = function (id, currentVal) { return window.ubahStatusVerifikasiWarga(id, !currentVal); };
+
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const tr = btn.closest('#dataTable tbody tr');
+            if (!tr) return;
+
+            const btnText = btn.innerText.trim().toLowerCase();
+            const isSetujuiBtn = btnText === 'setujui' || btn.classList.contains('btn-setujui') || btn.classList.contains('btn-verify-single');
+            const isBatalBtn = btnText === 'batal' || btn.classList.contains('btn-batal') || btn.classList.contains('btn-unverify-single');
+
+            if (isSetujuiBtn || isBatalBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                let targetId = btn.dataset.id || btn.dataset.nik;
+                if (!targetId) {
+                    const onclickAttr = btn.getAttribute('onclick') || '';
+                    const matchNum = onclickAttr.match(/['"]?(\d+)['"]?/);
+                    if (matchNum) targetId = matchNum[1];
+                }
+                if (!targetId) {
+                    const nikMatch = tr.innerText.match(/\b\d{16}\b/);
+                    if (nikMatch) targetId = nikMatch[0];
+                }
+
+                if (targetId) {
+                    window.ubahStatusVerifikasiWarga(targetId, isSetujuiBtn);
+                }
+            }
+        }, true);
+
+        window.verifyAllData = window.setujuiSemuaWargaInstan;
+        window.unverifyAllData = window.batalkanSemuaWargaInstan;
+        window.hapusSemuaWarga = window.hapusSemuaWargaAman;
+        window.syncBPS = window.bukaModalSinkronArsip;
+
+        // =====================================================================
+        // 7. IMPOR BATCH EXCEL CEPAT & NOTIFIKASI REAL-TIME
+        // =====================================================================
+        window.smartImportPreview = async function (input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            Swal.fire({
+                title: 'Membaca Berkas Excel...',
+                text: 'Sedang memproses baris data secara instan...',
+                allowOutsideClick: false,
+                customClass: { popup: 'swal-modern-rounded' },
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            const reader = new FileReader();
+            reader.onload = async function (e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+                    if (!rows || rows.length === 0) {
+                        throw new Error('Berkas Excel kosong atau format tidak sesuai.');
+                    }
+
+                    const res = await fetch(`${BASE_API_URL}/api/warga/bulk-import`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                        },
+                        body: JSON.stringify({ data: rows })
+                    });
+
+                    const resJson = await res.json();
+                    if (res.ok) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Impor Selesai!',
+                            text: resJson.message,
+                            buttonsStyling: false,
+                            customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-confirm' }
+                        }).then(() => {
+                            if (typeof window.loadDashboardData === 'function') {
+                                window.loadDashboardData(true);
+                            } else {
+                                location.reload();
+                            }
+                        });
+                    } else {
+                        throw new Error(resJson.message);
+                    }
+                } catch (err) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal Impor Excel',
+                        text: err.message,
+                        buttonsStyling: false,
+                        customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-danger' }
+                    });
+                } finally {
+                    input.value = '';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        async function cekNotifikasiRealtime() {
+            try {
+                const res = await fetch(`${BASE_API_URL}/api/notifikasi`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
+                });
+                if (!res.ok) return;
+                const json = await res.json();
+                
+                const badge = document.getElementById('notifBadge');
+                const list = document.getElementById('notifList');
+                
+                if (badge && json.total_unread !== undefined) {
+                    badge.textContent = json.total_unread;
+                    badge.style.display = json.total_unread > 0 ? 'inline-block' : 'none';
+                }
+
+                if (list && Array.isArray(json.data) && json.data.length > 0) {
+                    list.innerHTML = json.data.map(n => `
+                        <div style="padding:10px 16px; border-bottom:1px solid #f1f5f9; display:flex; gap:10px; align-items:start;">
+                            <div style="width:8px; height:8px; border-radius:50%; background:${n.urgent ? '#dc2626' : '#009846'}; margin-top:6px; flex-shrink:0;"></div>
+                            <div>
+                                <div style="font-weight:700; font-size:0.85rem; color:#0f172a;">${n.judul}</div>
+                                <div style="font-size:0.78rem; color:#64748b; margin-top:2px;">${n.pesan}</div>
+                                <small style="font-size:0.7rem; color:#94a3b8;">${n.waktu}</small>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {}
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            cekNotifikasiRealtime();
+            setInterval(cekNotifikasiRealtime, 5000);
+        });
+
+        // =====================================================================
+        // 8. PENGENDALI CHAT REAL-TIME, DROPDOWN HEADER & GELEMBUNG PESAN MODERN
+        // =====================================================================
+        window.toggleChatActionDropdown = function (e) {
+            if (e) e.stopPropagation();
+            const dropdown = document.getElementById('chatActionDropdown');
+            if (!dropdown) return;
+            const isOpen = dropdown.classList.contains('show');
+            document.querySelectorAll('.chat-dropdown-content, .bubble-action-dropdown').forEach(el => {
+                el.classList.remove('show');
+                el.style.display = 'none';
+            });
+            if (!isOpen) {
+                dropdown.style.display = 'block';
+                dropdown.classList.add('show');
+            }
+        };
+
+        document.addEventListener('click', function () {
+            document.querySelectorAll('.chat-dropdown-content, .bubble-action-dropdown').forEach(el => {
+                el.classList.remove('show');
+                el.style.display = 'none';
+            });
+        });
+
+        window.toggleBubbleDropdown = function (btn, e) {
+            if (e) e.stopPropagation();
+            const parentBubble = btn.closest('.chat-msg-bubble');
+            if (!parentBubble) return;
+            const dropdown = parentBubble.querySelector('.bubble-action-dropdown');
+            if (!dropdown) return;
+
+            const isShown = dropdown.classList.contains('show');
+            document.querySelectorAll('.bubble-action-dropdown, .chat-dropdown-content').forEach(d => {
+                d.classList.remove('show');
+                d.style.display = 'none';
+            });
+
+            if (!isShown) {
+                dropdown.style.display = 'block';
+                dropdown.classList.add('show');
+            }
+        };
+
+        window.formatModernBubbleHtml = function (pesan, isSenderAdmin) {
+            const rowClass = isSenderAdmin ? 'outgoing' : 'incoming';
+            const escapedText = $('<div>').text(pesan.text || pesan.pesan || '').html();
+            const waktu = pesan.waktu || pesan.time || 'Baru saja';
+
+            return `
+                <div class="chat-msg-row ${rowClass}" data-id="${pesan.id || ''}">
+                    <div class="chat-msg-bubble">
+                        <button type="button" class="bubble-corner-btn" onclick="window.toggleBubbleDropdown(this, event)" title="Opsi Pesan">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+
+                        <div class="bubble-action-dropdown" onclick="event.stopPropagation()">
+                            <div class="emoji-react-row">
+                                <span onclick="window.sendCallReaction && window.sendCallReaction('❤️')">❤️</span>
+                                <span onclick="window.sendCallReaction && window.sendCallReaction('👍')">👍</span>
+                                <span onclick="window.sendCallReaction && window.sendCallReaction('😂')">😂</span>
+                                <span onclick="window.sendCallReaction && window.sendCallReaction('🙏')">🙏</span>
+                            </div>
+                            <button type="button" onclick="navigator.clipboard.writeText('${escapedText.replace(/'/g, "\\'")}'); Swal.fire({icon:'success', title:'Teks Disalin', timer:1000, showConfirmButton:false, customClass:{popup:'swal-modern-rounded'}})">
+                                <i class="fas fa-copy text-primary"></i> Salin Pesan
+                            </button>
+                            <button type="button" class="text-danger" onclick="this.closest('.chat-msg-row').remove()">
+                                <i class="fas fa-trash-alt text-danger"></i> Hapus Pesan
+                            </button>
+                        </div>
+
+                        <div class="chat-msg-text">${escapedText}</div>
+                        <span class="chat-time-stamp">${waktu}</span>
+                    </div>
+                </div>
+            `;
+        };
+
+        async function sinkronisasiPesanMasukRealtime() {
+            try {
+                const token = localStorage.getItem('token') || '';
+
+                const resInbox = await fetch(`${BASE_API_URL}/api/chat/inbox`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (resInbox.ok) {
+                    const jsonInbox = await resInbox.json();
+                    const inboxContainer = document.getElementById('chatContactList');
+                    const tabInboxBtn = document.getElementById('tabInboxBtn');
+
+                    if (inboxContainer && Array.isArray(jsonInbox.data) && jsonInbox.data.length > 0) {
+                        const totalUnread = jsonInbox.data.reduce((acc, cur) => acc + (cur.unread_count || 0), 0);
+                        if (tabInboxBtn) {
+                            tabInboxBtn.innerHTML = `<i class="fas fa-inbox"></i> Pesan Masuk ${totalUnread > 0 ? `<span style="background:#dc2626; color:white; border-radius:12px; padding:1px 7px; font-size:0.7rem; margin-left:4px;">${totalUnread}</span>` : ''}`;
+                        }
+
+                        if (tabInboxBtn && tabInboxBtn.classList.contains('active')) {
+                            inboxContainer.innerHTML = jsonInbox.data.map(item => `
+                                <div onclick="window.selectWargaChat && window.selectWargaChat('${item.nik}')" class="contact-item" style="padding:14px; border-bottom:1px solid #f1f5f9; cursor:pointer; display:flex; gap:12px; align-items:center; transition:background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
+                                    <div style="width:42px; height:42px; border-radius:50%; background:#009846; color:white; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                        ${(item.nama || 'W').charAt(0).toUpperCase()}
+                                    </div>
+                                    <div style="flex:1; overflow:hidden;">
+                                        <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                                            <div style="font-weight:800; font-size:0.88rem; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.nama}</div>
+                                            <small style="font-size:0.7rem; color:#94a3b8;">${item.waktu || ''}</small>
+                                        </div>
+                                        <div style="font-size:0.78rem; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.pesan_terakhir || 'Membuka pesan baru...'}</div>
+                                    </div>
+                                    ${item.unread_count > 0 ? `<span style="background:#009846; color:white; border-radius:50%; width:18px; height:18px; font-size:0.68rem; font-weight:800; display:flex; align-items:center; justify-content:center;">${item.unread_count}</span>` : ''}
+                                </div>
+                            `).join('');
+                        }
+                    }
+                }
+
+                const activeNikEl = document.getElementById('chatActiveNikDisplay');
+                const chatBox = document.getElementById('adminChatMessages');
+                if (activeNikEl && chatBox && activeNikEl.innerText && activeNikEl.innerText !== '-') {
+                    const currentNik = activeNikEl.innerText.trim();
+                    const resMsg = await fetch(`${BASE_API_URL}/api/chat/messages?nik=${currentNik}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (resMsg.ok) {
+                        const jsonMsg = await resMsg.json();
+                        const messages = jsonMsg.messages || jsonMsg.data || [];
+                        const currentCount = chatBox.querySelectorAll('.chat-msg-row').length;
+
+                        if (messages.length > currentCount) {
+                            const newMessages = messages.slice(currentCount);
+                            newMessages.forEach(m => {
+                                const isSenderAdmin = m.pengirim === 'admin' || m.sender === 'admin' || m.is_admin === true;
+                                chatBox.insertAdjacentHTML('beforeend', window.formatModernBubbleHtml(m, isSenderAdmin));
+                            });
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                        }
+                    }
+                }
+            } catch (err) {}
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            sinkronisasiPesanMasukRealtime();
+            setInterval(sinkronisasiPesanMasukRealtime, 3000);
+        });
+    </script>
+
+    <!-- =====================================================================
+         PENGHUBUNG SINKRONISASI BWM-SAW REAL-TIME KE ARSIP DATA WARGA
+         ===================================================================== -->
+    <script>
+        (function () {
+            const originalHitungSPK = window.hitungSPK;
+            window.hitungSPK = async function () {
+                try {
+                    await fetch(`${BASE_API_URL}/api/spk/sinkron-saw`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
+                    });
+                } catch (e) {
+                    console.warn('[Sync SPK Warning]:', e);
+                }
+
+                if (typeof originalHitungSPK === 'function') {
+                    originalHitungSPK();
+                }
+
+                if (typeof window.loadDashboardData === 'function') {
+                    window.loadDashboardData(true);
+                }
+            };
+        })();
     </script>
 </body>
 </html>
