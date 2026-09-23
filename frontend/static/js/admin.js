@@ -270,7 +270,6 @@ window.loadDashboardData = async function (showToast = false) {
             }
         }
 
-        // Jika database belum terisi atau rute gagal, muat dari cache lokal
         if (!rawData || rawData.length === 0) {
             const cached = localStorage.getItem('cachedDataWarga');
             if (cached) {
@@ -1890,15 +1889,36 @@ window.loadUserTable = async function () {
 
     try {
         const token = window.getCleanToken();
-        const res = await fetch(`${BASE_URL}/users`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        };
 
-        if (!res.ok) throw new Error('Gagal mengambil daftar pengguna.');
-        const users = await res.json();
+        // Coba kandidat endpoint /api/users dan /users
+        const userEndpoints = [
+            `${BASE_URL}/api/users`,
+            `${BASE_URL}/users`,
+            `${BASE_URL}/api/auth/users`
+        ];
+
+        let res = null;
+        for (const url of userEndpoints) {
+            try {
+                const testRes = await fetch(url, { headers });
+                if (testRes && testRes.ok) {
+                    res = testRes;
+                    break;
+                }
+            } catch (e) {}
+        }
+
+        if (!res || !res.ok) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#94a3b8;">Belum ada akun terdaftar (Jalankan create_admin.py).</td></tr>';
+            return;
+        }
+
+        const resJson = await res.json();
+        const users = Array.isArray(resJson) ? resJson : (resJson.data || resJson.users || []);
 
         if (!users.length) {
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#94a3b8;">Belum ada akun terdaftar.</td></tr>';
@@ -1906,7 +1926,7 @@ window.loadUserTable = async function () {
         }
 
         tbody.innerHTML = users.map(u => {
-            const isAdmin = (u.role === 'admin');
+            const isAdmin = (u.role === 'admin' || u.role === 'super admin');
             const roleBadge = isAdmin
                 ? `<span class="badge" style="background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe; font-weight:800; padding:3px 10px; border-radius:12px; font-size:0.75rem;">ADMIN</span>`
                 : `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; padding:3px 10px; border-radius:12px; font-size:0.75rem;">OPERATOR</span>`;
@@ -1940,7 +1960,7 @@ window.loadUserTable = async function () {
             `;
         }).join('');
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#dc2626;">${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#dc2626;">Gagal memuat akun pengguna: ${err.message}</td></tr>`;
     }
 };
 
@@ -2422,6 +2442,48 @@ window.tandaiSemuaNotifDibaca = async function () {
 // =========================================================================
 // 17. MODAL INVESTIGASI ADUAN & LIGHTBOX
 // =========================================================================
+// SINKRONISASI LAPORAN INVESTIGASI DENGAN MULTI-ROUTE CANDIDATES
+window.loadLaporanChatData = async function () {
+    const container = document.getElementById('laporanChatList');
+    if (!container) return;
+
+    try {
+        const token = window.getCleanToken();
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+        };
+
+        const laporanEndpoints = [
+            `${BASE_URL}/api/laporan-chat`,
+            `${BASE_URL}/api/chat/laporan`,
+            `${BASE_URL}/api/pengaduan`,
+            `${BASE_URL}/laporan-chat`
+        ];
+
+        let res = null;
+        for (const url of laporanEndpoints) {
+            try {
+                const testRes = await fetch(url, { headers });
+                if (testRes && testRes.ok) {
+                    res = testRes;
+                    break;
+                }
+            } catch (e) {}
+        }
+
+        if (res && res.ok) {
+            const resJson = await res.json();
+            window.allLaporanChatData = Array.isArray(resJson) ? resJson : (resJson.data || []);
+            renderLaporanChat(window.allLaporanChatData);
+        } else {
+            container.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8;">Belum ada laporan sengketa atau aduan warga yang masuk.</div>';
+        }
+    } catch (e) {
+        container.innerHTML = '<div style="text-align:center; padding:40px; color:#ef4444;">Gagal mengambil data laporan investigasi.</div>';
+    }
+};
+
 window.bukaChatDariAduan = function (nik) {
     window.closeModal('modalLaporanChat');
     if (typeof window.openAdminChat === 'function') window.openAdminChat();
@@ -2481,19 +2543,6 @@ window.filterInvestigasi = function (filterType, btn) {
         filtered = filtered.filter(x => (x.kategori && x.kategori.toLowerCase().includes('data')) || (x.kategori && x.kategori.toLowerCase().includes('nik')));
     }
     renderLaporanChat(filtered);
-};
-
-window.loadLaporanChatData = async function () {
-    const container = document.getElementById('laporanChatList');
-    if (!container) return;
-    try {
-        const res = await fetch(`${BASE_API_URL}/api/laporan-chat`);
-        const data = await res.json();
-        window.allLaporanChatData = Array.isArray(data) ? data : [];
-        renderLaporanChat(window.allLaporanChatData);
-    } catch (e) {
-        container.innerHTML = '<div style="text-align:center; padding:40px; color:#ef4444;">Gagal mengambil data laporan.</div>';
-    }
 };
 
 window.bukaMediaLightbox = function (url) {

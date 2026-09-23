@@ -18,7 +18,8 @@ def init_database():
 if __name__ == "__main__":
     init_database()
 
-    host = os.getenv("FLASK_RUN_HOST", "127.0.0.1")
+    # Mengikat ke host 0.0.0.0 agar dapat diakses fleksibel dari 127.0.0.1 maupun localhost
+    host = os.getenv("FLASK_RUN_HOST", "0.0.0.0")
     port = int(os.getenv("FLASK_RUN_PORT", 5000))
     debug_mode = os.getenv("FLASK_DEBUG", "True").lower() in ("true", "1")
 
@@ -26,8 +27,9 @@ if __name__ == "__main__":
     print(" Peladen SPK Bansos Pemkab Sidoarjo Siap Berjalan")
     print(" Arsitektur : Modular Clean Architecture (Factory Pattern)")
     print(f" Waktu Mulai: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f" URL Peladen: http://{host}:{port}")
+    print(f" URL Peladen: http://{host}:{port} (bisa diakses via http://127.0.0.1:{port})")
     print(f" Mode Debug : {'Aktif' if debug_mode else 'Nonaktif'}")
     print("=" * 65)
 
+    # Menjalankan peladen dengan binding host 0.0.0.0 port 5000
     app.run(host=host, port=port, debug=debug_mode)
