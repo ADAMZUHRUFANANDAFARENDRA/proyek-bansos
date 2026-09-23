@@ -1,5 +1,5 @@
 /* =========================================================================
-   ADMIN-MAP.JS - MODUL PETA SEBARAN 18 KECAMATAN, 31 KELURAHAN & 318 DESA
+   ADMIN-MAP.JS - MODUL PETA SEBARAN WILAYAH & INTEGRASI FORM GEOTAGGING
    Lokasi: frontend/static/js/modules/admin-map.js
    Pemerintah Kabupaten Sidoarjo - Dinas Sosial
    ========================================================================= */
@@ -486,7 +486,6 @@ window.bukaRincianWilayah = function (namaWilayah) {
 
     window.currentActiveWilayahNama = namaWilayah;
 
-    // Bersihkan ikon pin pada judul modal
     const cardTitleEl = modal.querySelector('.card-title');
     if (cardTitleEl) {
         cardTitleEl.innerHTML = `Rincian Seluruh Penerima Bansos Wilayah: <span id="modalWilayahTitle" style="color:#0f172a; font-weight:800;">Kecamatan ${namaWilayah}</span>`;
@@ -504,7 +503,6 @@ window.bukaRincianWilayah = function (namaWilayah) {
     const modalBody = modal.querySelector('div[style*="overflow-y:auto"]') || modal.querySelector('.card-body');
     const table = modal.querySelector('table');
 
-    // Pengguliran normal menyatu tanpa rongga
     if (modalBody) {
         modalBody.style.overflowY = 'auto';
         modalBody.style.display = 'block';
@@ -517,7 +515,6 @@ window.bukaRincianWilayah = function (namaWilayah) {
         oldWrapper.remove();
     }
 
-    // Mengubah label header tabel menjadi 'BUKTI PENYALURAN'[cite: 7]
     if (table) {
         table.style.borderCollapse = 'collapse';
         table.style.width = '100%';
@@ -544,7 +541,6 @@ window.bukaRincianWilayah = function (namaWilayah) {
         }
     }
 
-    // Render Subheader Bersih Tanpa Ikon & Bilah Pencarian Suara + Teks Cepat
     let statsHeader = document.getElementById('wilayahModalStatsHeader');
     if (!statsHeader) {
         statsHeader = document.createElement('div');
@@ -661,7 +657,6 @@ window.AdminMap.renderWilayahRows = function (list) {
             ? `<span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-weight:800; font-size:0.72rem; padding:4px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:3px;">DESIL ${currentDesil}</span>`
             : `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700; font-size:0.72rem; padding:4px 8px; border-radius:12px;">DESIL ${currentDesil}</span>`;
 
-        // Riwayat Desil Sebelumnya
         let prevDesil = w.desil_sebelumnya || w.prev_desil || window.adminDesilHistoryMap[w.nik];
         if (!prevDesil) {
             const nikNum = parseInt(String(w.nik).slice(-2)) || 0;
@@ -686,7 +681,6 @@ window.AdminMap.renderWilayahRows = function (list) {
             trendBadge = `<span style="font-size:0.68rem; font-weight:600; color:#64748b; background:#f1f5f9; border:1px solid #e2e8f0; padding:1px 6px; border-radius:10px; display:inline-flex; align-items:center; gap:2px;" title="Desil Stabil / Tetap">▬ Tetap (D${currentDesil})</span>`;
         }
 
-        // HANYA menampilkan nominal/bentuk bantuan JIKA sudah diverifikasi algoritma DAN sudah disalurkan
         const isVerified = Boolean(w.is_verified == 1 || w.is_verified === true || w.status_verifikasi === 'layak' || w.status === 'disetujui' || isEligible);
         const isDisalurkan = Boolean((w.tanggal_salur && w.tanggal_salur !== '-') || w.bukti_salur || window.customMediaBuktiMap[w.nik]);
 
@@ -700,7 +694,6 @@ window.AdminMap.renderWilayahRows = function (list) {
             `;
         }
 
-        // Tampilan bukti berkas yang bersifat pratinjau langsung foto maupun video[cite: 7]
         const mediaSrc = window.customMediaBuktiMap[w.nik] || w.bukti_salur;
         let mediaBuktiHtml = `<span style="color:#94a3b8; font-size:0.75rem; font-style:italic;">Belum ada berkas</span>`;
 
@@ -732,7 +725,6 @@ window.AdminMap.renderWilayahRows = function (list) {
                 <td><div style="font-weight:800; color:#0f172a; font-size:0.9rem;">${window.safeHtml(w.nama)}</div><small style="color:#64748b; font-family:monospace; font-size:0.78rem;">${w.nik}</small></td>
                 <td style="font-size:0.82rem; color:#334155;"><div>${window.safeHtml(w.tempat_lahir || 'Sidoarjo')}, ${w.tanggal_lahir || '-'}</div><small class="text-muted">${window.safeHtml(w.alamat)}</small></td>
                 
-                <!-- Kolom Desil & Riwayat Desil Sebelumnya -->
                 <td style="text-align:center;">
                     ${desilBadge}
                     <div style="margin-top:4px;">
@@ -741,14 +733,8 @@ window.AdminMap.renderWilayahRows = function (list) {
                 </td>
                 
                 <td style="text-align:center; font-size:0.8rem; color:#475569;">${w.tanggal_salur || '-'}</td>
-                
-                <!-- Nominal / Bentuk Bantuan (Read-Only Gate) -->
                 <td>${bantuanDisplayHtml}</td>
-                
-                <!-- Bukti Penyaluran (Pratinjau Langsung) -->
                 <td style="text-align:center;">${mediaBuktiHtml}</td>
-                
-                <!-- Titik Lokasi GPS Presisi Lengkap -->
                 <td style="text-align:center;">
                     <button type="button" onclick="window.AdminMap.lacakPetaOtomatis('${w.nik}', '${window.escapeInlineJS(w.alamat || '')}', '${window.currentActiveWilayahNama}', '${w.lat || ''}', '${w.lng || ''}')" class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; font-weight:700; font-size:0.75rem; padding:5px 12px; border-radius:20px; border:none; cursor:pointer;">
                         Peta
@@ -759,7 +745,7 @@ window.AdminMap.renderWilayahRows = function (list) {
     }).join('');
 };
 
-// 10. PENAMPIL BUKTI MEDIA FLEKSIBEL (SYNCHRONIZED REAL-TIME PRATINJAU DENGAN NIK LOOKUP)[cite: 7]
+// 10. PENAMPIL BUKTI MEDIA FLEKSIBEL[cite: 7]
 window.AdminMap.pratinjauMediaPenyaluran = function (identifier, isVideoFallback, namaFallback, bantuanFallback) {
     const dataWarga = window.globalDataWarga || [];
     const w = dataWarga.find(item => 
@@ -771,7 +757,6 @@ window.AdminMap.pratinjauMediaPenyaluran = function (identifier, isVideoFallback
 
     const baseUrl = (window.API_BASE_URL || 'http://127.0.0.1:5000').replace(/\/+$/, '');
 
-    // Mengambil data real-time terkini langsung dari memori state & cache
     const namaWarga = w ? w.nama : (namaFallback || 'Warga');
     const bentukBantuan = (w && window.customBantuanMap[w.nik]) 
         ? window.customBantuanMap[w.nik] 
@@ -800,7 +785,6 @@ window.AdminMap.pratinjauMediaPenyaluran = function (identifier, isVideoFallback
                 ${bentukBantuan ? ` • <span style="color:#009846; font-weight:700;">${window.safeHtml(bentukBantuan)}</span>` : ''}
             </div>
 
-            <!-- Kontrol Orientasi: Mode Potret, Lanskap & Putar -->
             <div style="display:flex; justify-content:center; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
                 <button type="button" id="btnViewPortrait" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:6px 12px; font-size:0.78rem; font-weight:700; color:#334155; cursor:pointer; display:flex; align-items:center; gap:5px;">
                     <i class="fas fa-mobile-alt"></i> Mode Potret
@@ -813,7 +797,6 @@ window.AdminMap.pratinjauMediaPenyaluran = function (identifier, isVideoFallback
                 </button>
             </div>
 
-            <!-- Wadah Penampil Media -->
             <div id="swalMediaViewerWrapper" style="display:flex; justify-content:center; align-items:center; overflow:hidden; min-height:220px; max-height:70vh; border-radius:12px; background:#0f172a; padding:8px; border:1px solid #334155; transition:all 0.3s ease;">
                 ${mediaElementHtml}
             </div>
@@ -890,12 +873,11 @@ window.AdminMap.filterWilayahTable = function () {
     window.AdminMap.renderWilayahRows(filtered);
 };
 
-// 12. MODAL BUKTI PENYALURAN BANSOS (DIAKSES EKSKLUSIF DARI TOMBOL KAMERA ARSIP DATA WARGA)[cite: 7]
+// 12. MODAL BUKTI PENYALURAN BANSOS[cite: 7]
 window.AdminMap.bukaModalBuktiSalur = async function (nikOrId, clickedEl) {
     const dataWarga = window.globalDataWarga || [];
     let w = null;
 
-    // 1. Identifikasi melalui parameter
     if (nikOrId && typeof nikOrId !== 'object') {
         w = dataWarga.find(item => 
             String(item.nik) === String(nikOrId) || 
@@ -907,7 +889,6 @@ window.AdminMap.bukaModalBuktiSalur = async function (nikOrId, clickedEl) {
         }
     }
 
-    // 2. Identifikasi cadangan melalui baris tr
     if (!w && clickedEl) {
         const tr = clickedEl.closest('tr');
         if (tr) {
@@ -932,7 +913,6 @@ window.AdminMap.bukaModalBuktiSalur = async function (nikOrId, clickedEl) {
         return;
     }
 
-    // Verifikasi kelayakan: Hanya warga yang diverifikasi algoritma & admin
     const currentDesil = Number(w.desil) || 5;
     let isApproved = Boolean(
         w.is_verified == 1 || 
@@ -1029,15 +1009,12 @@ window.AdminMap.bukaModalBuktiSalur = async function (nikOrId, clickedEl) {
     });
 
     if (formValues) {
-        // 1. Simpan perubahan bantuan
         window.customBantuanMap[w.nik] = formValues.bantuan;
         localStorage.setItem('adminCustomBantuanMap', JSON.stringify(window.customBantuanMap));
         w.nominal_bantuan = formValues.bantuan;
 
-        // 2. Tandai status tersalurkan
         w.tanggal_salur = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit' }) + ' ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-        // 3. Simpan berkas foto / video secara persisten
         if (formValues.file) {
             const file = formValues.file;
             const isVid = file.type.startsWith('video/') || /\.(mp4|mkv|webm|mov|avi|3gp)$/i.test(file.name);
@@ -1070,12 +1047,10 @@ window.AdminMap.bukaModalBuktiSalur = async function (nikOrId, clickedEl) {
             }
         }
 
-        // 4. Perbarui tampilan modal rincian wilayah jika sedang dibuka
         if (typeof window.AdminMap.filterWilayahTable === 'function') {
             window.AdminMap.filterWilayahTable();
         }
 
-        // 5. Perbarui data tabel arsip utama
         if (typeof window.loadDashboardData === 'function') {
             window.loadDashboardData(false);
         }
@@ -1099,7 +1074,6 @@ window.AdminMap.lacakPetaOtomatis = async function (nik, rawAlamat, namaWilayah,
                              (Math.abs(eLat - (-7.4076)) < 0.005 && Math.abs(eLng - 112.7183) < 0.005);
     const isZeroCoords = (isNaN(eLat) || isNaN(eLng) || (eLat === 0 && eLng === 0));
 
-    // Bangun kueri alamat lengkap presisi (Jalan, Nomor, RT, RW, Desa, Kecamatan, Kabupaten Sidoarjo)
     let fullAddressQuery = (rawAlamat || '').trim();
     const cleanLower = fullAddressQuery.toLowerCase();
 
@@ -1113,7 +1087,6 @@ window.AdminMap.lacakPetaOtomatis = async function (nik, rawAlamat, namaWilayah,
         fullAddressQuery += `, Jawa Timur`;
     }
 
-    // Jika memiliki koordinat asli dari GPS gawai mandiri yang sah
     if (!isZeroCoords && !isGenericDefault && !cleanLower.includes('no.')) {
         window.open(`https://www.google.com/maps?q=${eLat.toFixed(6)},${eLng.toFixed(6)}`, '_blank');
         return;
@@ -1130,7 +1103,6 @@ window.AdminMap.lacakPetaOtomatis = async function (nik, rawAlamat, namaWilayah,
         });
     }
 
-    // Arahkan ke Google Maps dengan seluruh komponen alamat lengkap
     setTimeout(() => {
         const targetUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddressQuery)}`;
         window.open(targetUrl, '_blank');
@@ -1143,13 +1115,11 @@ window.AdminMap.ubahModePeta = window.ubahModePeta;
 window.AdminMap.bukaDetailWilayah = window.bukaRincianWilayah;
 window.AdminMap.bukaModalBuktiSalur = window.AdminMap.bukaModalBuktiSalur;
 
-// Menghubungkan seluruh fungsi pembuka bukti modal di window
 window.uploadBukti = function(idOrNik) { window.AdminMap.bukaModalBuktiSalur(idOrNik); };
 window.bukaUploadBukti = function(idOrNik) { window.AdminMap.bukaModalBuktiSalur(idOrNik); };
 window.bukaModalBuktiSalur = function(idOrNik) { window.AdminMap.bukaModalBuktiSalur(idOrNik); };
 window.openBuktiModal = function(idOrNik) { window.AdminMap.bukaModalBuktiSalur(idOrNik); };
 
-// Delegasi klik tombol kamera di seluruh tabel arsip data warga (tahan terhadap click event bubbling)
 document.addEventListener('click', function(e) {
     if (e.target.closest('#modalWilayahDetail')) return;
 
@@ -1180,7 +1150,6 @@ document.addEventListener('click', function(e) {
 
 window.renderChoroplethKerentanan = window.renderChoroplethKerentanan;
 
-// Pengamat Sinkronisasi Warna Peta Otomatis Ketika Data Warga Berubah
 let lastCheckedWargaCount = -1;
 setInterval(() => {
     const currentCount = (window.globalDataWarga || []).length;
@@ -1193,3 +1162,186 @@ setInterval(() => {
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(window.initMacroDistributionMap, 300);
 });
+
+/* =========================================================================
+   15. INTEGRASI PETA FORM GEOTAGGING & LOKASI GPS (LEAFLET + NOMINATIM)
+   ========================================================================= */
+
+(function () {
+    const origGetElementById = document.getElementById.bind(document);
+    document.getElementById = function (id) {
+        let el = origGetElementById(id);
+        if (!el) {
+            if (id === 'c4') el = origGetElementById('inputC4');
+            else if (id === 'c6') el = origGetElementById('inputC6');
+            else if (id === 'c8') el = origGetElementById('inputC8');
+            else if (id === 'c9') el = origGetElementById('inputC9');
+            else if (id === 'c10') el = origGetElementById('inputC10');
+            else if (id === 'dateFilterMode') el = origGetElementById('filterTipeTanggal');
+        }
+        return el;
+    };
+
+    let formMapInstance = null;
+    let formMarkerInstance = null;
+    const DEFAULT_SIDOARJO_COORD = [-7.4478, 112.7183];
+
+    async function updateAlamatFromCoordsRealtime(lat, lng) {
+        const latEl = document.getElementById('lat');
+        const lngEl = document.getElementById('lng');
+        const alamatEl = document.getElementById('alamat');
+
+        if (latEl) latEl.value = Number(lat).toFixed(6);
+        if (lngEl) lngEl.value = Number(lng).toFixed(6);
+        if (!alamatEl) return;
+
+        const prevPlaceholder = alamatEl.getAttribute('placeholder') || '';
+        alamatEl.setAttribute('placeholder', 'Sedang melacak alamat presisi titik...');
+
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.display_name) {
+                    alamatEl.value = data.display_name;
+                }
+            }
+        } catch (err) {
+            console.warn('[Geotagging Warning] Gagal reverse geocoding:', err);
+        } finally {
+            alamatEl.setAttribute('placeholder', prevPlaceholder);
+        }
+    }
+
+    function initFormCoordMap() {
+        const mapBox = document.getElementById('formCoordMap');
+        if (!mapBox || typeof L === 'undefined') return;
+
+        if (formMapInstance) {
+            formMapInstance.remove();
+            formMapInstance = null;
+        }
+        if (mapBox._leaflet_id) {
+            mapBox._leaflet_id = null;
+        }
+
+        try {
+            formMapInstance = L.map('formCoordMap', {
+                center: DEFAULT_SIDOARJO_COORD,
+                zoom: 13,
+                attributionControl: false
+            });
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19
+            }).addTo(formMapInstance);
+
+            formMarkerInstance = L.marker(DEFAULT_SIDOARJO_COORD, { draggable: true }).addTo(formMapInstance);
+
+            formMarkerInstance.on('dragend', function (e) {
+                const pos = e.target.getLatLng();
+                updateAlamatFromCoordsRealtime(pos.lat, pos.lng);
+            });
+
+            formMapInstance.on('click', function (e) {
+                formMarkerInstance.setLatLng(e.latlng);
+                updateAlamatFromCoordsRealtime(e.latlng.lat, e.latlng.lng);
+            });
+
+            setTimeout(() => formMapInstance.invalidateSize(), 300);
+        } catch (err) {
+            console.warn('[Map Leaflet Info]:', err);
+        }
+    }
+
+    window.ambilLokasiGPS = function () {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(pos => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                if (formMapInstance && formMarkerInstance) {
+                    formMapInstance.setView([lat, lng], 16);
+                    formMarkerInstance.setLatLng([lat, lng]);
+                }
+                updateAlamatFromCoordsRealtime(lat, lng);
+            }, () => {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'GPS Gagal',
+                        text: 'Izinkan akses geolokasi pada peramban Anda.',
+                        icon: 'warning',
+                        customClass: { popup: 'swal-modern-rounded' }
+                    });
+                }
+            });
+        }
+    };
+
+    window.cariAlamatDiPeta = async function (query) {
+        if (!query || query.trim().length < 4) return;
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Sidoarjo, Jawa Timur')}&limit=1`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lng = parseFloat(data[0].lon);
+                    if (formMapInstance && formMarkerInstance) {
+                        formMapInstance.setView([lat, lng], 16);
+                        formMarkerInstance.setLatLng([lat, lng]);
+                    }
+                    const latEl = document.getElementById('lat');
+                    const lngEl = document.getElementById('lng');
+                    if (latEl) latEl.value = lat.toFixed(6);
+                    if (lngEl) lngEl.value = lng.toFixed(6);
+                }
+            }
+        } catch (e) {}
+    };
+
+    window.toggleCustomMapDropdown = function (e) {
+        if (e) e.stopPropagation();
+        const menu = document.getElementById('dropdownMapMenu');
+        const icon = document.getElementById('customMapModeIcon');
+        if (!menu) return;
+        const isShow = menu.style.display === 'block';
+        menu.style.display = isShow ? 'none' : 'block';
+        if (icon) icon.style.transform = isShow ? 'rotate(0deg)' : 'rotate(180deg)';
+    };
+
+    window.pilihModePeta = function (mode, labelText) {
+        const txt = document.getElementById('customMapModeText');
+        if (txt) txt.innerText = labelText;
+
+        document.querySelectorAll('.custom-map-item').forEach(el => {
+            el.style.background = 'transparent';
+            el.style.color = '#334155';
+            el.classList.remove('active');
+        });
+
+        const activeMap = {
+            'kecamatan': 'optModeKecamatan',
+            'kelurahan': 'optModeKelurahan',
+            'desa': 'optModeDesa'
+        };
+        const activeEl = document.getElementById(activeMap[mode]);
+        if (activeEl) {
+            activeEl.style.background = '#e6f9f0';
+            activeEl.style.color = '#009846';
+            activeEl.classList.add('active');
+        }
+
+        const menu = document.getElementById('dropdownMapMenu');
+        const icon = document.getElementById('customMapModeIcon');
+        if (menu) menu.style.display = 'none';
+        if (icon) icon.style.transform = 'rotate(0deg)';
+
+        if (typeof window.ubahModePeta === 'function') {
+            window.ubahModePeta(mode);
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(initFormCoordMap, 400);
+    });
+})();

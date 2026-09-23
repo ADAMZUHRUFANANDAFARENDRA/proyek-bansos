@@ -4,7 +4,8 @@
  * Lokasi: frontend/static/js/global.js
  * =========================================================================
  * Utilitas global: Konfigurasi API, autentikasi JWT, proteksi rute,
- * interceptor fetch aman galat 500, fungsi pemuatan data warga, dan helper formatting.
+ * interceptor fetch aman galat 500, helper formatting, modal base,
+ * dan custom select dropdown rounded.
  */
 
 // 1. KONFIGURASI BASE URL API BACKEND
@@ -288,7 +289,86 @@ function showToast(icon = 'success', title = 'Berhasil!') {
     }
 }
 
-// 6. EXPORT OBJECT LINTAS MODUL
+// 6. HELPER GLOBAL: CUSTOM SELECT DROPDOWN & MODAL BASE
+window.openModal = function(id) {
+    const m = document.getElementById(id);
+    if (m) m.style.display = 'flex';
+};
+
+window.closeModal = function(id) {
+    const m = document.getElementById(id);
+    if (m) m.style.display = 'none';
+};
+
+function applyCustomRoundedDropdowns() {
+    document.querySelectorAll('select.custom-rounded-select').forEach(select => {
+        if (select.dataset.customized === 'true') return;
+        select.dataset.customized = 'true';
+        select.style.display = 'none';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'custom-select-wrapper';
+        select.parentNode.insertBefore(wrapper, select);
+        wrapper.appendChild(select);
+
+        const trigger = document.createElement('div');
+        trigger.className = 'custom-select-trigger';
+        const selectedOpt = select.options[select.selectedIndex] || select.options[0];
+        trigger.innerHTML = `<span>${selectedOpt ? selectedOpt.text : 'Pilih opsi...'}</span><i class="fas fa-chevron-down"></i>`;
+        wrapper.appendChild(trigger);
+
+        const optionsBox = document.createElement('div');
+        optionsBox.className = 'custom-select-options';
+
+        Array.from(select.options).forEach(opt => {
+            const item = document.createElement('div');
+            item.className = 'custom-option' + (opt.selected ? ' selected' : '');
+            item.dataset.value = opt.value;
+            item.innerText = opt.text;
+
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                select.value = opt.value;
+                select.dispatchEvent(new Event('change'));
+
+                trigger.querySelector('span').innerText = opt.text;
+                optionsBox.querySelectorAll('.custom-option').forEach(o => o.classList.remove('selected'));
+                item.classList.add('selected');
+                wrapper.classList.remove('open');
+            });
+
+            optionsBox.appendChild(item);
+        });
+
+        wrapper.appendChild(optionsBox);
+
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = wrapper.classList.contains('open');
+            document.querySelectorAll('.custom-select-wrapper.open').forEach(w => w.classList.remove('open'));
+            if (!isOpen) wrapper.classList.add('open');
+        });
+
+        select.addEventListener('change', () => {
+            const selectedOption = select.options[select.selectedIndex];
+            if (selectedOption && trigger.querySelector('span')) {
+                trigger.querySelector('span').innerText = selectedOption.text;
+            }
+            optionsBox.querySelectorAll('.custom-option').forEach(o => {
+                o.classList.toggle('selected', o.dataset.value === select.value);
+            });
+        });
+    });
+
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.custom-select-wrapper.open').forEach(w => w.classList.remove('open'));
+    });
+}
+
+window.applyCustomRoundedDropdowns = applyCustomRoundedDropdowns;
+document.addEventListener('DOMContentLoaded', applyCustomRoundedDropdowns);
+
+// 7. EXPORT OBJECT LINTAS MODUL
 const Global = {
     formatRupiah,
     formatTanggal: formatDateIndo,
@@ -302,7 +382,10 @@ const Global = {
     getAuthUser,
     setAuthSession,
     logoutUser,
-    isTokenExpired
+    isTokenExpired,
+    openModal: window.openModal,
+    closeModal: window.closeModal,
+    applyCustomRoundedDropdowns
 };
 
 window.Global = Global;

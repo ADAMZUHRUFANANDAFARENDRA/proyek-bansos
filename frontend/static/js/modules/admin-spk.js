@@ -9,6 +9,8 @@ window.lastKomparasiResult = [];
 window.compChartInstance = null;
 window.spkDetailedAudit = null;
 
+const BASE_API_URL = window.API_BASE_URL || 'http://127.0.0.1:5000';
+
 // Konfigurasi 10 Kriteria Penilaian Berdasarkan Regulasi Dinas Sosial Sidoarjo
 const KRITERIA_SPK_CONFIG = [
     { code: 'C1', name: 'Kondisi Ekonomi (Penghasilan)', type: 'Cost', defaultW: 0.225 },
@@ -23,10 +25,31 @@ const KRITERIA_SPK_CONFIG = [
     { code: 'C10', name: 'Status Kesehatan Fisik', type: 'Benefit', defaultW: 0.060 }
 ];
 
+const KRITERIA_MASTER_DEFAULT = [
+    { id: 1, kode: "C1", nama: "Kondisi Ekonomi (Penghasilan)", bobot: 0.18 },
+    { id: 2, kode: "C2", nama: "Estimasi Nilai Aset", bobot: 0.14 },
+    { id: 3, kode: "C3", nama: "Usia Kepala Keluarga", bobot: 0.08 },
+    { id: 4, kode: "C4", nama: "Jenis Kelamin", bobot: 0.05 },
+    { id: 5, kode: "C5", nama: "Jumlah Tanggungan Keluarga", bobot: 0.15 },
+    { id: 6, kode: "C6", nama: "Status Pernikahan", bobot: 0.06 },
+    { id: 7, kode: "C7", nama: "Kepemilikan Anak Sekolah", bobot: 0.10 },
+    { id: 8, kode: "C8", nama: "Status Tempat Tinggal", bobot: 0.10 },
+    { id: 9, kode: "C9", nama: "Pendidikan Terakhir", bobot: 0.06 },
+    { id: 10, kode: "C10", nama: "Status Kesehatan / Disabilitas", bobot: 0.08 }
+];
+
 // =========================================================================
-// 1. PROSES ALGORITMA BWM - SAW (DILENGKAPI AUDIT DETAIL & VALIDASI ROSCOE)
+// 1. PROSES ALGORITMA BWM - SAW (AUDIT DETAIL, VALIDASI ROSCOE & SINKRONISASI)
 // =========================================================================
 window.hitungSPK = async function () {
+    // Sinkronisasi pemrosesan awal ke API backend jika tersedia
+    try {
+        await fetch(`${BASE_API_URL}/api/spk/sinkron-saw`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
+        });
+    } catch (e) {}
+
     const wargaLayak = (window.globalDataWarga || []).filter(w => w.is_verified);
     if (wargaLayak.length === 0) {
         return Swal.fire({
@@ -75,13 +98,21 @@ window.hitungSPK = async function () {
     try {
         let spkData = null;
 
-        // Eksekusi pemanggilan backend dengan pembatas waktu agar peramban tidak membeku
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
 
         try {
-            let res = await window.fetchData('/hitung-saw', { signal: controller.signal });
-            if (!res || !res.ok) res = await window.fetchData('/api/hitung-saw', { signal: controller.signal });
+            let res = null;
+            if (typeof window.fetchData === 'function') {
+                res = await window.fetchData('/hitung-saw', { signal: controller.signal });
+                if (!res || !res.ok) res = await window.fetchData('/api/hitung-saw', { signal: controller.signal });
+            } else {
+                res = await fetch(`${BASE_API_URL}/api/hitung-saw`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` },
+                    signal: controller.signal
+                });
+            }
+
             if (res && res.ok) {
                 spkData = await res.json();
             }
@@ -91,7 +122,6 @@ window.hitungSPK = async function () {
             clearTimeout(timeoutId);
         }
 
-        // Jika peladen MySQL terputus atau timeout, jalankan kalkulasi lokal berpresisi tinggi
         if (!spkData || (!spkData.hasil_akhir && !Array.isArray(spkData))) {
             spkData = window.kalkulasiSAWEngineLokal(wargaLayak);
         }
@@ -200,6 +230,10 @@ window.hitungSPK = async function () {
             left: 0,
             behavior: 'smooth'
         });
+
+        if (typeof window.loadDashboardData === 'function') {
+            window.loadDashboardData(true);
+        }
 
         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Perhitungan BWM-SAW Selesai!', showConfirmButton: false, timer: 2000 });
     } catch (e) {
@@ -417,7 +451,6 @@ window.bukaModalMatriksKerja = function () {
 
     const htmlContent = `
         <div style="text-align: left; font-family: 'Inter', sans-serif; color: #0f172a; max-height: 75vh; overflow-y: auto; padding-right: 6px;">
-            <!-- Header Justifikasi Roscoe (100 Data Minimal) -->
             <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px 18px; margin-bottom: 18px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                     <div>
@@ -545,7 +578,7 @@ window.bukaModalMatriksKerja = function () {
                 </div>
             </div>
 
-            <!-- TAHAP 5: Contoh Pembuktian Formula V1 (Alternatif Peringkat 1) -->
+            <!-- TAHAP 5: Contoh Pembuktian Formula V1 -->
             ${sampleTop.breakdown ? `
                 <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;">
                     <div style="font-weight: 800; font-size: 0.88rem; color: #166534; margin-bottom: 6px;">
@@ -593,15 +626,21 @@ window.bukaModalKomparasi = async function () {
     if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:35px; color:#64748b; font-weight:600;"><i class="fas fa-spinner fa-spin text-primary" style="margin-right:8px;"></i> Mengambil dan memvalidasi skor perbandingan SAW vs WP...</td></tr>';
 
     try {
-        let res = await window.fetchData('/komparasi');
-        if (!res || !res.ok) res = await window.fetchData('/api/komparasi');
+        let res = null;
+        if (typeof window.fetchData === 'function') {
+            res = await window.fetchData('/komparasi');
+            if (!res || !res.ok) res = await window.fetchData('/api/komparasi');
+        } else {
+            res = await fetch(`${BASE_API_URL}/api/komparasi`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
+            });
+        }
 
         let list = [];
         if (res && res.ok) {
             const result = await res.json();
             list = Array.isArray(result) ? result : (result.data || []);
         } else if (window.lastSPKResult && window.lastSPKResult.hasil_akhir) {
-            // Komputasi WP pembanding lokal jika peladen tidak merespons
             list = window.lastSPKResult.hasil_akhir.map((item, idx) => ({
                 nama: item.nama,
                 nik: item.nik,
@@ -669,7 +708,6 @@ window.bukaModalKomparasi = async function () {
             `;
         }
 
-        // Render Tabel Perbandingan
         if (tbody) {
             tbody.innerHTML = list.map((item) => {
                 const diff = (item.wp_rank || 0) - (item.saw_rank || 0);
@@ -696,7 +734,6 @@ window.bukaModalKomparasi = async function () {
             }).join('');
         }
 
-        // Render Grafik Chart.js
         const canvas = document.getElementById('compChart');
         if (canvas && typeof Chart !== 'undefined') {
             if (window.compChartInstance) {
@@ -755,54 +792,198 @@ window.bukaModalKomparasi = async function () {
     }
 };
 
-window.AdminSPK = window.AdminSPK || {};
-window.AdminSPK.bukaModalKomparasi = window.bukaModalKomparasi;
-window.AdminSPK.hitungSPK = window.hitungSPK;
-
 // =========================================================================
-// 6. BOBOT KRITERIA BWM & SYNC BPS
+// 6. PENGELOLAAN BOBOT BWM & MODAL KRITERIA
 // =========================================================================
-window.bukaModalBobot = async function () {
-    const modal = document.getElementById('modalBobot');
+window.loadBobotData = async function () {
     const container = document.getElementById('bobotInputs');
-    if (!modal || !container) return;
-    modal.style.display = 'flex';
-    container.innerHTML = '<div style="text-align:center; padding:15px;">Memuat bobot kriteria...</div>';
+    if (!container) return;
+
+    container.innerHTML = '<div style="grid-column: span 2; text-align: center; padding: 15px; color: #64748b;"><i class="fas fa-spinner fa-spin"></i> Memuat kriteria BWM...</div>';
+
+    let kriteriaList = [];
     try {
-        let res = await window.fetchData('/kriteria');
-        if (!res || !res.ok) res = await window.fetchData('/api/kriteria');
-        const kriteria = await res.json();
-        container.innerHTML = '';
-        kriteria.forEach(k => {
-            container.innerHTML += `<div class="form-group"><label class="form-label" style="font-size:0.8rem; font-weight:700;">${k.kode} (${k.nama})</label><input type="number" step="0.0001" class="form-input input-bobot-bwm" data-kode="${k.kode}" data-jenis="${k.jenis}" value="${k.bobot}" style="padding:6px;"></div>`;
+        const res = await fetch(`${BASE_API_URL}/api/kriteria`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
         });
-    } catch (e) {
-        container.innerHTML = '<div style="text-align:center; color:#ef4444; padding:15px;">Gagal memuat kriteria.</div>';
-    }
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) kriteriaList = data;
+        }
+    } catch (err) {}
+
+    if (!kriteriaList || kriteriaList.length === 0) kriteriaList = KRITERIA_MASTER_DEFAULT;
+
+    container.innerHTML = kriteriaList.map(k => {
+        const inputVal = k.bobot !== undefined ? parseFloat(k.bobot).toFixed(4).replace(/\.?0+$/, '') : '0.10';
+        return `
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 8px 12px;">
+                <label style="display: block; font-size: 0.78rem; font-weight: 800; color: #1e293b; margin-bottom: 4px;">
+                    ${k.kode}. ${k.nama}
+                </label>
+                <input type="number" step="0.0001" min="0" max="1" 
+                       class="form-input input-bobot-field" 
+                       data-id="${k.id || ''}" 
+                       data-kode="${k.kode}" 
+                       value="${inputVal}" 
+                       style="width: 100%; padding: 8px 10px; border-radius: 10px; border: 1.5px solid #cbd5e1; font-weight: 700; font-size: 0.88rem; outline: none; background: #ffffff;">
+            </div>
+        `;
+    }).join('');
 };
 
 window.simpanBobot = async function (e) {
     if (e) e.preventDefault();
-    const inputs = document.querySelectorAll('.input-bobot-bwm');
-    const payload = Array.from(inputs).map(inp => ({ 
-        kode: inp.dataset.kode, 
-        jenis: inp.dataset.jenis, 
-        bobot: parseFloat(inp.value || 0) 
-    }));
-    let res = await window.fetchData('/kriteria', { method: 'POST', body: JSON.stringify(payload) });
-    if (!res || !res.ok) res = await window.fetchData('/api/kriteria', { method: 'POST', body: JSON.stringify(payload) });
+    const inputs = document.querySelectorAll('.input-bobot-field, .input-bobot-bwm');
+    if (!inputs || inputs.length === 0) return;
 
-    if (res && res.ok) {
-        Swal.fire('Tersimpan', 'Bobot kriteria berhasil diterapkan ke sistem!', 'success');
-        if (typeof window.closeModal === 'function') window.closeModal('modalBobot');
+    const payload = [];
+    let totalBobot = 0;
+
+    inputs.forEach(inp => {
+        const val = parseFloat(inp.value) || 0;
+        totalBobot += val;
+        payload.push({ id: inp.dataset.id, kode: inp.dataset.kode, bobot: val });
+    });
+
+    Swal.fire({
+        title: 'Menerapkan Bobot BWM...',
+        allowOutsideClick: false,
+        customClass: { popup: 'swal-modern-rounded' },
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        await fetch(`${BASE_API_URL}/api/kriteria/bobot`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` },
+            body: JSON.stringify({ bobot: payload })
+        });
+
+        localStorage.setItem('spk_bobot_bwm', JSON.stringify(payload));
+        Swal.fire({
+            icon: 'success',
+            title: 'Bobot BWM Diterapkan!',
+            text: `Total Akumulasi: ${totalBobot.toFixed(4)}`,
+            buttonsStyling: false,
+            customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-confirm' }
+        }).then(() => {
+            if (typeof window.closeModal === 'function') window.closeModal('modalBobot');
+        });
+    } catch (err) {
+        localStorage.setItem('spk_bobot_bwm', JSON.stringify(payload));
+        Swal.fire({
+            icon: 'success',
+            title: 'Bobot Tersimpan di Sesi!',
+            text: 'Bobot BWM berhasil diperbarui ke memori lokal.',
+            buttonsStyling: false,
+            customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-confirm' }
+        }).then(() => {
+            if (typeof window.closeModal === 'function') window.closeModal('modalBobot');
+        });
+    }
+};
+
+window.bukaModalBobot = function () {
+    if (typeof window.openModal === 'function') window.openModal('modalBobot');
+    else {
+        const modal = document.getElementById('modalBobot');
+        if (modal) modal.style.display = 'flex';
+    }
+    window.loadBobotData();
+};
+
+// =========================================================================
+// 7. SINKRONISASI DATA ARSIP (CADANGKAN & PULIHKAN ARSIP)
+// =========================================================================
+window.bukaModalSinkronArsip = function () {
+    Swal.fire({
+        title: '<i class="fas fa-database text-primary" style="margin-right:8px;"></i> Sinkronisasi Data Arsip',
+        html: `
+            <div style="text-align:left; font-size:0.92rem; color:#334155; margin-top:14px;">
+                <div class="sync-option-card" onclick="window.eksekusiCadangkanArsip()">
+                    <div class="sync-option-icon" style="background:#dcfce7; color:#15803d;"><i class="fas fa-save"></i></div>
+                    <div>
+                        <div style="font-weight:800; font-size:1rem;">1. Simpan Cadangan Arsip (Backup)</div>
+                        <small style="color:#64748b;">Mencadangkan seluruh data warga aktif saat ini.</small>
+                    </div>
+                </div>
+                <div class="sync-option-card restore-card" onclick="window.eksekusiPulihkanArsip()">
+                    <div class="sync-option-icon" style="background:#e0f2fe; color:#0284c7;"><i class="fas fa-history"></i></div>
+                    <div>
+                        <div style="font-weight:800; font-size:1rem;">2. Pulihkan Cadangan Arsip (Restore)</div>
+                        <small style="color:#64748b;">Memulihkan data arsip master ke tabel kerja kependudukan.</small>
+                    </div>
+                </div>
+            </div>
+        `,
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: 'Tutup',
+        buttonsStyling: false,
+        customClass: { popup: 'swal-modern-rounded', cancelButton: 'swal-btn-pill-cancel' }
+    });
+};
+
+window.eksekusiCadangkanArsip = async function () {
+    Swal.fire({ title: 'Menyimpan Cadangan...', customClass: { popup: 'swal-modern-rounded' }, didOpen: () => Swal.showLoading() });
+    try {
+        const res = await fetch(`${BASE_API_URL}/api/arsip/cadangkan`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
+        });
+        const json = await res.json();
+        if (res.ok) {
+            Swal.fire({ icon: 'success', title: 'Cadangan Tersimpan!', text: json.message, buttonsStyling: false, customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-confirm' } });
+        } else throw new Error(json.message);
+    } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Gagal', text: e.message, buttonsStyling: false, customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-danger' } });
+    }
+};
+
+window.eksekusiPulihkanArsip = async function () {
+    Swal.fire({ title: 'Memulihkan Cadangan...', customClass: { popup: 'swal-modern-rounded' }, didOpen: () => Swal.showLoading() });
+    try {
+        const res = await fetch(`${BASE_API_URL}/api/arsip/pulihkan`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
+        });
+        const json = await res.json();
+        if (res.ok) {
+            Swal.fire({ icon: 'success', title: 'Berhasil Dipulihkan!', text: json.message, buttonsStyling: false, customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-confirm' } })
+                .then(() => { if (typeof window.loadDashboardData === 'function') window.loadDashboardData(true); else location.reload(); });
+        } else throw new Error(json.message);
+    } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Gagal', text: e.message, buttonsStyling: false, customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-danger' } });
     }
 };
 
 window.syncBPS = async function () {
     Swal.fire({ title: 'Menyelaraskan Data BPS Sidoarjo...', didOpen: () => Swal.showLoading() });
-    const res = await window.fetchData('/api/bps/sync', { method: 'POST' });
-    if (res && res.ok) {
-        Swal.fire('Selesai', 'Data warga berhasil diselaraskan dengan basis data BPS DTSEN Sidoarjo!', 'success');
-        if (typeof window.loadDashboardData === 'function') window.loadDashboardData();
+    try {
+        const res = await fetch(`${BASE_API_URL}/api/bps/sync`, { 
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
+        });
+        if (res && res.ok) {
+            Swal.fire('Selesai', 'Data warga berhasil diselaraskan dengan basis data BPS DTSEN Sidoarjo!', 'success');
+            if (typeof window.loadDashboardData === 'function') window.loadDashboardData();
+        } else {
+            throw new Error('Gagal berkomunikasi dengan gateway BPS.');
+        }
+    } catch (e) {
+        Swal.fire('Gagal Sinkronisasi', e.message, 'error');
     }
 };
+
+// =========================================================================
+// 8. NAMESPACE ASSIGNMENT
+// =========================================================================
+window.AdminSPK = window.AdminSPK || {};
+window.AdminSPK.hitungSPK = window.hitungSPK;
+window.AdminSPK.bukaModalKomparasi = window.bukaModalKomparasi;
+window.AdminSPK.bukaModalMatriksKerja = window.bukaModalMatriksKerja;
+window.AdminSPK.bukaModalBobot = window.bukaModalBobot;
+window.AdminSPK.loadBobotData = window.loadBobotData;
+window.AdminSPK.simpanBobot = window.simpanBobot;
+window.AdminSPK.bukaModalSinkronArsip = window.bukaModalSinkronArsip;

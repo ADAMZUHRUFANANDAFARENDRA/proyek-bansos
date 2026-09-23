@@ -18,7 +18,7 @@
     window.cachedWargaNamesMap = JSON.parse(localStorage.getItem('cachedWargaNamesMap') || '{}');
     let chatInterval = null;
 
-    // State Aksi Pesan Interaktif (Balasan, Sematan & Penarikan)
+    // State Aksi Pesan Interaktif (Balasan, Sematan, Salin & Penarikan)
     window.activeReplyMessage = null;
     window.pinnedMessages = JSON.parse(localStorage.getItem('chatPinnedMap') || '{}');
     window.deletedForMeIds = JSON.parse(localStorage.getItem('chatDeletedForMe') || '[]');
@@ -36,10 +36,13 @@
     let analyserNode = null;
     let visualizerAnimId = null;
 
-    // State Studio Editor Media (Gambar, Video & Dokumen)
+    // State Studio Editor Media (Gambar, Video Trimmer & Dokumen)
     let currentEditingFile = null;
     let currentEditingVideoFile = null;
     let vRotationAngle = 0;
+    let vTrimStartVal = 0;
+    let vTrimEndVal = 100;
+    let filerobotImageEditorInstance = null;
 
     // State Panggilan Audio & Video WebRTC P2P
     let peerInstance = null;
@@ -56,9 +59,10 @@
     window.globalNotificationsData = [];
     let lastRenderedNotifState = '';
 
-    const BASE_URL = (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
-        ? window.CONFIG.BASE_URL.replace(/\/+$/, '')
-        : 'http://127.0.0.1:5000';
+    const BASE_API_URL = window.API_BASE_URL || 
+        ((typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
+            ? window.CONFIG.BASE_URL.replace(/\/+$/, '')
+            : 'http://127.0.0.1:5000');
 
     const EMOJI_DATABASE = [
         '😀','😃','😄','😁','😆','😅','😂','🤣','🥲','🥹','😊','😇','🙂','🙃','😉','😌',
@@ -78,6 +82,8 @@
         window.initAdminPeer();
         window.initGlobalNotifications();
         window.renderEmojiPickerGrid();
+        sinkronisasiPesanMasukRealtime();
+        setInterval(sinkronisasiPesanMasukRealtime, 3000);
     });
 
     async function apiCall(endpoint, options = {}) {
@@ -92,7 +98,7 @@
             ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             ...(options.headers || {})
         };
-        return await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
+        return await fetch(`${BASE_API_URL}${endpoint}`, { ...options, headers });
     }
 
     // =========================================================================
@@ -180,20 +186,23 @@
 
     window.switchChatTab = function (tab) {
         window.activeChatTab = tab;
-        const inboxBtn = document.getElementById('tabInboxBtn'), kontakBtn = document.getElementById('tabKontakBtn');
-        const inboxList = document.getElementById('chatContactList'), kontakList = document.getElementById('chatBukuKontakList');
+        const btnInbox = document.getElementById('tabInboxBtn');
+        const btnKontak = document.getElementById('tabKontakBtn');
+        const listInbox = document.getElementById('chatContactList');
+        const listKontak = document.getElementById('chatBukuKontakList');
+
         if (tab === 'inbox') {
-            if (inboxBtn) inboxBtn.className = 'chat-tab-btn active';
-            if (kontakBtn) kontakBtn.className = 'chat-tab-btn';
-            if (inboxList) inboxList.style.display = 'block';
-            if (kontakList) kontakList.style.display = 'none';
-            window.renderCategorizedInbox();
+            if (btnInbox) btnInbox.className = 'chat-tab-btn active';
+            if (btnKontak) btnKontak.className = 'chat-tab-btn';
+            if (listInbox) listInbox.style.display = 'block';
+            if (listKontak) listKontak.style.display = 'none';
+            sinkronisasiPesanMasukRealtime();
         } else {
-            if (kontakBtn) kontakBtn.className = 'chat-tab-btn active';
-            if (inboxBtn) inboxBtn.className = 'chat-tab-btn';
-            if (inboxList) inboxList.style.display = 'none';
-            if (kontakList) {
-                kontakList.style.display = 'block';
+            if (btnKontak) btnKontak.className = 'chat-tab-btn active';
+            if (btnInbox) btnInbox.className = 'chat-tab-btn';
+            if (listInbox) listInbox.style.display = 'none';
+            if (listKontak) {
+                listKontak.style.display = 'block';
                 window.renderBukuKontak();
             }
         }
@@ -291,9 +300,191 @@
         }
     };
 
+    window.bukaModalAlihkanAdmin = async function () {
+        if (!window.activeChatNik) {
+            return Swal.fire('Peringatan', 'Pilih salah satu obrolan warga terlebih dahulu.', 'warning');
+        }
+        const modal = document.getElementById('modalAlihkanAdmin');
+        const nameEl = document.getElementById('transferWargaName');
+        const select = document.getElementById('selectAdminTransfer');
+        if (nameEl) nameEl.innerText = window.activeChatName || 'Warga';
+
+        if (select) {
+            select.innerHTML = '<option value="">Memuat daftar petugas...</option>';
+            try {
+                const res = await apiCall('/users');
+                const users = (res && res.ok) ? await res.json() : [];
+                select.innerHTML = users.map(u => 
+                    `<option value="${u.username}">${u.username.toUpperCase()} (${u.role === 'admin' ? 'Super Admin' : 'Petugas Lapangan'})</option>`
+                ).join('');
+                const current = window.chatHandlersMap[window.activeChatNik] || 'petugas';
+                select.value = current;
+            } catch (e) {
+                select.innerHTML = '<option value="admin">ADMIN (Super Admin)</option><option value="petugas">PETUGAS (Petugas Lapangan)</option>';
+            }
+        }
+        if (modal) modal.style.display = 'flex';
+    };
+
+    window.eksekusiAlihkanAdmin = function () {
+        const select = document.getElementById('selectAdminTransfer');
+        const targetPetugas = select ? select.value : '';
+        if (!targetPetugas) {
+            return Swal.fire('Peringatan', 'Pilih petugas tujuan pengalihan.', 'warning');
+        }
+        if (window.activeChatNik) {
+            window.chatHandlersMap[window.activeChatNik] = targetPetugas;
+            localStorage.setItem('chatHandlersMap', JSON.stringify(window.chatHandlersMap));
+            const handlerDisplay = document.getElementById('chatActiveHandlerDisplay');
+            if (handlerDisplay) handlerDisplay.innerText = targetPetugas.toUpperCase();
+        }
+        window.closeModal('modalAlihkanAdmin');
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: `Obrolan berhasil dialihkan ke ${targetPetugas.toUpperCase()}`,
+            timer: 2000,
+            showConfirmButton: false
+        });
+    };
+
+    window.selectWargaChat = function (nik) {
+        const realName = window.getWargaNameByNik(nik);
+        window.loadChatMessages(nik, realName);
+    };
+
     // =========================================================================
-    // 3. RENDER PESAN BERSIH, KARTU MEDIA & TINDAKAN
+    // 3. LOGIKA GELEMBUNG CHAT MODERN, MENU TITIK TIGA & TINDAKAN INTERAKTIF
     // =========================================================================
+    window.toggleChatActionDropdown = function (e) {
+        if (e) e.stopPropagation();
+        const dropdown = document.getElementById('chatActionDropdown');
+        if (!dropdown) return;
+        const isOpen = dropdown.classList.contains('show');
+        document.querySelectorAll('.chat-dropdown-content, .bubble-action-dropdown').forEach(el => el.classList.remove('show'));
+        if (!isOpen) dropdown.classList.add('show');
+    };
+
+    document.addEventListener('click', function () {
+        document.querySelectorAll('.chat-dropdown-content, .bubble-action-dropdown').forEach(el => el.classList.remove('show'));
+        const ep = document.getElementById('emojiPickerAdmin');
+        if (ep) ep.style.display = 'none';
+    });
+
+    window.toggleBubbleDropdown = function (btn, e) {
+        if (e) e.stopPropagation();
+        const parentBubble = btn.closest('.chat-msg-bubble');
+        if (!parentBubble) return;
+        const dropdown = parentBubble.querySelector('.bubble-action-dropdown');
+        if (!dropdown) return;
+
+        const isShown = dropdown.classList.contains('show');
+        document.querySelectorAll('.bubble-action-dropdown, .chat-dropdown-content').forEach(d => d.classList.remove('show'));
+        if (!isShown) dropdown.classList.add('show');
+    };
+
+    window.formatModernBubbleHtml = function (pesan, isSenderAdmin) {
+        const rowClass = isSenderAdmin ? 'outgoing' : 'incoming';
+        const rawText = pesan.text || pesan.pesan || '';
+        const escapedText = $('<div>').text(rawText).html();
+        const waktu = pesan.waktu || pesan.time || 'Baru saja';
+        const msgId = pesan.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
+        if (window.deletedForMeIds.includes(String(msgId))) return '';
+        const isDeletedAll = window.deletedForAllIds.includes(String(msgId)) || Boolean(pesan.is_deleted_all);
+
+        let contentHtml = '';
+        if (isDeletedAll) {
+            contentHtml = `<span style="font-style:italic; opacity:0.65;"><i class="fas fa-ban"></i> Pesan ini telah ditarik.</span>`;
+        } else {
+            if (pesan.reply_text) {
+                contentHtml += `<div style="border-left:3px solid #009846; padding:3px 8px; margin-bottom:6px; font-size:0.75rem; background:rgba(0,0,0,0.05); border-radius:4px;"><b>${window.safeHtml(pesan.reply_sender || 'Balasan')}</b>: ${window.safeHtml(pesan.reply_text)}</div>`;
+            }
+
+            if (pesan.file_path) {
+                const url = pesan.file_path.startsWith('http') ? pesan.file_path : `${BASE_API_URL}${pesan.file_path}`;
+                if (pesan.file_type === 'image') {
+                    contentHtml += `
+                        <div style="max-width:280px; border-radius:12px; overflow:hidden; margin-bottom:6px; cursor:pointer;" onclick="window.openLightbox('${url}','image')">
+                            <img src="${url}" style="width:100%; max-height:220px; object-fit:cover; display:block;" />
+                        </div>`;
+                } else if (pesan.file_type === 'video') {
+                    contentHtml += `
+                        <div style="max-width:320px; border-radius:12px; overflow:hidden; margin-bottom:6px; background:#000;">
+                            <video src="${url}" controls playsinline preload="metadata" style="width:100%; max-height:240px; display:block;"></video>
+                        </div>`;
+                } else if (pesan.file_type === 'audio') {
+                    contentHtml += `
+                        <div style="min-width:230px; padding:6px 0; display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-microphone" style="color:#009846; font-size:1.1rem;"></i>
+                            <audio src="${url}" controls style="flex:1; height:32px; outline:none;"></audio>
+                        </div>`;
+                } else if (pesan.file_type === 'document') {
+                    const fileName = pesan.file_path.split('/').pop();
+                    contentHtml += `
+                        <div onclick="window.open('${url}', '_blank')" style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:rgba(0,0,0,0.04); border-radius:8px; margin-bottom:6px; cursor:pointer;">
+                            <i class="fas fa-file-alt text-primary" style="font-size:1.5rem;"></i>
+                            <div style="flex:1; overflow:hidden;">
+                                <div style="font-weight:700; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${fileName}</div>
+                                <small style="opacity:0.75; font-size:0.7rem;">Unduh Dokumen</small>
+                            </div>
+                        </div>`;
+                }
+            }
+
+            let cleanText = (rawText || '')
+                .replace(/foto\s*terlampir/gi, '')
+                .replace(/video\s*terlampir/gi, '')
+                .replace(/^voice\s*note$/gi, '')
+                .trim();
+
+            if (cleanText) {
+                contentHtml += `<div class="chat-msg-text">${window.safeHtml(cleanText)}</div>`;
+            }
+        }
+
+        const reactionHtml = pesan.reaction ? `<div class="msg-reaction-display">${pesan.reaction}</div>` : '';
+
+        return `
+            <div class="chat-msg-row ${rowClass}" id="bubble_wrap_${msgId}" data-id="${msgId}">
+                <div class="chat-msg-bubble">
+                    ${!isDeletedAll ? `
+                    <button type="button" class="bubble-corner-btn" onclick="window.toggleBubbleDropdown(this, event)" title="Opsi Pesan">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+
+                    <div class="bubble-action-dropdown" onclick="event.stopPropagation()">
+                        <div class="emoji-react-row">
+                            <span onclick="window.addReactionToMessage('${msgId}', '❤️')">❤️</span>
+                            <span onclick="window.addReactionToMessage('${msgId}', '👍')">👍</span>
+                            <span onclick="window.addReactionToMessage('${msgId}', '😂')">😂</span>
+                            <span onclick="window.addReactionToMessage('${msgId}', '😮')">😮</span>
+                            <span onclick="window.addReactionToMessage('${msgId}', '🙏')">🙏</span>
+                        </div>
+                        <button type="button" onclick="window.prepareReplyMessage('${msgId}', '${isSenderAdmin ? 'Petugas' : window.escapeInlineJS(window.activeChatName)}', '${window.escapeInlineJS(rawText || 'Media')}')">
+                            <i class="fas fa-reply text-primary"></i> Balas Pesan
+                        </button>
+                        <button type="button" onclick="window.pinMessageDirect('${window.escapeInlineJS(rawText || 'Media')}')">
+                            <i class="fas fa-thumbtack text-accent"></i> Sematkan Pesan
+                        </button>
+                        <button type="button" onclick="window.salinTeksPesan('${window.escapeInlineJS(rawText || '')}')">
+                            <i class="fas fa-copy text-info"></i> Salin Pesan
+                        </button>
+                        <button type="button" class="text-danger" onclick="window.deleteMessageAction('${msgId}', ${isSenderAdmin})">
+                            <i class="fas fa-trash-alt text-danger"></i> Hapus Pesan
+                        </button>
+                    </div>
+                    ` : ''}
+
+                    ${contentHtml}
+                    <span class="chat-time-stamp">${waktu}</span>
+                    ${reactionHtml}
+                </div>
+            </div>
+        `;
+    };
+
     window.loadChatMessages = async function (nik, nama) {
         window.activeChatNik = String(nik);
         window.activeChatName = window.getWargaNameByNik(nik, nama);
@@ -319,110 +510,9 @@
 
             box.innerHTML = '';
 
-            messages.forEach((m, idx) => {
-                const msgIdentifier = m.id || `msg_${idx}`;
-                if (window.deletedForMeIds.includes(msgIdentifier)) return;
-
+            messages.forEach((m) => {
                 const isAdmin = m.sender !== 'warga';
-                const isDeletedAll = window.deletedForAllIds.includes(msgIdentifier) || Boolean(m.is_deleted_all);
-
-                let contentHtml = '';
-                if (isDeletedAll) {
-                    contentHtml = `<span style="font-style:italic; opacity:0.6;"><i class="fas fa-ban"></i> Pesan ini telah ditarik.</span>`;
-                } else {
-                    if (m.reply_text) {
-                        contentHtml += `<div style="border-left:3px solid #009846; padding:3px 8px; margin-bottom:6px; font-size:0.75rem; background:rgba(0,0,0,0.04); border-radius:4px;"><b>${window.safeHtml(m.reply_sender || 'Balasan')}</b>: ${window.safeHtml(m.reply_text)}</div>`;
-                    }
-
-                    if (m.file_path) {
-                        const url = m.file_path.startsWith('http') ? m.file_path : `${BASE_URL}${m.file_path}`;
-
-                        if (m.file_type === 'image') {
-                            contentHtml += `
-                                <div style="max-width:280px; border-radius:12px; overflow:hidden; margin-bottom:4px; box-shadow:0 2px 6px rgba(0,0,0,0.1); cursor:pointer;" onclick="window.openLightbox('${url}','image')">
-                                    <img src="${url}" style="width:100%; max-height:220px; object-fit:cover; display:block;" />
-                                </div>
-                            `;
-                        } else if (m.file_type === 'video') {
-                            contentHtml += `
-                                <div style="max-width:320px; border-radius:12px; overflow:hidden; margin-bottom:4px; background:#000; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
-                                    <video src="${url}" controls playsinline preload="metadata" style="width:100%; max-height:240px; display:block;"></video>
-                                </div>
-                            `;
-                        } else if (m.file_type === 'audio') {
-                            contentHtml += `
-                                <div style="min-width:230px; padding:6px 4px; display:flex; align-items:center; gap:8px;">
-                                    <i class="fas fa-microphone" style="color:#009846; font-size:1.15rem;"></i>
-                                    <audio src="${url}" controls style="flex:1; height:32px; outline:none;"></audio>
-                                </div>
-                            `;
-                        } else if (m.file_type === 'document') {
-                            const fileName = m.file_path.split('/').pop();
-                            const isPdf = fileName.toLowerCase().endsWith('.pdf');
-                            contentHtml += `
-                                <div onclick="window.open('${url}', '_blank')" 
-                                     style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:${isAdmin ? '#ffffff' : '#f8fafc'}; border:1px solid #cbd5e1; border-radius:10px; margin-bottom:4px; cursor:pointer; min-width:220px;">
-                                    <i class="fas ${isPdf ? 'fa-file-pdf text-danger' : 'fa-file-alt text-primary'}" style="font-size:1.8rem;"></i>
-                                    <div style="flex:1; overflow:hidden;">
-                                        <div style="font-weight:700; font-size:0.83rem; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${fileName}</div>
-                                        <small style="color:#64748b; font-size:0.7rem;">Unduh Dokumen</small>
-                                    </div>
-                                    <i class="fas fa-arrow-down" style="color:#009846;"></i>
-                                </div>
-                            `;
-                        }
-                    }
-
-                    let cleanText = (m.pesan || '')
-                        .replace(/foto\s*terlampir/gi, '')
-                        .replace(/video\s*terlampir/gi, '')
-                        .replace(/^voice\s*note$/gi, '')
-                        .trim();
-
-                    if (cleanText) {
-                        contentHtml += `<div style="font-size:0.9rem; line-height:1.45; word-break:break-word;">${window.safeHtml(cleanText)}</div>`;
-                    }
-                }
-
-                const reactionHtml = m.reaction ? `<div class="msg-reaction-display">${m.reaction}</div>` : '';
-
-                const bubbleHtml = `
-                    <div class="msg-wrapper-bubble ${isAdmin ? 'admin-side' : 'warga-side'}" id="bubble_wrap_${msgIdentifier}">
-                        ${!isDeletedAll ? `
-                        <button type="button" class="msg-trigger-btn" onclick="window.toggleMsgActionMenu(event, '${msgIdentifier}')" title="Tindakan">
-                            <i class="fas fa-ellipsis-v"></i>
-                        </button>
-                        <div class="msg-action-card" id="msg_popup_${msgIdentifier}" onclick="event.stopPropagation()">
-                            <div class="msg-action-reactions-row">
-                                <button type="button" class="reaction-btn-pop" onclick="window.addReactionToMessage('${msgIdentifier}', '❤️')">❤️</button>
-                                <button type="button" class="reaction-btn-pop" onclick="window.addReactionToMessage('${msgIdentifier}', '👍')">👍</button>
-                                <button type="button" class="reaction-btn-pop" onclick="window.addReactionToMessage('${msgIdentifier}', '😂')">😂</button>
-                                <button type="button" class="reaction-btn-pop" onclick="window.addReactionToMessage('${msgIdentifier}', '😮')">😮</button>
-                                <button type="button" class="reaction-btn-pop" onclick="window.addReactionToMessage('${msgIdentifier}', '🙏')">🙏</button>
-                            </div>
-                            <button type="button" class="msg-action-btn-item" onclick="window.prepareReplyMessage('${msgIdentifier}', '${isAdmin ? 'Petugas' : window.escapeInlineJS(window.activeChatName)}', '${window.escapeInlineJS(m.pesan || 'Media')}')">
-                                <i class="fas fa-reply text-primary"></i> Balas Pesan
-                            </button>
-                            <button type="button" class="msg-action-btn-item" onclick="window.pinMessageDirect('${window.escapeInlineJS(m.pesan || 'Media')}')">
-                                <i class="fas fa-thumbtack text-accent"></i> Sematkan Pesan
-                            </button>
-                            <button type="button" class="msg-action-btn-item" onclick="window.salinTeksPesan('${window.escapeInlineJS(m.pesan || '')}')">
-                                <i class="fas fa-copy text-info"></i> Salin Teks
-                            </button>
-                            <button type="button" class="msg-action-btn-item" onclick="window.deleteMessageAction('${msgIdentifier}', ${isAdmin})">
-                                <i class="fas fa-trash text-muted"></i> Hapus Pesan
-                            </button>
-                        </div>
-                        ` : ''}
-
-                        <div class="${isAdmin ? 'msg-bubble-admin' : 'msg-bubble-warga'}">
-                            ${contentHtml}
-                            <span class="msg-time">${m.waktu || ''}</span>
-                            ${reactionHtml}
-                        </div>
-                    </div>
-                `;
-                box.innerHTML += bubbleHtml;
+                box.insertAdjacentHTML('beforeend', window.formatModernBubbleHtml(m, isAdmin));
             });
 
             box.scrollTop = box.scrollHeight;
@@ -443,34 +533,85 @@
             const box = document.getElementById('adminChatMessages');
             if (!box) return;
 
-            if (messages.length !== box.querySelectorAll('.msg-wrapper-bubble').length) {
+            if (messages.length !== box.querySelectorAll('.chat-msg-row').length) {
                 window.loadChatMessages(nik, window.activeChatName);
             }
         } catch (e) {}
     };
 
-    window.toggleMsgActionMenu = function (e, id) {
-        if (e) e.stopPropagation();
-        document.querySelectorAll('.msg-action-card').forEach(el => el.classList.remove('show'));
-        const popup = document.getElementById(`msg_popup_${id}`);
-        if (popup) popup.classList.toggle('show');
-    };
+    async function sinkronisasiPesanMasukRealtime() {
+        try {
+            const token = localStorage.getItem('token') || '';
+            const resInbox = await fetch(`${BASE_API_URL}/api/chat/inbox`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
-    document.addEventListener('click', () => {
-        document.querySelectorAll('.msg-action-card').forEach(el => el.classList.remove('show'));
-        const ep = document.getElementById('emojiPickerAdmin');
-        if (ep) ep.style.display = 'none';
-    });
+            if (resInbox.ok) {
+                const jsonInbox = await resInbox.json();
+                const inboxContainer = document.getElementById('chatContactList');
+                const tabInboxBtn = document.getElementById('tabInboxBtn');
+
+                if (inboxContainer && Array.isArray(jsonInbox.data) && jsonInbox.data.length > 0) {
+                    const totalUnread = jsonInbox.data.reduce((acc, cur) => acc + (cur.unread_count || 0), 0);
+                    if (tabInboxBtn) {
+                        tabInboxBtn.innerHTML = `<i class="fas fa-inbox"></i> Pesan Masuk ${totalUnread > 0 ? `<span style="background:#dc2626; color:white; border-radius:12px; padding:1px 7px; font-size:0.7rem; margin-left:4px;">${totalUnread}</span>` : ''}`;
+                    }
+
+                    if (tabInboxBtn && tabInboxBtn.classList.contains('active')) {
+                        inboxContainer.innerHTML = jsonInbox.data.map(item => `
+                            <div onclick="window.selectWargaChat ? window.selectWargaChat('${item.nik}') : window.loadChatMessages('${item.nik}', '${window.escapeInlineJS(item.nama)}') " class="contact-item" style="padding:14px; border-bottom:1px solid #f1f5f9; cursor:pointer; display:flex; gap:12px; align-items:center; transition:background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
+                                <div style="width:42px; height:42px; border-radius:50%; background:#009846; color:white; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                    ${(item.nama || 'W').charAt(0).toUpperCase()}
+                                </div>
+                                <div style="flex:1; overflow:hidden;">
+                                    <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                                        <div style="font-weight:800; font-size:0.88rem; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.nama}</div>
+                                        <small style="font-size:0.7rem; color:#94a3b8;">${item.waktu || ''}</small>
+                                    </div>
+                                    <div style="font-size:0.78rem; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.pesan_terakhir || 'Membuka pesan baru...'}</div>
+                                </div>
+                                ${item.unread_count > 0 ? `<span style="background:#009846; color:white; border-radius:50%; width:18px; height:18px; font-size:0.68rem; font-weight:800; display:flex; align-items:center; justify-content:center;">${item.unread_count}</span>` : ''}
+                            </div>
+                        `).join('');
+                    }
+                }
+            }
+
+            const activeNikEl = document.getElementById('chatActiveNikDisplay');
+            const chatBox = document.getElementById('adminChatMessages');
+            if (activeNikEl && chatBox && activeNikEl.innerText && activeNikEl.innerText !== '-') {
+                const currentNik = activeNikEl.innerText.trim();
+                const resMsg = await fetch(`${BASE_API_URL}/api/chat/messages?nik=${currentNik}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (resMsg.ok) {
+                    const jsonMsg = await resMsg.json();
+                    const messages = jsonMsg.messages || jsonMsg.data || [];
+                    const currentCount = chatBox.querySelectorAll('.chat-msg-row').length;
+
+                    if (messages.length > currentCount) {
+                        const newMessages = messages.slice(currentCount);
+                        newMessages.forEach(m => {
+                            const isSenderAdmin = m.pengirim === 'admin' || m.sender === 'admin' || m.is_admin === true;
+                            chatBox.insertAdjacentHTML('beforeend', window.formatModernBubbleHtml(m, isSenderAdmin));
+                        });
+                        chatBox.scrollTop = chatBox.scrollHeight;
+                    }
+                }
+            }
+        } catch (err) {}
+    }
 
     window.addReactionToMessage = function (msgId, emojiChar) {
-        document.querySelectorAll('.msg-action-card').forEach(el => el.classList.remove('show'));
+        document.querySelectorAll('.bubble-action-dropdown').forEach(el => el.classList.remove('show'));
         const wrap = document.getElementById(`bubble_wrap_${msgId}`);
         if (!wrap) return;
         let reactEl = wrap.querySelector('.msg-reaction-display');
         if (!reactEl) {
             reactEl = document.createElement('div');
             reactEl.className = 'msg-reaction-display';
-            wrap.querySelector('.msg-bubble-admin, .msg-bubble-warga')?.appendChild(reactEl);
+            wrap.querySelector('.chat-msg-bubble')?.appendChild(reactEl);
         }
         reactEl.innerText = emojiChar;
     };
@@ -480,7 +621,7 @@
         document.getElementById('replyTargetSender').innerText = sender;
         document.getElementById('replyTargetText').innerText = text;
         document.getElementById('replyMessageBanner').style.display = 'flex';
-        document.querySelectorAll('.msg-action-card').forEach(el => el.classList.remove('show'));
+        document.querySelectorAll('.bubble-action-dropdown').forEach(el => el.classList.remove('show'));
         document.getElementById('adminChatInput')?.focus();
     };
 
@@ -522,7 +663,7 @@
     };
 
     window.deleteMessageAction = async function (msgId, isSender) {
-        document.querySelectorAll('.msg-action-card').forEach(el => el.classList.remove('show'));
+        document.querySelectorAll('.bubble-action-dropdown').forEach(el => el.classList.remove('show'));
         const { value: opt } = await Swal.fire({
             title: 'Hapus Pesan?',
             text: 'Tentukan cakupan penghapusan pesan ini.',
@@ -537,21 +678,21 @@
         });
 
         if (opt === true) {
-            window.deletedForMeIds.push(msgId);
+            window.deletedForMeIds.push(String(msgId));
             localStorage.setItem('chatDeletedForMe', JSON.stringify(window.deletedForMeIds));
             document.getElementById(`bubble_wrap_${msgId}`)?.remove();
         } else if (opt === false) {
-            window.deletedForAllIds.push(msgId);
+            window.deletedForAllIds.push(String(msgId));
             localStorage.setItem('chatDeletedForAll', JSON.stringify(window.deletedForAllIds));
             const wrap = document.getElementById(`bubble_wrap_${msgId}`);
             if (wrap) {
-                wrap.innerHTML = `<div class="msg-bubble-admin" style="opacity:0.6; font-style:italic;"><i class="fas fa-ban"></i> Pesan ini telah ditarik.</div>`;
+                wrap.querySelector('.chat-msg-bubble').innerHTML = `<span style="font-style:italic; opacity:0.65;"><i class="fas fa-ban"></i> Pesan ini telah ditarik.</span>`;
             }
         }
     };
 
     // =========================================================================
-    // 4. AUDIO & STUDIO MEDIA
+    // 4. AUDIO, RECORDING & STUDIO MEDIA (GAMBAR FILEROBOT & VIDEO CANVAS)
     // =========================================================================
     window.startVoiceRecording = async function () {
         if (!window.activeChatNik) return Swal.fire('Peringatan', 'Pilih obrolan warga terlebih dahulu.', 'warning');
@@ -591,7 +732,6 @@
             document.getElementById('adminChatInput').style.display = 'none';
             document.getElementById('btnMicAdmin').style.display = 'none';
             document.getElementById('adminVoiceControlUI').style.display = 'flex';
-            document.getElementById('btnPauseResumeVoice').innerHTML = '<i class="fas fa-pause"></i>';
 
             clearInterval(window.voiceTimerInterval);
             window.voiceTimerInterval = setInterval(() => {
@@ -657,11 +797,11 @@
         if (!window.isVoicePaused) {
             window.mediaRecorderObj.pause();
             window.isVoicePaused = true;
-            btn.innerHTML = '<i class="fas fa-play"></i>';
+            if (btn) btn.innerHTML = '<i class="fas fa-play"></i>';
         } else {
             window.mediaRecorderObj.resume();
             window.isVoicePaused = false;
-            btn.innerHTML = '<i class="fas fa-pause"></i>';
+            if (btn) btn.innerHTML = '<i class="fas fa-pause"></i>';
         }
     };
 
@@ -689,7 +829,7 @@
             formData.append('file', blob, `voice_${Date.now()}.webm`);
 
             try {
-                await fetch(`${BASE_URL}/api/chat/${window.activeChatNik}`, {
+                await fetch(`${BASE_API_URL}/api/chat/${window.activeChatNik}`, {
                     method: 'POST',
                     body: formData
                 });
@@ -722,13 +862,301 @@
         const fileType = file.type;
 
         if (fileType.startsWith('image/')) {
-            window.uploadDirectBlob(file, file.name);
+            window.openImageEditor(file);
         } else if (fileType.startsWith('video/')) {
-            window.uploadDirectBlob(file, file.name);
+            window.openVideoEditor(file);
         } else {
             window.confirmSendDocument(file);
         }
         input.value = '';
+    };
+
+    // STUDIO GAMBAR: FILEROBOT IMAGE EDITOR
+    window.openImageEditor = function (file) {
+        currentEditingFile = file;
+        const modal = document.getElementById('imageEditorModal');
+        const container = document.getElementById('filerobotContainer');
+        if (!modal || !container) {
+            window.uploadDirectBlob(file, file.name);
+            return;
+        }
+        modal.style.display = 'flex';
+        container.innerHTML = '';
+
+        const imgUrl = URL.createObjectURL(file);
+        if (typeof window.FilerobotImageEditor !== 'undefined') {
+            try {
+                filerobotImageEditorInstance = new window.FilerobotImageEditor(container, {
+                    source: imgUrl,
+                    onSave: (editedImageObject) => {
+                        const base64Data = editedImageObject.imageBase64;
+                        fetch(base64Data)
+                            .then(res => res.blob())
+                            .then(blob => {
+                                window.uploadDirectBlob(blob, file.name.replace(/\.[^/.]+$/, "") + "_edited.jpg");
+                                window.batalImageEditor();
+                            });
+                    },
+                    onClose: () => {
+                        window.batalImageEditor();
+                    }
+                });
+                filerobotImageEditorInstance.render();
+            } catch (err) {
+                window.uploadDirectBlob(file, file.name);
+                window.batalImageEditor();
+            }
+        } else {
+            container.innerHTML = `
+                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:15px;">
+                    <img src="${imgUrl}" style="max-height:70vh; max-width:90%; border-radius:12px; object-fit:contain;" />
+                    <button type="button" class="btn btn-primary" onclick="window.uploadDirectBlob(currentEditingFile, currentEditingFile.name); window.batalImageEditor();">
+                        <i class="fas fa-paper-plane"></i> Kirim Gambar Ini
+                    </button>
+                </div>
+            `;
+        }
+    };
+
+    window.batalImageEditor = function () {
+        const modal = document.getElementById('imageEditorModal');
+        if (modal) modal.style.display = 'none';
+        if (filerobotImageEditorInstance && typeof filerobotImageEditorInstance.terminate === 'function') {
+            try { filerobotImageEditorInstance.terminate(); } catch (e) {}
+            filerobotImageEditorInstance = null;
+        }
+        const container = document.getElementById('filerobotContainer');
+        if (container) container.innerHTML = '';
+        currentEditingFile = null;
+    };
+
+    // STUDIO VIDEO: HTML5 CANVAS TRIMMER & ROTATOR
+    window.openVideoEditor = function (file) {
+        currentEditingVideoFile = file;
+        const modal = document.getElementById('videoEditorModal');
+        const player = document.getElementById('vEditorPlayer');
+        if (!modal || !player) {
+            window.uploadDirectBlob(file, file.name);
+            return;
+        }
+        modal.style.display = 'flex';
+        vRotationAngle = 0;
+        vTrimStartVal = 0;
+        vTrimEndVal = 100;
+
+        const vidUrl = URL.createObjectURL(file);
+        player.src = vidUrl;
+        player.style.transform = 'rotate(0deg)';
+        player.load();
+
+        player.onloadedmetadata = function () {
+            const duration = player.duration || 0;
+            window.updateVideoTimeDisplay(0, duration);
+            const startSlider = document.getElementById('vTrimStart');
+            const endSlider = document.getElementById('vTrimEnd');
+            const activeTrack = document.getElementById('vTrimActive');
+            if (startSlider) startSlider.value = 0;
+            if (endSlider) endSlider.value = 100;
+            if (activeTrack) {
+                activeTrack.style.left = '0%';
+                activeTrack.style.width = '100%';
+            }
+        };
+
+        player.ontimeupdate = function () {
+            const duration = player.duration || 1;
+            const current = player.currentTime || 0;
+            window.updateVideoTimeDisplay(current, duration);
+
+            const endLimit = (vTrimEndVal / 100) * duration;
+            if (current >= endLimit) {
+                player.pause();
+                const startLimit = (vTrimStartVal / 100) * duration;
+                player.currentTime = startLimit;
+                const playBtn = document.getElementById('vPlayBtn');
+                if (playBtn) playBtn.innerHTML = '<i class="fas fa-play" style="margin-left:3px;"></i>';
+            }
+        };
+    };
+
+    window.batalVideoEditor = function () {
+        const modal = document.getElementById('videoEditorModal');
+        const player = document.getElementById('vEditorPlayer');
+        if (player) {
+            player.pause();
+            player.src = '';
+        }
+        if (modal) modal.style.display = 'none';
+        currentEditingVideoFile = null;
+        vRotationAngle = 0;
+    };
+
+    window.vTogglePlay = function () {
+        const player = document.getElementById('vEditorPlayer');
+        const playBtn = document.getElementById('vPlayBtn');
+        if (!player) return;
+        if (player.paused) {
+            player.play();
+            if (playBtn) playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+        } else {
+            player.pause();
+            if (playBtn) playBtn.innerHTML = '<i class="fas fa-play" style="margin-left:3px;"></i>';
+        }
+    };
+
+    window.vRotate = function () {
+        const player = document.getElementById('vEditorPlayer');
+        if (!player) return;
+        vRotationAngle = (vRotationAngle + 90) % 360;
+        player.style.transform = `rotate(${vRotationAngle}deg)`;
+    };
+
+    window.vUpdateTrim = function (type) {
+        const player = document.getElementById('vEditorPlayer');
+        const startSlider = document.getElementById('vTrimStart');
+        const endSlider = document.getElementById('vTrimEnd');
+        const activeTrack = document.getElementById('vTrimActive');
+        if (!player || !startSlider || !endSlider) return;
+
+        let sVal = parseFloat(startSlider.value);
+        let eVal = parseFloat(endSlider.value);
+
+        if (sVal >= eVal) {
+            if (type === 'start') {
+                sVal = Math.max(0, eVal - 1);
+                startSlider.value = sVal;
+            } else {
+                eVal = Math.min(100, sVal + 1);
+                endSlider.value = eVal;
+            }
+        }
+
+        vTrimStartVal = sVal;
+        vTrimEndVal = eVal;
+
+        if (activeTrack) {
+            activeTrack.style.left = `${sVal}%`;
+            activeTrack.style.width = `${eVal - sVal}%`;
+        }
+
+        const duration = player.duration || 0;
+        if (type === 'start') {
+            player.currentTime = (sVal / 100) * duration;
+        } else {
+            player.currentTime = (eVal / 100) * duration;
+        }
+    };
+
+    window.updateVideoTimeDisplay = function (curr, total) {
+        const display = document.getElementById('vTimeDisplay');
+        if (!display) return;
+        const format = sec => {
+            const m = String(Math.floor(sec / 60)).padStart(2, '0');
+            const s = String(Math.floor(sec % 60)).padStart(2, '0');
+            return `${m}:${s}`;
+        };
+        display.innerText = `${format(curr)} / ${format(total)}`;
+    };
+
+    window.vProcessAndSave = async function () {
+        if (!currentEditingVideoFile) return;
+        const player = document.getElementById('vEditorPlayer');
+        const overlay = document.getElementById('vProcessingOverlay');
+        const processText = document.getElementById('vProcessingText');
+        const canvas = document.getElementById('vRenderCanvas');
+        const isMuted = document.getElementById('vidMuteAdmin')?.checked || false;
+
+        if (vTrimStartVal === 0 && vTrimEndVal === 100 && vRotationAngle === 0 && !isMuted) {
+            window.uploadDirectBlob(currentEditingVideoFile, currentEditingVideoFile.name);
+            window.batalVideoEditor();
+            return;
+        }
+
+        if (overlay) overlay.style.display = 'flex';
+        if (processText) processText.innerText = 'Menyiapkan render video...';
+
+        try {
+            const duration = player.duration || 1;
+            const startTime = (vTrimStartVal / 100) * duration;
+            const endTime = (vTrimEndVal / 100) * duration;
+            const targetDuration = endTime - startTime;
+
+            player.pause();
+            player.currentTime = startTime;
+
+            const stream = canvas.captureStream ? canvas.captureStream(30) : player.captureStream();
+
+            if (!isMuted && player.captureStream) {
+                try {
+                    const playerStream = player.captureStream();
+                    const audioTracks = playerStream.getAudioTracks();
+                    if (audioTracks.length > 0) {
+                        stream.addTrack(audioTracks[0]);
+                    }
+                } catch (e) {}
+            }
+
+            const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+            const recorder = new MediaRecorder(stream, { mimeType });
+            const chunks = [];
+
+            recorder.ondataavailable = e => {
+                if (e.data && e.data.size > 0) chunks.push(e.data);
+            };
+
+            recorder.onstop = () => {
+                const resultBlob = new Blob(chunks, { type: 'video/webm' });
+                if (overlay) overlay.style.display = 'none';
+                window.uploadDirectBlob(resultBlob, `video_${Date.now()}.webm`);
+                window.batalVideoEditor();
+            };
+
+            const ctx = canvas.getContext('2d');
+            const vWidth = player.videoWidth || 640;
+            const vHeight = player.videoHeight || 360;
+
+            if (vRotationAngle === 90 || vRotationAngle === 270) {
+                canvas.width = vHeight;
+                canvas.height = vWidth;
+            } else {
+                canvas.width = vWidth;
+                canvas.height = vHeight;
+            }
+
+            recorder.start(100);
+            player.muted = isMuted;
+            player.play();
+
+            const renderInterval = setInterval(() => {
+                if (player.currentTime >= endTime || player.ended) {
+                    clearInterval(renderInterval);
+                    player.pause();
+                    recorder.stop();
+                    return;
+                }
+
+                const currentRenderSec = Math.max(0, player.currentTime - startTime);
+                if (processText) {
+                    processText.innerText = `Merender: ${currentRenderSec.toFixed(1)}s / ${targetDuration.toFixed(1)}s`;
+                }
+
+                ctx.save();
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate((vRotationAngle * Math.PI) / 180);
+                if (vRotationAngle === 90 || vRotationAngle === 270) {
+                    ctx.drawImage(player, -vWidth / 2, -vHeight / 2, vWidth, vHeight);
+                } else {
+                    ctx.drawImage(player, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
+                }
+                ctx.restore();
+            }, 1000 / 30);
+
+        } catch (err) {
+            if (overlay) overlay.style.display = 'none';
+            window.uploadDirectBlob(currentEditingVideoFile, currentEditingVideoFile.name);
+            window.batalVideoEditor();
+        }
     };
 
     window.confirmSendDocument = function (file) {
@@ -744,27 +1172,6 @@
                 window.uploadDirectBlob(file, file.name);
             }
         });
-    };
-
-    window.uploadDirectBlob = async function (blob, fileName) {
-        if (!window.activeChatNik) return;
-        const handler = (window.chatHandlersMap[window.activeChatNik] || 'Petugas').toUpperCase();
-        const formData = new FormData();
-        formData.append('file', blob, fileName);
-        formData.append('sender', 'petugas');
-        formData.append('nama', `Dinsos Sidoarjo (${handler})`);
-        formData.append('pesan', '');
-
-        try {
-            await fetch(`${BASE_URL}/api/chat/${window.activeChatNik}`, {
-                method: 'POST',
-                body: formData
-            });
-            window.loadChatMessages(window.activeChatNik, window.activeChatName);
-            window.loadChatList();
-        } catch (e) {
-            Swal.fire('Gagal', 'Berkas gagal dikirim.', 'error');
-        }
     };
 
     window.sendAdminChat = async function () {
@@ -787,7 +1194,7 @@
 
         inp.value = '';
         try {
-            await fetch(`${BASE_URL}/api/chat/${window.activeChatNik}`, { method: 'POST', body: formData });
+            await fetch(`${BASE_API_URL}/api/chat/${window.activeChatNik}`, { method: 'POST', body: formData });
             window.loadChatMessages(window.activeChatNik, window.activeChatName);
             window.loadChatList();
         } catch (e) {}
@@ -988,8 +1395,83 @@
     };
 
     // =========================================================================
-    // 6. PUSAT INVESTIGASI ADUAN
+    // 6. PUSAT INVESTIGASI ADUAN & PENGALIHAN PENANGANAN
     // =========================================================================
+    window.bukaModalLaporRiwayat = function () {
+        if (!window.activeChatNik) {
+            return Swal.fire('Peringatan', 'Pilih obrolan warga terlebih dahulu.', 'warning');
+        }
+        const modal = document.getElementById('modalLaporRiwayat');
+        if (modal) modal.style.display = 'flex';
+    };
+
+    window.eksekusiLaporRiwayat = async function () {
+        if (!window.activeChatNik) return;
+        const alasanInp = document.getElementById('inputAlasanLaporChat');
+        const alasan = alasanInp ? alasanInp.value.trim() : '';
+
+        if (!alasan) {
+            return Swal.fire('Wajib Diisi', 'Silakan masukkan alasan pelaporan riwayat chat.', 'warning');
+        }
+
+        Swal.fire({
+            title: 'Mengirim Laporan...',
+            allowOutsideClick: false,
+            customClass: { popup: 'swal-modern-rounded' },
+            didOpen: () => Swal.showLoading()
+        });
+
+        try {
+            const payload = {
+                nik: window.activeChatNik,
+                nama: window.activeChatName,
+                kategori: 'Pelanggaran / Sengketa Chat',
+                urgensi: 'urgent',
+                uraian: alasan,
+                waktu: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+            };
+
+            const res = await apiCall('/api/laporan-chat', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            if (res && res.ok) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Laporan Terkirim!',
+                    text: 'Riwayat percakapan telah diteruskan ke Pusat Investigasi Terpadu.',
+                    buttonsStyling: false,
+                    customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-confirm' }
+                });
+                window.closeModal('modalLaporRiwayat');
+                if (alasanInp) alasanInp.value = '';
+            } else {
+                throw new Error('Gagal mengirim ke server investigasi.');
+            }
+        } catch (e) {
+            Swal.fire('Gagal', e.message, 'error');
+        }
+    };
+
+    window.hapusRiwayatLokal = async function () {
+        if (!window.activeChatNik) return;
+        const confirm = await Swal.fire({
+            title: 'Bersihkan Obrolan?',
+            text: `Hapus seluruh tampilan obrolan lokal dengan ${window.activeChatName}?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Bersihkan',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#dc2626'
+        });
+
+        if (confirm.isConfirmed) {
+            document.getElementById('adminChatMessages').innerHTML = '';
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Obrolan lokal telah dibersihkan', timer: 1500, showConfirmButton: false });
+        }
+    };
+
     window.filterInvestigasi = async function (filterType, btnEl) {
         if (btnEl) {
             btnEl.parentElement.querySelectorAll('button').forEach(b => {
@@ -1046,14 +1528,17 @@
         }
     };
 
+    window.loadLaporanChatData = async function () {
+        if (typeof window.filterInvestigasi === 'function') {
+            window.filterInvestigasi('all', null);
+        }
+    };
+
     // =========================================================================
     // 7. SATU SISTEM TAMPILAN NOTIFIKASI TUNGGAL (ANTI-GLITCH, STABLE CHRONOLOGICAL)
     // =========================================================================
     window.initGlobalNotifications = function () {
         if (window._notifPollTimer) clearInterval(window._notifPollTimer);
-        if (window.notifInterval) clearInterval(window.notifInterval);
-        if (window._notifInterval) clearInterval(window._notifInterval);
-
         window.fetchNotifications();
         window._notifPollTimer = setInterval(() => {
             window.fetchNotifications();
@@ -1119,7 +1604,7 @@
         const isShow = panel.style.display === 'flex' || panel.style.display === 'block';
         panel.style.display = isShow ? 'none' : 'flex';
         if (!isShow) {
-            lastRenderedNotifState = ''; // Force fresh render when opened
+            lastRenderedNotifState = '';
             window.fetchNotifications();
             window.renderNotificationList();
         }
@@ -1135,7 +1620,6 @@
         window.renderNotificationList();
     };
 
-    // FUNGSI RENDER TUNGGAL & PENGURUTAN KRONOLOGIS STABIL (ANTI-GLITCH)
     window.renderNotificationList = function () {
         const listContainer = document.getElementById('notifList');
         if (!listContainer) return;
@@ -1145,13 +1629,11 @@
         else if (window.activeNotifTab === 'arsip') items = items.filter(n => n.archived);
         else items = items.filter(n => !n.archived);
 
-        // Kunci pengurutan kronologis stabil: Sematan paling atas, sisanya murni berdasarkan urutan waktu terbaru
         items.sort((a, b) => {
             if (a.pinned !== b.pinned) return b.pinned ? 1 : -1;
             return b.id - a.id;
         });
 
-        // Smart Diffing: Cegah render ulang DOM jika data & tab tidak berubah (menghilangkan glitch acak)
         const currentStateKey = JSON.stringify(items.map(i => ({ id: i.id, p: i.pinned, a: i.archived, r: i.is_read }))) + '_' + window.activeNotifTab;
         if (currentStateKey === lastRenderedNotifState && listContainer.children.length > 0) {
             return;
@@ -1171,11 +1653,11 @@
             let badgeStyle = 'background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;';
             let cleanText = rawPesan;
 
-            // Ekstraksi Tag Peran Bersih
-            const tagMatch = rawPesan.match(/^\[(Admin|Petugas|Operator|Warga|Sistem)\]\s*/i);
+            // Ekstraksi Tag Peran Bersih dengan Regex Pipa Murni
+            const tagMatch = rawPesan.match(/^\[(Admin\vert{}Petugas\vert{}Operator\vert{}Warga\vert{}Sistem)\]\s*/i);
             if (tagMatch) {
                 const tag = tagMatch[1].toUpperCase();
-                cleanText = rawPesan.replace(/^\[(Admin|Petugas|Operator|Warga|Sistem)\]\s*/i, '').trim();
+                cleanText = rawPesan.replace(/^\[(Admin\vert{}Petugas\vert{}Operator\vert{}Warga\vert{}Sistem)\]\s*/i, '').trim();
                 if (tag === 'ADMIN') {
                     roleBadgeText = 'ADMIN';
                     badgeStyle = 'background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe;';
@@ -1213,7 +1695,6 @@
                         
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="font-size: 0.72rem; color: #94a3b8; font-family: monospace;">${n.time}</span>
-                            
                             <button type="button" onclick="window.togglePinNotification(${n.id}, event)" style="background: none; border: none; color: ${n.pinned ? '#d97706' : '#94a3b8'}; cursor: pointer; padding: 2px 4px;" title="${n.pinned ? 'Lepas Sematan' : 'Sematkan'}">
                                 <i class="fas fa-thumbtack"></i>
                             </button>
@@ -1236,7 +1717,6 @@
         listContainer.scrollTop = prevScroll;
     };
 
-    // Imunisasi fungsi render agar skrip lain tidak dapat menimpanya dengan layout lama
     window.renderNotifikasi = window.renderNotificationList;
     window.loadNotifikasi = window.fetchNotifications;
     window.loadNotifications = window.fetchNotifications;
