@@ -2621,17 +2621,17 @@ window.bukaModalSinkronArsip = function () {
         title: '<i class="fas fa-database text-primary" style="margin-right:8px;"></i> Sinkronisasi Data Arsip',
         html: `
             <div style="text-align:left; font-size:0.92rem; color:#334155; margin-top:14px;">
-                <div class="sync-option-card" onclick="window.eksekusiCadangkanArsip()">
-                    <div class="sync-option-icon" style="background:#dcfce7; color:#15803d;"><i class="fas fa-save"></i></div>
+                <div class="sync-option-card" onclick="window.eksekusiCadangkanArsip()" style="display:flex; gap:12px; align-items:center; padding:12px; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px; cursor:pointer; background:#f8fafc;">
+                    <div class="sync-option-icon" style="background:#dcfce7; color:#15803d; width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.2rem;"><i class="fas fa-save"></i></div>
                     <div>
-                        <div style="font-weight:800; font-size:1rem;">1. Simpan Cadangan Arsip (Backup)</div>
+                        <div style="font-weight:800; font-size:0.95rem; color:#0f172a;">1. Simpan Cadangan Arsip (Backup)</div>
                         <small style="color:#64748b;">Mencadangkan seluruh data warga aktif saat ini.</small>
                     </div>
                 </div>
-                <div class="sync-option-card restore-card" onclick="window.eksekusiPulihkanArsip()">
-                    <div class="sync-option-icon" style="background:#e0f2fe; color:#0284c7;"><i class="fas fa-history"></i></div>
+                <div class="sync-option-card restore-card" onclick="window.eksekusiPulihkanArsip()" style="display:flex; gap:12px; align-items:center; padding:12px; border:1px solid #e2e8f0; border-radius:12px; cursor:pointer; background:#f8fafc;">
+                    <div class="sync-option-icon" style="background:#e0f2fe; color:#0284c7; width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.2rem;"><i class="fas fa-history"></i></div>
                     <div>
-                        <div style="font-weight:800; font-size:1rem;">2. Pulihkan Cadangan Arsip (Restore)</div>
+                        <div style="font-weight:800; font-size:0.95rem; color:#0f172a;">2. Pulihkan Cadangan Arsip (Restore)</div>
                         <small style="color:#64748b;">Memulihkan data arsip master ke tabel kerja kependudukan.</small>
                     </div>
                 </div>
@@ -2646,7 +2646,7 @@ window.bukaModalSinkronArsip = function () {
 };
 
 window.eksekusiCadangkanArsip = async function () {
-    Swal.fire({ title: 'Menyimpan Cadangan...', customClass: { popup: 'swal-modern-rounded' }, didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'Menyimpan Cadangan...', didOpen: () => Swal.showLoading() });
     try {
         let res = await fetch(`${BASE_API_URL}/api/arsip/cadangkan`, {
             method: 'POST',
@@ -2660,15 +2660,17 @@ window.eksekusiCadangkanArsip = async function () {
         }
         const json = await res.json();
         if (res.ok) {
-            Swal.fire({ icon: 'success', title: 'Cadangan Tersimpan!', text: json.message || 'Data berhasil dicadangkan.', buttonsStyling: false, customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-confirm' } });
-        } else throw new Error(json.message);
+            Swal.fire({ icon: 'success', title: 'Cadangan Tersimpan!', text: json.message || 'Data berhasil dicadangkan.' });
+        } else {
+            throw new Error(json.message || 'Gagal menyimpan arsip.');
+        }
     } catch (e) {
-        Swal.fire({ icon: 'error', title: 'Gagal', text: e.message, buttonsStyling: false, customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-danger' } });
+        Swal.fire({ icon: 'error', title: 'Gagal', text: e.message });
     }
 };
 
 window.eksekusiPulihkanArsip = async function () {
-    Swal.fire({ title: 'Memulihkan Cadangan...', customClass: { popup: 'swal-modern-rounded' }, didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'Memulihkan Cadangan...', didOpen: () => Swal.showLoading() });
     try {
         let res = await fetch(`${BASE_API_URL}/api/arsip/pulihkan`, {
             method: 'POST',
@@ -2682,11 +2684,16 @@ window.eksekusiPulihkanArsip = async function () {
         }
         const json = await res.json();
         if (res.ok) {
-            Swal.fire({ icon: 'success', title: 'Berhasil Dipulihkan!', text: json.message || 'Data kependudukan telah dipulihkan.', buttonsStyling: false, customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-confirm' } })
-                .then(() => { if (typeof window.loadDashboardData === 'function') window.loadDashboardData(true); else location.reload(); });
-        } else throw new Error(json.message);
+            Swal.fire({ icon: 'success', title: 'Berhasil Dipulihkan!', text: json.message || 'Data kependudukan telah dipulihkan.' })
+                .then(() => {
+                    if (typeof window.loadDashboardData === 'function') window.loadDashboardData(true);
+                    else location.reload();
+                });
+        } else {
+            throw new Error(json.message || 'Gagal memulihkan arsip.');
+        }
     } catch (e) {
-        Swal.fire({ icon: 'error', title: 'Gagal', text: e.message, buttonsStyling: false, customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-danger' } });
+        Swal.fire({ icon: 'error', title: 'Gagal', text: e.message });
     }
 };
 

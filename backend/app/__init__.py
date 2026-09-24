@@ -1,25 +1,27 @@
 """
 =========================================================================
-APP/__INIT__.PY - INISIALISASI UTAMA & ARSITEKTUR APLIKASI FLASK MODULAR
+APP/__INIT__.PY - ARSITEKTUR APPLICATION FACTORY SISTEM SPK BANSOS SIDOARJO
 Lokasi: backend/app/__init__.py
-PEMERINTAH KABUPATEN SIDOARJO - DINAS SOSIAL
-Sistem Pendukung Keputusan Penyaluran Bantuan Sosial (BWM-SAW)
+Pemerintah Kabupaten Sidoarjo - Dinas Sosial
+Sistem Pendukung Keputusan Penyaluran Bantuan Sosial (Metode BWM-SAW)
 =========================================================================
 """
 
 import os
+import sys
+import logging
 from flask import Flask, send_from_directory, request, jsonify, make_response
 from flask_cors import CORS
 from app.config import Config
-from app.extensions import db, cors, jwt
+from app.extensions import db, jwt, cors
 from app.middleware import setup_security_headers, register_error_handlers
 
 
 def create_app(config_class=Config):
     """
-    Application Factory Pattern untuk Sistem SPK Bansos Kabupaten Sidoarjo.
-    Menginisialisasi konfigurasi, ekstensi, sistem keamanan CORS,
-    penanganan JWT token, routing modular (Blueprints), dan database engine.
+    Menginisialisasi dan mengonfigurasi instance aplikasi Flask secara modular.
+    Mencakup konfigurasi basis data adaptif, CORS multi-origin terbuka,
+    manajemen sesi JWT lengkap, middleware keamanan, dan blueprint rute.
     """
     app = Flask(
         __name__,
@@ -29,7 +31,7 @@ def create_app(config_class=Config):
     app.config.from_object(config_class)
 
     # ---------------------------------------------------------------------
-    # 1. DIREKTORI PENYIMPANAN UNGGAHAN FISIK (UPLOADS)
+    # 1. DIREKTORI PENYIMPANAN FISIK UNGGAHAN BERKAS (UPLOADS)
     # ---------------------------------------------------------------------
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     upload_folder = app.config.get(
@@ -37,7 +39,10 @@ def create_app(config_class=Config):
         os.path.join(base_dir, "static", "uploads")
     )
     app.config["UPLOAD_FOLDER"] = upload_folder
-    os.makedirs(upload_folder, exist_ok=True)
+    try:
+        os.makedirs(upload_folder, exist_ok=True)
+    except Exception as err_dir:
+        print(f"[!] Gagal memverifikasi direktori upload: {err_dir}")
 
     # ---------------------------------------------------------------------
     # 2. INISIALISASI BASIS DATA & EKSTENSI UTAMA
@@ -46,8 +51,8 @@ def create_app(config_class=Config):
     jwt.init_app(app)
 
     # ---------------------------------------------------------------------
-    # 3. KONFIGURASI CORS MULTI-ORIGIN & UNIVERSAL COMPATIBILITY
-    # Mencegah galat 'Failed to fetch' dari Live Server (port 5500, 5501, 5000)
+    # 3. KONFIGURASI UNIVERSAL CORS (MULTI-ORIGIN LIVE SERVER 5500 / 5501)
+    # Mencegah pemblokiran permintaan silang (Cross-Origin Request Blocked)
     # ---------------------------------------------------------------------
     ALLOWED_ORIGINS = [
         "http://127.0.0.1:5500",
@@ -111,8 +116,8 @@ def create_app(config_class=Config):
     )
 
     # ---------------------------------------------------------------------
-    # 4. HANDLER RESMI JWT TOKENS (SISTEM KEAMANAN OTENTIKASI)
-    # Menjamin bila token expired/invalid, sistem merespons JSON bersih
+    # 4. HANDLER RESMI JWT TOKENS (KEAMANAN & MANAJEMEN SESI PENGGUNA)
+    # Menjamin bila token expired/invalid, backend mengirim JSON terstruktur
     # ---------------------------------------------------------------------
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_payload):
@@ -127,7 +132,7 @@ def create_app(config_class=Config):
         return jsonify({
             "status": "error",
             "code": "TOKEN_INVALID",
-            "message": f"Token autentikasi tidak valid: {error_string}"
+            "message": f"Format token otentikasi tidak valid: {error_string}"
         }), 422
 
     @jwt.unauthorized_loader
@@ -135,20 +140,59 @@ def create_app(config_class=Config):
         return jsonify({
             "status": "error",
             "code": "TOKEN_MISSING",
-            "message": "Permintaan otorisasi ditolak: Token tidak ditemukan."
+            "message": "Permintaan otorisasi ditolak: Token autentikasi tidak disertakan."
+        }), 401
+
+    @jwt.revoked_token_loader
+    def revoked_token_callback(jwt_header, jwt_payload):
+        return jsonify({
+            "status": "error",
+            "code": "TOKEN_REVOKED",
+            "message": "Token autentikasi telah dicabut atau dinonaktifkan."
+        }), 401
+
+    @jwt.needs_fresh_token_loader
+    def token_not_fresh_callback(jwt_header, jwt_payload):
+        return jsonify({
+            "status": "error",
+            "code": "FRESH_TOKEN_REQUIRED",
+            "message": "Operasi sensitif membutuhkan pembaruan token login."
         }), 401
 
     # ---------------------------------------------------------------------
-    # 5. MIDDLEWARE KEAMANAN & ERROR HANDLERS
+    # 5. PENANGAN KESALAHAN HTTP GLOBAL (JSON ERROR RESPONSES)
+    # ---------------------------------------------------------------------
+    @app.errorhandler(400)
+    def bad_request_error(e):
+        return jsonify({"status": "error", "code": 400, "message": "Permintaan data tidak valid atau parameter salah."}), 400
+
+    @app.errorhandler(404)
+    def not_found_error(e):
+        return jsonify({"status": "error", "code": 404, "message": "Endpoint rute API atau data yang diminta tidak ditemukan."}), 404
+
+    @app.errorhandler(405)
+    def method_not_allowed_error(e):
+        return jsonify({"status": "error", "code": 405, "message": "Metode HTTP pada endpoint ini tidak diizinkan."}), 405
+
+    @app.errorhandler(413)
+    def file_too_large_error(e):
+        return jsonify({"status": "error", "code": 413, "message": "Ukuran berkas unggahan melebihi batas kapasitas maksimum (16MB)."}), 413
+
+    @app.errorhandler(500)
+    def internal_server_error(e):
+        return jsonify({"status": "error", "code": 500, "message": "Terjadi kendala internal pada pemrosesan peladen."}), 500
+
+    # ---------------------------------------------------------------------
+    # 6. MIDDLEWARE KEAMANAN & ERROR HANDLERS MODULAR
     # ---------------------------------------------------------------------
     try:
         setup_security_headers(app)
         register_error_handlers(app)
     except Exception as err_mid:
-        print(f"[!] Catatan inisialisasi middleware keamanan: {err_mid}")
+        print(f"[i] Info inisialisasi middleware sistem: {err_mid}")
 
     # ---------------------------------------------------------------------
-    # 6. REGISTRASI SELURUH BLUEPRINT RUTE MODULAR SISTEM
+    # 7. REGISTRASI BLUEPRINT RUTE MODULAR
     # ---------------------------------------------------------------------
     from app.routes.warga_routes import warga_bp
     from app.routes.auth_routes import auth_bp
@@ -161,7 +205,28 @@ def create_app(config_class=Config):
     app.register_blueprint(chat_bp, url_prefix="")
 
     # ---------------------------------------------------------------------
-    # 7. RUTE PENYAJIAN BERKAS STATIS (FOTO BUKTI SALUR & AVATAR)
+    # 8. RUTE STATUS KESEHATAN SISTEM & ROOT PING
+    # ---------------------------------------------------------------------
+    @app.route('/')
+    def root_endpoint():
+        return jsonify({
+            "service": "Sistem Pendukung Keputusan Bansos Pemkab Sidoarjo",
+            "version": "2.5.0-Enterprise",
+            "status": "online",
+            "engine": "BWM-SAW Hybrid"
+        }), 200
+
+    @app.route('/api/health')
+    @app.route('/api/ping')
+    def health_check():
+        return jsonify({
+            "status": "healthy",
+            "database": str(app.config.get("SQLALCHEMY_DATABASE_URI", "")).split(":")[0],
+            "timestamp": os.getenv("CURRENT_TIME", "2026-09-24")
+        }), 200
+
+    # ---------------------------------------------------------------------
+    # 9. RUTE PENYAJIAN BERKAS STATIS (FOTO BUKTI SALUR & AVATAR)
     # ---------------------------------------------------------------------
     @app.route('/static/uploads/<path:filename>')
     @app.route('/uploads/<path:filename>')
@@ -169,8 +234,7 @@ def create_app(config_class=Config):
         return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
     # ---------------------------------------------------------------------
-    # 8. HANDLER PREFLIGHT OPTIONS & DYNAMIC HEADER RESPONSES
-    # Menghilangkan kegagalan 'Failed to fetch' saat frontend memanggil API
+    # 10. HOOK REQUEST: PREFLIGHT OPTIONS & HEADER INJECTION
     # ---------------------------------------------------------------------
     @app.before_request
     def handle_preflight_options():
@@ -205,8 +269,8 @@ def create_app(config_class=Config):
         )
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
 
-        # Mencegah peramban menyimpan cache respons API agar metrik data selalu mutakhir
-        if request.path.startswith("/api/") or request.path.startswith("/warga") or request.path.startswith("/users"):
+        # Mencegah caching respons dinamis kependudukan pada peramban
+        if request.path.startswith(('/api/', '/warga', '/users', '/notifikasi')):
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
@@ -214,13 +278,13 @@ def create_app(config_class=Config):
         return response
 
     # ---------------------------------------------------------------------
-    # 9. SINKRONISASI STRUKTUR TABEL DATABASE ENGINE
+    # 11. SINKRONISASI STRUKTUR TABEL DATABASE ENGINE
     # ---------------------------------------------------------------------
     with app.app_context():
         try:
             from app import models  # noqa: F401
             db.create_all()
         except Exception as err_db:
-            print(f"[!] Catatan sinkronisasi skema tabel database: {err_db}")
+            print(f"[i] Info sinkronisasi skema basis data: {err_db}")
 
     return app
