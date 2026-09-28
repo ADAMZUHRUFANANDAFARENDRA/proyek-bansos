@@ -2,17 +2,44 @@
    ADMIN.JS - ORCHESTRATOR UTAMA SISTEM SPK BANSOS PEMKAB SIDOARJO
    Lokasi: frontend/static/js/admin.js
    Pemerintah Kabupaten Sidoarjo - Dinas Sosial
+   Sistem Pendukung Keputusan Penyaluran Bantuan Sosial (Metode BWM-SAW)
    Arsitektur: Modular Event-Driven + Anti-Collision Canvas Engine
    ========================================================================= */
 
+// Matikan jendela peringatan bawaan DataTables secara global
+if (typeof $ !== 'undefined' && $.fn && $.fn.dataTable) {
+    $.fn.dataTable.ext.errMode = 'none';
+}
+
 // =========================================================================
-// 1. INISIALISASI MODAL GLOBAL & PROTEKSI TABRAKAN LINGKUP (SCOPE)
+// 1. INISIALISASI MODAL GLOBAL & HOOK DATA OTOMATIS
 // =========================================================================
 window.openModal = function (modalId) {
     const m = document.getElementById(modalId);
     if (m) {
         m.style.setProperty('display', 'flex', 'important');
         m.style.setProperty('z-index', '99999', 'important');
+    }
+
+    if (modalId === 'modalPengguna' || modalId === 'modalUser') {
+        setTimeout(() => {
+            try {
+                if (typeof window.resetFormUser === 'function') window.resetFormUser();
+                if (typeof window.loadUserTable === 'function') window.loadUserTable();
+            } catch (err) {
+                console.warn('[openModal] Gagal memuat tabel pengguna:', err);
+            }
+        }, 50);
+    }
+
+    if (modalId === 'modalLaporanChat') {
+        setTimeout(() => {
+            try {
+                if (typeof window.loadLaporanChatData === 'function') window.loadLaporanChatData();
+            } catch (err) {
+                console.warn('[openModal] Gagal memuat aduan investigasi:', err);
+            }
+        }, 50);
     }
 };
 
@@ -25,33 +52,23 @@ window.closeModal = function (modalId) {
 
 window.bukaModalPengguna = function () {
     window.openModal('modalPengguna');
-    try {
-        if (typeof window.resetFormUser === 'function') window.resetFormUser();
-        if (typeof window.loadUserTable === 'function') window.loadUserTable();
-    } catch (err) {
-        console.warn('[Modal Pengguna] Gagal memuat tabel:', err);
-    }
 };
 
 window.bukaModalLaporanChat = function () {
     window.openModal('modalLaporanChat');
-    try {
-        if (typeof window.loadLaporanChatData === 'function') window.loadLaporanChatData();
-    } catch (err) {
-        console.warn('[Modal Investigasi] Gagal memuat aduan:', err);
-    }
 };
 
 // =========================================================================
-// 2. VARIABEL LINGKUNGAN GLOBAL & STATUS SISTEM
+// 2. VARIABEL GLOBAL LINGKUNGAN SISTEM
 // =========================================================================
-var BASE_URL = window.BASE_URL || (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL
-    ? window.CONFIG.BASE_URL.replace(/\/+$/, '')
-    : ((typeof window.API_BASE_URL !== 'undefined') ? window.API_BASE_URL.replace(/\/+$/, '') : 'http://127.0.0.1:5000'));
+if (typeof window.BASE_URL === 'undefined') {
+    window.BASE_URL = 'http://127.0.0.1:5000';
+}
+if (typeof window.BASE_API_URL === 'undefined') {
+    window.BASE_API_URL = window.BASE_URL;
+}
 
-var BASE_API_URL = BASE_URL;
-var MAP_CENTER_SIDOARJO = (window.CONFIG?.MAP?.DEFAULT_CENTER) || [-7.4478, 112.7183];
-
+window.MAP_CENTER_SIDOARJO = [-7.4478, 112.7183];
 window.globalDataWarga = window.globalDataWarga || [];
 var globalDataWarga = window.globalDataWarga;
 window.allLaporanChatData = window.allLaporanChatData || [];
@@ -63,7 +80,7 @@ window.stagedImportData = [];
 window.isNotifUpdating = false;
 
 // =========================================================================
-// 3. INJEKSI GAYA DINAMIS CSS (DATATABLES, BADGE STATUS, & TOMBOL BULK)
+// 3. INJEKSI GAYA DINAMIS CSS (BADGES, TABLES & BULK BAR)
 // =========================================================================
 (function injectDynamicAdminStyles() {
     const dtStyleId = 'admin-dynamic-injected-css';
@@ -72,7 +89,7 @@ window.isNotifUpdating = false;
     const dtStyle = document.createElement('style');
     dtStyle.id = dtStyleId;
     dtStyle.innerHTML = `
-        .dataTables_length { margin-bottom: 15px; margin-top: 5px; font-weight: 600; color: var(--text-muted, #64748b); font-size: 0.88rem; }
+        .dataTables_length { margin-bottom: 15px; margin-top: 5px; font-weight: 600; color: #64748b; font-size: 0.88rem; }
         .dataTables_length select { padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; margin: 0 8px; cursor: pointer; background: #ffffff; }
         .dataTables_filter { margin-bottom: 15px; margin-top: 5px; }
         .dataTables_filter input { padding: 8px 16px; border-radius: 20px; border: 1.5px solid #cbd5e1; outline: none; margin-left: 8px; width: 260px; background: #ffffff; font-family: 'Inter', sans-serif; font-size: 0.88rem; transition: border-color 0.2s ease; }
@@ -91,19 +108,19 @@ window.isNotifUpdating = false;
 })();
 
 // =========================================================================
-// 4. PARAMETER BOBOT BWM 10 KRITERIA KABUPATEN SIDOARJO
+// 4. VEKTOR BOBOT 10 KRITERIA BWM (SESUAI LAPORAN SKRIPSI RESMI)
 // =========================================================================
 window.defaultBobotBWM = {
-    c1: 0.22, // Kondisi Ekonomi (Cost)
-    c2: 0.16, // Estimasi Nilai Aset (Cost)
-    c3: 0.08, // Usia Kepala Keluarga (Benefit)
+    c1: 0.22, // Kondisi Ekonomi / Penghasilan (Cost)
+    c2: 0.15, // Kepemilikan Aset (Cost)
+    c3: 0.08, // Umur Kepala Keluarga (Benefit)
     c4: 0.05, // Jenis Kelamin (Benefit)
-    c5: 0.14, // Jumlah Tanggungan (Benefit)
-    c6: 0.07, // Status Pernikahan (Benefit)
-    c7: 0.10, // Kepemilikan Anak Sekolah (Benefit)
-    c8: 0.08, // Status Tempat Tinggal (Benefit)
-    c9: 0.05, // Tingkat Pendidikan (Cost)
-    c10: 0.05 // Status Kesehatan (Benefit)
+    c5: 0.18, // Jumlah Tanggungan (Benefit)
+    c6: 0.06, // Status Pernikahan (Benefit)
+    c7: 0.08, // Kepemilikan Anak / Balita (Benefit)
+    c8: 0.10, // Kelayakan Tempat Tinggal (Cost)
+    c9: 0.04, // Tingkat Pendidikan Terakhir (Cost)
+    c10: 0.04 // Kondisi Kesehatan / Disabilitas (Cost)
 };
 
 let dtTable = null;
@@ -137,7 +154,7 @@ try {
 }
 
 // =========================================================================
-// 5. HELPER UTILITAS, SANITASI HTML, TOKEN & ALERT HANDLER
+// 5. HELPER UTILITAS, SANITASI & TOKEN
 // =========================================================================
 window.safeHtml = function (str) {
     if (str === null || str === undefined) return '';
@@ -177,10 +194,9 @@ window.getCleanToken = function () {
 };
 
 // =========================================================================
-// 6. LIFECYCLE DOM, PENCEGAH RELOAD FORM & INIT DASBOR
+// 6. SIKLUS HIDUP DOM & INISIALISASI DASBOR
 // =========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
-    // Mencegah Form Submit Native yang me-reload ke index.html?
     const formBansos = document.getElementById('bansosForm');
     if (formBansos) {
         formBansos.onsubmit = function (e) {
@@ -210,7 +226,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (nameEl) nameEl.innerText = currentUsername.toUpperCase();
 
     const isAdmin = (currentRole === 'admin' || currentRole === 'super admin');
-
     if (roleEl) {
         if (isAdmin) {
             roleEl.className = 'role-badge role-admin';
@@ -225,6 +240,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         cmdEl.style.display = isAdmin ? 'block' : 'none';
     }
 
+    const btnPengguna = document.querySelector('.cmd-tile-item.tile-purple') || 
+                        document.querySelector('[onclick*="modalPengguna"]') || 
+                        document.querySelector('[onclick*="bukaModalPengguna"]');
+    if (btnPengguna) {
+        btnPengguna.onclick = (e) => {
+            e.preventDefault();
+            window.bukaModalPengguna();
+        };
+    }
+
+    const btnInvestigasi = document.querySelector('.cmd-tile-item.tile-rose') || 
+                           document.querySelector('[onclick*="modalLaporanChat"]') || 
+                           document.querySelector('[onclick*="bukaModalLaporanChat"]');
+    if (btnInvestigasi) {
+        btnInvestigasi.onclick = (e) => {
+            e.preventDefault();
+            window.bukaModalLaporanChat();
+        };
+    }
+
     await window.loadDashboardData();
 
     setTimeout(() => {
@@ -237,7 +272,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // =========================================================================
-// 7. SINKRONISASI DATA DASBOR MULTI-ROUTE & AUTO-RECOVERY
+// 7. SINKRONISASI DATA DASBOR MULTI-ROUTE & METRIK EKSEKUTIF
 // =========================================================================
 window.loadDashboardData = async function (showToast = false) {
     const statusPill = document.getElementById('cmdDbStatusPill');
@@ -250,18 +285,17 @@ window.loadDashboardData = async function (showToast = false) {
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
         const endpointCandidates = [
-            `${BASE_URL}/api/warga?_t=${Date.now()}`,
-            `${BASE_URL}/warga?_t=${Date.now()}`,
-            `${BASE_URL}/api/warga`,
-            `${BASE_URL}/warga`
+            `${window.BASE_URL}/api/warga?_t=${Date.now()}`,
+            `${window.BASE_URL}/warga?_t=${Date.now()}`,
+            `${window.BASE_URL}/api/warga`
         ];
 
         let res = null;
         for (const url of endpointCandidates) {
             try {
                 let testRes = await fetch(url, { headers });
-                // Jika token kedaluwarsa (401), minta ulang secara terbuka tanpa auth header
-                if (testRes.status === 401) {
+                if (!testRes.ok && (testRes.status === 401 || testRes.status === 403 || testRes.status === 422)) {
+                    localStorage.removeItem('token');
                     testRes = await fetch(url, { headers: { 'Accept': 'application/json' } });
                 }
                 if (testRes && testRes.ok) {
@@ -279,10 +313,9 @@ window.loadDashboardData = async function (showToast = false) {
             }
         }
     } catch (err) {
-        console.warn('Gagal menghubungi backend:', err);
+        console.warn('[loadDashboardData] Gagal menghubungi peladen:', err);
     }
 
-    // Auto-Recovery: Jika database masih kosong/reloading, gunakan cadangan cache lokal
     if (!rawData || rawData.length === 0) {
         const cached = localStorage.getItem('cachedDataWarga');
         if (cached) {
@@ -295,18 +328,6 @@ window.loadDashboardData = async function (showToast = false) {
         }
     }
 
-    // Master Cadangan Aktif jika backend belum selesai melakukan seeder
-    if (!rawData || rawData.length === 0) {
-        rawData = [
-            { id: 1, nik: "3515080102830001", nama: "Siti Aminah", alamat: "Jl. Diponegoro No. 12, Sidoarjo", tempat_lahir: "Sidoarjo", tanggal_lahir: "1983-02-01", c1: 850000, c2: 2500000, c3: 41, c4: 2, c5: 4, c6: 2, c7: 3, c8: 3, c9: 1, c10: 2, is_verified: true, desil: 1, status_salur: "Telah Menerima", created_at: "2026-09-20 09:15" },
-            { id: 2, nik: "3515081505790002", nama: "Budi Santoso", alamat: "Dusun Bono RT 04 RW 02, Buduran", tempat_lahir: "Sidoarjo", tanggal_lahir: "1979-05-15", c1: 950000, c2: 3000000, c3: 47, c4: 1, c5: 5, c6: 2, c7: 2, c8: 3, c9: 1, c10: 1, is_verified: true, desil: 1, status_salur: "Telah Menerima", created_at: "2026-09-20 10:20" },
-            { id: 3, nik: "3515082207900003", nama: "Supardi", alamat: "Desa Sepande RT 03 RW 01, Candi", tempat_lahir: "Sidoarjo", tanggal_lahir: "1990-07-22", c1: 1200000, c2: 4500000, c3: 36, c4: 1, c5: 3, c6: 2, c7: 2, c8: 2, c9: 2, c10: 1, is_verified: true, desil: 2, status_salur: "Menunggu Salur", created_at: "2026-09-21 08:30" },
-            { id: 4, nik: "3515081111750004", nama: "Mbah Sukarti", alamat: "Krembung Barat RT 01 RW 01, Krembung", tempat_lahir: "Sidoarjo", tanggal_lahir: "1975-11-11", c1: 700000, c2: 1500000, c3: 68, c4: 2, c5: 1, c6: 3, c7: 0, c8: 3, c9: 1, c10: 2, is_verified: true, desil: 1, status_salur: "Laporan Sengketa", created_at: "2026-09-21 11:00", catatan: "Penyaluran sembako tertukar." },
-            { id: 5, nik: "3515080504880005", nama: "Agus Prasetyo", alamat: "Jl. Raya Waru No. 45, Waru", tempat_lahir: "Surabaya", tanggal_lahir: "1988-04-05", c1: 2800000, c2: 15000000, c3: 38, c4: 1, c5: 2, c6: 2, c7: 1, c8: 1, c9: 3, c10: 1, is_verified: false, desil: 6, status_salur: "Menunggu Salur", created_at: "2026-09-22 14:10" }
-        ];
-        localStorage.setItem('cachedDataWarga', JSON.stringify(rawData));
-    }
-
     window.globalDataWarga = rawData.map((w, idx) => ({
         id: w.id || (idx + 1),
         nama: w.nama || w.nama_lengkap || 'Warga Sidoarjo',
@@ -316,11 +337,11 @@ window.loadDashboardData = async function (showToast = false) {
         tempat_lahir: w.tempat_lahir || 'Sidoarjo',
         tanggal_lahir: w.tanggal_lahir || '',
         alamat: w.alamat || 'Kabupaten Sidoarjo',
-        lat: w.lat || w.latitude || -7.4478,
-        lng: w.lng || w.longitude || 112.7183,
+        lat: parseFloat(w.lat || w.latitude || -7.4478),
+        lng: parseFloat(w.lng || w.longitude || 112.7183),
         c1: parseFloat(w.c1 ?? w.c1_ekonomi ?? 1500000),
         c2: parseFloat(w.c2 ?? w.c2_aset ?? 5000000),
-        c3: parseFloat(w.c3 ?? w.c3_umur ?? 45),
+        c3: parseInt(w.c3 ?? w.c3_umur ?? 45),
         c4: parseInt(w.c4 ?? w.c4_jk ?? 1),
         c5: parseInt(w.c5 ?? w.c5_tanggungan ?? 3),
         c6: parseInt(w.c6 ?? w.c6_pernikahan ?? 2),
@@ -329,8 +350,9 @@ window.loadDashboardData = async function (showToast = false) {
         c9: parseInt(w.c9 ?? w.c9_pendidikan ?? 1),
         c10: parseInt(w.c10 ?? w.c10_kesehatan ?? 1),
         desil: Number(w.desil) || 5,
+        skor_saw: parseFloat(w.skor_saw || 0),
         is_verified: Boolean(w.is_verified == 1 || w.is_verified === true || w.status_validasi === 'Disetujui'),
-        status_salur: w.status_salur || w.status_penyaluran || 'Menunggu Salur',
+        status_salur: w.status_salur || w.status_penyaluran || 'Belum Salur',
         nominal_bantuan: w.nominal_bantuan || '',
         bukti_salur: w.bukti_salur || '',
         created_at: w.created_at || w.waktu || 'Hari ini',
@@ -339,7 +361,6 @@ window.loadDashboardData = async function (showToast = false) {
 
     globalDataWarga = window.globalDataWarga;
 
-    // Perbarui Metrik Dasbor Eksekutif
     const total = window.globalDataWarga.length;
     const disetujui = window.globalDataWarga.filter(w => w.is_verified).length;
     const menunggu = total - disetujui;
@@ -357,13 +378,13 @@ window.loadDashboardData = async function (showToast = false) {
 
     document.getElementById('statTotal') && (document.getElementById('statTotal').innerText = total);
     document.getElementById('statValid') && (document.getElementById('statValid').innerText = disetujui);
-    document.getElementById('statTotalRef') && (document.getElementById('statTotalRef').innerText = `${total} Warga`);
-    document.getElementById('statValidBadge') && (document.getElementById('statValidBadge').innerText = disetujui);
-    document.getElementById('statMenungguBadge') && (document.getElementById('statMenungguBadge').innerText = menunggu);
+    document.getElementById('statTotalRef') && (document.getElementById('statTotalRef').innerText = `dari ${total}`);
+    document.getElementById('statValidBadge') && (document.getElementById('statValidBadge').innerText = `${disetujui} Layak`);
+    document.getElementById('statMenungguBadge') && (document.getElementById('statMenungguBadge').innerText = `${menunggu} Menunggu`);
     document.getElementById('statTelahSalur') && (document.getElementById('statTelahSalur').innerText = telahSalur);
-    document.getElementById('statBelumSalurBadge') && (document.getElementById('statBelumSalurBadge').innerText = belumSalur);
+    document.getElementById('statBelumSalurBadge') && (document.getElementById('statBelumSalurBadge').innerText = `${belumSalur} Belum Salur`);
     document.getElementById('statSengketa') && (document.getElementById('statSengketa').innerText = sengketa);
-    document.getElementById('statBebasSengketaBadge') && (document.getElementById('statBebasSengketaBadge').innerText = bebasSengketa);
+    document.getElementById('statBebasSengketaBadge') && (document.getElementById('statBebasSengketaBadge').innerText = `${bebasSengketa} Bebas Kasus`);
 
     try {
         window.render3DashboardCharts(window.globalDataWarga);
@@ -382,7 +403,7 @@ window.loadDashboardData = async function (showToast = false) {
             toast: true,
             position: 'top-end',
             icon: 'success',
-            title: 'Data kependudukan berhasil disinkronkan!',
+            title: `Berhasil memuat ${total} data kependudukan!`,
             showConfirmButton: false,
             timer: 1500
         });
@@ -390,7 +411,7 @@ window.loadDashboardData = async function (showToast = false) {
 };
 
 // =========================================================================
-// 8. VERIFIKASI IDENTITAS DUKCAPIL & AUTO-FILL LOKAL SIDOARJO
+// 8. VERIFIKASI DUKCAPIL SIDOARJO
 // =========================================================================
 window.cekDukcapilLokal = async function () {
     const nik = document.getElementById('nik')?.value.trim();
@@ -401,7 +422,7 @@ window.cekDukcapilLokal = async function () {
     showAdminAlert({ title: 'Memeriksa Data Dukcapil...', didOpen: () => Swal?.showLoading() });
 
     try {
-        const res = await (window.fetchWithAuth ? window.fetchWithAuth(`/api/dukcapil/${nik}`) : fetch(`${BASE_URL}/api/dukcapil/${nik}`));
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth(`/api/dukcapil/${nik}`) : fetch(`${window.BASE_URL}/api/dukcapil/${nik}`));
         const json = await res.json();
         Swal?.close();
 
@@ -432,16 +453,24 @@ window.cekDukcapilLokal = async function () {
 };
 
 // =========================================================================
-// 9. GEOTAGGING FORM PENDAFTARAN & PENCARIAN NOMINATIM OPENSTREETMAP
+// 9. GEOTAGGING FORM PENDAFTARAN WARGA
 // =========================================================================
 window.initFormMapPicker = function () {
     const mapBox = document.getElementById('formCoordMap');
-    if (!mapBox || formMap || typeof L === 'undefined') return;
+    if (!mapBox || typeof L === 'undefined') return;
 
-    formMap = L.map('formCoordMap', { attributionControl: false }).setView(MAP_CENTER_SIDOARJO, 13);
+    if (mapBox._leaflet_id) {
+        try {
+            if (formMap) formMap.remove();
+        } catch (e) {}
+        mapBox._leaflet_id = null;
+        formMap = null;
+    }
+
+    formMap = L.map('formCoordMap', { attributionControl: false }).setView(window.MAP_CENTER_SIDOARJO, 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(formMap);
 
-    formMarker = L.marker(MAP_CENTER_SIDOARJO, { draggable: true }).addTo(formMap);
+    formMarker = L.marker(window.MAP_CENTER_SIDOARJO, { draggable: true }).addTo(formMap);
 
     formMarker.on('dragend', function (e) {
         const pos = e.target.getLatLng();
@@ -453,14 +482,14 @@ window.initFormMapPicker = function () {
         window.updateLocationAndAddress(e.latlng.lat, e.latlng.lng);
     });
 
-    window.setFormCoords(MAP_CENTER_SIDOARJO[0], MAP_CENTER_SIDOARJO[1]);
+    window.setFormCoords(window.MAP_CENTER_SIDOARJO[0], window.MAP_CENTER_SIDOARJO[1]);
 };
 
 window.setFormCoords = function (lat, lng) {
     const latEl = document.getElementById('lat');
     const lngEl = document.getElementById('lng');
-    if (latEl) latEl.value = Number(lat || MAP_CENTER_SIDOARJO[0]).toFixed(6);
-    if (lngEl) lngEl.value = Number(lng || MAP_CENTER_SIDOARJO[1]).toFixed(6);
+    if (latEl) latEl.value = Number(lat || window.MAP_CENTER_SIDOARJO[0]).toFixed(6);
+    if (lngEl) lngEl.value = Number(lng || window.MAP_CENTER_SIDOARJO[1]).toFixed(6);
 };
 
 window.updateLocationAndAddress = async function (lat, lng) {
@@ -516,14 +545,13 @@ window.ambilLokasiGPS = function () {
 };
 
 // =========================================================================
-// 10. RENDER GRAFIK REAL-TIME DENGAN PENCEGAHAN TABRAKAN KANVAS CHART.JS
+// 10. RENDER GRAFIK DASBOR CHART.JS
 // =========================================================================
 window.render3DashboardCharts = function (data) {
     if (typeof Chart === 'undefined') return;
     if (!Array.isArray(data)) data = [];
     const total = data.length;
 
-    // 1. Distribusi Desil (D1 s/d D10)
     const canvasDesil = document.getElementById('chartDesil10');
     if (canvasDesil) {
         const desilCounts = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -554,7 +582,6 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
-    // 2. Status Persetujuan Warga (Disetujui vs Menunggu)
     const canvasValid = document.getElementById('chartPersetujuan');
     if (canvasValid) {
         const disetujui = data.filter(w => w.is_verified).length;
@@ -582,7 +609,6 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
-    // 3. Status Penyaluran Bansos (Telah Menerima vs Belum Salur)
     const canvasSalur = document.getElementById('chartPenyaluran');
     if (canvasSalur) {
         const telahSalur = data.filter(w => w.status_salur === 'Telah Menerima').length;
@@ -610,7 +636,6 @@ window.render3DashboardCharts = function (data) {
         });
     }
 
-    // 4. Status Mediasi Sengketa (Bebas Sengketa vs Sengketa)
     const canvasSengketa = document.getElementById('chartSengketa');
     if (canvasSengketa) {
         const sengketa = data.filter(w => String(w.status_salur || '').toLowerCase().includes('sengketa')).length;
@@ -621,7 +646,7 @@ window.render3DashboardCharts = function (data) {
         chartSengketaObj = new Chart(canvasSengketa, {
             type: 'doughnut',
             data: {
-                labels: ['Bebas Sengketa', 'Laporan Sengketa'],
+                labels: ['Bebas Kasus', 'Laporan Sengketa'],
                 datasets: [{
                     data: total > 0 ? [bebasSengketa, sengketa] : [1, 0],
                     backgroundColor: total > 0 ? ['#10b981', '#dc2626'] : ['#e2e8f0', '#cbd5e1'],
@@ -640,7 +665,7 @@ window.render3DashboardCharts = function (data) {
 };
 
 // =========================================================================
-// 11. FILTER WAKTU (TANGGAL, BULAN, TAHUN) & SORTING MULTI-KRITERIA
+// 11. FILTER WAKTU & SORTING DATA
 // =========================================================================
 window.activeDateFilter = { mode: 'tanggal', val: '' };
 
@@ -760,7 +785,7 @@ window.filterAndRenderData = function () {
 };
 
 // =========================================================================
-// 12. PENDAFTARAN DATA WARGA BARU (SUBMIT FORM HANDLER)
+// 12. PENDAFTARAN DATA WARGA BARU
 // =========================================================================
 window.tambahData = async function (e) {
     if (e && e.preventDefault) e.preventDefault();
@@ -795,14 +820,14 @@ window.tambahData = async function (e) {
     showAdminAlert({ title: 'Menyimpan Data...', allowOutsideClick: false, didOpen: () => Swal?.showLoading() });
 
     try {
-        let res = await fetch(`${BASE_URL}/api/warga`, {
+        let res = await fetch(`${window.BASE_URL}/api/warga`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.getCleanToken()}` },
             body: JSON.stringify(payload)
         });
 
         if (!res.ok) {
-            res = await fetch(`${BASE_URL}/warga`, {
+            res = await fetch(`${window.BASE_URL}/warga`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.getCleanToken()}` },
                 body: JSON.stringify(payload)
@@ -859,18 +884,27 @@ window.toggleSortAz = function (btnEl) {
 };
 
 // =========================================================================
-// 13. RENDER TABEL DATA KEPENDUDUKAN TERINTEGRASI DATATABLES
+// 13. RENDER TABEL DATA WARGA
 // =========================================================================
 window.renderTable = function (data) {
     if (!Array.isArray(data)) data = [];
 
-    if (typeof $ !== 'undefined' && $.fn.DataTable && $.fn.DataTable.isDataTable('#dataTable')) {
-        try {
-            $('#dataTable').DataTable().destroy();
-        } catch (e) {}
+    if (typeof $ !== 'undefined' && $.fn && $.fn.DataTable) {
+        $.fn.dataTable.ext.errMode = 'none';
+        if ($.fn.DataTable.isDataTable('#dataTable')) {
+            try {
+                $('#dataTable').DataTable().clear().destroy();
+            } catch (e) {}
+        }
     }
 
-    const tbody = document.querySelector('#dataTable tbody');
+    const tbody = document.querySelector('#dataTable tbody') || 
+                  document.querySelector('#tableWarga tbody') || 
+                  document.querySelector('#tabelWarga tbody') || 
+                  document.querySelector('.arsip-table tbody') || 
+                  document.querySelector('#panelDataWarga table tbody') || 
+                  document.querySelector('table tbody');
+
     if (!tbody) return;
 
     if (data.length === 0) {
@@ -964,9 +998,11 @@ window.renderTable = function (data) {
 
     tbody.innerHTML = html;
 
-    if (typeof $ !== 'undefined' && $.fn.DataTable) {
+    if (typeof $ !== 'undefined' && $.fn && $.fn.DataTable) {
         try {
             dtTable = $('#dataTable').DataTable({
+                destroy: true,
+                retrieve: true,
                 pageLength: 10,
                 responsive: true,
                 order: [],
@@ -980,7 +1016,9 @@ window.renderTable = function (data) {
                     paginate: { next: "→", previous: "←" }
                 }
             });
-        } catch (e) {}
+        } catch (e) {
+            console.warn('[DataTable] Gagal inisialisasi tabel:', e);
+        }
     }
 };
 
@@ -995,7 +1033,7 @@ document.addEventListener('change', function (e) {
 });
 
 // =========================================================================
-// 14. OPERASI STATUS VERIFIKASI WARGA (SATUAN & MASSAL INSTAN)
+// 14. OPERASI STATUS VERIFIKASI (SATUAN & MASSAL)
 // =========================================================================
 window.ubahStatusVerifikasiWarga = async function (idOrNik, statusSetuju) {
     let targetId = idOrNik;
@@ -1018,14 +1056,14 @@ window.ubahStatusVerifikasiWarga = async function (idOrNik, statusSetuju) {
 
     try {
         const payload = { is_verified: statusSetuju, status_validasi: statusSetuju ? 'Disetujui' : 'Menunggu' };
-        let res = await fetch(`${BASE_API_URL}/api/warga/${targetId}`, {
+        let res = await fetch(`${window.BASE_API_URL}/api/warga/${targetId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.getCleanToken()}` },
             body: JSON.stringify(payload)
         });
 
         if (!res.ok) {
-            res = await fetch(`${BASE_API_URL}/warga/${targetId}`, {
+            res = await fetch(`${window.BASE_API_URL}/warga/${targetId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.getCleanToken()}` },
                 body: JSON.stringify(payload)
@@ -1080,7 +1118,7 @@ window.setujuiSemuaWargaInstan = async function (e) {
     if (k.isConfirmed) {
         showAdminAlert({ title: 'Memproses...', customClass: { popup: 'swal-modern-rounded' }, didOpen: () => Swal?.showLoading() });
         try {
-            await fetch(`${BASE_API_URL}/api/warga/verify-all`, { 
+            await fetch(`${window.BASE_API_URL}/api/warga/verify-all`, { 
                 method: 'POST', 
                 headers: { 'Authorization': `Bearer ${window.getCleanToken()}` } 
             });
@@ -1106,7 +1144,7 @@ window.batalkanSemuaWargaInstan = async function (e) {
     if (k.isConfirmed) {
         showAdminAlert({ title: 'Memproses...', customClass: { popup: 'swal-modern-rounded' }, didOpen: () => Swal?.showLoading() });
         try {
-            await fetch(`${BASE_API_URL}/api/warga/unverify-all`, { 
+            await fetch(`${window.BASE_API_URL}/api/warga/unverify-all`, { 
                 method: 'POST', 
                 headers: { 'Authorization': `Bearer ${window.getCleanToken()}` } 
             });
@@ -1132,7 +1170,7 @@ window.hapusSemuaWargaAman = async function (e) {
     if (k.isConfirmed) {
         showAdminAlert({ title: 'Membersihkan...', customClass: { popup: 'swal-modern-rounded' }, didOpen: () => Swal?.showLoading() });
         try {
-            await fetch(`${BASE_API_URL}/api/warga/delete-all`, { 
+            await fetch(`${window.BASE_API_URL}/api/warga/delete-all`, { 
                 method: 'POST', 
                 headers: { 'Authorization': `Bearer ${window.getCleanToken()}` } 
             });
@@ -1154,7 +1192,7 @@ window.bulkProcess = async function (action) {
     } else if (action === 'delete') {
         const konfirmasi = confirm(`Apakah Anda yakin ingin menghapus ${checked.length} data warga terpilih?`);
         if (konfirmasi) {
-            await fetch(`${BASE_URL}/api/warga/bulk-delete`, {
+            await fetch(`${window.BASE_URL}/api/warga/bulk-delete`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.getCleanToken()}` },
                 body: JSON.stringify({ ids: checked })
@@ -1171,7 +1209,7 @@ window.hapusSemuaWarga = () => window.hapusSemuaWargaAman();
 window.syncBPS = async function () {
     showAdminAlert({ title: 'Sinkronisasi Data BPS Sidoarjo...', didOpen: () => Swal?.showLoading() });
     try {
-        const res = await fetch(`${BASE_URL}/api/bps/sync`, {
+        const res = await fetch(`${window.BASE_URL}/api/bps/sync`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
         });
@@ -1193,16 +1231,16 @@ window.bukaModalBobot = function () {
 
     const savedBobot = JSON.parse(localStorage.getItem('bobotBWM') || 'null') || window.defaultBobotBWM;
     const kriteriaLabels = {
-        c1: 'C1. Kondisi Ekonomi',
-        c2: 'C2. Nilai Aset',
-        c3: 'C3. Usia KK',
+        c1: 'C1. Kondisi Ekonomi / Penghasilan',
+        c2: 'C2. Kepemilikan Aset',
+        c3: 'C3. Umur Kepala Keluarga',
         c4: 'C4. Jenis Kelamin',
-        c5: 'C5. Tanggungan',
-        c6: 'C6. Pernikahan',
-        c7: 'C7. Anak Sekolah',
-        c8: 'C8. Status Rumah',
-        c9: 'C9. Pendidikan',
-        c10: 'C10. Kesehatan'
+        c5: 'C5. Jumlah Tanggungan',
+        c6: 'C6. Status Pernikahan',
+        c7: 'C7. Kepemilikan Anak / Balita',
+        c8: 'C8. Kelayakan Tempat Tinggal',
+        c9: 'C9. Tingkat Pendidikan Terakhir',
+        c10: 'C10. Kondisi Kesehatan / Disabilitas'
     };
 
     container.innerHTML = Object.keys(savedBobot).map(key => `
@@ -1255,9 +1293,9 @@ window.hitungSPK = function () {
     const maxC5 = Math.max(...warga.map(w => w.c5 || 1));
     const maxC6 = Math.max(...warga.map(w => w.c6 || 1));
     const maxC7 = Math.max(...warga.map(w => w.c7 || 1));
-    const maxC8 = Math.max(...warga.map(w => w.c8 || 1));
+    const minC8 = Math.min(...warga.map(w => w.c8 || 1));
     const minC9 = Math.min(...warga.map(w => w.c9 || 1));
-    const maxC10 = Math.max(...warga.map(w => w.c10 || 1));
+    const minC10 = Math.min(...warga.map(w => w.c10 || 1));
 
     const hasil = warga.map(w => {
         const r1 = minC1 / (w.c1 || 1);
@@ -1267,9 +1305,9 @@ window.hitungSPK = function () {
         const r5 = (w.c5 || 1) / maxC5;
         const r6 = (w.c6 || 1) / maxC6;
         const r7 = (w.c7 || 1) / maxC7;
-        const r8 = (w.c8 || 1) / maxC8;
+        const r8 = minC8 / (w.c8 || 1);
         const r9 = minC9 / (w.c9 || 1);
-        const r10 = (w.c10 || 1) / maxC10;
+        const r10 = minC10 / (w.c10 || 1);
 
         const skorSaw = (r1 * bobot.c1) + (r2 * bobot.c2) + (r3 * bobot.c3) + (r4 * bobot.c4) +
                         (r5 * bobot.c5) + (r6 * bobot.c6) + (r7 * bobot.c7) + (r8 * bobot.c8) +
@@ -1278,8 +1316,8 @@ window.hitungSPK = function () {
         const sWp = Math.pow(w.c1 || 1, -bobot.c1) * Math.pow(w.c2 || 1, -bobot.c2) *
                    Math.pow(w.c3 || 1, bobot.c3) * Math.pow(w.c4 || 1, bobot.c4) *
                    Math.pow(w.c5 || 1, bobot.c5) * Math.pow(w.c6 || 1, bobot.c6) *
-                   Math.pow(w.c7 || 1, bobot.c7) * Math.pow(w.c8 || 1, bobot.c8) *
-                   Math.pow(w.c9 || 1, -bobot.c9) * Math.pow(w.c10 || 1, bobot.c10);
+                   Math.pow(w.c7 || 1, bobot.c7) * Math.pow(w.c8 || 1, -bobot.c8) *
+                   Math.pow(w.c9 || 1, -bobot.c9) * Math.pow(w.c10 || 1, -bobot.c10);
 
         return {
             ...w,
@@ -1352,7 +1390,7 @@ window.bukaModalMatriksKerja = function () {
                         <th>R4 (JK)</th>
                         <th>R5 (Tgg)</th>
                         <th>R6 (Nikah)</th>
-                        <th>R7 (Sekolah)</th>
+                        <th>R7 (Anak)</th>
                         <th>R8 (Rumah)</th>
                         <th>R9 (Pddk)</th>
                         <th>R10 (Kes)</th>
@@ -1448,7 +1486,7 @@ window.bukaModalKomparasi = function () {
 };
 
 // =========================================================================
-// 16. PETA SEBARAN MAKRO WILAYAH KABUPATEN SIDOARJO (CHOROPLETH)
+// 16. PETA SEBARAN MAKRO WILAYAH SIDOARJO (POLIGON CLUSTER DINAMIS)
 // =========================================================================
 window.toggleCustomMapDropdown = function (e) {
     if (e) e.stopPropagation();
@@ -1479,9 +1517,17 @@ window.pilihModePeta = function (mode, label) {
 
 window.initMacroDistributionMap = function () {
     const mapBox = document.getElementById('mapWilayah');
-    if (!mapBox || macroMapObj || typeof L === 'undefined') return;
+    if (!mapBox || typeof L === 'undefined') return;
 
-    macroMapObj = L.map('mapWilayah', { attributionControl: false }).setView(MAP_CENTER_SIDOARJO, 11);
+    if (mapBox._leaflet_id) {
+        try {
+            if (macroMapObj) macroMapObj.remove();
+        } catch (e) {}
+        mapBox._leaflet_id = null;
+        macroMapObj = null;
+    }
+
+    macroMapObj = L.map('mapWilayah', { attributionControl: false }).setView(window.MAP_CENTER_SIDOARJO, 11);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(macroMapObj);
 
     window.renderChoroplethKerentanan('kecamatan');
@@ -1490,66 +1536,99 @@ window.initMacroDistributionMap = function () {
 window.renderChoroplethKerentanan = function (mode = 'kecamatan') {
     if (!macroMapObj || typeof L === 'undefined') return;
 
-    const kecamatanData = [
-        { nama: 'Sidoarjo', coords: [-7.4478, 112.7183], desil: 2 },
-        { nama: 'Buduran', coords: [-7.4245, 112.7231], desil: 3 },
-        { nama: 'Candi', coords: [-7.4812, 112.7135], desil: 2 },
-        { nama: 'Porong', coords: [-7.5451, 112.6987], desil: 1 },
-        { nama: 'Krembung', coords: [-7.5256, 112.6124], desil: 2 },
-        { nama: 'Tulangan', coords: [-7.4795, 112.6453], desil: 3 },
-        { nama: 'Tanggulangin', coords: [-7.5112, 112.7124], desil: 2 },
-        { nama: 'Jabon', coords: [-7.5678, 112.7654], desil: 1 },
-        { nama: 'Waru', coords: [-7.3541, 112.7356], desil: 4 },
-        { nama: 'Gedangan', coords: [-7.3878, 112.7245], desil: 3 },
-        { nama: 'Sedati', coords: [-7.3812, 112.7845], desil: 3 },
-        { nama: 'Taman', coords: [-7.3512, 112.6987], desil: 4 },
-        { nama: 'Krian', coords: [-7.4087, 112.5834], desil: 3 },
-        { nama: 'Balongbendo', coords: [-7.4124, 112.5213], desil: 2 },
-        { nama: 'Prambon', coords: [-7.4712, 112.5745], desil: 2 },
-        { nama: 'Tarik', coords: [-7.4512, 112.5124], desil: 2 },
-        { nama: 'Sukodono', coords: [-7.4145, 112.6789], desil: 3 },
-        { nama: 'Wonoayu', coords: [-7.4387, 112.6345], desil: 3 }
+    const kecamatanBounds = [
+        { nama: 'Sidoarjo', bounds: [[-7.435, 112.705], [-7.435, 112.735], [-7.465, 112.735], [-7.465, 112.705]] },
+        { nama: 'Buduran', bounds: [[-7.410, 112.710], [-7.410, 112.745], [-7.435, 112.745], [-7.435, 112.710]] },
+        { nama: 'Candi', bounds: [[-7.465, 112.700], [-7.465, 112.745], [-7.500, 112.745], [-7.500, 112.700]] },
+        { nama: 'Porong', bounds: [[-7.530, 112.675], [-7.530, 112.720], [-7.565, 112.720], [-7.565, 112.675]] },
+        { nama: 'Krembung', bounds: [[-7.510, 112.590], [-7.510, 112.635], [-7.545, 112.635], [-7.545, 112.590]] },
+        { nama: 'Tulangan', bounds: [[-7.465, 112.625], [-7.465, 112.670], [-7.505, 112.670], [-7.505, 112.625]] },
+        { nama: 'Tanggulangin', bounds: [[-7.500, 112.695], [-7.500, 112.740], [-7.530, 112.740], [-7.530, 112.695]] },
+        { nama: 'Jabon', bounds: [[-7.545, 112.720], [-7.545, 112.810], [-7.590, 112.810], [-7.590, 112.720]] },
+        { nama: 'Waru', bounds: [[-7.335, 112.715], [-7.335, 112.765], [-7.375, 112.765], [-7.375, 112.715]] },
+        { nama: 'Gedangan', bounds: [[-7.375, 112.710], [-7.375, 112.755], [-7.410, 112.755], [-7.410, 112.710]] },
+        { nama: 'Sedati', bounds: [[-7.360, 112.765], [-7.360, 112.825], [-7.420, 112.825], [-7.420, 112.765]] },
+        { nama: 'Taman', bounds: [[-7.335, 112.665], [-7.335, 112.715], [-7.380, 112.715], [-7.380, 112.665]] },
+        { nama: 'Krian', bounds: [[-7.385, 112.555], [-7.385, 112.615], [-7.430, 112.615], [-7.430, 112.555]] },
+        { nama: 'Balongbendo', bounds: [[-7.390, 112.490], [-7.390, 112.555], [-7.435, 112.555], [-7.435, 112.490]] },
+        { nama: 'Prambon', bounds: [[-7.450, 112.550], [-7.450, 112.605], [-7.495, 112.605], [-7.495, 112.550]] },
+        { nama: 'Tarik', bounds: [[-7.435, 112.485], [-7.435, 112.550], [-7.475, 112.550], [-7.475, 112.485]] },
+        { nama: 'Sukodono', bounds: [[-7.395, 112.655], [-7.395, 112.705], [-7.435, 112.705], [-7.435, 112.655]] },
+        { nama: 'Wonoayu', bounds: [[-7.420, 112.605], [-7.420, 112.660], [-7.465, 112.660], [-7.465, 112.605]] }
     ];
 
     if (macroGeoJsonLayer) {
         macroMapObj.removeLayer(macroGeoJsonLayer);
     }
-
     macroGeoJsonLayer = L.layerGroup().addTo(macroMapObj);
 
-    kecamatanData.forEach(k => {
-        let color = '#15803d';
-        let status = 'Rendah (Desil 5–10)';
-        if (k.desil <= 2) {
-            color = '#dc2626';
-            status = 'Tinggi (Desil 1–2)';
-        } else if (k.desil <= 4) {
-            color = '#d97706';
-            status = 'Sedang (Desil 3–4)';
+    const dataWarga = window.globalDataWarga || [];
+
+    kecamatanBounds.forEach(k => {
+        const wargaDiWilayah = dataWarga.filter(w => {
+            const alamat = (w.alamat || '').toLowerCase();
+            return alamat.includes(k.nama.toLowerCase());
+        });
+
+        const totalWarga = wargaDiWilayah.length;
+        let strokeColor = '#94a3b8';
+        let fillColor = 'transparent';
+        let fillOpacity = 0.0;
+        let statusText = 'Belum Ada Data Masuk';
+        let badgeColor = '#64748b';
+
+        if (totalWarga > 0) {
+            const avgDesil = wargaDiWilayah.reduce((acc, cur) => acc + (Number(cur.desil) || 5), 0) / totalWarga;
+
+            if (avgDesil <= 2.5) {
+                strokeColor = '#dc2626';
+                fillColor = '#ef4444';
+                fillOpacity = 0.45;
+                statusText = 'Tinggi (Desil 1–2)';
+                badgeColor = '#dc2626';
+            } else if (avgDesil <= 4.0) {
+                strokeColor = '#d97706';
+                fillColor = '#f59e0b';
+                fillOpacity = 0.45;
+                statusText = 'Sedang (Desil 3–4)';
+                badgeColor = '#d97706';
+            } else {
+                strokeColor = '#15803d';
+                fillColor = '#10b981';
+                fillOpacity = 0.45;
+                statusText = 'Rendah (Desil 5–10)';
+                badgeColor = '#15803d';
+            }
         }
 
-        const circle = L.circle(k.coords, {
-            color: color,
-            fillColor: color,
-            fillOpacity: 0.35,
-            radius: 2000
+        const poly = L.polygon(k.bounds, {
+            color: strokeColor,
+            weight: totalWarga > 0 ? 2 : 1,
+            dashArray: totalWarga === 0 ? '4, 4' : null,
+            fillColor: fillColor,
+            fillOpacity: fillOpacity
         }).addTo(macroGeoJsonLayer);
 
-        circle.bindPopup(`
-            <div style="font-family:'Inter',sans-serif; padding:4px;">
+        poly.bindPopup(`
+            <div style="font-family:'Inter',sans-serif; padding:4px; min-width:180px;">
                 <b style="font-size:0.95rem; color:#0f172a;">Kecamatan ${k.nama}</b><br>
-                <span style="font-size:0.8rem; color:#64748b;">Tingkat Kerentanan:</span><br>
-                <span style="font-size:0.85rem; font-weight:800; color:${color};">${status}</span><br>
-                <button type="button" class="btn btn-sm btn-primary" onclick="window.bukaWilayahDetail('${k.nama}')" style="margin-top:8px; width:100%; border-radius:12px; font-size:0.75rem; padding:4px 8px;">
-                    <i class="fas fa-users"></i> Lihat Warga
-                </button>
+                <div style="margin:4px 0; font-size:0.8rem; color:#64748b;">
+                    Total Warga Terdata: <b style="color:#0f172a;">${totalWarga} Jiwa</b>
+                </div>
+                <span style="font-size:0.75rem; color:#64748b;">Tingkat Kerentanan:</span><br>
+                <span style="font-size:0.85rem; font-weight:800; color:${badgeColor};">${statusText}</span><br>
+                ${totalWarga > 0 ? `
+                    <button type="button" class="btn btn-sm btn-primary" onclick="window.bukaWilayahDetail('${k.nama}')" style="margin-top:8px; width:100%; border-radius:8px; font-size:0.75rem; padding:4px 8px;">
+                        <i class="fas fa-users"></i> Lihat ${totalWarga} Warga
+                    </button>
+                ` : '<small style="display:block; margin-top:6px; color:#94a3b8; font-style:italic;">Data belum tersedia</small>'}
             </div>
         `);
     });
 };
 
 // =========================================================================
-// 17. EKSPOR & IMPOR DATA EXCEL (SHEETJS XLSX ENGINE)
+// 17. EKSPOR & IMPOR DATA EXCEL
 // =========================================================================
 window.exportExcelLengkap = function () {
     const dataList = window.globalDataWarga || [];
@@ -1630,14 +1709,14 @@ window.executeBulkImport = async function () {
 
     showAdminAlert({ title: 'Menyinkronkan Data ke Database...', didOpen: () => Swal?.showLoading() });
     try {
-        let res = await fetch(`${BASE_URL}/api/warga/bulk`, {
+        let res = await fetch(`${window.BASE_URL}/api/warga/bulk`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.getCleanToken()}` },
             body: JSON.stringify({ data: window.stagedImportData })
         });
 
         if (!res.ok) {
-            res = await fetch(`${BASE_URL}/warga/bulk`, {
+            res = await fetch(`${window.BASE_URL}/warga/bulk`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.getCleanToken()}` },
                 body: JSON.stringify({ data: window.stagedImportData })
@@ -1691,7 +1770,7 @@ window.executeCustomExport = function () {
 };
 
 // =========================================================================
-// 18. PEMBARUAN DATA WARGA, UNGGAH BUKTI SALUR & MEDIASI SENGKETA
+// 18. MODAL EDIT & BUKTI SALUR
 // =========================================================================
 window.bukaModalEdit = function (id) {
     const dataList = window.globalDataWarga || [];
@@ -1752,14 +1831,14 @@ window.simpanEdit = async function (e) {
         catatan: document.getElementById('editCatatan')?.value.trim() || existing?.catatan || ''
     };
 
-    let res = await fetch(`${BASE_URL}/api/warga/${id}`, {
+    let res = await fetch(`${window.BASE_URL}/api/warga/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.getCleanToken()}` },
         body: JSON.stringify(payload)
     });
 
     if (!res.ok) {
-        res = await fetch(`${BASE_URL}/warga/${id}`, {
+        res = await fetch(`${window.BASE_URL}/warga/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.getCleanToken()}` },
             body: JSON.stringify(payload)
@@ -1776,12 +1855,12 @@ window.simpanEdit = async function (e) {
 window.hapusData = async function (id) {
     const konfirmasi = confirm('Apakah Anda yakin ingin menghapus data warga ini?');
     if (konfirmasi) {
-        let res = await fetch(`${BASE_URL}/api/warga/${id}`, {
+        let res = await fetch(`${window.BASE_URL}/api/warga/${id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
         });
         if (!res.ok) {
-            await fetch(`${BASE_URL}/warga/${id}`, {
+            await fetch(`${window.BASE_URL}/warga/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
             });
@@ -1792,7 +1871,7 @@ window.hapusData = async function (id) {
 
 window.bukaUploadBuktiSalur = function (id, namaWarga, existingPhoto) {
     let previewHtml = existingPhoto 
-        ? `<div style="margin-bottom:15px;"><img src="${BASE_URL}/uploads/${existingPhoto}" style="max-width:100%; max-height:200px; border-radius:10px;" /></div>` 
+        ? `<div style="margin-bottom:15px;"><img src="${window.BASE_URL}/uploads/${existingPhoto}" style="max-width:100%; max-height:200px; border-radius:10px;" /></div>` 
         : `<p style="font-size:0.85rem; color:#64748b;">Belum ada dokumentasi serah terima bansos.</p>`;
 
     showAdminAlert({
@@ -1818,14 +1897,14 @@ window.bukaUploadBuktiSalur = function (id, namaWarga, existingPhoto) {
             const formData = new FormData();
             formData.append('file', result.value);
             
-            let res = await fetch(`${BASE_URL}/api/warga/${id}/bukti-salur`, {
+            let res = await fetch(`${window.BASE_URL}/api/warga/${id}/bukti-salur`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${window.getCleanToken()}` },
                 body: formData
             });
 
             if (!res.ok) {
-                res = await fetch(`${BASE_URL}/warga/${id}/bukti-salur`, {
+                res = await fetch(`${window.BASE_URL}/warga/${id}/bukti-salur`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${window.getCleanToken()}` },
                     body: formData
@@ -1866,7 +1945,7 @@ window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
         denyButtonColor: '#0284c7'
     }).then(async (result) => {
         if (result.isConfirmed) {
-            let res = await fetch(`${BASE_URL}/api/warga/${id}/lapor-sengketa`, {
+            let res = await fetch(`${window.BASE_URL}/api/warga/${id}/lapor-sengketa`, {
                 method: 'POST',
                 headers: { 
                     'Authorization': `Bearer ${window.getCleanToken()}`,
@@ -1876,7 +1955,7 @@ window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
             });
 
             if (!res.ok) {
-                await fetch(`${BASE_URL}/warga/${id}/lapor-sengketa`, {
+                await fetch(`${window.BASE_URL}/warga/${id}/lapor-sengketa`, {
                     method: 'POST',
                     headers: { 
                         'Authorization': `Bearer ${window.getCleanToken()}`,
@@ -1895,39 +1974,27 @@ window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
 };
 
 // =========================================================================
-// 19. MANAJEMEN PENGGUNA SISTEM (USER ADMIN & OPERATOR)
+// 19. MANAJEMEN PENGGUNA SISTEM: LANGSUNG KE DATABASE & KEBAL TYPEERROR
 // =========================================================================
 window.loadUserTable = async function () {
-    const tbody = document.getElementById('userTableBody');
+    const tbody = document.getElementById('userTableBody') || 
+                  document.getElementById('tableUserBody') || 
+                  document.querySelector('#userTable tbody') ||
+                  document.querySelector('#modalPengguna table tbody') ||
+                  document.querySelector('.modal-body table tbody');
+
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Memuat data akun...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Memuat data akun dari database...</td></tr>';
 
     try {
         const token = window.getCleanToken();
-        const headers = {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        };
+        const headers = { 'Accept': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const userEndpoints = [
-            `${BASE_URL}/api/users`,
-            `${BASE_URL}/users`,
-            `${BASE_URL}/api/auth/users`
-        ];
-
-        let res = null;
-        for (const url of userEndpoints) {
-            try {
-                let testRes = await fetch(url, { headers });
-                if (testRes.status === 401) {
-                    testRes = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
-                }
-                if (testRes && testRes.ok) {
-                    res = testRes;
-                    break;
-                }
-            } catch (e) {}
+        let res = await fetch(`${window.BASE_URL}/api/users?_t=${Date.now()}`, { headers });
+        if (!res.ok) {
+            res = await fetch(`${window.BASE_URL}/users?_t=${Date.now()}`, { headers: { 'Accept': 'application/json' } });
         }
 
         let users = [];
@@ -1939,7 +2006,10 @@ window.loadUserTable = async function () {
         if (!users || !users.length) {
             users = [
                 { id: 1, username: "admin", role: "admin", current_password: "admin" },
-                { id: 2, username: "petugas", role: "operator", current_password: "123" }
+                { id: 2, username: "petugas", role: "operator", current_password: "123" },
+                { id: 3, username: "verifikator", role: "operator", current_password: "123" },
+                { id: 4, username: "operator", role: "operator", current_password: "123" },
+                { id: 5, username: "kepala_dinsos", role: "admin", current_password: "123" }
             ];
         }
 
@@ -1950,7 +2020,7 @@ window.loadUserTable = async function () {
                 : `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; padding:3px 10px; border-radius:12px; font-size:0.75rem;">OPERATOR</span>`;
 
             const btnEdit = `
-                <button type="button" class="btn btn-sm" onclick="window.editUser(${u.id}, '${window.escapeInlineJS(u.username)}', '${u.role}', '${window.escapeInlineJS(u.current_password || '')}')" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:8px; padding:5px 9px; cursor:pointer;" title="Edit Akun & Password">
+                <button type="button" class="btn btn-sm" onclick="window.editUser(${u.id}, '${window.escapeInlineJS(u.username)}', '${u.role}', '${window.escapeInlineJS(u.current_password || '')}')" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:8px; padding:5px 9px; cursor:pointer;" title="Edit Akun">
                     <i class="fas fa-pencil-alt"></i>
                 </button>
             `;
@@ -1965,10 +2035,10 @@ window.loadUserTable = async function () {
 
             return `
                 <tr style="border-bottom:1px solid #f1f5f9;">
-                    <td style="font-weight:700; color:#64748b; font-size:0.85rem;">#${u.id}</td>
-                    <td style="font-weight:800; color:#0f172a; font-size:0.9rem;">${window.safeHtml(u.username)}</td>
-                    <td>${roleBadge}</td>
-                    <td style="text-align:center;">
+                    <td style="font-weight:700; color:#64748b; font-size:0.85rem; padding:10px 8px;">#${u.id}</td>
+                    <td style="font-weight:800; color:#0f172a; font-size:0.9rem; padding:10px 8px;">${window.safeHtml(u.username)}</td>
+                    <td style="padding:10px 8px;">${roleBadge}</td>
+                    <td style="text-align:center; padding:10px 8px;">
                         <div style="display:inline-flex; align-items:center; gap:6px;">
                             ${btnEdit}
                             ${btnDelete}
@@ -1982,150 +2052,148 @@ window.loadUserTable = async function () {
     }
 };
 
-window.loadTablePengguna = window.loadUserTable;
-
-window.editUser = function (id, username, role, currentPassword) {
-    document.getElementById('userId').value = id;
-    document.getElementById('manageUsername').value = username;
-    document.getElementById('manageRole').value = role || 'operator';
-
-    let groupCurrent = document.getElementById('groupCurrentPassword');
-    const passInput = document.getElementById('managePassword');
-    const passGroup = passInput ? passInput.closest('.form-group') : null;
-
-    if (!groupCurrent && passGroup && passGroup.parentNode) {
-        groupCurrent = document.createElement('div');
-        groupCurrent.id = 'groupCurrentPassword';
-        groupCurrent.className = 'form-group';
-        groupCurrent.innerHTML = `
-            <label class="form-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                <span>Password Saat Ini (Aktif)</span>
-                <span style="font-size:0.7rem; color:#009846; font-weight:700;"><i class="fas fa-lock"></i> Aktif</span>
-            </label>
-            <div style="position:relative; display:flex; align-items:center;">
-                <input type="password" id="manageCurrentPassword" class="form-input" readonly style="background:#f1f5f9; font-weight:700; color:#0f172a; width:100%; padding-right:44px; border:1.5px solid #cbd5e1;">
-                <button type="button" onclick="const p=document.getElementById('manageCurrentPassword'); p.type=p.type==='password'?'text':'password'; this.innerHTML=p.type==='password'?'<i class=\\'fas fa-eye\\'></i>':'<i class=\\'fas fa-eye-slash\\'></i>';" style="position:absolute; right:10px; background:none; border:none; color:#64748b; cursor:pointer; padding:4px;" title="Lihat Password Saat Ini">
-                    <i class="fas fa-eye"></i>
-                </button>
-            </div>
-        `;
-        passGroup.parentNode.insertBefore(groupCurrent, passGroup);
-    }
-
-    if (groupCurrent) {
-        groupCurrent.style.display = 'block';
-        const curPassInput = document.getElementById('manageCurrentPassword');
-        if (curPassInput) {
-            curPassInput.value = currentPassword || (username === 'admin' ? 'admin123' : '12345');
-            curPassInput.type = 'password';
-        }
-    }
-
-    const labelPass = passGroup ? passGroup.querySelector('.form-label') : null;
-    if (labelPass) labelPass.innerText = 'Kata Sandi Baru (Opsional)';
-
-    if (passInput) {
-        passInput.value = '';
-        passInput.required = false;
-        passInput.placeholder = 'Masukkan kata sandi baru (kosongkan jika tetap)';
-    }
-
-    const title = document.getElementById('formUserTitle');
-    if (title) title.innerHTML = `<i class="fas fa-user-edit text-primary"></i> Edit Akun: <span style="color:#009846;">${window.safeHtml(username)}</span>`;
-
-    const submitBtn = document.querySelector('#formUser button[type="submit"]');
-    if (submitBtn) {
-        submitBtn.innerHTML = '<i class="fas fa-save"></i> Simpan Perubahan';
-        submitBtn.style.background = 'linear-gradient(135deg, #0284c7, #0369a1)';
-    }
-
-    document.getElementById('manageUsername').focus();
-};
-
 window.simpanUser = async function (e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
 
-    const id = document.getElementById('userId').value.trim();
-    const username = document.getElementById('manageUsername').value.trim();
-    const password = document.getElementById('managePassword').value.trim();
-    const role = document.getElementById('manageRole').value;
+    const modalPengguna = document.getElementById('modalPengguna') || document;
+    const idEl = document.getElementById('userId') || modalPengguna.querySelector('input[name="id"]');
+    const id = idEl ? idEl.value.trim() : '';
+
+    const userInput = document.getElementById('manageUsername') || 
+                      modalPengguna.querySelector('input[placeholder*="username" i]') ||
+                      modalPengguna.querySelector('input[type="text"]');
+    const username = userInput ? userInput.value.trim() : '';
+
+    const passInput = document.getElementById('managePassword') || 
+                      modalPengguna.querySelector('input[type="password"]');
+    const password = passInput ? passInput.value.trim() : '';
+
+    const roleSelect = document.getElementById('manageRole') || 
+                       modalPengguna.querySelector('select');
+    const role = roleSelect ? roleSelect.value : 'operator';
 
     if (!username) return Swal.fire('Peringatan', 'Username wajib diisi!', 'warning');
-    if (!id && !password) return Swal.fire('Peringatan', 'Password wajib diisi untuk akun baru!', 'warning');
+    if (!id && !password) return Swal.fire('Peringatan', 'Kata sandi wajib diisi untuk akun baru!', 'warning');
 
-    const token = window.getCleanToken();
     const isEdit = Boolean(id);
-    const url = isEdit ? `${BASE_URL}/users/${id}` : `${BASE_URL}/users`;
+    const url = isEdit ? `${window.BASE_URL}/api/users/${id}` : `${window.BASE_URL}/api/users`;
     const method = isEdit ? 'PUT' : 'POST';
 
     const payload = { username, role };
     if (password) payload.password = password;
 
+    Swal.fire({
+        title: isEdit ? 'Memperbarui Akun...' : 'Menyimpan Akun Baru ke Database...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
     try {
-        const res = await fetch(url, {
+        const token = window.getCleanToken();
+        const headers = { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        let res = await fetch(url, {
             method: method,
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            headers: headers,
             body: JSON.stringify(payload)
         });
 
+        if (!res.ok && res.status === 404) {
+            const fallbackUrl = isEdit ? `${window.BASE_URL}/users/${id}` : `${window.BASE_URL}/users`;
+            res = await fetch(fallbackUrl, {
+                method: method,
+                headers: headers,
+                body: JSON.stringify(payload)
+            });
+        }
+
         const result = await res.json();
-        if (!res.ok) throw new Error(result.message || 'Gagal memproses data akun.');
+        if (!res.ok) throw new Error(result.message || 'Gagal menyimpan data akun.');
 
         Swal.fire({
             icon: 'success',
-            title: 'Berhasil!',
-            text: isEdit ? `Akun '${username}' berhasil diperbarui!` : `Akun '${username}' berhasil ditambahkan!`,
-            timer: 2000,
+            title: 'Berhasil Tersimpan!',
+            text: isEdit ? `Akun '${username}' berhasil diperbarui!` : `Akun '${username}' berhasil ditambahkan ke database!`,
+            timer: 1500,
             showConfirmButton: false
         });
 
         window.resetFormUser();
         await window.loadUserTable();
     } catch (err) {
-        Swal.fire('Kendala Penyimpanan', err.message, 'error');
+        Swal.fire('Gagal Menyimpan', err.message, 'error');
     }
 };
 
-window.resetFormUser = function () {
-    document.getElementById('userId').value = '';
-    document.getElementById('manageUsername').value = '';
+window.editUser = function (id, username, role, currentPassword) {
+    const modalPengguna = document.getElementById('modalPengguna') || document;
+    
+    let idEl = document.getElementById('userId');
+    if (!idEl) {
+        idEl = document.createElement('input');
+        idEl.type = 'hidden';
+        idEl.id = 'userId';
+        modalPengguna.appendChild(idEl);
+    }
+    idEl.value = id;
 
-    const groupCurrent = document.getElementById('groupCurrentPassword');
-    if (groupCurrent) groupCurrent.style.display = 'none';
+    const userInput = document.getElementById('manageUsername') || modalPengguna.querySelector('input[type="text"]');
+    if (userInput) userInput.value = username;
 
-    const passInput = document.getElementById('managePassword');
-    const passGroup = passInput ? passInput.closest('.form-group') : null;
-    const labelPass = passGroup ? passGroup.querySelector('.form-label') : null;
-    if (labelPass) labelPass.innerText = 'Kata Sandi (Password)';
+    const roleSelect = document.getElementById('manageRole') || modalPengguna.querySelector('select');
+    if (roleSelect) roleSelect.value = role || 'operator';
 
+    const passInput = document.getElementById('managePassword') || modalPengguna.querySelector('input[type="password"]');
     if (passInput) {
         passInput.value = '';
-        passInput.required = true;
-        passInput.placeholder = 'Masukkan kata sandi';
-        passInput.type = 'password';
+        passInput.placeholder = 'Ketik password baru (kosongkan jika tetap)';
     }
 
-    document.getElementById('manageRole').value = 'operator';
+    const title = document.getElementById('formUserTitle') || modalPengguna.querySelector('.modal-title');
+    if (title) title.innerText = `Edit Akun: ${username}`;
 
-    const title = document.getElementById('formUserTitle');
+    const submitBtn = modalPengguna.querySelector('button[type="submit"]') || modalPengguna.querySelector('.btn-primary');
+    if (submitBtn) submitBtn.innerText = 'Simpan Perubahan';
+};
+
+window.resetFormUser = function () {
+    const modalPengguna = document.getElementById('modalPengguna') || document;
+    
+    const idEl = document.getElementById('userId');
+    if (idEl) idEl.value = '';
+
+    const userInput = document.getElementById('manageUsername') || modalPengguna.querySelector('input[type="text"]');
+    if (userInput) userInput.value = '';
+
+    const passInput = document.getElementById('managePassword') || modalPengguna.querySelector('input[type="password"]');
+    if (passInput) {
+        passInput.value = '';
+        passInput.placeholder = 'Masukkan kata sandi';
+    }
+
+    const roleSelect = document.getElementById('manageRole') || modalPengguna.querySelector('select');
+    if (roleSelect) roleSelect.value = 'operator';
+
+    const title = document.getElementById('formUserTitle') || modalPengguna.querySelector('.modal-title');
     if (title) title.innerText = 'Tambah Akun Baru';
 
-    const submitBtn = document.querySelector('#formUser button[type="submit"]');
-    if (submitBtn) {
-        submitBtn.innerHTML = '<i class="fas fa-save"></i> Simpan Akun';
-        submitBtn.style.background = 'linear-gradient(135deg, var(--primary), var(--primary-dark))';
-    }
+    const submitBtn = modalPengguna.querySelector('button[type="submit"]') || modalPengguna.querySelector('.btn-primary');
+    if (submitBtn) submitBtn.innerText = 'Simpan Akun';
 };
 
 window.hapusUser = async function (id, username) {
     const { isConfirmed } = await Swal.fire({
         title: `Hapus Akun '${username}'?`,
-        text: 'Akun ini tidak akan dapat digunakan lagi untuk masuk ke dalam sistem dashboard.',
+        text: 'Akun ini akan dihapus permanen dari basis data.',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#dc2626',
         cancelButtonColor: '#64748b',
-        confirmButtonText: '<i class="fas fa-trash-alt"></i> Ya, Hapus',
+        confirmButtonText: 'Ya, Hapus',
         cancelButtonText: 'Batal'
     });
 
@@ -2133,10 +2201,13 @@ window.hapusUser = async function (id, username) {
 
     try {
         const token = window.getCleanToken();
-        const res = await fetch(`${BASE_URL}/users/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-        });
+        const headers = { 'Accept': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        let res = await fetch(`${window.BASE_URL}/api/users/${id}`, { method: 'DELETE', headers });
+        if (!res.ok) {
+            res = await fetch(`${window.BASE_URL}/users/${id}`, { method: 'DELETE', headers });
+        }
 
         const result = await res.json();
         if (!res.ok) throw new Error(result.message || 'Gagal menghapus akun.');
@@ -2149,7 +2220,7 @@ window.hapusUser = async function (id, username) {
 };
 
 // =========================================================================
-// 20. PUSAT NOTIFIKASI AKTIVITAS REALTIME & PANEL ARSIP
+// 20. PUSAT NOTIFIKASI REAL-TIME
 // =========================================================================
 window.currentNotifTab = 'all';
 window.cachedNotifList = [];
@@ -2198,8 +2269,7 @@ window.renderNotifikasiListDOM = function () {
         filtered = list.filter(n => !n.is_archived && (
             (n.pesan && n.pesan.includes('🚨')) || 
             (n.pesan && n.pesan.toLowerCase().includes('sengketa')) || 
-            (n.pesan && n.pesan.toLowerCase().includes('urgent')) ||
-            (n.pesan && n.pesan.toLowerCase().includes('keamanan'))
+            (n.pesan && n.pesan.toLowerCase().includes('urgent'))
         ));
     } else {
         filtered = list.filter(n => !Boolean(n.is_archived));
@@ -2225,22 +2295,18 @@ window.renderNotifikasiListDOM = function () {
     container.innerHTML = filtered.map(item => {
         let cleanMsg = (item.pesan || '')
             .replace(/👑|📌|🔒|🚨|⚠️/g, '')
-            .replace(/\[Admin\]/gi, '')
-            .replace(/\[Petugas\]/gi, '')
-            .replace(/\[Warga\]/gi, '')
-            .replace(/\[Sistem\]/gi, '')
-            .replace(/\[Keamanan\]/gi, '')
+            .replace(/^\[(Admin|Petugas|Operator|Warga|Sistem|Urgent)\]\s*/i, '')
             .trim();
 
-        let roleBadge = '<span style="background:#f1f5f9; color:#475569; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px;">SISTEM</span>';
-        if (item.pesan && item.pesan.includes('[Admin]')) {
-            roleBadge = '<span style="background:#e0e7ff; color:#4f46e5; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px;">ADMIN</span>';
-        } else if (item.pesan && item.pesan.includes('[Petugas]')) {
-            roleBadge = '<span style="background:#e0f2fe; color:#0284c7; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px;">PETUGAS</span>';
-        } else if (item.pesan && item.pesan.includes('[Warga]')) {
-            roleBadge = '<span style="background:#fef3c7; color:#b45309; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px;">WARGA</span>';
-        } else if (item.pesan && (item.pesan.includes('🚨') || item.pesan.toLowerCase().includes('sengketa') || item.pesan.toLowerCase().includes('keamanan'))) {
-            roleBadge = '<span style="background:#fee2e2; color:#dc2626; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px;">URGENT</span>';
+        let roleBadge = '<span style="background:#f1f5f9; color:#475569; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; border:1px solid #cbd5e1;">SISTEM</span>';
+        if (item.pesan && item.pesan.match(/^\[Admin\]/i)) {
+            roleBadge = '<span style="background:#e0e7ff; color:#4338ca; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; border:1px solid #c7d2fe;">ADMIN</span>';
+        } else if (item.pesan && item.pesan.match(/^\[(Petugas|Operator)\]/i)) {
+            roleBadge = '<span style="background:#e0f2fe; color:#0369a1; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; border:1px solid #bae6fd;">PETUGAS</span>';
+        } else if (item.pesan && item.pesan.match(/^\[Warga\]/i)) {
+            roleBadge = '<span style="background:#fef3c7; color:#b45309; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; border:1px solid #fde68a;">WARGA</span>';
+        } else if (item.pesan && (item.pesan.includes('🚨') || item.pesan.match(/^\[Urgent\]/i))) {
+            roleBadge = '<span style="background:#fee2e2; color:#dc2626; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:6px; border:1px solid #fecaca;">URGENT</span>';
         }
 
         const isPinned = Boolean(item.is_pinned);
@@ -2292,7 +2358,7 @@ window.loadNotifikasiAktivitas = async function (filterTab = window.currentNotif
     window.isNotifUpdating = true;
 
     try {
-        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/api/notifikasi') : fetch(`${BASE_URL}/api/notifikasi`));
+        const res = await (window.fetchWithAuth ? window.fetchWithAuth('/api/notifikasi') : fetch(`${window.BASE_URL}/api/notifikasi`));
         if (!res || !res.ok) return;
 
         const result = await res.json();
@@ -2316,9 +2382,7 @@ window.loadNotifikasiAktivitas = async function (filterTab = window.currentNotif
 
 window.cekNotifikasiRealtime = async function () {
     try {
-        const res = await fetch(`${BASE_API_URL}/api/notifikasi`, { 
-            headers: { 'Authorization': `Bearer ${window.getCleanToken()}` } 
-        });
+        const res = await fetch(`${window.BASE_API_URL}/api/notifikasi`);
         if (!res.ok) return;
         const json = await res.json();
         const badge = document.getElementById('notifBadge');
@@ -2341,7 +2405,7 @@ window.lihatDetailNotifikasi = function (e, id) {
     if (!item.is_read) {
         item.is_read = true;
         window.renderNotifikasiListDOM();
-        fetch(`${BASE_URL}/api/notifikasi/${id}/read`, {
+        fetch(`${window.BASE_URL}/api/notifikasi/${id}/read`, {
             method: 'PATCH',
             headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
         }).catch(() => {});
@@ -2399,7 +2463,7 @@ window.togglePinNotif = async function (id) {
         window.renderNotifikasiListDOM();
     }
     try {
-        await fetch(`${BASE_URL}/api/notifikasi/${id}/pin`, {
+        await fetch(`${window.BASE_URL}/api/notifikasi/${id}/pin`, {
             method: 'PATCH',
             headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
         });
@@ -2413,7 +2477,7 @@ window.toggleArsipNotif = async function (id) {
         window.renderNotifikasiListDOM();
     }
     try {
-        await fetch(`${BASE_URL}/api/notifikasi/${id}/archive`, {
+        await fetch(`${window.BASE_URL}/api/notifikasi/${id}/archive`, {
             method: 'PATCH',
             headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
         });
@@ -2424,7 +2488,7 @@ window.hapusNotif = async function (id) {
     window.cachedNotifList = (window.cachedNotifList || []).filter(n => Number(n.id) !== Number(id));
     window.renderNotifikasiListDOM();
     try {
-        await fetch(`${BASE_URL}/api/notifikasi/${id}`, {
+        await fetch(`${window.BASE_URL}/api/notifikasi/${id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
         });
@@ -2437,7 +2501,7 @@ window.hapusSemuaNotif = async function () {
     window.cachedNotifList = (window.cachedNotifList || []).filter(n => Boolean(n.is_pinned));
     window.renderNotifikasiListDOM();
     try {
-        await fetch(`${BASE_URL}/api/notifikasi/clear-all`, {
+        await fetch(`${window.BASE_URL}/api/notifikasi/clear-all`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
         });
@@ -2450,7 +2514,7 @@ window.tandaiSemuaNotifDibaca = async function () {
     if (badge) badge.style.display = 'none';
     window.renderNotifikasiListDOM();
     try {
-        await fetch(`${BASE_URL}/api/notifikasi/read-all`, {
+        await fetch(`${window.BASE_URL}/api/notifikasi/read-all`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
         });
@@ -2458,7 +2522,7 @@ window.tandaiSemuaNotifDibaca = async function () {
 };
 
 // =========================================================================
-// 21. PUSAT INVESTIGASI ADUAN & SENGKETA BANSOS
+// 21. INVESTIGASI & SENGKETA ADUAN
 // =========================================================================
 window.loadLaporanChatData = async function () {
     const container = document.getElementById('laporanChatList');
@@ -2466,23 +2530,20 @@ window.loadLaporanChatData = async function () {
 
     try {
         const token = window.getCleanToken();
-        const headers = {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-        };
+        const headers = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' };
 
         const laporanEndpoints = [
-            `${BASE_URL}/api/laporan-chat`,
-            `${BASE_URL}/api/chat/laporan`,
-            `${BASE_URL}/api/pengaduan`,
-            `${BASE_URL}/laporan-chat`
+            `${window.BASE_URL}/api/laporan-chat`,
+            `${window.BASE_URL}/api/chat/laporan`,
+            `${window.BASE_URL}/api/pengaduan`,
+            `${window.BASE_URL}/laporan-chat`
         ];
 
         let res = null;
         for (const url of laporanEndpoints) {
             try {
                 let testRes = await fetch(url, { headers });
-                if (testRes.status === 401) {
+                if (testRes.status === 401 || testRes.status === 422) {
                     testRes = await fetch(url, { headers: { 'Accept': 'application/json' } });
                 }
                 if (testRes && testRes.ok) {
@@ -2614,7 +2675,7 @@ window.bukaWilayahDetail = function (kecamatanNama) {
 };
 
 // =========================================================================
-// 22. SINKRONISASI DATA ARSIP (CADANGKAN & PULIHKAN MASTER)
+// 22. CADANGKAN & PULIHKAN ARSIP
 // =========================================================================
 window.bukaModalSinkronArsip = function () {
     Swal.fire({
@@ -2622,14 +2683,14 @@ window.bukaModalSinkronArsip = function () {
         html: `
             <div style="text-align:left; font-size:0.92rem; color:#334155; margin-top:14px;">
                 <div class="sync-option-card" onclick="window.eksekusiCadangkanArsip()" style="display:flex; gap:12px; align-items:center; padding:12px; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px; cursor:pointer; background:#f8fafc;">
-                    <div class="sync-option-icon" style="background:#dcfce7; color:#15803d; width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.2rem;"><i class="fas fa-save"></i></div>
+                    <div style="background:#dcfce7; color:#15803d; width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.2rem;"><i class="fas fa-save"></i></div>
                     <div>
                         <div style="font-weight:800; font-size:0.95rem; color:#0f172a;">1. Simpan Cadangan Arsip (Backup)</div>
                         <small style="color:#64748b;">Mencadangkan seluruh data warga aktif saat ini.</small>
                     </div>
                 </div>
                 <div class="sync-option-card restore-card" onclick="window.eksekusiPulihkanArsip()" style="display:flex; gap:12px; align-items:center; padding:12px; border:1px solid #e2e8f0; border-radius:12px; cursor:pointer; background:#f8fafc;">
-                    <div class="sync-option-icon" style="background:#e0f2fe; color:#0284c7; width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.2rem;"><i class="fas fa-history"></i></div>
+                    <div style="background:#e0f2fe; color:#0284c7; width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.2rem;"><i class="fas fa-history"></i></div>
                     <div>
                         <div style="font-weight:800; font-size:0.95rem; color:#0f172a;">2. Pulihkan Cadangan Arsip (Restore)</div>
                         <small style="color:#64748b;">Memulihkan data arsip master ke tabel kerja kependudukan.</small>
@@ -2639,21 +2700,19 @@ window.bukaModalSinkronArsip = function () {
         `,
         showConfirmButton: false,
         showCancelButton: true,
-        cancelButtonText: 'Tutup',
-        buttonsStyling: false,
-        customClass: { popup: 'swal-modern-rounded', cancelButton: 'swal-btn-pill-cancel' }
+        cancelButtonText: 'Tutup'
     });
 };
 
 window.eksekusiCadangkanArsip = async function () {
     Swal.fire({ title: 'Menyimpan Cadangan...', didOpen: () => Swal.showLoading() });
     try {
-        let res = await fetch(`${BASE_API_URL}/api/arsip/cadangkan`, {
+        let res = await fetch(`${window.BASE_API_URL}/api/arsip/cadangkan`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
         });
         if (!res.ok) {
-            res = await fetch(`${BASE_API_URL}/arsip/cadangkan`, {
+            res = await fetch(`${window.BASE_API_URL}/arsip/cadangkan`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
             });
@@ -2672,12 +2731,12 @@ window.eksekusiCadangkanArsip = async function () {
 window.eksekusiPulihkanArsip = async function () {
     Swal.fire({ title: 'Memulihkan Cadangan...', didOpen: () => Swal.showLoading() });
     try {
-        let res = await fetch(`${BASE_API_URL}/api/arsip/pulihkan`, {
+        let res = await fetch(`${window.BASE_API_URL}/api/arsip/pulihkan`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
         });
         if (!res.ok) {
-            res = await fetch(`${BASE_API_URL}/arsip/pulihkan`, {
+            res = await fetch(`${window.BASE_API_URL}/arsip/pulihkan`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
             });
@@ -2698,7 +2757,7 @@ window.eksekusiPulihkanArsip = async function () {
 };
 
 // =========================================================================
-// 23. CETAK RESMI SK BUPATI & LAPORAN KOMPARASI BWM-SAW-WP
+// 23. CETAK DOKUMEN RESMI SK BUPATI & LAPORAN
 // =========================================================================
 window.cetakSKBupati = function () {
     if (window.AdminPrint && typeof window.AdminPrint.cetakSKBupati === 'function') {
@@ -2784,7 +2843,7 @@ window.cetakLaporanKomparasi = function () {
 };
 
 // =========================================================================
-// 24. KONTROL SELEKSI MASAL, EVENT DELEGATIONS & SESI LOGOUT
+// 24. EVENT LISTENERS FORM & LOGOUT
 // =========================================================================
 window.toggleSelectAll = function (source) {
     document.querySelectorAll('.row-checkbox').forEach(cb => {
@@ -2806,22 +2865,27 @@ window.logout = function () {
 window.exportSPKPDF = () => window.AdminPrint ? window.AdminPrint.cetakSKBupati() : (window.cetakSKBupati ? window.cetakSKBupati() : null);
 window.exportKomparasiPDF = () => window.AdminPrint ? window.AdminPrint.cetakLaporanKomparasi() : (window.cetakLaporanKomparasi ? window.cetakLaporanKomparasi() : null);
 
-// Event Listener Otomatis Tombol Aksi Pusat Kendali saat DOM Siap
 document.addEventListener('DOMContentLoaded', () => {
-    const btnPengguna = document.querySelector('.cmd-tile-item.tile-purple');
-    if (btnPengguna) {
-        btnPengguna.onclick = (e) => {
-            e.preventDefault();
-            window.bukaModalPengguna();
-        };
-    }
+    const modalPengguna = document.getElementById('modalPengguna');
+    if (modalPengguna) {
+        const formUser = modalPengguna.querySelector('form');
+        if (formUser) {
+            formUser.onsubmit = function (e) {
+                e.preventDefault();
+                window.simpanUser(e);
+                return false;
+            };
+        }
+        
+        const btnSimpan = modalPengguna.querySelector('.btn-success') || modalPengguna.querySelector('button[onclick*="simpan"]');
+        if (btnSimpan && !btnSimpan.getAttribute('onclick')) {
+            btnSimpan.onclick = (e) => window.simpanUser(e);
+        }
 
-    const btnInvestigasi = document.querySelector('.cmd-tile-item.tile-rose');
-    if (btnInvestigasi) {
-        btnInvestigasi.onclick = (e) => {
-            e.preventDefault();
-            window.bukaModalLaporanChat();
-        };
+        const btnBatal = modalPengguna.querySelector('button[onclick*="reset"]') || modalPengguna.querySelector('.btn-secondary');
+        if (btnBatal && !btnBatal.getAttribute('onclick')) {
+            btnBatal.onclick = () => window.resetFormUser();
+        }
     }
 
     document.querySelectorAll('.modal-blur-overlay').forEach(overlay => {
@@ -2832,3 +2896,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+// =========================================================================
+// 25. PENGAMAN GLOBAL TOMBOL CHAT WARGA
+// =========================================================================
+window.openAdminChat = function () {
+    const modalChat = document.getElementById('modalAdminChat') || 
+                      document.getElementById('modalChat') || 
+                      document.getElementById('modalLaporanChat');
+    if (modalChat) {
+        modalChat.style.setProperty('display', 'flex', 'important');
+        modalChat.style.setProperty('z-index', '99999', 'important');
+    }
+
+    try {
+        if (typeof window.tutupObrolanAktif === 'function') {
+            window.tutupObrolanAktif();
+        }
+    } catch (e) {
+        console.warn('[openAdminChat] Peringatan penutupan obrolan:', e);
+    }
+
+    try {
+        if (typeof window.loadChatInbox === 'function') {
+            window.loadChatInbox();
+        }
+    } catch (e) {}
+};
