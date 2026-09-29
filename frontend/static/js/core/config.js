@@ -16,8 +16,9 @@ const isLocalhost = Boolean(
 const BACKEND_PORT = 5000;
 const DEV_BACKEND_URL = `${window.location.protocol}//${window.location.hostname}:${BACKEND_PORT}`;
 
-// Gunakan URL Flask port 5000 jika berjalan via Live Server (5500/8080)
-const BASE_ORIGIN = (isLocalhost && window.location.port !== String(BACKEND_PORT))
+// Gunakan window.location.origin secara langsung pada server terpadu (Port 3000 / Cloud Run)
+const LIVE_SERVER_PORTS = ['5500', '5501', '8080'];
+const BASE_ORIGIN = (isLocalhost && LIVE_SERVER_PORTS.includes(window.location.port))
     ? DEV_BACKEND_URL
     : window.location.origin;
 

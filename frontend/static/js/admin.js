@@ -62,7 +62,9 @@ window.bukaModalLaporanChat = function () {
 // 2. VARIABEL GLOBAL LINGKUNGAN SISTEM
 // =========================================================================
 if (typeof window.BASE_URL === 'undefined') {
-    window.BASE_URL = 'http://127.0.0.1:5000';
+    window.BASE_URL = (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
+        ? window.CONFIG.BASE_URL.replace(/\/+$/, '')
+        : window.location.origin.replace(/\/+$/, '');
 }
 if (typeof window.BASE_API_URL === 'undefined') {
     window.BASE_API_URL = window.BASE_URL;

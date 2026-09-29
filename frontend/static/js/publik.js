@@ -12,7 +12,7 @@
 // =========================================================================
 const API_URL = (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
     ? window.CONFIG.BASE_URL.replace(/\/+$/, '')
-    : ((typeof window.API_BASE_URL !== 'undefined') ? window.API_BASE_URL.replace(/\/+$/, '') : 'http://127.0.0.1:5000');
+    : ((typeof window.API_BASE_URL !== 'undefined') ? window.API_BASE_URL.replace(/\/+$/, '') : window.location.origin.replace(/\/+$/, ''));
 
 const BASE_URL = API_URL;
 

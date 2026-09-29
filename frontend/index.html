@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>Dashboard Eksekutif - SPK SAW & BWM Pemerintah Kabupaten Sidoarjo</title>
+    <title>SPK Bansos Kabupaten Sidoarjo</title>
+    <meta name="description" content="Sistem Pendukung Keputusan (SPK) Penentuan Penerima Bantuan Sosial Pemerintah Kabupaten Sidoarjo menggunakan metode Best-Worst Method (BWM) dan Simple Additive Weighting (SAW).">
+    <meta property="og:title" content="SPK Bansos Kabupaten Sidoarjo">
+    <meta property="og:description" content="Sistem Pendukung Keputusan (SPK) Penentuan Penerima Bantuan Sosial Pemerintah Kabupaten Sidoarjo menggunakan metode Best-Worst Method (BWM) dan Simple Additive Weighting (SAW).">
     
     <!-- LIBRARIES CSS EKSTERNAL & GOOGLE FONTS -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -17,9 +20,15 @@
     <link rel="stylesheet" href="static/css/style.css">
     <link rel="stylesheet" href="static/css/admin.css">
 
-    <!-- AUTH FAST SECURITY CHECK -->
+    <!-- AUTH FAST SECURITY CHECK (MENGIZINKAN VERIFIKASI DOKUMEN DIGITAL BSrE SECARA PUBLIK) -->
     <script>
         (function () {
+            const hash = window.location.hash || '';
+            const search = window.location.search || '';
+            if (hash.includes('verifikasi') || search.includes('verifikasi') || hash.includes('verify') || search.includes('nomor=')) {
+                // Pengunjung sedang memindai QR Code verifikasi keabsahan dokumen! Jangan alihkan ke login.
+                return;
+            }
             const token = localStorage.getItem('token') || localStorage.getItem('access_token') || localStorage.getItem('bansos_jwt_token');
             if (!token || token === 'undefined' || token === 'null' || token.trim() === '') {
                 window.location.replace('login.html');
@@ -602,19 +611,547 @@
 
     <!-- MODAL KOMPARASI SAW VS WP -->
     <div id="modalKomparasi" class="modal-blur-overlay">
-        <div class="modal-card-premium card" style="width:95%; max-width:1200px; height:88%; display: flex; flex-direction: column;">
-            <div class="card-header" style="background: linear-gradient(135deg, #fffbeb, #fef3c7);">
-                <div class="card-title" style="color:var(--accent-dark);"><i class="fas fa-balance-scale text-accent"></i> Verifikasi Algoritma (SAW vs WP)</div>
-                <button onclick="window.closeModal('modalKomparasi')" style="background:none;border:none;font-size:1.5rem; cursor:pointer;">×</button>
+        <div class="modal-card-premium card" style="width:96%; max-width:1250px; height:90%; display: flex; flex-direction: column; border-radius:24px; overflow:hidden; box-shadow:0 25px 60px rgba(15,23,42,0.28); border:1px solid #e2e8f0; background:#f8fafc;">
+            <!-- HEADER MODAL MODERN & ELEGAN -->
+            <div class="card-header" style="background: linear-gradient(135deg, #ffffff, #f0fdf4); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding: 1.15rem 1.75rem; border-bottom: 1.5px solid #dcfce7;">
+                <div class="card-title" style="margin:0; display:flex; align-items:center; gap:12px;">
+                    <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg, #009846, #047857); color:#ffffff; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,152,70,0.3);">
+                        <i class="fas fa-balance-scale" style="font-size:1.15rem;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1.18rem; font-weight:800; color:#0f172a; line-height:1.2; letter-spacing:-0.3px;">Verifikasi Algoritma (SAW vs WP)</div>
+                        <div style="font-size:0.75rem; font-weight:600; color:#009846;">Komparasi Multivariat BWM-SAW terhadap Model Validasi Weighted Product</div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <!-- TOMBOL TUNGGAL PENGATURAN TERPADU: DOKUMEN, KOP TEMPLAT & TTD -->
+                    <button type="button" id="btnBukaSettingDokumen" onclick="window.bukaModalSettingDokumen()" class="btn" style="border: 1.5px solid #cbd5e1; background:#ffffff; color:#1e293b; font-weight:700; display:inline-flex; align-items:center; gap:8px; padding:9px 16px; border-radius:12px; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.04); font-size:0.86rem; transition:all 0.2s;" title="Atur Ukuran Kertas (A4/F4/A5), Templat Kop Surat, Logo & Tanda Tangan">
+                        <i class="fas fa-sliders-h text-success"></i> Atur Dokumen & TTD
+                    </button>
+
+                    <!-- DROPDOWN UNDUH LAPORAN KOMPARASI -->
+                    <div class="dropdown-export-wrapper" id="wrapperDropdownUnduhKomparasi">
+                        <button type="button" id="btnDropdownUnduhKomparasi" class="btn btn-primary" onclick="window.toggleDropdownUnduhKomparasi(event)" style="background: linear-gradient(135deg, #0284c7, #0369a1); border: 1px solid #0284c7; font-weight:700; display:inline-flex; align-items:center; gap:8px; padding: 9px 18px; border-radius: 12px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25); cursor:pointer; font-size:0.86rem;">
+                            <i class="fas fa-download"></i> Unduh Hasil <i class="fas fa-chevron-down" id="arrowUnduhKomparasi" style="font-size:0.75rem; transition: transform 0.2s;"></i>
+                        </button>
+                        <div id="dropdownMenuUnduhKomparasi" class="dropdown-export-menu" role="menu">
+                            <div style="padding: 8px 12px; font-size:0.7rem; font-weight:800; text-transform:uppercase; color:#94a3b8; letter-spacing:0.5px; border-bottom:1px solid #f1f5f9;">Pilih Format Berkas</div>
+                            <button type="button" class="dropdown-export-item" onclick="window.unduhKomparasiFormat('pdf')">
+                                <div class="export-icon-box" style="background:#fee2e2; color:#dc2626;"><i class="fas fa-file-pdf"></i></div>
+                                <div>
+                                    <div class="export-item-title">Format PDF (.pdf)</div>
+                                    <div class="export-item-sub">Laporan Resmi A4/F4 & Sertifikasi Digital</div>
+                                </div>
+                            </button>
+                            <button type="button" class="dropdown-export-item" onclick="window.unduhKomparasiFormat('word')">
+                                <div class="export-icon-box" style="background:#dbeafe; color:#2563eb;"><i class="fas fa-file-word"></i></div>
+                                <div>
+                                    <div class="export-item-title">Format Word (.doc / .docx)</div>
+                                    <div class="export-item-sub">Logo Proporsional & Naskah Lengkap</div>
+                                </div>
+                            </button>
+                            <button type="button" class="dropdown-export-item" onclick="window.unduhKomparasiFormat('excel')">
+                                <div class="export-icon-box" style="background:#dcfce7; color:#16a34a;"><i class="fas fa-file-excel"></i></div>
+                                <div>
+                                    <div class="export-item-title">Format Excel (.xlsx)</div>
+                                    <div class="export-item-sub">Grafik Sejajar Kolom A-K & Bobot BWM</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                    <button onclick="window.closeModal('modalKomparasi')" style="background:#ffffff; border:1px solid #cbd5e1; font-size:1.3rem; cursor:pointer; color:#64748b; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all 0.2s;" title="Tutup">&times;</button>
+                </div>
             </div>
-            <div style="flex: 1; overflow-y: auto; padding: 1.5rem 2rem;">
-                <div class="card" style="padding: 20px;"><canvas id="compChart" style="max-height:280px;"></canvas></div>
-                <div class="card" style="margin-top: 20px;">
-                    <table id="tblKomparasi" class="modern-table">
-                        <thead><tr><th>Nama Warga</th><th>Rank SAW</th><th>Skor SAW</th><th>Rank WP</th><th>Skor WP</th><th>Deviasi</th></tr></thead>
-                        <tbody></tbody>
+
+            <div id="printKomparasiArea" style="flex: 1; overflow-y: auto; padding: 1.5rem 1.75rem; display:flex; flex-direction:column; gap:16px;">
+                <!-- KARTU RINGKASAN METRIK ANALITIK TERPADU (KPI STRIP) -->
+                <div id="komparasiSummaryBox"></div>
+
+                <!-- KARTU GRAFIK KOMPARASI MODERN -->
+                <div class="card" style="padding: 18px 20px; border-radius: 18px; border: 1px solid #e2e8f0; background: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #f1f5f9;">
+                        <div>
+                            <div style="font-weight:800; font-size:0.95rem; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-chart-bar text-primary"></i> Visualisasi Perbandingan Skor SAW (BWM) vs Weighted Product (WP)
+                            </div>
+                            <small style="color:#64748b; font-size:0.75rem;">Diagram batang komparatif interaktif dengan skala seimbang untuk pembuktian stabilitas peringkat</small>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <!-- FILTER JUMLAH TAMPILAN GRAFIK -->
+                            <div style="display:flex; background:#f1f5f9; padding:3px; border-radius:10px; border:1px solid #e2e8f0;">
+                                <button type="button" id="btnFilterChart15" onclick="window.filterKomparasiChartScope(15)" style="padding:5px 11px; border-radius:8px; font-size:0.76rem; font-weight:700; border:none; cursor:pointer; background:#ffffff; color:#0f172a; box-shadow:0 1px 3px rgba(0,0,0,0.06);">Top 15</button>
+                                <button type="button" id="btnFilterChart30" onclick="window.filterKomparasiChartScope(30)" style="padding:5px 11px; border-radius:8px; font-size:0.76rem; font-weight:700; border:none; cursor:pointer; background:transparent; color:#64748b;">Top 30</button>
+                                <button type="button" id="btnFilterChartAll" onclick="window.filterKomparasiChartScope(999)" style="padding:5px 11px; border-radius:8px; font-size:0.76rem; font-weight:700; border:none; cursor:pointer; background:transparent; color:#64748b;">Semua</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="position:relative; width:100%; height:290px;">
+                        <canvas id="compChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- KARTU TABEL DATA ALTERNATIF -->
+                <div class="card" style="padding: 18px 20px; border-radius: 18px; border: 1px solid #e2e8f0; background: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                    <!-- BILAH PENCARIAN & VOICE SEARCH TERPADU -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:15px; background:#f8fafc; padding:12px 16px; border-radius:14px; border:1px solid #e2e8f0;">
+                        <div style="display:flex; align-items:center; gap:10px; flex:1; max-width:550px;">
+                            <div style="position:relative; width:100%;">
+                                <i class="fas fa-search" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:0.9rem;"></i>
+                                <input type="text" id="inputSearchKomparasi" oninput="window.filterKomparasiTable ? window.filterKomparasiTable(this.value) : null" placeholder="Cari warga berdasarkan Nama, NIK, Rank, atau Skor..." style="width:100%; padding:10px 42px 10px 38px; border:1.5px solid #cbd5e1; border-radius:12px; font-size:0.88rem; outline:none; transition: border-color 0.2s; background:#ffffff;">
+                                <button type="button" id="btnClearSearchKomparasi" onclick="window.clearSearchKomparasi ? window.clearSearchKomparasi() : null" style="display:none; position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:#94a3b8; cursor:pointer;" title="Hapus Pencarian">
+                                    <i class="fas fa-times-circle"></i>
+                                </button>
+                            </div>
+                            <!-- TOMBOL VOICE SEARCH -->
+                            <button type="button" id="btnVoiceSearchKomparasi" onclick="window.toggleVoiceSearchKomparasi ? window.toggleVoiceSearchKomparasi() : null" class="btn" style="background:#ffffff; border:1.5px solid #cbd5e1; color:#0284c7; padding:9px 14px; border-radius:12px; display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:0.86rem; cursor:pointer; flex-shrink:0;" title="Pencarian dengan Perintah Suara (Voice Search)">
+                                <i class="fas fa-microphone" id="voiceMicIcon"></i>
+                                <span id="voiceMicText">Suara</span>
+                            </button>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span id="badgeCountKomparasi" style="font-size:0.82rem; font-weight:700; color:#334155; background:#ffffff; border:1px solid #cbd5e1; padding:7px 14px; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                                Menampilkan 0 data
+                            </span>
+                        </div>
+                    </div>
+
+                    <div style="overflow-x:auto;">
+                        <table id="tblKomparasi" class="modern-table" style="width:100%; border-collapse:collapse;">
+                            <thead>
+                                <tr style="background:#0f172a; color:#ffffff;">
+                                    <th style="text-align:center; width:55px; border-radius:10px 0 0 0;">No.</th>
+                                    <th>Nama Warga & NIK</th>
+                                    <th style="text-align:center; width:115px;">Rank SAW</th>
+                                    <th style="text-align:center; width:115px;">Skor SAW</th>
+                                    <th style="text-align:center; width:115px;">Rank WP</th>
+                                    <th style="text-align:center; width:115px;">Skor WP</th>
+                                    <th style="text-align:center; width:135px; border-radius:0 10px 0 0;">Deviasi</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PENGATURAN DOKUMEN, TEMPLAT KOP SURAT & TANDA TANGAN (MODERN ROUNDED) -->
+    <div id="modalSettingDokumen" class="modal-blur-overlay" style="display:none; z-index:100001;">
+        <div class="modal-card-premium card" style="width:96%; max-width:800px; max-height:92vh; border-radius:24px; box-shadow:0 25px 60px rgba(15,23,42,0.25); border:1px solid #e2e8f0; display:flex; flex-direction:column; overflow:hidden; background:#ffffff;">
+            <!-- HEADER MODAL -->
+            <div class="card-header" style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); border-bottom:1px solid #bbf7d0; padding: 1.25rem 1.75rem; border-radius:24px 24px 0 0; display:flex; justify-content:space-between; align-items:center;">
+                <div class="card-title" style="color:#166534; font-size:1.18rem; font-weight:800; display:flex; align-items:center; gap:10px; margin:0;">
+                    <div style="width:38px; height:38px; border-radius:12px; background:linear-gradient(135deg, #16a34a, #15803d); color:#ffffff; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(22,163,74,0.3);">
+                        <i class="fas fa-file-signature" style="font-size:1.05rem;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1.12rem; font-weight:800; color:#166534; line-height:1.2;">Pengaturan Dokumen, Kop & Tanda Tangan</div>
+                        <div style="font-size:0.75rem; font-weight:600; color:#15803d; opacity:0.85;">Konfigurasi terpadu untuk berkas PDF, Word (.doc) & Excel (.xlsx)</div>
+                    </div>
+                </div>
+                <button type="button" onclick="window.closeModal('modalSettingDokumen')" style="background:#ffffff; border:1px solid #cbd5e1; font-size:1.25rem; cursor:pointer; color:#64748b; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition: all 0.2s;" title="Tutup">&times;</button>
+            </div>
+
+            <!-- TAB NAVIGASI ELEGAN & MEMBULAT -->
+            <div style="background:#f8fafc; padding:12px 1.75rem 0 1.75rem; border-bottom:1px solid #e2e8f0;">
+                <div style="display:flex; gap:8px; background:#e2e8f0; padding:4px; border-radius:16px;">
+                    <button type="button" id="tabBtnDocTtd" onclick="window.switchTabDokumen('ttd')" style="flex:1; padding:9px 14px; border-radius:12px; font-weight:700; font-size:0.84rem; border:none; cursor:pointer; background:#ffffff; color:#0f172a; box-shadow:0 2px 5px rgba(0,0,0,0.06); display:inline-flex; align-items:center; justify-content:center; gap:7px; transition: all 0.2s;">
+                        <i class="fas fa-user-tie text-success"></i> Pimpinan & TTD
+                    </button>
+                    <button type="button" id="tabBtnDocKop" onclick="window.switchTabDokumen('kop')" style="flex:1; padding:9px 14px; border-radius:12px; font-weight:700; font-size:0.84rem; border:none; cursor:pointer; background:transparent; color:#64748b; display:inline-flex; align-items:center; justify-content:center; gap:7px; transition: all 0.2s;">
+                        <i class="fas fa-building text-primary"></i> Templat Kop & Logo
+                    </button>
+                    <button type="button" id="tabBtnDocFormat" onclick="window.switchTabDokumen('format')" style="flex:1; padding:9px 14px; border-radius:12px; font-weight:700; font-size:0.84rem; border:none; cursor:pointer; background:transparent; color:#64748b; display:inline-flex; align-items:center; justify-content:center; gap:7px; transition: all 0.2s;">
+                        <i class="fas fa-sliders-h text-warning"></i> Format File & Sasaran
+                    </button>
+                </div>
+            </div>
+
+            <form id="formSettingDokumen" onsubmit="window.simpanSettingDokumen(event)" style="flex:1; overflow-y:auto; padding: 1.5rem 1.75rem; display:flex; flex-direction:column; justify-content:space-between; gap:16px;">
+                <!-- ==================== TAB 1: PIMPINAN & TANDA TANGAN ==================== -->
+                <div id="tabPanelDocTtd">
+                    <div style="font-size:0.82rem; color:#475569; margin-bottom:16px; line-height:1.45; background:#f0fdf4; padding:10px 14px; border-radius:14px; border:1px solid #bbf7d0;">
+                        <i class="fas fa-info-circle text-success" style="margin-right:4px;"></i>
+                        Sesuaikan identitas pimpinan pengesah dan model tanda tangan dokumen. Anda dapat memilih TTE Digital (QR BSrE) atau Tanda Tangan Basah dengan stempel resmi atau unggahan gambar sendiri.
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Nama Pimpinan / Pejabat Pengesah</label>
+                        <input type="text" id="settingNamaPimpinan" class="form-input" required placeholder="Contoh: DR. DRS. H. AHMAD MISBAHUL MUNIR, M.SI" oninput="window.updateLiveTtdPreview ? window.updateLiveTtdPreview() : null" style="border-radius:12px; padding:10px 14px; font-weight:700;">
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                        <div class="form-group">
+                            <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">NIP Pejabat</label>
+                            <input type="text" id="settingNipPimpinan" class="form-input" required placeholder="19710815 199603 1 003" oninput="window.updateLiveTtdPreview ? window.updateLiveTtdPreview() : null" style="border-radius:12px; padding:10px 14px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Jabatan Pejabat</label>
+                            <input type="text" id="settingJabatanPimpinan" class="form-input" required placeholder="KEPALA DINAS SOSIAL KABUPATEN SIDOARJO" oninput="window.updateLiveTtdPreview ? window.updateLiveTtdPreview() : null" style="border-radius:12px; padding:10px 14px;">
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                        <div class="form-group">
+                            <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Pangkat / Golongan</label>
+                            <input type="text" id="settingPangkatPimpinan" class="form-input" placeholder="Pembina Utama Muda" style="border-radius:12px; padding:10px 14px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Nomor Sertifikasi / Laporan</label>
+                            <input type="text" id="settingNomorSurat" class="form-input" placeholder="460/084/BA-SPK/438.5.12/2026" oninput="window.updateLiveTtdPreview ? window.updateLiveTtdPreview() : null" style="border-radius:12px; padding:10px 14px;">
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                        <div class="form-group">
+                            <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Kota Penetapan</label>
+                            <input type="text" id="settingKotaSurat" class="form-input" value="Sidoarjo" oninput="window.updateLiveTtdPreview ? window.updateLiveTtdPreview() : null" style="border-radius:12px; padding:10px 14px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Tanggal Penetapan</label>
+                            <input type="text" id="settingTanggalSurat" class="form-input" placeholder="28 September 2026" oninput="window.updateLiveTtdPreview ? window.updateLiveTtdPreview() : null" style="border-radius:12px; padding:10px 14px;">
+                        </div>
+                    </div>
+
+                    <!-- MODEL PENGESAHAN & PILIHAN GAMBAR TANDA TANGAN -->
+                    <div class="form-group" style="margin-bottom:10px; background:#f8fafc; padding:14px; border-radius:16px; border:1px solid #e2e8f0;">
+                        <label class="form-label" style="font-weight:800; font-size:0.85rem; color:#0f172a; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                            <span>Model Pengesahan / Tanda Tangan Dokumen:</span>
+                            <span style="font-size:0.75rem; color:#64748b; font-weight:600;">Disematkan ke PDF, Word & Excel</span>
+                        </label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+                            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.84rem; font-weight:700; color:#1e293b; background:#ffffff; border:1.5px solid #cbd5e1; padding:10px 14px; border-radius:14px; transition: all 0.2s;" id="labelTtdTte">
+                                <input type="radio" name="settingTipeTtd" value="tte" id="ttdOptTte" checked onchange="window.updateTtdLabelStyle()">
+                                <span><i class="fas fa-qrcode text-success"></i> TTE Digital (QR BSrE)</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.84rem; font-weight:700; color:#1e293b; background:#ffffff; border:1.5px solid #cbd5e1; padding:10px 14px; border-radius:14px; transition: all 0.2s;" id="labelTtdManual">
+                                <input type="radio" name="settingTipeTtd" value="manual" id="ttdOptManual" onchange="window.updateTtdLabelStyle()">
+                                <span><i class="fas fa-pen-nib text-primary"></i> Tanda Tangan Basah</span>
+                            </label>
+                        </div>
+
+                        <!-- KOTAK PRATINJAU TANDA TANGAN & UNGGAH GAMBAR KHUSUS -->
+                        <div id="boxSignatureInteractive" style="background:#ffffff; border:1.5px dashed #cbd5e1; border-radius:14px; padding:12px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+                            <div id="previewTtdContainer" style="width:140px; height:80px; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0;">
+                                <img id="imgPreviewTtd" src="" alt="Pratinjau Pengesahan" style="max-width:130px; max-height:75px; object-fit:contain;">
+                            </div>
+                            <div style="flex:1; min-width:220px; font-size:0.8rem;">
+                                <div id="descPreviewTtd" style="font-weight:700; color:#1e293b; margin-bottom:4px;">Tanda Tangan Elektronik Tersertifikasi BSrE BSSN</div>
+                                <div style="color:#64748b; font-size:0.75rem; margin-bottom:8px;" id="subDescPreviewTtd">
+                                    Format QR Code terenkripsi valid otomatis tercetak pada dokumen PDF, Word, dan disematkan langsung di bawah tabel Sheet 1 Excel.
+                                </div>
+                                <div id="ctrlUploadSignature" style="display:none; gap:8px; align-items:center; flex-wrap:wrap;">
+                                    <input type="file" id="inputUploadSignature" accept="image/*" style="display:none;" onchange="window.handleUploadCustomSignature(event)">
+                                    <button type="button" onclick="document.getElementById('inputUploadSignature').click()" class="btn btn-primary" style="padding:6px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; display:inline-flex; align-items:center; gap:5px;">
+                                        <i class="fas fa-upload"></i> Unggah TTD / Gambar Sendiri
+                                    </button>
+                                    <button type="button" onclick="window.resetCustomSignature()" class="btn btn-secondary" style="padding:6px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; display:inline-flex; align-items:center; gap:5px;">
+                                        <i class="fas fa-undo"></i> Gunakan Stempel & Paraf Otomatis
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== TAB 2: TEMPLAT KOP SURAT & LOGO ==================== -->
+                <div id="tabPanelDocKop" style="display:none;">
+                    <div style="font-size:0.82rem; color:#475569; margin-bottom:14px; line-height:1.45; background:#eff6ff; padding:10px 14px; border-radius:14px; border:1px solid #bfdbfe;">
+                        <i class="fas fa-magic text-primary" style="margin-right:4px;"></i>
+                        Bangun dan edit templat Kop Surat instansi yang dapat diedit kapan saja. Tulisan instansi, alamat, dan logo ini akan tersimpan permanen dan otomatis tampil di berkas PDF, Word, serta Excel.
+                    </div>
+
+                    <!-- PRESET TEMPLAT KOP CEPAT -->
+                    <div style="margin-bottom:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span style="font-size:0.78rem; font-weight:800; color:#475569; text-transform:uppercase;">Preset Templat:</span>
+                        <button type="button" onclick="window.applyKopPreset('dinsos')" class="btn btn-secondary" style="padding:5px 11px; border-radius:10px; font-size:0.77rem; font-weight:700; background:#ffffff; border:1px solid #cbd5e1; cursor:pointer;">
+                            <i class="fas fa-landmark text-success"></i> Dinsos Sidoarjo
+                        </button>
+                        <button type="button" onclick="window.applyKopPreset('setda')" class="btn btn-secondary" style="padding:5px 11px; border-radius:10px; font-size:0.77rem; font-weight:700; background:#ffffff; border:1px solid #cbd5e1; cursor:pointer;">
+                            <i class="fas fa-university text-primary"></i> Setda Kab. Sidoarjo
+                        </button>
+                        <button type="button" onclick="window.applyKopPreset('bappeda')" class="btn btn-secondary" style="padding:5px 11px; border-radius:10px; font-size:0.77rem; font-weight:700; background:#ffffff; border:1px solid #cbd5e1; cursor:pointer;">
+                            <i class="fas fa-chart-line text-warning"></i> Bappeda Kab. Sidoarjo
+                        </button>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                        <div class="form-group">
+                            <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Pemerintah Provinsi</label>
+                            <input type="text" id="settingKopProvinsi" class="form-input" placeholder="Pemerintah Provinsi Jawa Timur" value="Pemerintah Provinsi Jawa Timur" oninput="window.updateLiveKopPreview ? window.updateLiveKopPreview() : null" style="border-radius:12px; padding:10px 14px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Pemerintah Kabupaten / Kota</label>
+                            <input type="text" id="settingKopKabupaten" class="form-input" placeholder="Pemerintah Kabupaten Sidoarjo" value="Pemerintah Kabupaten Sidoarjo" oninput="window.updateLiveKopPreview ? window.updateLiveKopPreview() : null" style="border-radius:12px; padding:10px 14px;">
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Dinas / Badan Pengelola (OPD)</label>
+                        <input type="text" id="settingKopDinas" class="form-input" placeholder="Dinas Sosial Kabupaten Sidoarjo" value="Dinas Sosial Kabupaten Sidoarjo" oninput="window.updateLiveKopPreview ? window.updateLiveKopPreview() : null" style="border-radius:12px; padding:10px 14px; font-weight:700;">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Alamat Kantor Lengkap</label>
+                        <input type="text" id="settingKopAlamat" class="form-input" placeholder="Jl. Pahlawan No. 25 Sidoarjo, Jawa Timur 61213" value="Jl. Pahlawan No. 25 Sidoarjo, Jawa Timur 61213" oninput="window.updateLiveKopPreview ? window.updateLiveKopPreview() : null" style="border-radius:12px; padding:10px 14px;">
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                        <div class="form-group">
+                            <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Nomor Telepon Dinas</label>
+                            <input type="text" id="settingKopTelp" class="form-input" placeholder="(031) 8921877" value="(031) 8921877" oninput="window.updateLiveKopPreview ? window.updateLiveKopPreview() : null" style="border-radius:12px; padding:10px 14px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Email Resmi Dinas</label>
+                            <input type="email" id="settingKopEmail" class="form-input" placeholder="dinsos@sidoarjokab.go.id" value="dinsos@sidoarjokab.go.id" oninput="window.updateLiveKopPreview ? window.updateLiveKopPreview() : null" style="border-radius:12px; padding:10px 14px;">
+                        </div>
+                    </div>
+
+                    <!-- PENGATURAN LOGO RESMI INSTANSI -->
+                    <div style="background:#f8fafc; padding:14px; border-radius:16px; border:1px solid #e2e8f0; margin-bottom:14px;">
+                        <label class="form-label" style="font-weight:800; font-size:0.85rem; color:#0f172a; margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-image text-primary"></i> Pengaturan Logo Resmi Instansi
+                        </label>
+                        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                            <div id="boxPreviewLogoKop" style="width:84px; height:84px; border-radius:14px; background:#ffffff; border:1.5px dashed #cbd5e1; display:flex; align-items:center; justify-content:center; padding:4px; box-shadow:0 2px 6px rgba(0,0,0,0.04); flex-shrink:0;">
+                                <img id="imgPreviewLogoKop" src="static/img/logo-sidoarjo.png" alt="Logo Instansi" style="max-width:76px; max-height:76px; object-fit:contain;">
+                            </div>
+                            <div style="flex:1; min-width:240px; display:flex; flex-direction:column; gap:8px;">
+                                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                    <input type="file" id="inputUploadLogoKop" accept="image/*" style="display:none;" onchange="window.handleUploadLogoKop(event)">
+                                    <button type="button" onclick="document.getElementById('inputUploadLogoKop').click()" class="btn btn-primary" style="padding:8px 14px; border-radius:10px; font-size:0.82rem; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+                                        <i class="fas fa-upload"></i> Unggah Logo Baru
+                                    </button>
+                                    <button type="button" onclick="window.resetLogoDefaultKop()" class="btn btn-secondary" style="padding:8px 14px; border-radius:10px; font-size:0.82rem; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+                                        <i class="fas fa-undo"></i> Reset Default Pemkab
+                                    </button>
+                                </div>
+                                <div style="font-size:0.75rem; color:#64748b;">
+                                    Format didukung: PNG, JPG, WebP. Proporsi logo otomatis disesuaikan secara proporsional anti-pipih di Word dan disematkan langsung di Excel.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PRATINJAU LANGSUNG KOP SURAT (LIVE PREVIEW) -->
+                    <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; padding:14px; box-shadow:0 2px 8px rgba(0,0,0,0.03);">
+                        <div style="font-size:0.76rem; font-weight:800; text-transform:uppercase; color:#64748b; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                            <i class="fas fa-eye text-primary"></i> Pratinjau Tampilan Kop Dokumen:
+                        </div>
+                        <div id="liveKopPreviewCard" style="border-bottom:3px double #000000; padding-bottom:10px; display:flex; align-items:center; gap:14px;">
+                            <img id="livePreviewKopLogo" src="static/img/logo-sidoarjo.png" alt="Logo" style="width:58px; height:68px; object-fit:contain; flex-shrink:0;">
+                            <div style="flex:1; text-align:center;">
+                                <div id="livePreviewKopProv" style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:#334155;">PEMERINTAH PROVINSI JAWA TIMUR</div>
+                                <div id="livePreviewKopKab" style="font-size:0.92rem; font-weight:800; text-transform:uppercase; color:#009846; letter-spacing:0.5px;">PEMERINTAH KABUPATEN SIDOARJO</div>
+                                <div id="livePreviewKopDinas" style="font-size:0.85rem; font-weight:800; text-transform:uppercase; color:#0f172a;">DINAS SOSIAL KABUPATEN SIDOARJO</div>
+                                <div id="livePreviewKopAlamat" style="font-size:0.68rem; color:#475569; margin-top:2px;">Jl. Pahlawan No. 25 Sidoarjo, Jawa Timur 61213 | Telp: (031) 8921877 | Email: dinsos@sidoarjokab.go.id</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== TAB 3: PENYESUAIAN FORMAT FILE ==================== -->
+                <div id="tabPanelDocFormat" style="display:none;">
+                    <div style="font-size:0.82rem; color:#475569; margin-bottom:16px; line-height:1.45; background:#fffbeb; padding:10px 14px; border-radius:14px; border:1px solid #fde68a;">
+                        <i class="fas fa-sliders-h text-warning" style="margin-right:4px;"></i>
+                        Tentukan apakah pengaturan berlaku serentak untuk semua format atau Anda ingin menyesuaikan opsi khusus per format berkas (PDF, Word, dan Excel).
+                    </div>
+
+                    <!-- OPSI PENERAPAN: SEMUA ATAU PER FORMAT -->
+                    <div style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:16px; padding:14px; margin-bottom:14px;">
+                        <label class="form-label" style="font-weight:800; font-size:0.86rem; color:#0f172a; margin-bottom:10px;">Target Penyesuaian Berkas:</label>
+                        <div style="display:flex; flex-direction:column; gap:8px;">
+                            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.85rem; font-weight:700; color:#1e293b;">
+                                <input type="radio" name="settingTargetFormat" value="all" id="targetFormatAll" checked onchange="window.toggleTargetFormatOptions()">
+                                <span><i class="fas fa-check-double text-success"></i> Terapkan Pengaturan ke Semua Format Sekaligus (PDF, Word, dan Excel)</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.85rem; font-weight:700; color:#1e293b;">
+                                <input type="radio" name="settingTargetFormat" value="custom" id="targetFormatCustom" onchange="window.toggleTargetFormatOptions()">
+                                <span><i class="fas fa-wrench text-primary"></i> Kustomisasi Opsi Spesifik Tiap Format</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- PENGATURAN UKURAN KERTAS & TATA LETAK DOKUMEN (PDF & WORD) -->
+                    <div style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:16px; padding:14px; margin-bottom:14px;">
+                        <div style="font-size:0.86rem; font-weight:800; color:#0f172a; margin-bottom:10px; display:flex; align-items:center; gap:7px;">
+                            <div style="width:24px; height:24px; border-radius:6px; background:#e0f2fe; color:#0284c7; display:flex; align-items:center; justify-content:center; font-size:0.78rem;"><i class="fas fa-file-alt"></i></div>
+                            <span>Pengaturan Ukuran Kertas & Tata Letak Dokumen (PDF & Word)</span>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:10px;">
+                            <div class="form-group">
+                                <label class="form-label" style="font-weight:700; font-size:0.82rem; color:#1e293b;">Ukuran Kertas Dokumen:</label>
+                                <select id="settingPaperSize" class="form-select" style="border-radius:12px; padding:9px 12px; font-weight:700; font-size:0.85rem; border:1.5px solid #cbd5e1; width:100%; background:#ffffff;">
+                                    <option value="A4" selected>A4 (210 x 297 mm) - Standar Resmi</option>
+                                    <option value="F4">F4 / Folio (215 x 330 mm) - Standar Instansi</option>
+                                    <option value="legal">Legal (216 x 356 mm)</option>
+                                    <option value="letter">Letter (216 x 279 mm)</option>
+                                    <option value="A5">A5 (148 x 210 mm) - Format Ringkas</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" style="font-weight:700; font-size:0.82rem; color:#1e293b;">Orientasi Halaman:</label>
+                                <select id="settingPaperOrientation" class="form-select" style="border-radius:12px; padding:9px 12px; font-weight:700; font-size:0.85rem; border:1.5px solid #cbd5e1; width:100%; background:#ffffff;">
+                                    <option value="portrait" selected>Portrait (Tegak - Standar Laporan)</option>
+                                    <option value="landscape">Landscape (Mendatar - Tabel Lebar)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="font-size:0.75rem; color:#64748b; line-height:1.4;">
+                            <i class="fas fa-info-circle text-primary"></i> Pilihan ukuran kertas ini otomatis diterapkan pada hasil cetak PDF dan ekspor Word (.doc) tanpa mengubah kerapian naskah.
+                        </div>
+                    </div>
+
+                    <!-- KARTU PENGATURAN SPESIFIK EXCEL -->
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:14px; margin-bottom:12px;">
+                        <div style="font-size:0.86rem; font-weight:800; color:#15803d; margin-bottom:10px; display:flex; align-items:center; gap:7px;">
+                            <div style="width:24px; height:24px; border-radius:6px; background:#dcfce7; color:#16a34a; display:flex; align-items:center; justify-content:center; font-size:0.78rem;"><i class="fas fa-file-excel"></i></div>
+                            <span>Penyesuaian Format Excel (.xlsx)</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:9px; font-size:0.83rem;">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" id="optExcelIncludeLogo" checked style="accent-color:#16a34a;">
+                                <span style="font-weight:600; color:#1e293b;">Sematkan Logo Resmi Pemkab di Bagian Atas Lembar Excel</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" id="optExcelIncludeChart" checked style="accent-color:#16a34a;">
+                                <span style="font-weight:600; color:#1e293b;">Sematkan Gambar Grafik Visual Komparasi di Atas Tabel Excel</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" id="optExcelIncludeTtd" checked style="accent-color:#16a34a;">
+                                <span style="font-weight:600; color:#1e293b;">Sematkan Gambar Tanda Tangan / QR Code Resmi di Bawah Tabel Excel</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" id="optExcelIncludeSheet2" checked style="accent-color:#16a34a;">
+                                <span style="font-weight:600; color:#1e293b;">Sertakan Lembar Konfigurasi Bobot 10 Kriteria BWM (Sheet 2)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- KARTU PENGATURAN SPESIFIK WORD -->
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:14px; margin-bottom:12px;">
+                        <div style="font-size:0.86rem; font-weight:800; color:#1d4ed8; margin-bottom:10px; display:flex; align-items:center; gap:7px;">
+                            <div style="width:24px; height:24px; border-radius:6px; background:#dbeafe; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:0.78rem;"><i class="fas fa-file-word"></i></div>
+                            <span>Penyesuaian Format Word (.doc / .docx)</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:9px; font-size:0.83rem;">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" id="optWordFixAspectLogo" checked style="accent-color:#2563eb;">
+                                <span style="font-weight:600; color:#1e293b;">Optimalkan Rasio Logo Pemkab Alami (Anti-Pipih / Anti-Gepeng)</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" id="optWordIncludeChart" checked style="accent-color:#2563eb;">
+                                <span style="font-weight:600; color:#1e293b;">Sertakan Gambar Grafik Visual Komparasi di Laporan Word</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" id="optWordIncludeTtd" checked style="accent-color:#2563eb;">
+                                <span style="font-weight:600; color:#1e293b;">Sertakan Blok Pengesahan Resmi (TTE / Tanda Tangan Basah)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- KARTU PENGATURAN SPESIFIK PDF -->
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:14px; margin-bottom:10px;">
+                        <div style="font-size:0.86rem; font-weight:800; color:#b91c1c; margin-bottom:10px; display:flex; align-items:center; gap:7px;">
+                            <div style="width:24px; height:24px; border-radius:6px; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:0.78rem;"><i class="fas fa-file-pdf"></i></div>
+                            <span>Penyesuaian Format PDF (.pdf)</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:9px; font-size:0.83rem;">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" id="optPdfCleanLayout" checked style="accent-color:#dc2626;">
+                                <span style="font-weight:600; color:#1e293b;">Format Bersih (Hapus Otomatis Timestamp & URL Browser Saat Cetak)</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" id="optPdfIncludeChart" checked style="accent-color:#dc2626;">
+                                <span style="font-weight:600; color:#1e293b;">Sertakan Gambar Grafik Visual Komparasi</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FOOTER TOMBOL AKSI MEMBULAT -->
+                <div style="display:flex; justify-content:flex-end; align-items:center; gap:12px; margin-top:14px; padding-top:14px; border-top:1px solid #e2e8f0;">
+                    <button type="button" onclick="window.closeModal('modalSettingDokumen')" class="btn btn-secondary" style="border-radius:12px; padding:10px 18px; font-weight:700; font-size:0.88rem;">
+                        Batal
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="background:#009846; border-color:#009846; border-radius:12px; padding:10px 24px; font-weight:800; font-size:0.88rem; box-shadow:0 4px 12px rgba(0,152,70,0.3); display:inline-flex; align-items:center; gap:8px;">
+                        <i class="fas fa-check"></i> Simpan & Terapkan Pengaturan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL SERTIFIKAT VERIFIKASI KEABSAHAN DOKUMEN DIGITAL (BSrE BSSN) -->
+    <div id="modalVerifikasiDoc" class="modal-blur-overlay" style="display:none; z-index:100005;">
+        <div class="modal-card-premium card" style="width:95%; max-width:650px; border-radius:24px; overflow:hidden; box-shadow:0 25px 60px rgba(15,23,42,0.35); border:1px solid #bbf7d0; background:#ffffff;">
+            <div class="card-header" style="background: linear-gradient(135deg, #009846, #047857); color:#ffffff; padding:1.25rem 1.75rem; display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:42px; height:42px; border-radius:12px; background:rgba(255,255,255,0.2); backdrop-filter:blur(5px); display:flex; align-items:center; justify-content:center; font-size:1.3rem;">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1.12rem; font-weight:800; line-height:1.2;">Sertifikat Keabsahan Dokumen Digital</div>
+                        <div style="font-size:0.76rem; opacity:0.9;">Pemerintah Kabupaten Sidoarjo &bull; Balai Sertifikasi Elektronik (BSrE)</div>
+                    </div>
+                </div>
+                <button type="button" onclick="window.closeModal('modalVerifikasiDoc')" style="background:rgba(255,255,255,0.2); border:none; font-size:1.25rem; color:#ffffff; width:34px; height:34px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;">&times;</button>
+            </div>
+            <div style="padding:1.5rem 1.75rem; max-height:75vh; overflow-y:auto;">
+                <!-- STATUS KEABSAHAN -->
+                <div style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:16px; padding:14px 18px; display:flex; align-items:center; gap:14px; margin-bottom:16px;">
+                    <div style="width:44px; height:44px; border-radius:50%; background:#22c55e; color:#ffffff; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:0.96rem; font-weight:800; color:#166534;">DOKUMEN DINAS RESMI TERVERIFIKASI & SAH</div>
+                        <div style="font-size:0.76rem; color:#15803d; margin-top:2px;">Tanda Tangan Elektronik terdaftar di Balai Sertifikasi Elektronik (BSrE) BSSN.</div>
+                    </div>
+                </div>
+
+                <!-- RINCIAN DOKUMEN -->
+                <div style="border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; margin-bottom:16px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.84rem;">
+                        <tr style="border-bottom:1px solid #f1f5f9; background:#f8fafc;">
+                            <td style="padding:10px 14px; font-weight:700; color:#64748b; width:38%;">Nomor Berita Acara</td>
+                            <td style="padding:10px 14px; font-weight:800; color:#0f172a;" id="verifDocNomor">-</td>
+                        </tr>
+                        <tr style="border-bottom:1px solid #f1f5f9;">
+                            <td style="padding:10px 14px; font-weight:700; color:#64748b;">Instansi Penerbit</td>
+                            <td style="padding:10px 14px; font-weight:700; color:#0f172a;" id="verifDocInstansi">-</td>
+                        </tr>
+                        <tr style="border-bottom:1px solid #f1f5f9; background:#f8fafc;">
+                            <td style="padding:10px 14px; font-weight:700; color:#64748b;">Pejabat Penandatangan</td>
+                            <td style="padding:10px 14px; font-weight:800; color:#009846;" id="verifDocPimpinan">-</td>
+                        </tr>
+                        <tr style="border-bottom:1px solid #f1f5f9;">
+                            <td style="padding:10px 14px; font-weight:700; color:#64748b;">NIP Pejabat</td>
+                            <td style="padding:10px 14px; font-family:monospace; font-weight:700; color:#334155;" id="verifDocNip">-</td>
+                        </tr>
+                        <tr style="border-bottom:1px solid #f1f5f9; background:#f8fafc;">
+                            <td style="padding:10px 14px; font-weight:700; color:#64748b;">Tanggal Penetapan</td>
+                            <td style="padding:10px 14px; font-weight:700; color:#0f172a;" id="verifDocTanggal">-</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:10px 14px; font-weight:700; color:#64748b;">Metode & Integritas SPK</td>
+                            <td style="padding:10px 14px; font-weight:700; color:#0284c7;">BWM-SAW vs Weighted Product (Valid)</td>
+                        </tr>
                     </table>
                 </div>
+
+                <div style="background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:10px 14px; font-size:0.73rem; color:#64748b; line-height:1.45;">
+                    <i class="fas fa-lock text-success" style="margin-right:4px;"></i>
+                    Sertifikat ini dibangkitkan dari pemindaian QR Code TTE resmi pada berkas Laporan Komparasi SPK Bantuan Sosial Pemerintah Kabupaten Sidoarjo.
+                </div>
+            </div>
+            <div style="padding:12px 1.75rem; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                <button type="button" onclick="window.bukaModalKomparasi()" class="btn btn-secondary" style="border-radius:10px; font-size:0.82rem; font-weight:700; padding:8px 16px;">
+                    <i class="fas fa-chart-line text-primary"></i> Lihat Dasbor Komparasi
+                </button>
+                <button type="button" onclick="window.closeModal('modalVerifikasiDoc')" class="btn btn-primary" style="background:#009846; border-color:#009846; border-radius:10px; font-size:0.82rem; font-weight:800; padding:8px 20px;">
+                    <i class="fas fa-check"></i> Tutup Sertifikat
+                </button>
             </div>
         </div>
     </div>
@@ -770,12 +1307,20 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <script>
+        if (typeof XLSX === 'undefined') {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\\/script>');
+        }
+    </script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.scaleflex.it/plugins/filerobot-image-editor/3.12.17/filerobot-image-editor.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <!-- Global & Core State -->
     <script src="static/js/global.js"></script>
+    <script src="static/js/core/logo-base64.js"></script>
 
     <!-- Modul Fitur Terdedikasi -->
     <script src="static/js/modules/admin-map.js"></script>
@@ -799,6 +1344,9 @@
         window.closeModal = function(id) {
             const el = document.getElementById(id);
             if (el) el.style.setProperty('display', 'none', 'important');
+            if (id === 'modalKomparasi' && typeof window.closeDropdownUnduhKomparasi === 'function') {
+                window.closeDropdownUnduhKomparasi();
+            }
         };
 
         window.bukaModalPengguna = function() {
@@ -811,6 +1359,43 @@
             window.openModal('modalLaporanChat');
             if (typeof window.loadLaporanChatData === 'function') window.loadLaporanChatData();
         };
+
+        // AUTO-DETEKSI PEMINDAIAN QR CODE KEABSAHAN DOKUMEN DIGITAL (BSrE BSSN)
+        function periksaVerifikasiDariUrl() {
+            const hash = window.location.hash || '';
+            const search = window.location.search || '';
+            if (hash.includes('verifikasi') || search.includes('verifikasi') || hash.includes('verify') || search.includes('nomor=')) {
+                let queryString = search;
+                if (!queryString && hash.includes('?')) {
+                    queryString = hash.substring(hash.indexOf('?'));
+                }
+                const params = new URLSearchParams(queryString);
+                const nomor = params.get('nomor') || '460/084/BA-SPK/438.5.12/2026';
+                const pimpinan = params.get('pimpinan') || 'Dr. Drs. H. Ahmad Misbahul Munir, M.Si';
+                const nip = params.get('nip') || '19710815 199603 1 003';
+                const tgl = params.get('tgl') || '28 September 2026';
+                const instansi = 'Pemerintah Kabupaten Sidoarjo - Dinas Sosial';
+
+                const elNomor = document.getElementById('verifDocNomor');
+                const elInstansi = document.getElementById('verifDocInstansi');
+                const elPimpinan = document.getElementById('verifDocPimpinan');
+                const elNip = document.getElementById('verifDocNip');
+                const elTanggal = document.getElementById('verifDocTanggal');
+
+                if (elNomor) elNomor.textContent = decodeURIComponent(nomor);
+                if (elInstansi) elInstansi.textContent = instansi;
+                if (elPimpinan) elPimpinan.textContent = decodeURIComponent(pimpinan);
+                if (elNip) elNip.textContent = decodeURIComponent(nip);
+                if (elTanggal) elTanggal.textContent = decodeURIComponent(tgl);
+
+                setTimeout(() => {
+                    window.openModal('modalVerifikasiDoc');
+                }, 300);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', periksaVerifikasiDariUrl);
+        window.addEventListener('hashchange', periksaVerifikasiDariUrl);
     </script>
 </body>
 </html>

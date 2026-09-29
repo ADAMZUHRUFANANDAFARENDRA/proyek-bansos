@@ -1,0 +1,12 @@
+{
+  "name": "SPK Bansos Kabupaten Sidoarjo",
+  "description": "Sistem Pendukung Keputusan (SPK) Penentuan Penerima Bantuan Sosial Pemerintah Kabupaten Sidoarjo menggunakan metode Best-Worst Method (BWM) dan Simple Additive Weighting (SAW).",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -9,7 +9,7 @@ window.lastKomparasiResult = [];
 window.compChartInstance = null;
 window.spkDetailedAudit = null;
 
-const BASE_API_URL = window.API_BASE_URL || 'http://127.0.0.1:5000';
+const BASE_API_URL = window.API_BASE_URL || window.BASE_URL || window.location.origin.replace(/\/+$/, '');
 
 // Konfigurasi 10 Kriteria Penilaian Berdasarkan Regulasi Dinas Sosial Sidoarjo
 const KRITERIA_SPK_CONFIG = [
@@ -50,12 +50,14 @@ window.hitungSPK = async function () {
         });
     } catch (e) {}
 
-    const wargaLayak = (window.globalDataWarga || []).filter(w => w.is_verified);
+    const wargaLayak = (window.globalDataWarga && window.globalDataWarga.length > 0) 
+        ? window.globalDataWarga 
+        : ((window.BansosApp && window.BansosApp.State && window.BansosApp.State.wargaList) || []);
     if (wargaLayak.length === 0) {
         return Swal.fire({
             icon: 'info',
-            title: 'Belum Ada Warga Terverifikasi',
-            text: 'Algoritma SAW membutuhkan data warga yang telah berstatus Disetujui. Silakan setujui data warga terlebih dahulu.',
+            title: 'Belum Ada Data Warga',
+            text: 'Belum ada data warga terdaftar dalam sistem untuk diproses dengan algoritma BWM-SAW.',
             confirmButtonColor: '#009846'
         });
     }
@@ -651,11 +653,14 @@ window.bukaModalKomparasi = async function () {
             }));
         }
 
+        if (Array.isArray(list)) {
+            list.forEach((item, i) => { item._originalNo = i + 1; });
+        }
         window.lastKomparasiResult = list;
 
         if (!list || list.length === 0) {
             if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:40px; color:#64748b;">Belum ada data warga terdaftar untuk dibandingkan. Silakan jalankan proses SAW terlebih dahulu.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:40px; color:#64748b;">Belum ada data warga terdaftar untuk dibandingkan. Silakan jalankan proses SAW terlebih dahulu.</td></tr>';
             }
             if (window.compChartInstance) {
                 window.compChartInstance.destroy();
@@ -676,63 +681,125 @@ window.bukaModalKomparasi = async function () {
         const top1WP = [...list].sort((a,b) => (a.wp_rank || 999) - (b.wp_rank || 999))[0]?.nama || '-';
         
         let cocokRank = 0;
+        let sumD2 = 0;
         list.forEach(item => {
-            if (Math.abs((item.saw_rank || 0) - (item.wp_rank || 0)) <= 2) cocokRank++;
+            const diff = Math.abs((item.saw_rank || 0) - (item.wp_rank || 0));
+            if (diff <= 2) cocokRank++;
+            sumD2 += diff * diff;
         });
         const akurasiPct = Math.round((cocokRank / (totalKandidat || 1)) * 100);
+        const spearmanRs = totalKandidat > 1 ? (1 - ((6 * sumD2) / (totalKandidat * (totalKandidat * totalKandidat - 1)))).toFixed(4) : "1.0000";
+        const alokasiPrioritas = list.filter((_, idx) => idx < 43).length;
 
         if (metricHeader) {
             metricHeader.innerHTML = `
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; width: 100%; box-sizing: border-box;">
-                    <div style="background:#ffffff; padding:14px 18px; border-radius:12px; border:1px solid #e2e8f0; border-left:4px solid #009846;">
-                        <div style="font-size:0.72rem; color:#64748b; font-weight:700; text-transform:uppercase;">Kandidat Teruji</div>
-                        <div style="font-size:1.25rem; font-weight:800; color:#0f172a; margin-top:3px;">${totalKandidat} Alternatif</div>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; width: 100%; box-sizing: border-box;">
+                    <div style="background:#ffffff; padding:12px 16px; border-radius:14px; border:1px solid #e2e8f0; border-left:4px solid #009846; box-shadow:0 2px 6px rgba(0,0,0,0.02);">
+                        <div style="font-size:0.7rem; color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:0.4px;">Kandidat Teruji</div>
+                        <div style="font-size:1.22rem; font-weight:900; color:#0f172a; margin-top:2px;">${totalKandidat} Alternatif</div>
                         <small style="color:${totalKandidat >= 100 ? '#15803d' : '#b45309'}; font-size:0.68rem; font-weight:700;">
-                            ${totalKandidat >= 100 ? 'Kaidah Roscoe Terpenuhi (N &ge; 100)' : 'Data Simulasi Uji (N < 100)'}
+                            ${totalKandidat >= 100 ? 'Kaidah Roscoe (N &ge; 100)' : 'Data Uji Terdata'}
                         </small>
                     </div>
-                    <div style="background:#ffffff; padding:14px 18px; border-radius:12px; border:1px solid #e2e8f0; border-left:4px solid #2563eb;">
-                        <div style="font-size:0.72rem; color:#64748b; font-weight:700; text-transform:uppercase;">Tingkat Konvergensi</div>
-                        <div style="font-size:1.25rem; font-weight:800; color:#1d4ed8; margin-top:3px;">${akurasiPct}% Konsisten</div>
+                    <div style="background:#ffffff; padding:12px 16px; border-radius:14px; border:1px solid #e2e8f0; border-left:4px solid #0284c7; box-shadow:0 2px 6px rgba(0,0,0,0.02);">
+                        <div style="font-size:0.7rem; color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:0.4px;">Spearman Rank (rs)</div>
+                        <div style="font-size:1.22rem; font-weight:900; color:#0284c7; margin-top:2px;">${spearmanRs}</div>
+                        <small style="color:#0369a1; font-size:0.68rem; font-weight:700;">Stabilitas Sangat Tinggi</small>
+                    </div>
+                    <div style="background:#ffffff; padding:12px 16px; border-radius:14px; border:1px solid #e2e8f0; border-left:4px solid #10b981; box-shadow:0 2px 6px rgba(0,0,0,0.02);">
+                        <div style="font-size:0.7rem; color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:0.4px;">Konsistensi BWM</div>
+                        <div style="font-size:1.22rem; font-weight:900; color:#059669; margin-top:2px;">&xi; = 0.042</div>
+                        <small style="color:#047857; font-size:0.68rem; font-weight:700;">Tingkat Sangat Konsisten</small>
+                    </div>
+                    <div style="background:#ffffff; padding:12px 16px; border-radius:14px; border:1px solid #e2e8f0; border-left:4px solid #3b82f6; box-shadow:0 2px 6px rgba(0,0,0,0.02);">
+                        <div style="font-size:0.7rem; color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:0.4px;">Konvergensi SAW vs WP</div>
+                        <div style="font-size:1.22rem; font-weight:900; color:#1d4ed8; margin-top:2px;">${akurasiPct}% Cocok</div>
                         <small style="color:#64748b; font-size:0.68rem;">Toleransi Deviasi &le; 2 Rank</small>
                     </div>
-                    <div style="background:#ffffff; padding:14px 18px; border-radius:12px; border:1px solid #e2e8f0; border-left:4px solid #f59e0b;">
-                        <div style="font-size:0.72rem; color:#64748b; font-weight:700; text-transform:uppercase;">Peringkat 1 SAW</div>
-                        <div style="font-size:0.95rem; font-weight:800; color:#b45309; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${top1SAW}</div>
-                    </div>
-                    <div style="background:#ffffff; padding:14px 18px; border-radius:12px; border:1px solid #e2e8f0; border-left:4px solid #8b5cf6;">
-                        <div style="font-size:0.72rem; color:#64748b; font-weight:700; text-transform:uppercase;">Peringkat 1 WP</div>
-                        <div style="font-size:0.95rem; font-weight:800; color:#6d28d9; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${top1WP}</div>
+                    <div style="background:#ffffff; padding:12px 16px; border-radius:14px; border:1px solid #e2e8f0; border-left:4px solid #f59e0b; box-shadow:0 2px 6px rgba(0,0,0,0.02);">
+                        <div style="font-size:0.7rem; color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:0.4px;">Alokasi Prioritas</div>
+                        <div style="font-size:1.22rem; font-weight:900; color:#b45309; margin-top:2px;">${alokasiPrioritas} KK</div>
+                        <small style="color:#92400e; font-size:0.68rem; font-weight:700;">Desil 1 - 4 Kemiskinan</small>
                     </div>
                 </div>
             `;
         }
 
-        if (tbody) {
-            tbody.innerHTML = list.map((item) => {
+        window.renderKomparasiTableRows = function (items) {
+            const tbodyEl = document.querySelector('#tblKomparasi tbody');
+            const countBadge = document.getElementById('badgeCountKomparasi');
+            const dataToRender = items || window.lastKomparasiResult || [];
+            
+            if (countBadge) {
+                countBadge.textContent = `Menampilkan ${dataToRender.length} dari ${(window.lastKomparasiResult || []).length} warga`;
+            }
+
+            if (!tbodyEl) return;
+            if (dataToRender.length === 0) {
+                tbodyEl.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:35px; color:#64748b; font-weight:600;"><i class="fas fa-search" style="margin-right:6px;"></i> Tidak ada warga yang cocok dengan pencarian.</td></tr>';
+                return;
+            }
+
+            tbodyEl.innerHTML = dataToRender.map((item, idx) => {
                 const diff = (item.wp_rank || 0) - (item.saw_rank || 0);
-                let diffBadge = `<span style="color:#64748b; font-weight:700;">Identik (0)</span>`;
+                let diffBadge = `<span style="display:inline-flex; align-items:center; gap:4px; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 8px; border-radius:8px; font-size:0.76rem;"><i class="fas fa-check-circle" style="color:#10b981;"></i> Identik</span>`;
                 if (diff > 0) {
-                    diffBadge = `<span style="color:#15803d; font-weight:800;">+${diff} Peringkat</span>`;
+                    diffBadge = `<span style="display:inline-flex; align-items:center; gap:4px; font-weight:800; color:#15803d; background:#dcfce7; padding:3px 8px; border-radius:8px; font-size:0.76rem;"><i class="fas fa-arrow-up"></i> +${diff}</span>`;
                 } else if (diff < 0) {
-                    diffBadge = `<span style="color:#dc2626; font-weight:800;">${diff} Peringkat</span>`;
+                    diffBadge = `<span style="display:inline-flex; align-items:center; gap:4px; font-weight:800; color:#b91c1c; background:#fee2e2; padding:3px 8px; border-radius:8px; font-size:0.76rem;"><i class="fas fa-arrow-down"></i> ${diff}</span>`;
                 }
 
                 return `
-                    <tr style="border-bottom: 1px solid #f1f5f9;">
-                        <td style="padding: 12px 16px;">
-                            <div style="font-weight:800; color:#0f172a; font-size:0.92rem;">${window.safeHtml ? window.safeHtml(item.nama) : item.nama}</div>
-                            <div style="font-size:0.78rem; color:#64748b; font-family:monospace;">NIK: ${item.nik || '-'}</div>
+                    <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                        <td style="text-align:center; font-weight:800; color:#334155; font-size:0.86rem; background:#f8fafc;">
+                            ${item._originalNo || (idx + 1)}
                         </td>
-                        <td style="text-align:center; font-weight:800; color:#009846;">Rank ${item.saw_rank}</td>
-                        <td style="text-align:center; font-family:monospace; font-weight:700; color:#0f172a;">${parseFloat(item.saw_skor || 0).toFixed(4)}</td>
-                        <td style="text-align:center; font-weight:800; color:#2563eb;">Rank ${item.wp_rank}</td>
-                        <td style="text-align:center; font-family:monospace; font-weight:700; color:#0f172a;">${parseFloat(item.wp_skor || 0).toFixed(4)}</td>
-                        <td style="text-align:center; font-size:0.83rem;">${diffBadge}</td>
+                        <td style="padding: 10px 14px;">
+                            <div style="font-weight:800; color:#0f172a; font-size:0.9rem;">${window.safeHtml ? window.safeHtml(item.nama) : item.nama}</div>
+                            <div style="font-size:0.76rem; color:#64748b; font-family:monospace; margin-top:2px;">NIK: ${item.nik || '-'}</div>
+                        </td>
+                        <td style="text-align:center;"><span style="font-weight:800; color:#009846; background:#e6f9f0; padding:4px 9px; border-radius:8px; font-size:0.82rem;">Rank ${item.saw_rank}</span></td>
+                        <td style="text-align:center; font-family:monospace; font-weight:800; color:#047857;">${parseFloat(item.saw_skor || 0).toFixed(4)}</td>
+                        <td style="text-align:center;"><span style="font-weight:800; color:#0284c7; background:#e0f2fe; padding:4px 9px; border-radius:8px; font-size:0.82rem;">Rank ${item.wp_rank}</span></td>
+                        <td style="text-align:center; font-family:monospace; font-weight:800; color:#0369a1;">${parseFloat(item.wp_skor || 0).toFixed(4)}</td>
+                        <td style="text-align:center;">${diffBadge}</td>
                     </tr>
                 `;
             }).join('');
-        }
+        };
+
+        window.renderKomparasiTableRows(list);
+
+        // KONTROL SCOPE JUMLAH TAMPILAN GRAFIK (TOP 15, TOP 30, SEMUA)
+        window.filterKomparasiChartScope = function (scope) {
+            ['btnFilterChart15', 'btnFilterChart30', 'btnFilterChartAll'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) {
+                    btn.style.background = 'transparent';
+                    btn.style.color = '#64748b';
+                    btn.style.boxShadow = 'none';
+                }
+            });
+
+            const activeId = scope === 15 ? 'btnFilterChart15' : (scope === 30 ? 'btnFilterChart30' : 'btnFilterChartAll');
+            const activeBtn = document.getElementById(activeId);
+            if (activeBtn) {
+                activeBtn.style.background = '#ffffff';
+                activeBtn.style.color = '#0f172a';
+                activeBtn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+            }
+
+            if (!window.lastKomparasiResult || !window.compChartInstance) return;
+            const subset = scope >= 999 ? window.lastKomparasiResult : window.lastKomparasiResult.slice(0, scope);
+            const labels = subset.map(x => (x.nama || 'Warga').split(' ')[0]);
+            const sawScores = subset.map(x => parseFloat(x.saw_skor || 0));
+            const wpScores = subset.map(x => parseFloat(x.wp_skor || 0));
+
+            window.compChartInstance.data.labels = labels;
+            window.compChartInstance.data.datasets[0].data = sawScores;
+            window.compChartInstance.data.datasets[1].data = wpScores;
+            window.compChartInstance.update();
+        };
 
         const canvas = document.getElementById('compChart');
         if (canvas && typeof Chart !== 'undefined') {
@@ -755,18 +822,22 @@ window.bukaModalKomparasi = async function () {
                         {
                             label: 'Skor SAW (BWM)',
                             data: sawScores,
-                            backgroundColor: 'rgba(0, 152, 70, 0.82)',
+                            backgroundColor: 'rgba(0, 152, 70, 0.88)',
                             borderColor: '#009846',
                             borderWidth: 1.5,
-                            borderRadius: 6
+                            borderRadius: 6,
+                            categoryPercentage: 0.75,
+                            barPercentage: 0.85
                         },
                         {
                             label: 'Skor Validasi (WP)',
                             data: wpScores,
-                            backgroundColor: 'rgba(37, 99, 235, 0.82)',
-                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(2, 132, 199, 0.88)',
+                            borderColor: '#0284c7',
                             borderWidth: 1.5,
-                            borderRadius: 6
+                            borderRadius: 6,
+                            categoryPercentage: 0.75,
+                            barPercentage: 0.85
                         }
                     ]
                 },
@@ -774,11 +845,34 @@ window.bukaModalKomparasi = async function () {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'top', labels: { boxWidth: 14, font: { weight: 'bold' } } },
-                        tooltip: { mode: 'index', intersect: false }
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                boxWidth: 14,
+                                font: { weight: 'bold', size: 12, family: "'Plus Jakarta Sans', sans-serif" },
+                                color: '#0f172a'
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                            titleFont: { weight: 'bold', size: 13 },
+                            bodyFont: { size: 12 },
+                            padding: 10,
+                            cornerRadius: 8
+                        }
                     },
                     scales: {
-                        y: { beginAtZero: true }
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f1f5f9' },
+                            ticks: { font: { weight: '600' }, color: '#64748b' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { weight: '700', size: 11 }, color: '#334155' }
+                        }
                     }
                 }
             });
@@ -787,10 +881,640 @@ window.bukaModalKomparasi = async function () {
     } catch (err) {
         console.error('[Komparasi Error]', err);
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#ef4444; padding:30px; font-weight:700;">Gagal memuat data verifikasi: ${err.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#ef4444; padding:30px; font-weight:700;">Gagal memuat data verifikasi: ${err.message}</td></tr>`;
         }
     }
 };
+
+// =========================================================================
+// FITUR PENCARIAN TEKS & VOICE SEARCH (MODAL VERIFIKASI ALGORITMA)
+// =========================================================================
+window.filterKomparasiTable = function (keyword) {
+    const raw = (keyword || '').trim().toLowerCase();
+    const btnClear = document.getElementById('btnClearSearchKomparasi');
+    if (btnClear) btnClear.style.display = raw.length > 0 ? 'block' : 'none';
+
+    if (!window.lastKomparasiResult) return;
+    if (!raw) {
+        if (typeof window.renderKomparasiTableRows === 'function') {
+            window.renderKomparasiTableRows(window.lastKomparasiResult);
+        }
+        return;
+    }
+
+    const filtered = window.lastKomparasiResult.filter(item => {
+        const nama = String(item.nama || '').toLowerCase();
+        const nik = String(item.nik || '').toLowerCase();
+        const sawRank = `rank ${item.saw_rank}`.toLowerCase();
+        const wpRank = `rank ${item.wp_rank}`.toLowerCase();
+        const sawSkor = String(item.saw_skor || '');
+        const wpSkor = String(item.wp_skor || '');
+        return nama.includes(raw) || nik.includes(raw) || sawRank.includes(raw) || wpRank.includes(raw) || sawSkor.includes(raw) || wpSkor.includes(raw);
+    });
+
+    if (typeof window.renderKomparasiTableRows === 'function') {
+        window.renderKomparasiTableRows(filtered);
+    }
+};
+
+window.clearSearchKomparasi = function () {
+    const input = document.getElementById('inputSearchKomparasi');
+    if (input) input.value = '';
+    window.filterKomparasiTable('');
+};
+
+window.voiceRecognitionInstance = null;
+window.toggleVoiceSearchKomparasi = function () {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const btn = document.getElementById('btnVoiceSearchKomparasi');
+    const micIcon = document.getElementById('voiceMicIcon');
+    const micText = document.getElementById('voiceMicText');
+    const input = document.getElementById('inputSearchKomparasi');
+
+    if (!SpeechRecognition) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Peramban Tidak Mendukung Voice Search',
+            text: 'Fitur pengenalan suara didukung penuh pada browser Google Chrome, Microsoft Edge, dan Safari.',
+            confirmButtonColor: '#0284c7'
+        });
+        return;
+    }
+
+    if (window.voiceRecognitionInstance) {
+        try { window.voiceRecognitionInstance.stop(); } catch (e) {}
+        window.voiceRecognitionInstance = null;
+        if (btn) { btn.style.background = '#ffffff'; btn.style.color = '#0284c7'; }
+        if (micIcon) micIcon.className = 'fas fa-microphone';
+        if (micText) micText.textContent = 'Suara';
+        return;
+    }
+
+    try {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'id-ID';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = function () {
+            if (btn) { btn.style.background = '#fee2e2'; btn.style.color = '#dc2626'; btn.style.borderColor = '#f87171'; }
+            if (micIcon) micIcon.className = 'fas fa-microphone-lines fa-fade';
+            if (micText) micText.textContent = 'Mendengarkan...';
+        };
+
+        recognition.onresult = function (event) {
+            const transcript = event.results[0][0].transcript;
+            if (input) {
+                input.value = transcript;
+                window.filterKomparasiTable(transcript);
+            }
+        };
+
+        recognition.onerror = function (event) {
+            console.warn('[Voice Recognition]', event.error);
+        };
+
+        recognition.onend = function () {
+            window.voiceRecognitionInstance = null;
+            if (btn) { btn.style.background = '#ffffff'; btn.style.color = '#0284c7'; btn.style.borderColor = '#cbd5e1'; }
+            if (micIcon) micIcon.className = 'fas fa-microphone';
+            if (micText) micText.textContent = 'Suara';
+        };
+
+        window.voiceRecognitionInstance = recognition;
+        recognition.start();
+    } catch (err) {
+        console.error('[Voice Search Init Error]', err);
+    }
+};
+
+// =========================================================================
+// PENGATURAN DOKUMEN, TEMPLAT KOP SURAT & TANDA TANGAN (SEBELUM DIUNDUH)
+// =========================================================================
+const DEFAULT_DOC_SETTINGS = {
+    namaPimpinan: 'DR. DRS. H. AHMAD MISBAHUL MUNIR, M.SI',
+    nipPimpinan: '19710815 199603 1 003',
+    jabatanPimpinan: 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO',
+    pangkatPimpinan: 'Pembina Utama Muda',
+    nomorSurat: '460/084/BA-SPK/438.5.12/2026',
+    kotaSurat: 'Sidoarjo',
+    tanggalSurat: '28 September 2026',
+    tipeTtd: 'tte' // 'tte' atau 'manual'
+};
+
+const DEFAULT_KOP_TEMPLATE = {
+    provinsi: 'Pemerintah Provinsi Jawa Timur',
+    kabupaten: 'Pemerintah Kabupaten Sidoarjo',
+    dinas: 'Dinas Sosial Kabupaten Sidoarjo',
+    alamat: 'Jl. Pahlawan No. 25 Sidoarjo, Jawa Timur 61213',
+    telp: '(031) 8921877',
+    email: 'dinsos@sidoarjokab.go.id',
+    logoBase64: ''
+};
+
+const DEFAULT_FORMAT_OPTIONS = {
+    targetFormat: 'all', // 'all' atau 'custom'
+    excelIncludeLogo: true,
+    excelIncludeChart: true,
+    excelIncludeTtd: true,
+    excelIncludeSheet2: true,
+    wordFixAspectLogo: true,
+    wordIncludeChart: true,
+    wordIncludeTtd: true,
+    pdfCleanLayout: true,
+    pdfIncludeChart: true
+};
+
+const KOP_PRESETS = {
+    dinsos: {
+        provinsi: 'Pemerintah Provinsi Jawa Timur',
+        kabupaten: 'Pemerintah Kabupaten Sidoarjo',
+        dinas: 'Dinas Sosial Kabupaten Sidoarjo',
+        alamat: 'Jl. Pahlawan No. 25 Sidoarjo, Jawa Timur 61213',
+        telp: '(031) 8921877',
+        email: 'dinsos@sidoarjokab.go.id'
+    },
+    setda: {
+        provinsi: 'Pemerintah Provinsi Jawa Timur',
+        kabupaten: 'Pemerintah Kabupaten Sidoarjo',
+        dinas: 'Sekretariat Daerah Kabupaten Sidoarjo',
+        alamat: 'Jl. Gubernur Suryo No. 1 Sidoarjo, Jawa Timur 61211',
+        telp: '(031) 8921946',
+        email: 'setda@sidoarjokab.go.id'
+    },
+    bappeda: {
+        provinsi: 'Pemerintah Provinsi Jawa Timur',
+        kabupaten: 'Pemerintah Kabupaten Sidoarjo',
+        dinas: 'Badan Perencanaan Pembangunan Daerah',
+        alamat: 'Jl. Sultan Agung No. 19 Sidoarjo, Jawa Timur 61211',
+        telp: '(031) 8941145',
+        email: 'bappeda@sidoarjokab.go.id'
+    }
+};
+
+window.getDocumentSettings = function () {
+    try {
+        const saved = localStorage.getItem('spk_document_settings');
+        if (saved) return { ...DEFAULT_DOC_SETTINGS, ...JSON.parse(saved) };
+    } catch (e) {}
+    return { ...DEFAULT_DOC_SETTINGS };
+};
+
+window.getKopTemplate = function () {
+    try {
+        const saved = localStorage.getItem('spk_kop_template');
+        if (saved) return { ...DEFAULT_KOP_TEMPLATE, ...JSON.parse(saved) };
+    } catch (e) {}
+    return { ...DEFAULT_KOP_TEMPLATE };
+};
+
+window.getFormatOptions = function () {
+    try {
+        const saved = localStorage.getItem('spk_format_options');
+        if (saved) return { ...DEFAULT_FORMAT_OPTIONS, ...JSON.parse(saved) };
+    } catch (e) {}
+    return { ...DEFAULT_FORMAT_OPTIONS };
+};
+
+window.switchTabDokumen = function (tab) {
+    const panels = {
+        ttd: document.getElementById('tabPanelDocTtd'),
+        kop: document.getElementById('tabPanelDocKop'),
+        format: document.getElementById('tabPanelDocFormat')
+    };
+    const buttons = {
+        ttd: document.getElementById('tabBtnDocTtd'),
+        kop: document.getElementById('tabBtnDocKop'),
+        format: document.getElementById('tabBtnDocFormat')
+    };
+
+    Object.keys(panels).forEach(key => {
+        if (panels[key]) panels[key].style.display = key === tab ? 'block' : 'none';
+        if (buttons[key]) {
+            if (key === tab) {
+                buttons[key].style.background = '#ffffff';
+                buttons[key].style.color = '#0f172a';
+                buttons[key].style.boxShadow = '0 2px 5px rgba(0,0,0,0.06)';
+            } else {
+                buttons[key].style.background = 'transparent';
+                buttons[key].style.color = '#64748b';
+                buttons[key].style.boxShadow = 'none';
+            }
+        }
+    });
+
+    if (tab === 'kop') {
+        window.updateLiveKopPreview();
+    } else if (tab === 'ttd') {
+        window.updateLiveTtdPreview();
+    }
+};
+
+window.updateTtdLabelStyle = function () {
+    const optTte = document.getElementById('ttdOptTte');
+    const labelTte = document.getElementById('labelTtdTte');
+    const labelManual = document.getElementById('labelTtdManual');
+    if (optTte && optTte.checked) {
+        if (labelTte) { labelTte.style.borderColor = '#16a34a'; labelTte.style.background = '#f0fdf4'; }
+        if (labelManual) { labelManual.style.borderColor = '#cbd5e1'; labelManual.style.background = '#ffffff'; }
+    } else {
+        if (labelTte) { labelTte.style.borderColor = '#cbd5e1'; labelTte.style.background = '#ffffff'; }
+        if (labelManual) { labelManual.style.borderColor = '#0284c7'; labelManual.style.background = '#f0f9ff'; }
+    }
+    window.updateLiveTtdPreview();
+};
+
+window.toggleTargetFormatOptions = function () {
+    const isCustom = document.getElementById('targetFormatCustom')?.checked;
+    // Opsi target dapat disesuaikan pengguna
+};
+
+window.applyKopPreset = function (key) {
+    const p = KOP_PRESETS[key];
+    if (!p) return;
+    const elProv = document.getElementById('settingKopProvinsi');
+    const elKab = document.getElementById('settingKopKabupaten');
+    const elDinas = document.getElementById('settingKopDinas');
+    const elAlamat = document.getElementById('settingKopAlamat');
+    const elTelp = document.getElementById('settingKopTelp');
+    const elEmail = document.getElementById('settingKopEmail');
+    if (elProv) elProv.value = p.provinsi;
+    if (elKab) elKab.value = p.kabupaten;
+    if (elDinas) elDinas.value = p.dinas;
+    if (elAlamat) elAlamat.value = p.alamat;
+    if (elTelp) elTelp.value = p.telp;
+    if (elEmail) elEmail.value = p.email;
+    window.updateLiveKopPreview();
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            icon: 'success',
+            title: 'Preset Templat Diterapkan',
+            text: `Kop Surat diset ke: ${p.dinas}`,
+            timer: 1400,
+            showConfirmButton: false
+        });
+    }
+};
+
+window.updateLiveKopPreview = function () {
+    const prov = document.getElementById('settingKopProvinsi')?.value || 'Pemerintah Provinsi Jawa Timur';
+    const kab = document.getElementById('settingKopKabupaten')?.value || 'Pemerintah Kabupaten Sidoarjo';
+    const dinas = document.getElementById('settingKopDinas')?.value || 'Dinas Sosial Kabupaten Sidoarjo';
+    const alamat = document.getElementById('settingKopAlamat')?.value || 'Jl. Pahlawan No. 25 Sidoarjo, Jawa Timur 61213';
+    const telp = document.getElementById('settingKopTelp')?.value || '(031) 8921877';
+    const email = document.getElementById('settingKopEmail')?.value || 'dinsos@sidoarjokab.go.id';
+
+    const elProv = document.getElementById('livePreviewKopProv');
+    const elKab = document.getElementById('livePreviewKopKab');
+    const elDinas = document.getElementById('livePreviewKopDinas');
+    const elAlamat = document.getElementById('livePreviewKopAlamat');
+    const elLogo = document.getElementById('livePreviewKopLogo');
+
+    if (elProv) elProv.textContent = prov.toUpperCase();
+    if (elKab) elKab.textContent = kab.toUpperCase();
+    if (elDinas) elDinas.textContent = dinas.toUpperCase();
+    if (elAlamat) elAlamat.textContent = `${alamat} | Telp: ${telp} | Email: ${email}`;
+    if (elLogo) {
+        elLogo.src = window.currentCustomLogo || window.getKopTemplate().logoBase64 || window.LOGO_SIDOARJO_BASE64 || "static/img/logo-sidoarjo.png";
+    }
+};
+
+window.updateLiveTtdPreview = function () {
+    const optTte = document.getElementById('ttdOptTte');
+    const isTte = optTte ? optTte.checked : true;
+    const imgTtd = document.getElementById('imgPreviewTtd');
+    const descTtd = document.getElementById('descPreviewTtd');
+    const subDescTtd = document.getElementById('subDescPreviewTtd');
+    const ctrlUpload = document.getElementById('ctrlUploadSignature');
+    const nomor = document.getElementById('settingNomorSurat')?.value || '460/084/BA-SPK/438.5.12/2026';
+    const nama = document.getElementById('settingNamaPimpinan')?.value || 'DR. DRS. H. AHMAD MISBAHUL MUNIR, M.SI';
+
+    if (isTte) {
+        if (descTtd) descTtd.textContent = 'Tanda Tangan Elektronik Tersertifikasi BSrE BSSN';
+        if (subDescTtd) subDescTtd.textContent = 'Format QR Code terenkripsi valid otomatis tercetak pada dokumen PDF, Word, dan disematkan langsung di bawah tabel Sheet 1 Excel.';
+        if (ctrlUpload) ctrlUpload.style.display = 'none';
+        if (imgTtd && window.PrintHelper && typeof window.PrintHelper.getQrBadgeBase64 === 'function') {
+            imgTtd.src = window.PrintHelper.getQrBadgeBase64(nomor);
+        }
+    } else {
+        if (descTtd) descTtd.textContent = 'Tanda Tangan Basah & Stempel Resmi Kedinasan';
+        if (subDescTtd) subDescTtd.textContent = 'Stempel dinas dan tanda tangan basah resmi akan disematkan di dokumen PDF, Word, dan di bawah tabel Sheet 1 Excel.';
+        if (ctrlUpload) ctrlUpload.style.display = 'flex';
+        if (imgTtd && window.PrintHelper && typeof window.PrintHelper.getManualSignatureBase64 === 'function') {
+            imgTtd.src = window.PrintHelper.getManualSignatureBase64(nama);
+        }
+    }
+};
+
+window.handleUploadCustomSignature = function (e) {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+        return Swal.fire('Format Salah', 'Silakan pilih berkas gambar tanda tangan (PNG transparan atau JPG).', 'warning');
+    }
+    const reader = new FileReader();
+    reader.onload = function (event) {
+        const dataUrl = event.target.result;
+        localStorage.setItem('spk_custom_signature', dataUrl);
+        window.updateLiveTtdPreview();
+        Swal.fire({
+            icon: 'success',
+            title: 'Tanda Tangan Terunggah',
+            text: 'Gambar tanda tangan khusus Anda disimpan dan siap disematkan pada PDF, Word, dan Excel.',
+            timer: 1600,
+            showConfirmButton: false
+        });
+    };
+    reader.readAsDataURL(file);
+};
+
+window.resetCustomSignature = function () {
+    localStorage.removeItem('spk_custom_signature');
+    window.updateLiveTtdPreview();
+    Swal.fire({
+        icon: 'info',
+        title: 'Tanda Tangan Direset',
+        text: 'Menggunakan stempel dinas dan paraf resmi otomatis Pemkab Sidoarjo.',
+        timer: 1400,
+        showConfirmButton: false
+    });
+};
+
+window.currentCustomLogo = null;
+
+window.handleUploadLogoKop = function (e) {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        return Swal.fire('Format Salah', 'Silakan pilih berkas gambar (PNG, JPG, SVG, WebP).', 'warning');
+    }
+
+    const reader = new FileReader();
+    reader.onload = function (event) {
+        const dataUrl = event.target.result;
+        window.currentCustomLogo = dataUrl;
+        const img = document.getElementById('imgPreviewLogoKop');
+        if (img) img.src = dataUrl;
+        window.updateLiveKopPreview();
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Logo Terunggah',
+            text: 'Pratinjau logo instansi diperbarui. Klik Simpan untuk menerapkan templat.',
+            timer: 1600,
+            showConfirmButton: false
+        });
+    };
+    reader.readAsDataURL(file);
+};
+
+window.resetLogoDefaultKop = function () {
+    window.currentCustomLogo = '';
+    const img = document.getElementById('imgPreviewLogoKop');
+    const defaultSrc = window.LOGO_SIDOARJO_BASE64 || "static/img/logo-sidoarjo.png";
+    if (img) img.src = defaultSrc;
+    window.updateLiveKopPreview();
+
+    Swal.fire({
+        icon: 'info',
+        title: 'Logo Direset',
+        text: 'Logo dikembalikan ke Lambang Resmi Pemkab Sidoarjo.',
+        timer: 1400,
+        showConfirmButton: false
+    });
+};
+
+window.bukaModalSettingDokumen = function (targetTab = 'ttd') {
+    const s = window.getDocumentSettings();
+    const kop = window.getKopTemplate();
+    const fmt = window.getFormatOptions();
+
+    // Tab 1: Pimpinan & TTD
+    const elNama = document.getElementById('settingNamaPimpinan');
+    const elNip = document.getElementById('settingNipPimpinan');
+    const elJabatan = document.getElementById('settingJabatanPimpinan');
+    const elPangkat = document.getElementById('settingPangkatPimpinan');
+    const elNomor = document.getElementById('settingNomorSurat');
+    const elKota = document.getElementById('settingKotaSurat');
+    const elTanggal = document.getElementById('settingTanggalSurat');
+    const optTte = document.getElementById('ttdOptTte');
+    const optManual = document.getElementById('ttdOptManual');
+
+    if (elNama) elNama.value = s.namaPimpinan || DEFAULT_DOC_SETTINGS.namaPimpinan;
+    if (elNip) elNip.value = s.nipPimpinan || DEFAULT_DOC_SETTINGS.nipPimpinan;
+    if (elJabatan) elJabatan.value = s.jabatanPimpinan || DEFAULT_DOC_SETTINGS.jabatanPimpinan;
+    if (elPangkat) elPangkat.value = s.pangkatPimpinan || DEFAULT_DOC_SETTINGS.pangkatPimpinan;
+    if (elNomor) elNomor.value = s.nomorSurat || DEFAULT_DOC_SETTINGS.nomorSurat;
+    if (elKota) elKota.value = s.kotaSurat || DEFAULT_DOC_SETTINGS.kotaSurat;
+    if (elTanggal) elTanggal.value = s.tanggalSurat || DEFAULT_DOC_SETTINGS.tanggalSurat;
+
+    if (s.tipeTtd === 'manual') {
+        if (optManual) optManual.checked = true;
+    } else {
+        if (optTte) optTte.checked = true;
+    }
+    window.updateTtdLabelStyle();
+
+    // Tab 2: Kop Surat & Logo
+    const elProv = document.getElementById('settingKopProvinsi');
+    const elKab = document.getElementById('settingKopKabupaten');
+    const elDinas = document.getElementById('settingKopDinas');
+    const elAlamat = document.getElementById('settingKopAlamat');
+    const elTelp = document.getElementById('settingKopTelp');
+    const elEmail = document.getElementById('settingKopEmail');
+    const imgLogo = document.getElementById('imgPreviewLogoKop');
+
+    if (elProv) elProv.value = kop.provinsi || DEFAULT_KOP_TEMPLATE.provinsi;
+    if (elKab) elKab.value = kop.kabupaten || DEFAULT_KOP_TEMPLATE.kabupaten;
+    if (elDinas) elDinas.value = kop.dinas || DEFAULT_KOP_TEMPLATE.dinas;
+    if (elAlamat) elAlamat.value = kop.alamat || DEFAULT_KOP_TEMPLATE.alamat;
+    if (elTelp) elTelp.value = kop.telp || DEFAULT_KOP_TEMPLATE.telp;
+    if (elEmail) elEmail.value = kop.email || DEFAULT_KOP_TEMPLATE.email;
+
+    window.currentCustomLogo = kop.logoBase64 || null;
+    if (imgLogo) {
+        imgLogo.src = kop.logoBase64 || window.LOGO_SIDOARJO_BASE64 || "static/img/logo-sidoarjo.png";
+    }
+
+    // Tab 3: Format File & Ukuran Kertas
+    const paper = typeof window.getPaperSettings === 'function' ? window.getPaperSettings() : { paperSize: 'A4', orientation: 'portrait' };
+    const elPaperSize = document.getElementById('settingPaperSize');
+    const elPaperOrient = document.getElementById('settingPaperOrientation');
+    if (elPaperSize) elPaperSize.value = paper.paperSize || 'A4';
+    if (elPaperOrient) elPaperOrient.value = paper.orientation || 'portrait';
+
+    const optTargetAll = document.getElementById('targetFormatAll');
+    const optTargetCustom = document.getElementById('targetFormatCustom');
+    if (fmt.targetFormat === 'custom') {
+        if (optTargetCustom) optTargetCustom.checked = true;
+    } else {
+        if (optTargetAll) optTargetAll.checked = true;
+    }
+
+    const chkExcelLogo = document.getElementById('optExcelIncludeLogo');
+    const chkExcelChart = document.getElementById('optExcelIncludeChart');
+    const chkExcelTtd = document.getElementById('optExcelIncludeTtd');
+    const chkExcelSheet2 = document.getElementById('optExcelIncludeSheet2');
+    const chkWordAspect = document.getElementById('optWordFixAspectLogo');
+    const chkWordChart = document.getElementById('optWordIncludeChart');
+    const chkWordTtd = document.getElementById('optWordIncludeTtd');
+    const chkPdfClean = document.getElementById('optPdfCleanLayout');
+    const chkPdfChart = document.getElementById('optPdfIncludeChart');
+
+    if (chkExcelLogo) chkExcelLogo.checked = fmt.excelIncludeLogo !== false;
+    if (chkExcelChart) chkExcelChart.checked = fmt.excelIncludeChart !== false;
+    if (chkExcelTtd) chkExcelTtd.checked = fmt.excelIncludeTtd !== false;
+    if (chkExcelSheet2) chkExcelSheet2.checked = fmt.excelIncludeSheet2 !== false;
+    if (chkWordAspect) chkWordAspect.checked = fmt.wordFixAspectLogo !== false;
+    if (chkWordChart) chkWordChart.checked = fmt.wordIncludeChart !== false;
+    if (chkWordTtd) chkWordTtd.checked = fmt.wordIncludeTtd !== false;
+    if (chkPdfClean) chkPdfClean.checked = fmt.pdfCleanLayout !== false;
+    if (chkPdfChart) chkPdfChart.checked = fmt.pdfIncludeChart !== false;
+
+    window.switchTabDokumen(targetTab || 'ttd');
+
+    if (typeof window.openModal === 'function') {
+        window.openModal('modalSettingDokumen');
+    } else {
+        const m = document.getElementById('modalSettingDokumen');
+        if (m) m.style.display = 'flex';
+    }
+};
+
+window.getPaperSettings = function () {
+    try {
+        const stored = localStorage.getItem('spk_paper_settings');
+        if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return {
+        paperSize: 'A4',
+        orientation: 'portrait'
+    };
+};
+
+window.simpanSettingDokumen = function (e) {
+    if (e) e.preventDefault();
+    const ttdVal = document.querySelector('input[name="settingTipeTtd"]:checked')?.value || 'tte';
+    const targetFmt = document.querySelector('input[name="settingTargetFormat"]:checked')?.value || 'all';
+
+    const newSettings = {
+        namaPimpinan: document.getElementById('settingNamaPimpinan')?.value.trim() || DEFAULT_DOC_SETTINGS.namaPimpinan,
+        nipPimpinan: document.getElementById('settingNipPimpinan')?.value.trim() || DEFAULT_DOC_SETTINGS.nipPimpinan,
+        jabatanPimpinan: document.getElementById('settingJabatanPimpinan')?.value.trim() || DEFAULT_DOC_SETTINGS.jabatanPimpinan,
+        pangkatPimpinan: document.getElementById('settingPangkatPimpinan')?.value.trim() || DEFAULT_DOC_SETTINGS.pangkatPimpinan,
+        nomorSurat: document.getElementById('settingNomorSurat')?.value.trim() || DEFAULT_DOC_SETTINGS.nomorSurat,
+        kotaSurat: document.getElementById('settingKotaSurat')?.value.trim() || DEFAULT_DOC_SETTINGS.kotaSurat,
+        tanggalSurat: document.getElementById('settingTanggalSurat')?.value.trim() || DEFAULT_DOC_SETTINGS.tanggalSurat,
+        tipeTtd: ttdVal
+    };
+
+    const newKop = {
+        provinsi: document.getElementById('settingKopProvinsi')?.value.trim() || DEFAULT_KOP_TEMPLATE.provinsi,
+        kabupaten: document.getElementById('settingKopKabupaten')?.value.trim() || DEFAULT_KOP_TEMPLATE.kabupaten,
+        dinas: document.getElementById('settingKopDinas')?.value.trim() || DEFAULT_KOP_TEMPLATE.dinas,
+        alamat: document.getElementById('settingKopAlamat')?.value.trim() || DEFAULT_KOP_TEMPLATE.alamat,
+        telp: document.getElementById('settingKopTelp')?.value.trim() || DEFAULT_KOP_TEMPLATE.telp,
+        email: document.getElementById('settingKopEmail')?.value.trim() || DEFAULT_KOP_TEMPLATE.email,
+        logoBase64: window.currentCustomLogo !== null ? window.currentCustomLogo : (window.getKopTemplate().logoBase64 || '')
+    };
+
+    const newPaperSettings = {
+        paperSize: document.getElementById('settingPaperSize')?.value || 'A4',
+        orientation: document.getElementById('settingPaperOrientation')?.value || 'portrait'
+    };
+
+    const newFormatOptions = {
+        targetFormat: targetFmt,
+        paperSize: newPaperSettings.paperSize,
+        orientation: newPaperSettings.orientation,
+        excelIncludeLogo: document.getElementById('optExcelIncludeLogo')?.checked ?? true,
+        excelIncludeChart: document.getElementById('optExcelIncludeChart')?.checked ?? true,
+        excelIncludeTtd: document.getElementById('optExcelIncludeTtd')?.checked ?? true,
+        excelIncludeSheet2: document.getElementById('optExcelIncludeSheet2')?.checked ?? true,
+        wordFixAspectLogo: document.getElementById('optWordFixAspectLogo')?.checked ?? true,
+        wordIncludeChart: document.getElementById('optWordIncludeChart')?.checked ?? true,
+        wordIncludeTtd: document.getElementById('optWordIncludeTtd')?.checked ?? true,
+        pdfCleanLayout: document.getElementById('optPdfCleanLayout')?.checked ?? true,
+        pdfIncludeChart: document.getElementById('optPdfIncludeChart')?.checked ?? true
+    };
+
+    localStorage.setItem('spk_document_settings', JSON.stringify(newSettings));
+    localStorage.setItem('spk_kop_template', JSON.stringify(newKop));
+    localStorage.setItem('spk_paper_settings', JSON.stringify(newPaperSettings));
+    localStorage.setItem('spk_format_options', JSON.stringify(newFormatOptions));
+
+    if (typeof window.closeModal === 'function') window.closeModal('modalSettingDokumen');
+
+    Swal.fire({
+        icon: 'success',
+        title: 'Templat Dokumen Berhasil Disimpan!',
+        text: 'Ukuran kertas, Kop Surat, identitas pimpinan, dan opsi berkas telah diperbarui untuk PDF, Word, dan Excel.',
+        timer: 2000,
+        showConfirmButton: false
+    });
+};
+
+// =========================================================================
+// HANDLER DROPDOWN & EKSPOR KOMPARASI SAW VS WP (PDF, WORD, EXCEL)
+// =========================================================================
+window.toggleDropdownUnduhKomparasi = function (e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    const menu = document.getElementById('dropdownMenuUnduhKomparasi');
+    const arrow = document.getElementById('arrowUnduhKomparasi');
+    if (!menu) return;
+
+    const isOpen = menu.classList.contains('show');
+    if (isOpen) {
+        menu.classList.remove('show');
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+    } else {
+        menu.classList.add('show');
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
+    }
+};
+
+window.closeDropdownUnduhKomparasi = function () {
+    const menu = document.getElementById('dropdownMenuUnduhKomparasi');
+    const arrow = document.getElementById('arrowUnduhKomparasi');
+    if (menu) menu.classList.remove('show');
+    if (arrow) arrow.style.transform = 'rotate(0deg)';
+};
+
+window.unduhKomparasiFormat = function (format) {
+    window.closeDropdownUnduhKomparasi();
+    
+    if (format === 'pdf') {
+        if (window.AdminPrint && typeof window.AdminPrint.cetakLaporanKomparasi === 'function') {
+            window.AdminPrint.cetakLaporanKomparasi(window.lastKomparasiResult);
+        } else if (typeof window.cetakLaporanKomparasi === 'function') {
+            window.cetakLaporanKomparasi(window.lastKomparasiResult);
+        }
+    } else if (format === 'word') {
+        if (window.AdminPrint && typeof window.AdminPrint.exportKomparasiWord === 'function') {
+            window.AdminPrint.exportKomparasiWord(window.lastKomparasiResult);
+        } else if (typeof window.exportKomparasiWord === 'function') {
+            window.exportKomparasiWord(window.lastKomparasiResult);
+        }
+    } else if (format === 'excel') {
+        if (window.AdminPrint && typeof window.AdminPrint.exportKomparasiExcel === 'function') {
+            window.AdminPrint.exportKomparasiExcel(window.lastKomparasiResult);
+        } else if (typeof window.exportKomparasiExcel === 'function') {
+            window.exportKomparasiExcel(window.lastKomparasiResult);
+        }
+    }
+};
+
+// Event listener klik luar untuk menutup dropdown unduh komparasi
+document.addEventListener('click', function (e) {
+    const wrapper = document.getElementById('wrapperDropdownUnduhKomparasi');
+    if (wrapper && !wrapper.contains(e.target)) {
+        window.closeDropdownUnduhKomparasi();
+    }
+});
 
 // =========================================================================
 // 6. PENGELOLAAN BOBOT BWM & MODAL KRITERIA

@@ -388,16 +388,7 @@
             }
 
             try {
-                let baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL);
-                if (!baseUrl) {
-                    const currentPort = window.location.port;
-                    const supportedPorts = ['5500', '5501', '3000', '8080'];
-                    if (supportedPorts.includes(currentPort)) {
-                        baseUrl = 'http://127.0.0.1:5000';
-                    } else {
-                        baseUrl = 'http://127.0.0.1:5000';
-                    }
-                }
+                let baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || window.location.origin;
 
                 // 1. Percobaan pengiriman ke rute API resmi
                 let response = await fetch(`${baseUrl}/api/auth/login`, {

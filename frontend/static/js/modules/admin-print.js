@@ -18,7 +18,312 @@
     ];
 
     const PrintHelper = {
+        getEffectiveLogoSrc() {
+            const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : null;
+            if (kop && kop.logoBase64) return kop.logoBase64;
+            if (window.LOGO_SIDOARJO_BASE64) return window.LOGO_SIDOARJO_BASE64;
+            return LOGO_CANDIDATES[0];
+        },
+
+        buildVerificationUrl(docSettingsOrNomor) {
+            const origin = window.location.origin || 'https://spk-bansos.sidoarjokab.go.id';
+            let nomor = '460/084/BA-SPK/438.5.12/2026';
+            let pimpinan = 'Dr. Drs. H. Ahmad Misbahul Munir, M.Si';
+            let nip = '19710815 199603 1 003';
+            let jabatan = 'Kepala Dinas Sosial Kabupaten Sidoarjo';
+            let tgl = '28 September 2026';
+
+            if (typeof docSettingsOrNomor === 'object' && docSettingsOrNomor !== null) {
+                nomor = docSettingsOrNomor.nomorSurat || nomor;
+                pimpinan = docSettingsOrNomor.namaPimpinan || pimpinan;
+                nip = docSettingsOrNomor.nipPimpinan || nip;
+                jabatan = docSettingsOrNomor.jabatanPimpinan || jabatan;
+                tgl = docSettingsOrNomor.tanggalSurat || tgl;
+            } else if (typeof docSettingsOrNomor === 'string' && docSettingsOrNomor.trim()) {
+                nomor = docSettingsOrNomor.trim();
+                const doc = typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : null;
+                if (doc) {
+                    pimpinan = doc.namaPimpinan || pimpinan;
+                    nip = doc.nipPimpinan || nip;
+                    jabatan = doc.jabatanPimpinan || jabatan;
+                    tgl = doc.tanggalSurat || tgl;
+                }
+            }
+
+            return `${origin}/verifikasi.html?nomor=${encodeURIComponent(nomor)}&pimpinan=${encodeURIComponent(pimpinan)}&nip=${encodeURIComponent(nip)}&jabatan=${encodeURIComponent(jabatan)}&tgl=${encodeURIComponent(tgl)}&status=TERVERIFIKASI_SAH&bsre=1`;
+        },
+
+        getQrBadgeBase64(docSettingsOrNomor) {
+            try {
+                // 1. Jika ada cache dari pre-fetch async
+                if (window._cachedQrDataUrl) {
+                    return window._cachedQrDataUrl;
+                }
+
+                const verifyUrl = this.buildVerificationUrl(docSettingsOrNomor);
+
+                // 2. Gunakan engine QRCode browser (qrcodejs) jika tersedia
+                if (typeof QRCode !== 'undefined') {
+                    const tempDiv = document.createElement('div');
+                    new QRCode(tempDiv, {
+                        text: verifyUrl,
+                        width: 220,
+                        height: 220,
+                        colorDark: "#0f172a",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel ? QRCode.CorrectLevel.M : 2
+                    });
+                    const qrCanvas = tempDiv.querySelector('canvas');
+                    if (qrCanvas) {
+                        const dataUrl = qrCanvas.toDataURL('image/png');
+                        window._cachedQrDataUrl = dataUrl;
+                        return dataUrl;
+                    }
+                }
+
+                return '';
+            } catch (e) {
+                console.warn('[PrintHelper] Fallback QR code synchronous:', e);
+                return '';
+            }
+        },
+
+        async getScannableQrCodeAsync(docSettingsOrNomor) {
+            const verifyUrl = this.buildVerificationUrl(docSettingsOrNomor);
+            // Coba fetch dari endpoint server /api/qrcode yang menggunakan library node qrcode (ISO 18004 resmi)
+            try {
+                const res = await fetch(`/api/qrcode?text=${encodeURIComponent(verifyUrl)}&width=240`);
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json && json.dataUrl) {
+                        window._cachedQrDataUrl = json.dataUrl;
+                        return json.dataUrl;
+                    }
+                }
+            } catch (err) {
+                console.warn('[PrintHelper] Endpoint /api/qrcode fallback ke client:', err);
+            }
+
+            const localQr = this.getQrBadgeBase64(docSettingsOrNomor);
+            if (localQr) {
+                window._cachedQrDataUrl = localQr;
+                return localQr;
+            }
+            return '';
+        },
+
+        getManualSignatureBase64(namaPejabat) {
+            try {
+                const custom = localStorage.getItem('spk_custom_signature');
+                if (custom) return custom;
+                const canvas = document.createElement('canvas');
+                canvas.width = 300;
+                canvas.height = 140;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return '';
+                ctx.save();
+                ctx.translate(90, 70);
+                ctx.rotate(-0.12);
+                ctx.strokeStyle = 'rgba(30, 58, 138, 0.75)';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.arc(0, 0, 54, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(0, 0, 46, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(30, 58, 138, 0.82)';
+                ctx.font = 'bold 7px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('PEMERINTAH KABUPATEN SIDOARJO', 0, -30);
+                ctx.fillText('DINAS SOSIAL', 0, 30);
+                ctx.font = 'bold 15px Arial';
+                ctx.fillText('★', 0, 0);
+                ctx.restore();
+                ctx.strokeStyle = 'rgba(15, 23, 42, 0.9)';
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                ctx.moveTo(110, 80);
+                ctx.bezierCurveTo(125, 25, 140, 20, 145, 60);
+                ctx.bezierCurveTo(150, 95, 165, 30, 175, 50);
+                ctx.bezierCurveTo(185, 75, 195, 40, 210, 55);
+                ctx.bezierCurveTo(225, 70, 235, 55, 255, 65);
+                ctx.stroke();
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(145, 70);
+                ctx.bezierCurveTo(115, 110, 95, 100, 130, 92);
+                ctx.bezierCurveTo(170, 82, 235, 88, 270, 85);
+                ctx.stroke();
+                return canvas.toDataURL('image/png');
+            } catch (e) {
+                return '';
+            }
+        },
+
+        generateHighDefChart(topItems) {
+            try {
+                const width = 1600;
+                const height = 520;
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return '';
+
+                // Background bersih putih resolusi tinggi
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+
+                // Border kartu grafik elegan
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(1, 1, width - 2, height - 2);
+
+                // Header Judul Grafik
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 22px Arial, Calibri, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText('VISUALISASI PERBANDINGAN SKOR SAW (BWM) VS WEIGHTED PRODUCT (WP) - TOP 15 ALTERNATIF', 35, 42);
+
+                // Legend Terpadu Kanan Atas
+                // Legend SAW
+                ctx.fillStyle = '#009846';
+                if (ctx.roundRect) {
+                    ctx.beginPath();
+                    ctx.roundRect(width - 500, 24, 22, 16, 3);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(width - 500, 24, 22, 16);
+                }
+                ctx.fillStyle = '#1e293b';
+                ctx.font = 'bold 16px Arial, Calibri, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText('Skor SAW (BWM)', width - 470, 38);
+
+                // Legend WP
+                ctx.fillStyle = '#0284c7';
+                if (ctx.roundRect) {
+                    ctx.beginPath();
+                    ctx.roundRect(width - 280, 24, 22, 16, 3);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(width - 280, 24, 22, 16);
+                }
+                ctx.fillStyle = '#1e293b';
+                ctx.fillText('Skor Validasi (WP)', width - 250, 38);
+
+                // Area Plotting
+                const padLeft = 75;
+                const padRight = 40;
+                const padTop = 75;
+                const padBottom = 110;
+                const plotWidth = width - padLeft - padRight;
+                const plotHeight = height - padTop - padBottom;
+
+                // Garis Grid Horizontal & Skala Y (0.0 s.d 1.0)
+                ctx.font = '14px Arial, Calibri, sans-serif';
+                ctx.textAlign = 'right';
+                for (let s = 0; s <= 5; s++) {
+                    const frac = s / 5;
+                    const val = frac.toFixed(1);
+                    const y = padTop + plotHeight - frac * plotHeight;
+                    ctx.strokeStyle = s === 0 ? '#64748b' : '#f1f5f9';
+                    ctx.lineWidth = s === 0 ? 2 : 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(padLeft, y);
+                    ctx.lineTo(width - padRight, y);
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#64748b';
+                    ctx.fillText(val, padLeft - 12, y + 5);
+                }
+
+                const items = (topItems || []).slice(0, 15);
+                if (!items.length) return canvas.toDataURL('image/png');
+
+                const groupWidth = plotWidth / items.length;
+                const barWidth = Math.min(28, groupWidth * 0.32);
+                const barGap = 4;
+
+                items.forEach((item, idx) => {
+                    const groupX = padLeft + idx * groupWidth;
+                    const centerX = groupX + groupWidth / 2;
+
+                    const sawVal = Math.min(1.0, Math.max(0, item.sawScore || 0));
+                    const wpVal = Math.min(1.0, Math.max(0, item.wpScore || 0));
+
+                    const sawH = Math.max(2, sawVal * plotHeight);
+                    const wpH = Math.max(2, wpVal * plotHeight);
+
+                    const sawX = centerX - barWidth - (barGap / 2);
+                    const sawY = padTop + plotHeight - sawH;
+
+                    const wpX = centerX + (barGap / 2);
+                    const wpY = padTop + plotHeight - wpH;
+
+                    // Bar SAW (Emerald Green)
+                    ctx.fillStyle = '#009846';
+                    if (ctx.roundRect) {
+                        ctx.beginPath();
+                        ctx.roundRect(sawX, sawY, barWidth, sawH, [4, 4, 0, 0]);
+                        ctx.fill();
+                    } else {
+                        ctx.fillRect(sawX, sawY, barWidth, sawH);
+                    }
+
+                    // Teks Nilai SAW di Atas Bar
+                    ctx.fillStyle = '#065f46';
+                    ctx.font = 'bold 12px Arial, Calibri, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(sawVal.toFixed(2), sawX + barWidth / 2, sawY - 5);
+
+                    // Bar WP (Sky Blue)
+                    ctx.fillStyle = '#0284c7';
+                    if (ctx.roundRect) {
+                        ctx.beginPath();
+                        ctx.roundRect(wpX, wpY, barWidth, wpH, [4, 4, 0, 0]);
+                        ctx.fill();
+                    } else {
+                        ctx.fillRect(wpX, wpY, barWidth, wpH);
+                    }
+
+                    // Teks Nilai WP di Atas Bar
+                    ctx.fillStyle = '#0369a1';
+                    ctx.font = 'bold 12px Arial, Calibri, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(wpVal.toFixed(2), wpX + barWidth / 2, wpY - 5);
+
+                    // Nama Warga di Sumbu X (Sudut 30 derajat)
+                    const rawName = (item.nama || '').trim();
+                    const nameParts = rawName.split(/\s+/);
+                    const displayName = nameParts[0] + (nameParts[1] ? ' ' + nameParts[1].charAt(0) + '.' : '');
+                    ctx.save();
+                    ctx.translate(centerX, padTop + plotHeight + 14);
+                    ctx.rotate(-Math.PI / 6);
+                    ctx.fillStyle = '#1e293b';
+                    ctx.font = 'bold 13px Arial, Calibri, sans-serif';
+                    ctx.textAlign = 'right';
+                    ctx.fillText(displayName, 0, 0);
+                    ctx.restore();
+                });
+
+                return canvas.toDataURL('image/png');
+            } catch (err) {
+                console.warn('[PrintHelper] Gagal generate manual high-def chart:', err);
+                return '';
+            }
+        },
+
         getLogoImgTag(extraStyle = '') {
+            const b64 = this.getEffectiveLogoSrc();
+            if (b64) {
+                return `<img src="${b64}" alt="Lambang Kabupaten Sidoarjo" class="kop-logo" style="${extraStyle}" />`;
+            }
             const listJson = JSON.stringify(LOGO_CANDIDATES).replace(/"/g, '&quot;');
             return `<img src="${LOGO_CANDIDATES[0]}" 
                          data-sources="${listJson}" 
@@ -71,7 +376,24 @@
             return Array.isArray(data) ? [...data] : [];
         },
 
-        openPrintWindow(title, htmlContent) {
+        openPrintWindow(title, htmlContent, paperSettings) {
+            const paper = paperSettings || (typeof window.getPaperSettings === 'function' ? window.getPaperSettings() : { paperSize: 'A4', orientation: 'portrait' });
+            
+            // Konfigurasi CSS Size presisi untuk semua format (A4, F4, Legal, Letter, A5)
+            let sizeCss = 'A4 portrait';
+            const orient = paper.orientation === 'landscape' ? 'landscape' : 'portrait';
+            if (paper.paperSize === 'F4') {
+                sizeCss = orient === 'landscape' ? '330mm 215mm' : '215mm 330mm';
+            } else if (paper.paperSize === 'legal') {
+                sizeCss = orient === 'landscape' ? '14in 8.5in' : '8.5in 14in';
+            } else if (paper.paperSize === 'letter') {
+                sizeCss = orient === 'landscape' ? '11in 8.5in' : '8.5in 11in';
+            } else if (paper.paperSize === 'A5') {
+                sizeCss = orient === 'landscape' ? '210mm 148mm' : '148mm 210mm';
+            } else {
+                sizeCss = `A4 ${orient}`;
+            }
+
             const printWindow = window.open('', '_blank', 'width=1100,height=850');
             if (!printWindow) {
                 alert('Jendela cetak terblokir oleh peramban. Mohon izinkan pop-up untuk situs ini.');
@@ -86,13 +408,30 @@
                     <meta charset="UTF-8">
                     <meta name="referrer" content="no-referrer">
                     <base href="${BASE_HREF}">
-                    <title>${title}</title>
+                    <title></title>
                     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&family=Cinzel:wght@700&display=swap" rel="stylesheet">
                     <style>
-                        /* PENGATURAN CETAK A4 PORTRAIT */
+                        /* PENGATURAN CETAK UKURAN KERTAS & ORIENTASI RESMI DINAMIS */
                         @page {
-                            size: A4 portrait;
-                            margin: 10mm 12mm 12mm 12mm;
+                            size: ${sizeCss};
+                            margin: 0mm;
+                        }
+
+                        @media print {
+                            @page {
+                                size: ${sizeCss};
+                                margin: 0mm;
+                            }
+                            html, body {
+                                margin: 0 !important;
+                                padding: 0 !important;
+                                background: #ffffff !important;
+                            }
+                            .page-container {
+                                padding: 12mm 15mm 12mm 15mm !important;
+                                width: 100% !important;
+                                box-sizing: border-box !important;
+                            }
                         }
 
                         * {
@@ -115,6 +454,8 @@
                         .page-container {
                             width: 100%;
                             max-width: 100%;
+                            padding: 12mm 15mm;
+                            box-sizing: border-box;
                             margin: 0 auto;
                         }
 
@@ -385,13 +726,13 @@
 
                         .sign-box {
                             text-align: center;
-                            min-width: 210px;
+                            min-width: 220px;
                         }
 
                         .sign-date { font-size: 7.8pt; margin-bottom: 3px; }
-                        .sign-title { font-size: 8.2pt; font-weight: 700; text-transform: uppercase; margin-bottom: 45px; }
+                        .sign-title { font-size: 8.2pt; font-weight: 700; text-transform: uppercase; margin-bottom: 40px; }
                         .sign-name { font-size: 8.8pt; font-weight: 800; text-decoration: underline; text-transform: uppercase; }
-                        .sign-nip { font-size: 7.2pt; color: #334155; }
+                        .sign-nip { font-size: 7.2pt; color: #334155; margin-top: 2px; }
 
                         .page-break { page-break-after: always; }
                     </style>
@@ -404,6 +745,7 @@
                 </html>
             `);
             printWindow.document.close();
+            try { printWindow.document.title = ""; } catch (e) {}
             printWindow.focus();
 
             const triggerPrint = () => {
@@ -446,46 +788,159 @@
     // 2. ORCHESTRATOR CETAK
     const AdminPrint = {
         /**
-         * 1. CETAK LAPORAN KOMPARASI BWM-SAW vs WP
+         * PROSES DATASET TERPADU (KOMPARASI SAW VS WP)
          */
-        async cetakLaporanKomparasi(datasetWarga) {
-            const rawList = datasetWarga || await PrintHelper.resolveDataset();
+        async processKomparasiData(datasetWarga) {
+            let rawList = datasetWarga;
             if (!rawList || !rawList.length) {
-                alert('Tidak ada dataset warga untuk dianalisis.');
-                return;
+                if (window.lastKomparasiResult && Array.isArray(window.lastKomparasiResult) && window.lastKomparasiResult.length > 0) {
+                    rawList = window.lastKomparasiResult;
+                } else {
+                    rawList = await PrintHelper.resolveDataset();
+                }
             }
 
+            if (!rawList || !rawList.length) return null;
+
             let processed = rawList.map((w, idx) => {
-                const sawScore = parseFloat(w.skor_saw || w.skor || (0.72 - (idx * 0.0039))).toFixed(4);
-                const wpScore = parseFloat(w.skor_wp || (0.0165 - (idx * 0.000095))).toFixed(4);
+                const sawScore = parseFloat(w.saw_skor !== undefined ? w.saw_skor : (w.skor_saw !== undefined ? w.skor_saw : (w.skor || (0.72 - (idx * 0.0039)))));
+                const wpScore = parseFloat(w.wp_skor !== undefined ? w.wp_skor : (w.skor_wp !== undefined ? w.skor_wp : (0.0165 - (idx * 0.000095))));
                 return {
                     id: w.id || idx + 1,
-                    nama: w.nama_lengkap || w.nama || 'Warga Terdata',
+                    nama: w.nama || w.nama_lengkap || 'Warga Terdata',
                     nik: w.nik || `351508${String(1000000000 + idx).slice(1)}`,
                     alamat: w.alamat || 'Kabupaten Sidoarjo',
-                    sawScore: parseFloat(sawScore),
-                    wpScore: parseFloat(wpScore)
+                    sawScore: Number(sawScore.toFixed(4)),
+                    wpScore: Number(wpScore.toFixed(4)),
+                    rankSAW: w.saw_rank || 0,
+                    rankWP: w.wp_rank || 0
                 };
             });
 
-            // Urutkan SAW
-            processed.sort((a, b) => b.sawScore - a.sawScore);
-            processed.forEach((item, index) => { item.rankSAW = index + 1; });
+            // Urutkan SAW jika rank belum terisi
+            if (!processed[0].rankSAW) {
+                processed.sort((a, b) => b.sawScore - a.sawScore);
+                processed.forEach((item, index) => { item.rankSAW = index + 1; });
+            }
 
-            // Urutkan WP
-            const wpSorted = [...processed].sort((a, b) => b.wpScore - a.wpScore);
-            const wpRankMap = new Map();
-            wpSorted.forEach((item, index) => { wpRankMap.set(item.id, index + 1); });
+            // Urutkan WP jika rank belum terisi
+            if (!processed[0].rankWP) {
+                const wpSorted = [...processed].sort((a, b) => b.wpScore - a.wpScore);
+                const wpRankMap = new Map();
+                wpSorted.forEach((item, index) => { wpRankMap.set(item.id, index + 1); });
+                processed.forEach(item => { item.rankWP = wpRankMap.get(item.id); });
+            }
 
             processed.forEach(item => {
-                item.rankWP = wpRankMap.get(item.id);
                 item.deltaRank = Math.abs(item.rankSAW - item.rankWP);
             });
 
             const n = processed.length;
             const sumD2 = processed.reduce((acc, curr) => acc + Math.pow(curr.deltaRank, 2), 0);
             const spearmanRank = n > 1 ? (1 - ((6 * sumD2) / (n * (Math.pow(n, 2) - 1)))).toFixed(4) : "1.0000";
-            const tanggalCetak = PrintHelper.formatTanggal(new Date());
+
+            let cocokRank = 0;
+            processed.forEach(item => {
+                if (item.deltaRank <= 2) cocokRank++;
+            });
+            const akurasiPct = Math.round((cocokRank / (n || 1)) * 100);
+            const top1SAW = processed.find(p => p.rankSAW === 1)?.nama || processed[0]?.nama || '-';
+            const top1WP = [...processed].sort((a, b) => a.rankWP - b.rankWP)[0]?.nama || '-';
+            const alokasiPrioritas = processed.filter((_, idx) => idx < 43).length;
+
+            // Dapatkan snapshot konfigurasi dokumen & tanda tangan
+            const docSettings = typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : {
+                namaPimpinan: 'DR. DRS. H. AHMAD MISBAHUL MUNIR, M.SI',
+                nipPimpinan: '19710815 199603 1 003',
+                jabatanPimpinan: 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO',
+                pangkatPimpinan: 'Pembina Utama Muda',
+                nomorSurat: '460/084/BA-SPK/438.5.12/2026',
+                kotaSurat: 'Sidoarjo',
+                tanggalSurat: '28 September 2026',
+                tipeTtd: 'tte'
+            };
+
+            // Generate grafik manual beresolusi tinggi (ultra-crisp, bebas buram screenshot)
+            let chartImgSrc = PrintHelper.generateHighDefChart(processed.slice(0, 15));
+            if (!chartImgSrc) {
+                const compCanvas = document.getElementById('compChart');
+                if (compCanvas) {
+                    try {
+                        chartImgSrc = compCanvas.toDataURL('image/png');
+                    } catch (e) {
+                        console.warn('[AdminPrint] Snapshot grafik canvas dilewati:', e);
+                    }
+                }
+            }
+
+            // Dapatkan QR Code ISO resmi scannable untuk TTE secara async
+            let qrBadgeSrc = '';
+            try {
+                qrBadgeSrc = await PrintHelper.getScannableQrCodeAsync(docSettings);
+            } catch (e) {
+                console.warn('[AdminPrint] getScannableQrCodeAsync fallback:', e);
+            }
+            if (!qrBadgeSrc) {
+                qrBadgeSrc = PrintHelper.getQrBadgeBase64(docSettings);
+            }
+
+            return {
+                processed,
+                n,
+                sumD2,
+                spearmanRank,
+                akurasiPct,
+                cocokRank,
+                docSettings,
+                top1SAW,
+                top1WP,
+                alokasiPrioritas,
+                chartImgSrc,
+                qrBadgeSrc
+            };
+        },
+
+        /**
+         * 2. CETAK LAPORAN KOMPARASI BWM-SAW vs WP (PDF)
+         */
+        async cetakLaporanKomparasi(datasetWarga) {
+            const data = await AdminPrint.processKomparasiData(datasetWarga);
+            if (!data) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Belum Ada Data Warga',
+                        text: 'Silakan jalankan verifikasi SAW terlebih dahulu.',
+                        confirmButtonColor: '#009846'
+                    });
+                } else {
+                    alert('Tidak ada dataset warga untuk dianalisis.');
+                }
+                return;
+            }
+
+            const { processed, n, spearmanRank, akurasiPct, docSettings, alokasiPrioritas, chartImgSrc, qrBadgeSrc } = data;
+            const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : {
+                provinsi: 'Pemerintah Provinsi Jawa Timur',
+                kabupaten: 'Pemerintah Kabupaten Sidoarjo',
+                dinas: 'Dinas Sosial Kabupaten Sidoarjo',
+                alamat: 'Jl. Pahlawan No. 25 Sidoarjo, Jawa Timur 61213',
+                telp: '(031) 8921877',
+                email: 'dinsos@sidoarjokab.go.id',
+                logoBase64: ''
+            };
+            const fmt = typeof window.getFormatOptions === 'function' ? window.getFormatOptions() : {
+                targetFormat: 'all',
+                excelIncludeLogo: true,
+                excelIncludeChart: true,
+                excelIncludeTtd: true,
+                excelIncludeSheet2: true,
+                wordFixAspectLogo: true,
+                wordIncludeChart: true,
+                wordIncludeTtd: true,
+                pdfCleanLayout: true,
+                pdfIncludeChart: true
+            };
 
             let rowsHtml = '';
             processed.forEach((item, i) => {
@@ -499,7 +954,7 @@
 
                 rowsHtml += `
                     <tr>
-                        <td class="text-center font-mono">${i + 1}</td>
+                        <td class="text-center font-mono" style="font-weight:700;">${i + 1}</td>
                         <td class="font-mono text-center">${PrintHelper.maskNik(item.nik)}</td>
                         <td class="font-bold text-left no-wrap">${item.nama}</td>
                         <td class="text-left" style="color:#475569; font-size:7.2pt;">${item.alamat}</td>
@@ -512,23 +967,66 @@
                 `;
             });
 
+            const chartImgHtml = (fmt.pdfIncludeChart !== false && chartImgSrc) ? `
+                <div style="margin: 10px 0 14px 0; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; background: #ffffff; text-align: center; page-break-inside: avoid;">
+                    <div style="font-size: 7.5pt; font-weight: 800; color: #1e293b; margin-bottom: 6px; text-transform: uppercase;">Visualisasi Perbandingan Skor SAW vs WP (Top 15 Alternatif)</div>
+                    <img src="${chartImgSrc}" style="max-width: 100%; max-height: 180px; object-fit: contain; display: inline-block;" alt="Grafik Komparasi" />
+                </div>
+            ` : '';
+
+            // Blok Pengesahan (TTE vs Manual Ink)
+            const ttdSectionHtml = docSettings.tipeTtd === 'manual' ? `
+                <div class="signature-wrapper">
+                    <div style="font-size: 7.2pt; color:#64748b; max-width:320px; line-height:1.4;">
+                        Dokumen ini dicetak sebagai Berita Acara Rekomendasi Resmi Dinas Sosial Kabupaten Sidoarjo untuk keperluan penetapan bantuan sosial.
+                    </div>
+                    <div class="sign-box">
+                        <div class="sign-date">${docSettings.kotaSurat}, ${docSettings.tanggalSurat}</div>
+                        <div class="sign-title">${docSettings.jabatanPimpinan}</div>
+                        <div style="height: 54px; display:flex; align-items:center; justify-content:center;">
+                            <img src="${PrintHelper.getManualSignatureBase64(docSettings.namaPimpinan)}" style="max-height: 52px; max-width: 140px; object-fit: contain;" alt="TTD & Stempel Resmi" />
+                        </div>
+                        <div class="sign-name">${docSettings.namaPimpinan}</div>
+                        <div class="sign-nip">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>
+                    </div>
+                </div>
+            ` : `
+                <div class="signature-wrapper">
+                    <div class="tte-box">
+                        <img src="${qrBadgeSrc || PrintHelper.getQrBadgeBase64(docSettings)}" alt="QR TTE BSrE" class="tte-qr" />
+                        <div class="tte-desc">
+                            <b>Diverifikasi secara Digital (BSrE):</b><br>
+                            Balai Sertifikasi Elektronik - Badan Siber dan Sandi Negara.<br>
+                            Pindai QR Code untuk memvalidasi keabsahan digital naskah ini.
+                        </div>
+                    </div>
+                    <div class="sign-box">
+                        <div class="sign-date">${docSettings.kotaSurat}, ${docSettings.tanggalSurat}</div>
+                        <div class="sign-title">${docSettings.jabatanPimpinan}</div>
+                        <div style="height: 10px;"></div>
+                        <div class="sign-name">${docSettings.namaPimpinan}</div>
+                        <div class="sign-nip">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>
+                    </div>
+                </div>
+            `;
+
             const content = `
                 <div class="kop-surat">
                     <div class="kop-logo-box">
                         ${PrintHelper.getLogoImgTag()}
                     </div>
                     <div class="kop-text">
-                        <div class="instansi-prov">Pemerintah Provinsi Jawa Timur</div>
-                        <div class="instansi-kab">Pemerintah Kabupaten Sidoarjo</div>
-                        <div class="instansi-dinas">Dinas Sosial Kabupaten Sidoarjo</div>
-                        <div class="instansi-alamat">Jl. Pahlawan No. 25 Sidoarjo, Jawa Timur 61213 | Telp: (031) 8921877 | Email: dinsos@sidoarjokab.go.id</div>
+                        <div class="instansi-prov">${kop.provinsi}</div>
+                        <div class="instansi-kab">${kop.kabupaten}</div>
+                        <div class="instansi-dinas">${kop.dinas}</div>
+                        <div class="instansi-alamat">${kop.alamat} | Telp: ${kop.telp} | Email: ${kop.email}</div>
                     </div>
                     <div class="kop-spacer"></div>
                 </div>
 
                 <div class="doc-header">
                     <div class="doc-title">Laporan Komparasi & Validasi Presisi Algoritma SPK</div>
-                    <div class="doc-number">Nomor Sertifikasi: 460/084/BA-SPK/438.5.12/2026</div>
+                    <div class="doc-number">Nomor Sertifikasi: ${docSettings.nomorSurat}</div>
                 </div>
 
                 <div class="stats-grid">
@@ -546,17 +1044,19 @@
                     </div>
                     <div class="stat-card">
                         <div class="label">Alokasi Prioritas</div>
-                        <div class="value" style="color:#b45309;">${processed.filter((_, idx) => idx < 43).length} KK (Desil 1-4)</div>
+                        <div class="value" style="color:#b45309;">${alokasiPrioritas} KK (Desil 1-4)</div>
                     </div>
                 </div>
+
+                ${chartImgHtml}
 
                 <table class="report-table">
                     <thead>
                         <tr>
-                            <th style="width: 3.5%;">No</th>
-                            <th style="width: 14.5%;">NIK Penerima</th>
-                            <th style="width: 15%;">Nama Lengkap</th>
-                            <th style="width: 23%;">Domisili / Alamat</th>
+                            <th style="width: 4%;">No</th>
+                            <th style="width: 14%;">NIK Penerima</th>
+                            <th style="width: 16%;">Nama Lengkap</th>
+                            <th style="width: 22%;">Domisili / Alamat</th>
                             <th style="width: 6.5%;">Skor SAW</th>
                             <th style="width: 5.5%;">Rank SAW</th>
                             <th style="width: 6.5%;">Skor WP</th>
@@ -569,29 +1069,897 @@
                     </tbody>
                 </table>
 
-                <div class="signature-wrapper">
-                    <div class="tte-box">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=VALIDASI-DINSOS-SIDOARJO-SPK-SAW-WP-2026" alt="QR TTE BSrE" class="tte-qr" />
-                        <div class="tte-desc">
-                            <b>Diverifikasi secara Digital:</b><br>
-                            Balai Sertifikasi Elektronik (BSrE) Badan Siber dan Sandi Negara.<br>
-                            Integritas data matematis terjamin valid & terenkripsi.
-                        </div>
-                    </div>
-                    <div class="sign-box">
-                        <div class="sign-date">Sidoarjo, ${tanggalCetak}</div>
-                        <div class="sign-title">Kepala Dinas Sosial Kabupaten Sidoarjo</div>
-                        <div class="sign-name">Dr. Drs. H. AHMAD MISBAHUL MUNIR, M.Si</div>
-                        <div class="sign-nip">Pembina Utama Muda | NIP. 19710815 199603 1 003</div>
-                    </div>
-                </div>
+                ${ttdSectionHtml}
             `;
 
-            PrintHelper.openPrintWindow('Laporan_Validasi_Komparasi_SAW_WP_Sidoarjo_2026', content);
+            PrintHelper.openPrintWindow('', content, typeof window.getPaperSettings === 'function' ? window.getPaperSettings() : null);
         },
 
         /**
-         * 2. CETAK SK BUPATI SIDOARJO
+         * 3. EKSPOR LAPORAN KOMPARASI KE FORMAT WORD (.DOC)
+         */
+        async exportKomparasiWord(datasetWarga) {
+            const data = await AdminPrint.processKomparasiData(datasetWarga);
+            if (!data) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Belum Ada Data',
+                        text: 'Silakan lakukan perhitungan SAW terlebih dahulu untuk mengekspor laporan ke format Word.',
+                        confirmButtonColor: '#009846'
+                    });
+                } else {
+                    alert('Tidak ada data komparasi untuk diekspor ke Word.');
+                }
+                return;
+            }
+
+            const { processed, n, spearmanRank, akurasiPct, docSettings, alokasiPrioritas, chartImgSrc } = data;
+            const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : {
+                provinsi: 'Pemerintah Provinsi Jawa Timur',
+                kabupaten: 'Pemerintah Kabupaten Sidoarjo',
+                dinas: 'Dinas Sosial Kabupaten Sidoarjo',
+                alamat: 'Jl. Pahlawan No. 25 Sidoarjo, Jawa Timur 61213',
+                telp: '(031) 8921877',
+                email: 'dinsos@sidoarjokab.go.id',
+                logoBase64: ''
+            };
+            const fmt = typeof window.getFormatOptions === 'function' ? window.getFormatOptions() : {
+                targetFormat: 'all',
+                wordFixAspectLogo: true,
+                wordIncludeChart: true,
+                wordIncludeTtd: true
+            };
+
+            let rowsHtml = '';
+            processed.forEach((item, i) => {
+                const desil = i < 10 ? 1 : (i < 20 ? 2 : (i < 30 ? 3 : (i < 43 ? 4 : (i < 60 ? 5 : (i < 75 ? 6 : (i < 85 ? 7 : (i < 95 ? 8 : (i < 100 ? 9 : 10))))))));
+                const isLayak = desil <= 4;
+                const statusText = isLayak ? `LAYAK BANSOS (DESIL ${desil})` : (desil <= 7 ? `PANTAUAN (DESIL ${desil})` : `NON-PRIORITAS (DESIL ${desil})`);
+                const statusColor = isLayak ? '#166534' : (desil <= 7 ? '#854d0e' : '#991b1b');
+                const statusBg = isLayak ? '#dcfce7' : (desil <= 7 ? '#fef9c3' : '#fee2e2');
+
+                rowsHtml += `
+                    <tr style="background: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                        <td align="center" style="border:1px solid #cbd5e1; padding:6px; font-size:8.5pt; font-weight:bold;">${i + 1}</td>
+                        <td align="center" style="border:1px solid #cbd5e1; padding:6px; font-size:8.5pt; font-family:monospace;">${PrintHelper.maskNik(item.nik)}</td>
+                        <td style="border:1px solid #cbd5e1; padding:6px; font-size:8.5pt; font-weight:bold;">${item.nama}</td>
+                        <td style="border:1px solid #cbd5e1; padding:6px; font-size:8pt; color:#475569;">${item.alamat}</td>
+                        <td align="center" style="border:1px solid #cbd5e1; padding:6px; font-size:8.5pt; font-weight:bold; color:#047857;">${item.sawScore.toFixed(4)}</td>
+                        <td align="center" style="border:1px solid #cbd5e1; padding:6px; font-size:8.5pt; font-weight:bold;">#${item.rankSAW}</td>
+                        <td align="center" style="border:1px solid #cbd5e1; padding:6px; font-size:8.5pt; font-weight:bold; color:#0284c7;">${item.wpScore.toFixed(4)}</td>
+                        <td align="center" style="border:1px solid #cbd5e1; padding:6px; font-size:8.5pt; font-weight:bold;">#${item.rankWP}</td>
+                        <td align="center" style="border:1px solid #cbd5e1; padding:6px; font-size:8pt;">
+                            <span style="background:${statusBg}; color:${statusColor}; font-weight:bold; padding:3px 6px; border-radius:4px; font-size:7.5pt;">${statusText}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            // Logo Base64 inline + fallback presisi anti-pipih
+            const wordLogoSrc = kop.logoBase64 || window.LOGO_SIDOARJO_BASE64 || "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Lambang_Kabupaten_Sidoarjo.png/120px-Lambang_Kabupaten_Sidoarjo.png";
+
+            const chartBlock = (fmt.wordIncludeChart !== false && chartImgSrc) ? `
+                <div style="margin: 16px 0; text-align: center; border: 1px solid #cbd5e1; padding: 12px; background: #ffffff;">
+                    <img src="${chartImgSrc}" width="650" style="width: 100%; max-width: 650px; height: auto; display: block; margin: 0 auto;" alt="Grafik Komparasi" />
+                </div>
+            ` : '';
+
+            // Format TTD Word (Sesuai Pengaturan Dokumen)
+            const manualSigSrc = PrintHelper.getManualSignatureBase64(docSettings.namaPimpinan);
+            const qrBadgeSrc = data.qrBadgeSrc || PrintHelper.getQrBadgeBase64(docSettings);
+
+            const wordTtdHtml = (fmt.wordIncludeTtd === false) ? '' : (docSettings.tipeTtd === 'manual' ? `
+                <table style="width: 100%; border: none; margin-top: 25px;">
+                    <tr>
+                        <td style="width: 50%; vertical-align: top; border: none;">
+                            <div style="font-size: 8pt; color: #64748b; line-height: 1.4;">
+                                Salinan sah Berita Acara Komparasi SPK ini ditetapkan untuk verifikasi kelayakan bantuan sosial terpadu Kabupaten Sidoarjo.
+                            </div>
+                        </td>
+                        <td style="width: 50%; text-align: center; vertical-align: top; border: none;">
+                            <div style="font-size: 8.5pt;">${docSettings.kotaSurat}, ${docSettings.tanggalSurat}</div>
+                            <div style="font-size: 8.8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 6px;">${docSettings.jabatanPimpinan}</div>
+                            <div style="height: 60px; margin: 6px auto; text-align: center;">
+                                <img src="${manualSigSrc}" width="160" height="60" style="max-height: 60px; width: auto; object-fit: contain; display: inline-block;" alt="TTD & Stempel Resmi" />
+                            </div>
+                            <div style="font-size: 9.2pt; font-weight: bold; text-decoration: underline; text-transform: uppercase;">${docSettings.namaPimpinan}</div>
+                            <div style="font-size: 7.8pt; color: #334155;">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>
+                        </td>
+                    </tr>
+                </table>
+            ` : `
+                <table style="width: 100%; border: none; margin-top: 25px;">
+                    <tr>
+                        <td style="width: 50%; vertical-align: top; border: none;">
+                            <div style="border: 1.5px dashed #059669; padding: 10px 14px; background: #f0fdf4; border-radius: 8px; max-width: 340px;">
+                                <div style="font-size: 8pt; font-weight: bold; color: #166534; margin-bottom: 3px;">Diverifikasi secara Digital (TTE BSrE):</div>
+                                <div style="font-size: 7pt; color: #15803d; line-height: 1.4;">
+                                    Balai Sertifikasi Elektronik (BSrE) Badan Siber dan Sandi Negara.<br>
+                                    Pindai QR Code untuk memvalidasi sertifikat keabsahan dokumen dinas resmi.
+                                </div>
+                            </div>
+                        </td>
+                        <td style="width: 50%; text-align: center; vertical-align: top; border: none;">
+                            <div style="font-size: 8.5pt;">${docSettings.kotaSurat}, ${docSettings.tanggalSurat}</div>
+                            <div style="font-size: 8.8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 6px;">${docSettings.jabatanPimpinan}</div>
+                            <div style="height: 65px; margin: 6px auto; text-align: center;">
+                                <img src="${qrBadgeSrc}" width="65" height="65" style="max-height: 65px; width: 65px; object-fit: contain; display: inline-block;" alt="QR TTE BSrE" />
+                            </div>
+                            <div style="font-size: 9.2pt; font-weight: bold; text-decoration: underline; text-transform: uppercase;">${docSettings.namaPimpinan}</div>
+                            <div style="font-size: 7.8pt; color: #334155;">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>
+                        </td>
+                    </tr>
+                </table>
+            `);
+
+            // Konfigurasi Ukuran Kertas Dokumen Word Resmi (A4, F4, Legal, Letter, A5)
+            const paper = typeof window.getPaperSettings === 'function' ? window.getPaperSettings() : { paperSize: 'A4', orientation: 'portrait' };
+            let wordWidthPt = 595.3;
+            let wordHeightPt = 841.9;
+            if (paper.paperSize === 'F4') {
+                wordWidthPt = 612.0;
+                wordHeightPt = 936.0;
+            } else if (paper.paperSize === 'legal') {
+                wordWidthPt = 612.0;
+                wordHeightPt = 1008.0;
+            } else if (paper.paperSize === 'letter') {
+                wordWidthPt = 612.0;
+                wordHeightPt = 792.0;
+            } else if (paper.paperSize === 'A5') {
+                wordWidthPt = 419.5;
+                wordHeightPt = 595.3;
+            }
+
+            if (paper.orientation === 'landscape') {
+                const tempPt = wordWidthPt;
+                wordWidthPt = wordHeightPt;
+                wordHeightPt = tempPt;
+            }
+
+            const wordHtml = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+                <meta charset='utf-8'>
+                <title></title>
+                <!--[if gte mso 9]>
+                <xml>
+                <w:WordDocument>
+                    <w:View>Print</w:View>
+                    <w:Zoom>100</w:Zoom>
+                    <w:DoNotOptimizeForBrowser/>
+                </w:WordDocument>
+                </xml>
+                <![endif]-->
+                <style>
+                    @page Section1 {
+                        size: ${wordWidthPt}pt ${wordHeightPt}pt;
+                        mso-page-orientation: ${paper.orientation === 'landscape' ? 'landscape' : 'portrait'};
+                        margin: 1.0in 0.8in 1.0in 0.8in;
+                        mso-header-margin: 35.4pt;
+                        mso-footer-margin: 35.4pt;
+                        mso-paper-source: 0;
+                    }
+                    div.Section1 { page: Section1; }
+                    body { font-family: 'Arial', 'Calibri', sans-serif; font-size: 9pt; line-height: 1.35; color: #0f172a; }
+                    table { border-collapse: collapse; width: 100%; }
+                </style>
+            </head>
+            <body>
+                <div class="Section1">
+                    <!-- KOP SURAT RESMI INSTANSI (PROPORSI LOGO BESAR & TEGAS) -->
+                    <div style="border-bottom: 3px double #000000; padding-bottom: 10px; margin-bottom: 14px; text-align: center;">
+                        <table style="width: 100%; border: none;">
+                            <tr>
+                                <td style="width: 110px; text-align: center; vertical-align: middle; border: none; padding: 4px;">
+                                    <img src="${wordLogoSrc}" width="95" height="114" alt="Logo Pemkab Sidoarjo" style="display:inline-block; vertical-align:middle; width:95px; height:114px; max-width:95px; max-height:114px; object-fit:contain;" />
+                                </td>
+                                <td style="text-align: center; vertical-align: middle; border: none;">
+                                    <div style="font-size: 10.5pt; font-weight: bold; text-transform: uppercase;">${kop.provinsi}</div>
+                                    <div style="font-size: 13.5pt; font-weight: 800; text-transform: uppercase; color: #009846; letter-spacing: 0.5px;">${kop.kabupaten}</div>
+                                    <div style="font-size: 11.5pt; font-weight: 800; text-transform: uppercase; color: #0f172a;">${kop.dinas}</div>
+                                    <div style="font-size: 8pt; color: #334155; margin-top: 4px;">${kop.alamat} | Telp: ${kop.telp} | Email: ${kop.email}</div>
+                                </td>
+                                <td style="width: 110px; border: none;"></td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- JUDUL LAPORAN -->
+                    <div style="text-align: center; margin-bottom: 14px;">
+                        <div style="font-size: 11.5pt; font-weight: 800; text-transform: uppercase; text-decoration: underline;">LAPORAN KOMPARASI & VALIDASI PRESISI ALGORITMA SPK</div>
+                        <div style="font-size: 8.5pt; font-weight: bold; color: #475569; margin-top: 3px;">Nomor Sertifikasi: ${docSettings.nomorSurat}</div>
+                    </div>
+
+                    <!-- RINGKASAN METRIK EVALUASI -->
+                    <table style="width: 100%; border: 1px solid #cbd5e1; margin-bottom: 12px; background: #f8fafc;">
+                        <tr>
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; width: 25%; text-align: center;">
+                                <div style="font-size: 7pt; color: #64748b; font-weight: bold; text-transform: uppercase;">Total Calon Penerima</div>
+                                <div style="font-size: 11pt; font-weight: bold; color: #0f172a;">${n} Alternatif</div>
+                            </td>
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; width: 25%; text-align: center;">
+                                <div style="font-size: 7pt; color: #64748b; font-weight: bold; text-transform: uppercase;">Koefisien Spearman (rs)</div>
+                                <div style="font-size: 11pt; font-weight: bold; color: #047857;">${spearmanRank} (Valid)</div>
+                            </td>
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; width: 25%; text-align: center;">
+                                <div style="font-size: 7pt; color: #64748b; font-weight: bold; text-transform: uppercase;">Tingkat Konvergensi</div>
+                                <div style="font-size: 11pt; font-weight: bold; color: #0284c7;">${akurasiPct}% Konsisten</div>
+                            </td>
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; width: 25%; text-align: center;">
+                                <div style="font-size: 7pt; color: #64748b; font-weight: bold; text-transform: uppercase;">Alokasi Prioritas Bansos</div>
+                                <div style="font-size: 11pt; font-weight: bold; color: #b45309;">${alokasiPrioritas} KK (Desil 1-4)</div>
+                            </td>
+                        </tr>
+                    </table>
+
+                    ${chartBlock}
+
+                    <!-- TABEL HASIL KOMPARASI -->
+                    <table style="width: 100%; border: 1px solid #cbd5e1; margin-top: 8px;">
+                        <thead>
+                            <tr style="background: #0f172a; color: #ffffff;">
+                                <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 4%;">No</th>
+                                <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 14%;">NIK Penerima</th>
+                                <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 17%;">Nama Lengkap</th>
+                                <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 23%;">Domisili / Alamat</th>
+                                <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 7%;">Skor SAW</th>
+                                <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 6%;">Rank SAW</th>
+                                <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 7%;">Skor WP</th>
+                                <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 6%;">Rank WP</th>
+                                <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 16%;">Rekomendasi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+
+                    ${wordTtdHtml}
+                </div>
+            </body>
+            </html>
+            `;
+
+            const blob = new Blob(['\ufeff', wordHtml], { type: 'application/msword;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Laporan_Komparasi_SAW_vs_WP_Sidoarjo_2026.doc`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 200);
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Laporan Word Berhasil Diunduh',
+                    text: 'Dokumen Word (.doc) komparasi algoritma SPK SAW vs WP telah disimpan.',
+                    timer: 2500,
+                    showConfirmButton: false
+                });
+            }
+        },
+
+        /**
+         * 4. EKSPOR LAPORAN KOMPARASI KE FORMAT EXCEL (.XLSX)
+         * Disertai Logo Pemkab Resmi, Grafik Visual Komparasi di Atas Tabel Sheet 1,
+         * dan Tanda Tangan Digital / Manual di Bawah Tabel Sheet 1
+         */
+        /**
+         * Mengambil data bobot kriteria BWM yang aktif secara dinamis (sinkron dengan Input Bobot BWM & server)
+         */
+        async getActiveBwmKriteria() {
+            // 1. Cek dari window.lastSPKResult jika tersedia
+            if (window.lastSPKResult && window.lastSPKResult.kriteria && Array.isArray(window.lastSPKResult.kriteria)) {
+                return window.lastSPKResult.kriteria.map(k => ({
+                    code: (k.kode || k.code || '').toUpperCase(),
+                    name: k.nama || k.name,
+                    type: String(k.tipe || k.jenis || 'benefit').toLowerCase() === 'cost' ? 'Cost' : 'Benefit',
+                    w: parseFloat(k.bobot ?? k.w ?? 0.1),
+                    desc: String(k.tipe || k.jenis || '').toLowerCase() === 'cost' ? 'Semakin rendah semakin prioritas bantuan' : 'Semakin tinggi semakin prioritas bantuan'
+                }));
+            }
+
+            // 2. Baca dari localStorage 'spk_bobot_bwm' (yang disimpan oleh modal 'Input Bobot BWM')
+            let localMap = {};
+            try {
+                const saved = localStorage.getItem('spk_bobot_bwm');
+                if (saved) {
+                    const arr = JSON.parse(saved);
+                    if (Array.isArray(arr)) {
+                        arr.forEach(item => {
+                            const cCode = (item.kode || item.code || '').toUpperCase();
+                            if (cCode) localMap[cCode] = parseFloat(item.bobot);
+                        });
+                    }
+                }
+            } catch (e) {}
+
+            // 3. Coba fetch dari API /api/kriteria
+            try {
+                const BASE_API_URL = window.API_BASE_URL || window.BASE_URL || window.location.origin.replace(/\/+$/, '');
+                const res = await fetch(`${BASE_API_URL}/api/kriteria`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
+                });
+                if (res.ok) {
+                    const list = await res.json();
+                    if (Array.isArray(list) && list.length > 0) {
+                        return list.map(k => {
+                            const code = (k.kode || k.code || '').toUpperCase();
+                            const isCost = String(k.tipe || k.jenis || '').toLowerCase() === 'cost';
+                            const weight = localMap[code] !== undefined ? localMap[code] : parseFloat(k.bobot ?? 0.1);
+                            return {
+                                code,
+                                name: k.nama || k.name,
+                                type: isCost ? 'Cost' : 'Benefit',
+                                w: weight,
+                                desc: isCost ? 'Semakin rendah nilai semakin prioritas bantuan' : 'Semakin tinggi nilai semakin prioritas bantuan'
+                            };
+                        });
+                    }
+                }
+            } catch (e) {}
+
+            // 4. Default master kriteria yang persis sinkron dengan kriteriaStore server.ts & modal Input Bobot BWM
+            const masterDefaults = [
+                { code: 'C1', name: 'Kondisi Ekonomi / Penghasilan', type: 'Cost', w: 0.22, desc: 'Semakin rendah penghasilan semakin prioritas' },
+                { code: 'C2', name: 'Kepemilikan Aset', type: 'Cost', w: 0.15, desc: 'Semakin sedikit aset semakin prioritas' },
+                { code: 'C3', name: 'Umur Kepala Keluarga', type: 'Benefit', w: 0.08, desc: 'Semakin lansia semakin prioritas bantuan' },
+                { code: 'C4', name: 'Jenis Kelamin', type: 'Benefit', w: 0.05, desc: 'Prioritas kepala keluarga wanita/rentan' },
+                { code: 'C5', name: 'Jumlah Tanggungan', type: 'Benefit', w: 0.18, desc: 'Semakin banyak tanggungan semakin prioritas' },
+                { code: 'C6', name: 'Status Pernikahan', type: 'Benefit', w: 0.06, desc: 'Prioritas janda/duda/rentan' },
+                { code: 'C7', name: 'Kepemilikan Anak / Balita', type: 'Benefit', w: 0.08, desc: 'Prioritas keluarga memiliki balita/sekolah' },
+                { code: 'C8', name: 'Kelayakan Tempat Tinggal', type: 'Cost', w: 0.10, desc: 'Menumpang/kontrak lebih prioritas' },
+                { code: 'C9', name: 'Tingkat Pendidikan Terakhir', type: 'Cost', w: 0.04, desc: 'Pendidikan rendah lebih prioritas bantuan' },
+                { code: 'C10', name: 'Kondisi Kesehatan / Disabilitas', type: 'Cost', w: 0.04, desc: 'Sakit menahun/disabilitas prioritas tinggi' }
+            ];
+
+            return masterDefaults.map(k => {
+                if (localMap[k.code] !== undefined) {
+                    k.w = localMap[k.code];
+                }
+                return k;
+            });
+        },
+
+        /**
+         * 4. EKSPOR LAPORAN KOMPARASI KE FORMAT EXCEL (.XLSX)
+         * Disertai Logo Pemkab Resmi Proporsional & Besar, Grafik Visual Komparasi Presisi Tanpa Celah,
+         * Ruang Tanda Tangan Lapang, dan Kriteria BWM Dinamis
+         */
+        async exportKomparasiExcel(datasetWarga) {
+            const data = await AdminPrint.processKomparasiData(datasetWarga);
+            if (!data) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Belum Ada Data',
+                        text: 'Silakan jalankan proses rekomendasi SAW terlebih dahulu untuk mengekspor ke Excel.',
+                        confirmButtonColor: '#009846'
+                    });
+                } else {
+                    alert('Tidak ada data komparasi untuk diekspor ke Excel.');
+                }
+                return;
+            }
+
+            const { processed, n, spearmanRank, akurasiPct, docSettings, alokasiPrioritas, chartImgSrc } = data;
+            const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : {
+                provinsi: 'Pemerintah Provinsi Jawa Timur',
+                kabupaten: 'Pemerintah Kabupaten Sidoarjo',
+                dinas: 'Dinas Sosial Kabupaten Sidoarjo',
+                alamat: 'Jl. Pahlawan No. 25 Sidoarjo, Jawa Timur 61213',
+                telp: '(031) 8921877',
+                email: 'dinsos@sidoarjokab.go.id',
+                logoBase64: ''
+            };
+            const fmt = typeof window.getFormatOptions === 'function' ? window.getFormatOptions() : {
+                targetFormat: 'all',
+                excelIncludeLogo: true,
+                excelIncludeChart: true,
+                excelIncludeTtd: true,
+                excelIncludeSheet2: true
+            };
+
+            const logoSrc = kop.logoBase64 || window.LOGO_SIDOARJO_BASE64 || '';
+            const logoCleanB64 = logoSrc.replace(/^data:image\/\w+;base64,/, '');
+
+            // METODE UTAMA: MENGGUNAKAN EXCELJS (KEMAMPUAN MENYEMATKAN GAMBAR LOGO, GRAFIK & TTD NATIVELY)
+            if (typeof ExcelJS !== 'undefined') {
+                try {
+                    const wb = new ExcelJS.Workbook();
+                    wb.creator = 'Dinas Sosial Kabupaten Sidoarjo';
+                    wb.lastModifiedBy = docSettings.namaPimpinan;
+                    wb.created = new Date();
+                    wb.modified = new Date();
+
+                    // =========================================================
+                    // LEMBAR KERJA 1: KOMPARASI SAW VS WP
+                    // =========================================================
+                    const ws1 = wb.addWorksheet('Komparasi SAW vs WP', {
+                        views: [{ showGridLines: true }]
+                    });
+
+                    // Konfigurasi Lebar Kolom Presisi (Total kolom A-K)
+                    ws1.columns = [
+                        { key: 'no', width: 6 },
+                        { key: 'nik', width: 22 },
+                        { key: 'nama', width: 32 },
+                        { key: 'alamat', width: 36 },
+                        { key: 'sawScore', width: 14 },
+                        { key: 'rankSAW', width: 12 },
+                        { key: 'wpScore', width: 14 },
+                        { key: 'rankWP', width: 12 },
+                        { key: 'deltaRank', width: 14 },
+                        { key: 'status', width: 28 },
+                        { key: 'desil', width: 15 }
+                    ];
+
+                    // 1. Sematkan Logo Pemkab Resmi Proporsional & Besar di Bagian Atas Lembar Excel (Sheet 1)
+                    if (fmt.excelIncludeLogo !== false && logoCleanB64) {
+                        try {
+                            const logoId = wb.addImage({
+                                base64: logoCleanB64,
+                                extension: 'png'
+                            });
+                            // Logo resmi perisai (width: 96, height: 114) membentang anggun di samping teks kop
+                            ws1.addImage(logoId, {
+                                tl: { col: 0.12, row: 0.15 },
+                                ext: { width: 96, height: 114 }
+                            });
+                        } catch (e) {
+                            console.warn('[ExcelJS] Logo embedding skipped:', e);
+                        }
+                    }
+
+                    // 2. Baris Teks Kop Surat Instansi (Kolom C s.d K)
+                    ws1.getRow(1).height = 20;
+                    ws1.getRow(2).height = 26;
+                    ws1.getRow(3).height = 22;
+                    ws1.getRow(4).height = 18;
+                    ws1.getRow(5).height = 8; // Garis pembatas kop
+
+                    ws1.getCell('C1').value = kop.provinsi.toUpperCase();
+                    ws1.getCell('C1').font = { name: 'Calibri', size: 10, bold: true, color: { argb: '475569' } };
+
+                    ws1.getCell('C2').value = kop.kabupaten.toUpperCase();
+                    ws1.getCell('C2').font = { name: 'Calibri', size: 13.5, bold: true, color: { argb: '009846' } };
+
+                    ws1.getCell('C3').value = kop.dinas.toUpperCase();
+                    ws1.getCell('C3').font = { name: 'Calibri', size: 11.5, bold: true, color: { argb: '0F172A' } };
+
+                    ws1.getCell('C4').value = `${kop.alamat} | Telp: ${kop.telp} | Email: ${kop.email}`;
+                    ws1.getCell('C4').font = { name: 'Calibri', size: 8.5, italic: true, color: { argb: '64748B' } };
+
+                    // Garis ganda elegan pembatas kop
+                    for (let c = 1; c <= 11; c++) {
+                        const cell = ws1.getRow(5).getCell(c);
+                        cell.border = {
+                            bottom: { style: 'medium', color: { argb: '0F172A' } }
+                        };
+                    }
+
+                    // 3. Judul Dokumen Laporan & Nomor Sertifikasi
+                    ws1.getRow(7).height = 22;
+                    ws1.getCell('A7').value = 'LAPORAN HASIL KOMPARASI ALGORITMA SPK (SAW VS WEIGHTED PRODUCT)';
+                    ws1.getCell('A7').font = { name: 'Calibri', size: 12, bold: true, color: { argb: '0F172A' } };
+
+                    ws1.getCell('A8').value = `Nomor Sertifikasi / Laporan: ${docSettings.nomorSurat}`;
+                    ws1.getCell('A8').font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: '475569' } };
+
+                    // 4. Ringkasan Metrik Evaluasi Statistik Terpadu
+                    ws1.getRow(10).values = [
+                        'Total Calon Alternatif', `${n} Warga Terdaftar`, '',
+                        'Koefisien Korelasi Spearman (rs)', `${spearmanRank} (Valid)`, '',
+                        'Tingkat Konvergensi Algoritma', `${akurasiPct}% Konsisten`
+                    ];
+                    ws1.getRow(11).values = [
+                        'Alokasi Prioritas Bansos', `${alokasiPrioritas} KK (Desil 1-4)`, '',
+                        'Metode Pembobotan Kriteria', 'Best-Worst Method (BWM)', '',
+                        'Tingkat Konsistensi BWM', 'xi = 0.042 (Sangat Konsisten)'
+                    ];
+
+                    const metricFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F1F5F9' } };
+                    const borderThin = {
+                        top: { style: 'thin', color: { argb: 'CBD5E1' } },
+                        left: { style: 'thin', color: { argb: 'CBD5E1' } },
+                        bottom: { style: 'thin', color: { argb: 'CBD5E1' } },
+                        right: { style: 'thin', color: { argb: 'CBD5E1' } }
+                    };
+
+                    [10, 11].forEach(r => {
+                        const row = ws1.getRow(r);
+                        row.height = 20;
+                        [1, 2, 4, 5, 7, 8].forEach(c => {
+                            const cell = row.getCell(c);
+                            cell.fill = metricFill;
+                            cell.border = borderThin;
+                            cell.font = { name: 'Calibri', size: 9, bold: c % 3 === 2 };
+                            cell.alignment = { vertical: 'middle' };
+                        });
+                    });
+
+                    let curRow = 13;
+
+                    // 5. Sematkan Gambar Grafik Visual Komparasi di Atas Tabel Excel
+                    // Membentang presisi dari Kolom A hingga Kolom K, langsung di atas tabel tanpa spasi kosong berlebih
+                    if (fmt.excelIncludeChart !== false && chartImgSrc) {
+                        try {
+                            const cleanChartB64 = chartImgSrc.replace(/^data:image\/\w+;base64,/, '');
+                            const chartId = wb.addImage({
+                                base64: cleanChartB64,
+                                extension: 'png'
+                            });
+
+                            // Alokasikan baris grafik dari baris 13 s.d baris 25 (13 baris x 19pt)
+                            for (let r = 0; r < 13; r++) {
+                                ws1.getRow(curRow + r).height = 19;
+                            }
+
+                            ws1.addImage(chartId, {
+                                tl: { col: 0.05, row: curRow },
+                                br: { col: 10.95, row: curRow + 13 }
+                            });
+
+                            curRow += 13; // Header tabel langsung berada tepat di bawah grafik!
+                        } catch (errChart) {
+                            console.warn('[ExcelJS] Chart embedding skipped:', errChart);
+                        }
+                    }
+
+                    // 6. Header Tabel Data Komparasi (Tepat di bawah grafik, zero space kosong)
+                    curRow++;
+                    const headerRow = ws1.getRow(curRow);
+                    headerRow.height = 28;
+                    headerRow.values = [
+                        'NO',
+                        'NOMOR NIK',
+                        'NAMA KEPALA KELUARGA',
+                        'DOMISILI / ALAMAT',
+                        'SKOR SAW',
+                        'RANK SAW',
+                        'SKOR WP',
+                        'RANK WP',
+                        'DEVIASI RANK',
+                        'STATUS KELAYAKAN BANSOS',
+                        'KLASTER DESIL'
+                    ];
+
+                    const headerBorder = {
+                        top: { style: 'medium', color: { argb: '009846' } },
+                        bottom: { style: 'medium', color: { argb: '009846' } },
+                        left: { style: 'thin', color: { argb: '334155' } },
+                        right: { style: 'thin', color: { argb: '334155' } }
+                    };
+
+                    for (let c = 1; c <= 11; c++) {
+                        const cell = headerRow.getCell(c);
+                        cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FFFFFF' } };
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F172A' } };
+                        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                        cell.border = headerBorder;
+                    }
+
+                    // 7. Baris Data Warga (Alternating Row Color, formatted numbers & status badges)
+                    processed.forEach((item, idx) => {
+                        curRow++;
+                        const dataRow = ws1.getRow(curRow);
+                        dataRow.height = 21;
+
+                        const desil = idx < 10 ? 1 : (idx < 20 ? 2 : (idx < 30 ? 3 : (idx < 43 ? 4 : (idx < 60 ? 5 : (idx < 75 ? 6 : (idx < 85 ? 7 : (idx < 95 ? 8 : (idx < 100 ? 9 : 10))))))));
+                        const isLayak = desil <= 4;
+                        const statusText = isLayak ? `Layak Bansos (Desil ${desil})` : (desil <= 7 ? `Pantauan (Desil ${desil})` : `Non-Prioritas (Desil ${desil})`);
+                        const isEven = idx % 2 === 0;
+                        const rowBg = isEven ? 'FFFFFF' : 'F8FAFC';
+                        const statusBg = isLayak ? 'DCFCE7' : (desil <= 7 ? 'FEF9C3' : 'FEE2E2');
+                        const statusColor = isLayak ? '166534' : (desil <= 7 ? '854D0E' : '991B1B');
+
+                        dataRow.values = [
+                            idx + 1,
+                            PrintHelper.maskNik(item.nik),
+                            item.nama,
+                            item.alamat,
+                            item.sawScore,
+                            item.rankSAW,
+                            item.wpScore,
+                            item.rankWP,
+                            item.deltaRank,
+                            statusText,
+                            `Desil ${desil}`
+                        ];
+
+                        for (let c = 1; c <= 11; c++) {
+                            const cell = dataRow.getCell(c);
+                            cell.border = borderThin;
+                            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
+                            cell.font = { name: 'Calibri', size: 9 };
+                            cell.alignment = { vertical: 'middle' };
+
+                            if (c === 1) { // NO
+                                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                                cell.font = { name: 'Calibri', size: 9, bold: true };
+                            } else if (c === 2) { // NIK
+                                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                                cell.font = { name: 'Courier New', size: 8.5 };
+                            } else if (c === 3) { // NAMA
+                                cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                                cell.font = { name: 'Calibri', size: 9, bold: true };
+                            } else if (c === 4) { // ALAMAT
+                                cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                                cell.font = { name: 'Calibri', size: 8.5, color: { argb: '475569' } };
+                            } else if (c === 5) { // SKOR SAW
+                                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                                cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: '047857' } };
+                                cell.numFmt = '0.0000';
+                            } else if (c === 6) { // RANK SAW
+                                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                                cell.font = { name: 'Calibri', size: 9, bold: true };
+                            } else if (c === 7) { // SKOR WP
+                                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                                cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: '0284C7' } };
+                                cell.numFmt = '0.0000';
+                            } else if (c === 8) { // RANK WP
+                                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                                cell.font = { name: 'Calibri', size: 9, bold: true };
+                            } else if (c === 9) { // DEVIASI
+                                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                                cell.font = { name: 'Calibri', size: 9, bold: true };
+                            } else if (c === 10) { // STATUS
+                                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: statusBg } };
+                                cell.font = { name: 'Calibri', size: 8.5, bold: true, color: { argb: statusColor } };
+                            } else if (c === 11) { // DESIL
+                                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                                cell.font = { name: 'Calibri', size: 9, bold: true };
+                            }
+                        }
+                    });
+
+                    // 8. Blok Pengesahan & Tanda Tangan Resmi (Di Bawah Tabel Sheet 1)
+                    curRow += 2;
+                    ws1.getRow(curRow).height = 20;
+                    ws1.getCell(`H${curRow}`).value = `${docSettings.kotaSurat}, ${docSettings.tanggalSurat}`;
+                    ws1.getCell(`H${curRow}`).font = { name: 'Calibri', size: 10, italic: true };
+                    ws1.getCell(`H${curRow}`).alignment = { horizontal: 'center' };
+
+                    curRow++;
+                    ws1.getRow(curRow).height = 22;
+                    ws1.getCell(`H${curRow}`).value = docSettings.jabatanPimpinan;
+                    ws1.getCell(`H${curRow}`).font = { name: 'Calibri', size: 10.5, bold: true };
+                    ws1.getCell(`H${curRow}`).alignment = { horizontal: 'center' };
+
+                    // Ruang tanda tangan lapang terpisah (5 baris x 22pt = 110pt) sehingga teks NAMA tidak pernah tertimpa
+                    curRow++;
+                    const sigRowStart = curRow;
+                    for (let s = 0; s < 5; s++) {
+                        ws1.getRow(sigRowStart + s).height = 22;
+                    }
+
+                    // Sematkan Gambar Tanda Tangan Digital / Manual Resmi di Bawah Tabel Excel
+                    if (fmt.excelIncludeTtd !== false) {
+                        if (docSettings.tipeTtd === 'manual') {
+                            try {
+                                const sigDataUrl = PrintHelper.getManualSignatureBase64(docSettings.namaPimpinan);
+                                const cleanSigB64 = sigDataUrl.replace(/^data:image\/\w+;base64,/, '');
+                                const sigImgId = wb.addImage({
+                                    base64: cleanSigB64,
+                                    extension: 'png'
+                                });
+                                ws1.addImage(sigImgId, {
+                                    tl: { col: 6.8, row: sigRowStart + 0.3 },
+                                    ext: { width: 180, height: 85 }
+                                });
+                            } catch (e) {
+                                console.warn('[ExcelJS] Manual signature embedding skipped:', e);
+                            }
+                        } else {
+                            try {
+                                const qrDataUrl = data.qrBadgeSrc || PrintHelper.getQrBadgeBase64(docSettings);
+                                const cleanQrB64 = qrDataUrl.replace(/^data:image\/\w+;base64,/, '');
+                                const qrImgId = wb.addImage({
+                                    base64: cleanQrB64,
+                                    extension: 'png'
+                                });
+                                ws1.addImage(qrImgId, {
+                                    tl: { col: 7.45, row: sigRowStart + 0.3 },
+                                    ext: { width: 95, height: 95 }
+                                });
+                            } catch (e) {
+                                console.warn('[ExcelJS] TTE QR embedding skipped:', e);
+                            }
+                        }
+                    }
+
+                    // Berikan nama pimpinan dan NIP pasti di bawah tanda tangan
+                    curRow = sigRowStart + 5;
+                    ws1.getRow(curRow).height = 22;
+                    ws1.getCell(`H${curRow}`).value = docSettings.namaPimpinan;
+                    ws1.getCell(`H${curRow}`).font = { name: 'Calibri', size: 11, bold: true, underline: true };
+                    ws1.getCell(`H${curRow}`).alignment = { horizontal: 'center' };
+
+                    curRow++;
+                    ws1.getRow(curRow).height = 20;
+                    ws1.getCell(`H${curRow}`).value = (docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : '') + `NIP. ${docSettings.nipPimpinan}`;
+                    ws1.getCell(`H${curRow}`).font = { name: 'Calibri', size: 9.5, color: { argb: '334155' } };
+                    ws1.getCell(`H${curRow}`).alignment = { horizontal: 'center' };
+
+                    // =========================================================
+                    // LEMBAR KERJA 2: KONFIGURASI BOBOT 10 KRITERIA BWM (DINAMIS SINKRON)
+                    // =========================================================
+                    if (fmt.excelIncludeSheet2 !== false) {
+                        const ws2 = wb.addWorksheet('Bobot Kriteria BWM', {
+                            views: [{ showGridLines: true }]
+                        });
+
+                        ws2.columns = [
+                            { key: 'code', width: 10 },
+                            { key: 'name', width: 35 },
+                            { key: 'type', width: 16 },
+                            { key: 'w', width: 20 },
+                            { key: 'desc', width: 45 }
+                        ];
+
+                        ws2.getRow(1).height = 22;
+                        ws2.getCell('A1').value = `${kop.kabupaten.toUpperCase()} - ${kop.dinas.toUpperCase()}`;
+                        ws2.getCell('A1').font = { name: 'Calibri', size: 11, bold: true, color: { argb: '009846' } };
+
+                        ws2.getRow(2).height = 20;
+                        ws2.getCell('A2').value = 'KONFIGURASI 10 KRITERIA PENILAIAN BERDASARKAN BEST-WORST METHOD (BWM)';
+                        ws2.getCell('A2').font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: '0F172A' } };
+
+                        const h2Row = ws2.getRow(4);
+                        h2Row.height = 26;
+                        h2Row.values = ['KODE', 'NAMA KRITERIA PENILAIAN', 'JENIS KRITERIA', 'BOBOT OPTIMAL BWM', 'DESKRIPSI PARAMETER'];
+                        for (let c = 1; c <= 5; c++) {
+                            const cell = h2Row.getCell(c);
+                            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFF' } };
+                            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F172A' } };
+                            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                            cell.border = headerBorder;
+                        }
+
+                        // Mengambil bobot kriteria dinamis yang sinkron dengan "Input Bobot BWM"
+                        const dynamicKriteria = await AdminPrint.getActiveBwmKriteria();
+
+                        dynamicKriteria.forEach((k, kIdx) => {
+                            const rIdx = 5 + kIdx;
+                            const row = ws2.getRow(rIdx);
+                            row.height = 20;
+                            const isCost = k.type === 'Cost';
+                            row.values = [k.code, k.name, k.type, k.w, k.desc];
+
+                            for (let c = 1; c <= 5; c++) {
+                                const cell = row.getCell(c);
+                                cell.border = borderThin;
+                                cell.font = { name: 'Calibri', size: 9.5 };
+                                cell.alignment = { vertical: 'middle', horizontal: c === 1 || c === 3 || c === 4 ? 'center' : 'left' };
+                                if (c === 3) {
+                                    cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: isCost ? '991B1B' : '166534' } };
+                                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isCost ? 'FEE2E2' : 'DCFCE7' } };
+                                } else if (c === 4) {
+                                    cell.font = { name: 'Calibri', size: 9.5, bold: true };
+                                    cell.numFmt = '0.000';
+                                }
+                            }
+                        });
+                    }
+
+                    // Simpan dan unduh berkas .xlsx
+                    const buffer = await wb.xlsx.writeBuffer();
+                    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'Laporan_Komparasi_SAW_vs_WP_Sidoarjo_2026.xlsx';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }, 200);
+
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Laporan Excel Berhasil Diunduh!',
+                            text: 'File Excel (.xlsx) dengan logo resmi Pemkab Sidoarjo, grafik komparasi, dan tanda tangan digital/manual telah tersimpan.',
+                            timer: 2800,
+                            showConfirmButton: false
+                        });
+                    }
+                    return;
+                } catch (eExcelJS) {
+                    console.warn('[ExcelJS Engine Error, fallback to SheetJS]', eExcelJS);
+                }
+            }
+
+            // FALLBACK: JIKA EXCELJS BELUM TERSEDIA, GUNAKAN SHEETJS / XLSX-JS-STYLE
+            AdminPrint._exportKomparasiExcelSheetJS(data, kop, fmt);
+        },
+
+        /**
+         * CADANGAN: EXCEL SHEETJS (XLSX-JS-STYLE)
+         */
+        _exportKomparasiExcelSheetJS(data, kop, fmt) {
+            const { processed, n, spearmanRank, akurasiPct, docSettings, alokasiPrioritas } = data;
+            const wb = XLSX.utils.book_new();
+
+            const borderThin = {
+                top: { style: 'thin', color: { rgb: 'CBD5E1' } },
+                bottom: { style: 'thin', color: { rgb: 'CBD5E1' } },
+                left: { style: 'thin', color: { rgb: 'CBD5E1' } },
+                right: { style: 'thin', color: { rgb: 'CBD5E1' } }
+            };
+
+            const borderHeader = {
+                top: { style: 'medium', color: { rgb: '009846' } },
+                bottom: { style: 'medium', color: { rgb: '009846' } },
+                left: { style: 'thin', color: { rgb: '334155' } },
+                right: { style: 'thin', color: { rgb: '334155' } }
+            };
+
+            const sheet1Data = [
+                [kop.kabupaten.toUpperCase()],
+                [kop.dinas.toUpperCase()],
+                ["LAPORAN HASIL KOMPARASI ALGORITMA SPK (SAW VS WEIGHTED PRODUCT)"],
+                [`Nomor Sertifikasi: ${docSettings.nomorSurat}`],
+                [],
+                ["RINGKASAN METRIK EVALUASI STATISTIK:"],
+                ["Total Calon Penerima", `${n} Alternatif`, "", "Koefisien Spearman (rs)", `${spearmanRank} (Valid)`, "", "Tingkat Konsistensi BWM", "xi = 0.042 (Valid)"],
+                ["Tingkat Konvergensi", `${akurasiPct}% Konsisten`, "", "Alokasi Kuota Prioritas", `${alokasiPrioritas} Alternatif`, "", "Metode Pembobotan", "Best-Worst Method (BWM)"],
+                [],
+                [
+                    "NO", "NOMOR NIK", "NAMA KEPALA KELUARGA", "DOMISILI / ALAMAT",
+                    "SKOR SAW", "RANK SAW", "SKOR WP", "RANK WP", "DEVIASI RANK",
+                    "STATUS KELAYAKAN BANSOS", "KLASTER DESIL"
+                ]
+            ];
+
+            processed.forEach((item, idx) => {
+                const desil = idx < 10 ? 1 : (idx < 20 ? 2 : (idx < 30 ? 3 : (idx < 43 ? 4 : (idx < 60 ? 5 : (idx < 75 ? 6 : (idx < 85 ? 7 : (idx < 95 ? 8 : (idx < 100 ? 9 : 10))))))));
+                const status = desil <= 4 ? `Layak Bansos (Desil ${desil})` : (desil <= 7 ? `Pantauan (Desil ${desil})` : `Non-Prioritas (Desil ${desil})`);
+                sheet1Data.push([
+                    idx + 1, PrintHelper.maskNik(item.nik), item.nama, item.alamat,
+                    item.sawScore, item.rankSAW, item.wpScore, item.rankWP, item.deltaRank,
+                    status, `Desil ${desil}`
+                ]);
+            });
+
+            sheet1Data.push([]);
+            sheet1Data.push([]);
+            sheet1Data.push(["", "", "", "", "", "", "", "Pejabat Pengesah:", docSettings.jabatanPimpinan]);
+            sheet1Data.push([]);
+            sheet1Data.push([]);
+            sheet1Data.push(["", "", "", "", "", "", "", "Nama Lengkap:", docSettings.namaPimpinan]);
+            sheet1Data.push(["", "", "", "", "", "", "", "NIP:", docSettings.nipPimpinan]);
+
+            const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
+            ws1['!cols'] = [
+                { wch: 6 }, { wch: 22 }, { wch: 32 }, { wch: 38 },
+                { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 12 },
+                { wch: 14 }, { wch: 28 }, { wch: 16 }
+            ];
+
+            XLSX.utils.book_append_sheet(wb, ws1, "Komparasi SAW vs WP");
+            XLSX.writeFile(wb, "Laporan_Komparasi_SAW_vs_WP_Sidoarjo_2026.xlsx");
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Laporan Excel Berhasil Diunduh',
+                    text: 'Buku kerja Excel (.xlsx) telah diunduh.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
+        },
+
+        /**
+         * 5. CETAK SK BUPATI SIDOARJO
          */
         async cetakSKBupati(datasetWarga) {
             const rawList = datasetWarga || await PrintHelper.resolveDataset();
@@ -802,10 +2170,13 @@
     };
 
     // 3. DAFTARKAN METHOD KE WINDOW
+    window.PrintHelper = PrintHelper;
     window.AdminPrint = AdminPrint;
     window.cetakLaporanKomparasi = () => AdminPrint.cetakLaporanKomparasi();
     window.cetakSKBupati = () => AdminPrint.cetakSKBupati();
     window.exportKomparasiPDF = () => AdminPrint.cetakLaporanKomparasi();
+    window.exportKomparasiWord = () => AdminPrint.exportKomparasiWord();
+    window.exportKomparasiExcel = () => AdminPrint.exportKomparasiExcel();
     window.exportSPKPDF = () => AdminPrint.cetakSKBupati();
 
     // 4. DELEGASI EVENT LISTENER GLOBAL

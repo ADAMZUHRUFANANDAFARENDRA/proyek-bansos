@@ -22,15 +22,7 @@ window.BansosApp = window.BansosApp || {};
             return window.API_BASE_URL.replace(/\/+$/, '');
         }
 
-        const currentPort = window.location.port;
-        const localDevPorts = ['5500', '5501', '3000', '8080'];
-
-        if (localDevPorts.includes(currentPort)) {
-            return 'http://127.0.0.1:5000';
-        }
-
-        // Fallback default peladen Flask backend
-        return 'http://127.0.0.1:5000';
+        return window.location.origin.replace(/\/+$/, '');
     }
 
     /**

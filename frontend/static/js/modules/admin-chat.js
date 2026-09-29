@@ -62,7 +62,7 @@
     const BASE_API_URL = window.BASE_API_URL || window.API_BASE_URL || 
         ((typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
             ? window.CONFIG.BASE_URL.replace(/\/+$/, '')
-            : 'http://127.0.0.1:5000');
+            : window.location.origin.replace(/\/+$/, ''));
 
     const EMOJI_DATABASE = [
         '😀','😃','😄','😁','😆','😅','😂','🤣','🥲','🥹','😊','😇','🙂','🙃','😉','😌',

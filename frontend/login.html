@@ -984,7 +984,7 @@
             });
 
             try {
-                const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || 'http://127.0.0.1:5000';
+                const baseUrl = window.API_BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || window.location.origin;
                 const res = await fetch(`${baseUrl}/api/auth/recovery`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

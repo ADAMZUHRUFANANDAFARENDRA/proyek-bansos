@@ -10,7 +10,7 @@
 
 // 1. KONFIGURASI BASE URL API BACKEND
 const API_BASE_URL = (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
-    ? window.CONFIG.BASE_URL : 'http://127.0.0.1:5000';
+    ? window.CONFIG.BASE_URL : window.location.origin;
 window.API_BASE_URL = API_BASE_URL;
 
 // 2. HELPER TOKEN & DECODER JWT
@@ -104,7 +104,7 @@ function resolveApiUrl(endpoint) {
         return endpoint;
     }
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    const base = (window.CONFIG?.BASE_URL || API_BASE_URL || 'http://127.0.0.1:5000').replace(/\/+$/, '');
+    const base = (window.CONFIG?.BASE_URL || API_BASE_URL || window.location.origin).replace(/\/+$/, '');
     return `${base}${cleanEndpoint}`;
 }
 
@@ -167,7 +167,7 @@ async function fetchWithAuth(endpoint, options = {}) {
  */
 async function muatDataWargaGlobal() {
     try {
-        const baseUrl = (window.CONFIG?.BASE_URL || API_BASE_URL || 'http://127.0.0.1:5000').replace(/\/+$/, '');
+        const baseUrl = (window.CONFIG?.BASE_URL || API_BASE_URL || window.location.origin).replace(/\/+$/, '');
         const token = getAuthToken();
         const headers = { 'Accept': 'application/json' };
 

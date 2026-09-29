@@ -3025,3 +3025,92 @@ body {
     border-color: #fecdd3 !important;
     background: #fff1f2 !important;
 }
+
+/* =============================================================================
+   DROPDOWN UNDUH LAPORAN (KOMPARASI SAW VS WP)
+   ============================================================================= */
+.dropdown-export-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-export-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16), 0 4px 10px rgba(15, 23, 42, 0.06);
+    border: 1px solid #e2e8f0;
+    width: 280px;
+    z-index: 100000;
+    padding: 6px;
+    animation: dropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dropdown-export-menu.show {
+    display: block !important;
+}
+
+@keyframes dropdownFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.dropdown-export-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.dropdown-export-item:hover,
+.dropdown-export-item:focus-visible {
+    background: #f8fafc;
+    outline: none;
+}
+
+.dropdown-export-item:active {
+    transform: scale(0.98);
+}
+
+.export-icon-box {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+}
+
+.export-item-title {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+}
+
+.export-item-sub {
+    font-size: 0.72rem;
+    color: #64748b;
+    margin-top: 2px;
+    line-height: 1.2;
+}

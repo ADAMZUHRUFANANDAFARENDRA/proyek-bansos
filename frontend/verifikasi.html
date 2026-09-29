@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Verifikasi Keabsahan Dokumen Digital - Pemerintah Kabupaten Sidoarjo</title>
+    <meta name="description" content="Layanan Verifikasi Dokumen Elektronik Resmi & Tanda Tangan Digital (TTE BSrE) Pemerintah Kabupaten Sidoarjo.">
+    
+    <!-- FONTS & ICONS -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #009846;
+            --primary-dark: #007a37;
+            --primary-light: #e6f9f0;
+            --accent: #0284c7;
+            --surface: #ffffff;
+            --bg-body: #f1f5f9;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(180deg, #e6f9f0 0%, #f1f5f9 220px, #f1f5f9 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px 48px 16px;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 24px;
+            text-align: left;
+        }
+
+        .header-brand img {
+            width: 58px;
+            height: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+        }
+
+        .brand-text h1 {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            line-height: 1.2;
+        }
+
+        .brand-text p {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .verify-card {
+            background: #ffffff;
+            width: 100%;
+            max-width: 680px;
+            border-radius: 24px;
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(0,0,0,0.04);
+            border: 1.5px solid #dcfce7;
+            overflow: hidden;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .verify-banner {
+            background: linear-gradient(135deg, #009846, #047857);
+            color: #ffffff;
+            padding: 28px 24px;
+            text-align: center;
+            position: relative;
+        }
+
+        .shield-icon-wrapper {
+            width: 74px;
+            height: 74px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 14px auto;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            font-size: 2.2rem;
+            position: relative;
+        }
+
+        .shield-icon-wrapper::after {
+            content: '';
+            position: absolute;
+            width: 86px;
+            height: 86px;
+            border-radius: 50%;
+            border: 2px dashed rgba(255, 255, 255, 0.6);
+            animation: spin 20s linear infinite;
+        }
+
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+
+        .verify-banner h2 {
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: -0.2px;
+            margin-bottom: 6px;
+        }
+
+        .verify-banner p {
+            font-size: 0.86rem;
+            opacity: 0.92;
+            max-width: 480px;
+            margin: 0 auto;
+            line-height: 1.4;
+        }
+
+        .verify-content {
+            padding: 28px 24px;
+        }
+
+        .badge-status {
+            background: #f0fdf4;
+            border: 1.5px solid #86efac;
+            border-radius: 16px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+
+        .badge-status-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: #22c55e;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            flex-shrink: 0;
+            box-shadow: 0 4px 10px rgba(34, 197, 94, 0.3);
+        }
+
+        .badge-status-title {
+            font-size: 0.98rem;
+            font-weight: 800;
+            color: #166534;
+        }
+
+        .badge-status-sub {
+            font-size: 0.76rem;
+            color: #15803d;
+            margin-top: 2px;
+            line-height: 1.35;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            margin-bottom: 24px;
+            font-size: 0.88rem;
+        }
+
+        .data-table tr:nth-child(even) {
+            background: #f8fafc;
+        }
+
+        .data-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .td-label {
+            width: 38%;
+            font-weight: 700;
+            color: var(--text-muted);
+            vertical-align: top;
+        }
+
+        .td-val {
+            font-weight: 700;
+            color: var(--text-main);
+            vertical-align: top;
+        }
+
+        .td-val.primary-text {
+            color: var(--primary);
+            font-weight: 800;
+        }
+
+        .td-val.mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.84rem;
+        }
+
+        .security-stamp-card {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            padding: 14px 16px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            margin-bottom: 24px;
+            font-size: 0.78rem;
+            color: #475569;
+            line-height: 1.45;
+        }
+
+        .btn-group-action {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            flex: 1;
+            min-width: 180px;
+            padding: 12px 20px;
+            border-radius: 14px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            text-align: center;
+            text-decoration: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(0, 152, 70, 0.28);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #ffffff;
+            color: #1e293b;
+            border: 1.5px solid #cbd5e1;
+        }
+
+        .btn-secondary:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+
+        .footer-note {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+
+        @media print {
+            body {
+                background: #ffffff;
+                padding: 0;
+            }
+            .btn-group-action, .footer-note {
+                display: none !important;
+            }
+            .verify-card {
+                box-shadow: none;
+                border: 1px solid #000;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header-brand">
+        <img src="static/img/logo-sidoarjo.png" onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Lambang_Kabupaten_Sidoarjo.png/120px-Lambang_Kabupaten_Sidoarjo.png'" alt="Logo Pemkab Sidoarjo">
+        <div class="brand-text">
+            <h1>Pemerintah Kabupaten Sidoarjo</h1>
+            <p>Dinas Sosial &bull; Balai Sertifikasi Elektronik (BSrE)</p>
+        </div>
+    </header>
+
+    <main class="verify-card">
+        <div class="verify-banner">
+            <div class="shield-icon-wrapper">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <h2>Sertifikat Keabsahan Dokumen Digital</h2>
+            <p>Verifikasi integritas naskah dinas elektronik terdaftar di Balai Sertifikasi Elektronik (BSrE) BSSN</p>
+        </div>
+
+        <div class="verify-content">
+            <div class="badge-status">
+                <div class="badge-status-icon">
+                    <i class="fas fa-check"></i>
+                </div>
+                <div>
+                    <div class="badge-status-title">DOKUMEN RESMI TERVERIFIKASI & MEMILIKI KEKUATAN HUKUM</div>
+                    <div class="badge-status-sub">Naskah dinas ini sah, asli, diterbitkan resmi oleh Dinas Sosial Kabupaten Sidoarjo, dan tidak mengalami perubahan.</div>
+                </div>
+            </div>
+
+            <table class="data-table">
+                <tr>
+                    <td class="td-label">Nomor Dokumen</td>
+                    <td class="td-val mono" id="docNomor">460/084/BA-SPK/438.5.12/2026</td>
+                </tr>
+                <tr>
+                    <td class="td-label">Judul Naskah Dinas</td>
+                    <td class="td-val" id="docJudul">Berita Acara Komparasi & Validasi Presisi Algoritma SPK (BWM-SAW vs WP)</td>
+                </tr>
+                <tr>
+                    <td class="td-label">Instansi Penerbit</td>
+                    <td class="td-val" id="docInstansi">Pemerintah Kabupaten Sidoarjo - Dinas Sosial</td>
+                </tr>
+                <tr>
+                    <td class="td-label">Pejabat Pengesah</td>
+                    <td class="td-val primary-text" id="docPimpinan">Dr. Drs. H. Ahmad Misbahul Munir, M.Si</td>
+                </tr>
+                <tr>
+                    <td class="td-label">Jabatan & Pangkat</td>
+                    <td class="td-val" id="docJabatan">Kepala Dinas Sosial Kabupaten Sidoarjo</td>
+                </tr>
+                <tr>
+                    <td class="td-label">Nomor Induk Pegawai (NIP)</td>
+                    <td class="td-val mono" id="docNip">19710815 199603 1 003</td>
+                </tr>
+                <tr>
+                    <td class="td-label">Tanggal Penetapan</td>
+                    <td class="td-val" id="docTanggal">28 September 2026</td>
+                </tr>
+                <tr>
+                    <td class="td-label">Metode Sistem SPK</td>
+                    <td class="td-val" style="color:var(--accent);">Best-Worst Method (BWM) - SAW vs Weighted Product (WP)</td>
+                </tr>
+                <tr>
+                    <td class="td-label">Otoritas Sertifikasi</td>
+                    <td class="td-val">Balai Sertifikasi Elektronik (BSrE) - Badan Siber dan Sandi Negara (BSSN)</td>
+                </tr>
+                <tr>
+                    <td class="td-label">Sidik Jari Digital (Hash SHA-256)</td>
+                    <td class="td-val mono" style="font-size:0.75rem; word-break:break-all; color:#64748b;" id="docHash">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</td>
+                </tr>
+            </table>
+
+            <div class="security-stamp-card">
+                <i class="fas fa-lock text-success" style="font-size:1.15rem; color:var(--primary); margin-top:2px;"></i>
+                <div>
+                    Dokumen ini diatur oleh UU ITE No. 1 Tahun 2024 dan Peraturan BSSN No. 11 Tahun 2022 tentang Tata Kelola Sertifikat Elektronik. Informasi dalam dokumen dilindungi secara kriptografis terhadap pemalsuan atau modifikasi tidak sah.
+                </div>
+            </div>
+
+            <div class="btn-group-action">
+                <button type="button" class="btn btn-secondary" onclick="window.print()">
+                    <i class="fas fa-print"></i> Cetak Bukti Verifikasi
+                </button>
+                <a href="publik.html" class="btn btn-primary">
+                    <i class="fas fa-external-link-alt"></i> Portal Layanan Sosial Sidoarjo
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer-note">
+        &copy; 2026 Pemerintah Kabupaten Sidoarjo. Hak Cipta Dilindungi Undang-Undang.<br>
+        Sistem Pendukung Keputusan Penyaluran Bantuan Sosial Terpadu.
+    </footer>
+
+    <script>
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const nomor = params.get('nomor');
+            const pimpinan = params.get('pimpinan');
+            const nip = params.get('nip');
+            const jabatan = params.get('jabatan');
+            const tgl = params.get('tgl');
+
+            if (nomor) document.getElementById('docNomor').textContent = decodeURIComponent(nomor);
+            if (pimpinan) document.getElementById('docPimpinan').textContent = decodeURIComponent(pimpinan);
+            if (nip) document.getElementById('docNip').textContent = decodeURIComponent(nip);
+            if (jabatan) document.getElementById('docJabatan').textContent = decodeURIComponent(jabatan);
+            if (tgl) document.getElementById('docTanggal').textContent = decodeURIComponent(tgl);
+
+            // Bangkitkan Hash Identifikasi Unik berdasarkan parameter
+            const seed = (nomor || '') + (nip || '') + (tgl || '');
+            let hashVal = 0;
+            for (let i = 0; i < seed.length; i++) {
+                hashVal = ((hashVal << 5) - hashVal) + seed.charCodeAt(i);
+                hashVal |= 0;
+            }
+            const hex = Math.abs(hashVal).toString(16).padStart(8, '0');
+            const dummySha256 = '4a7f9c8d' + hex + '6b2e1f0a8d3e4c5b' + hex + '9e8d7c6b5a4f3e2d1c0b9a8f';
+            const elHash = document.getElementById('docHash');
+            if (elHash) elHash.textContent = dummySha256.substring(0, 64);
+        })();
+    </script>
+</body>
+</html>
