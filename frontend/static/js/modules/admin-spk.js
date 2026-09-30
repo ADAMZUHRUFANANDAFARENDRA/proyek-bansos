@@ -624,7 +624,24 @@ window.bukaModalKomparasi = async function () {
     const tbody = document.querySelector('#tblKomparasi tbody');
     const printArea = document.getElementById('printKomparasiArea');
 
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.style.zIndex = '99999';
+
+        // Direct mousewheel / trackpad listener on modalKomparasi to guarantee inner scrolling
+        if (!modal._wheelListenerAttached) {
+            modal._wheelListenerAttached = true;
+            modal.addEventListener('wheel', function (e) {
+                const area = document.getElementById('printKomparasiArea');
+                if (area) {
+                    area.scrollTop += e.deltaY;
+                }
+            }, { passive: true });
+        }
+    }
+    if (printArea) {
+        printArea.scrollTop = 0;
+    }
     if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:35px; color:#64748b; font-weight:600;"><i class="fas fa-spinner fa-spin text-primary" style="margin-right:8px;"></i> Mengambil dan memvalidasi skor perbandingan SAW vs WP...</td></tr>';
 
     try {

@@ -1344,4 +1344,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('DOMContentLoaded', () => {
         setTimeout(initFormCoordMap, 400);
     });
+
+    window.addEventListener('resize', () => {
+        if (window.macroMap && typeof window.macroMap.invalidateSize === 'function') {
+            window.macroMap.invalidateSize();
+        }
+        if (formMapInstance && typeof formMapInstance.invalidateSize === 'function') {
+            formMapInstance.invalidateSize();
+        }
+    });
 })();

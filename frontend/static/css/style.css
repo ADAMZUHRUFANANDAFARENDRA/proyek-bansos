@@ -586,3 +586,368 @@ tbody tr:last-child td { border-bottom: none; }
     from { opacity: 0; transform: translateY(-4px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* =============================================================================
+   RESPONSIVE MULTI-DEVICE CORE ENGINE (SMARTPHONE, TABLET, LAPTOP, DESKTOP)
+   ============================================================================= */
+html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    box-sizing: border-box;
+}
+
+*, *::before, *::after {
+    box-sizing: inherit;
+    overflow-wrap: break-word;
+    word-break: normal;
+}
+
+body {
+    overflow-x: hidden;
+    width: 100%;
+    min-width: 320px;
+    position: relative;
+}
+
+img, svg, video, canvas {
+    max-width: 100%;
+    height: auto;
+}
+
+@media (max-width: 768px) {
+    input, select, textarea {
+        font-size: 16px !important;
+    }
+    
+    .btn, button, .tab-btn, .filter-btn {
+        min-height: 42px;
+        touch-action: manipulation;
+    }
+
+    .container {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    .card {
+        border-radius: 14px !important;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+    .container {
+        padding: 1.25rem 1.5rem !important;
+    }
+}
+
+@media (min-width: 1441px) {
+    .container, .nav-container {
+        max-width: 1440px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+
+/* =============================================================================
+   UNIVERSAL MODERN SWEETALERT LOADING SYSTEM & CANCELLATION BUTTON
+   ============================================================================= */
+.swal2-popup.swal2-loading,
+.swal2-popup.swal-modern-loading-card {
+    border-radius: 28px !important;
+    padding: 34px 30px 28px 30px !important;
+    background: #ffffff !important;
+    border: 1px solid rgba(226, 232, 240, 0.95) !important;
+    box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.95) !important;
+    max-width: 520px !important;
+    width: 94% !important;
+    text-align: center !important;
+}
+
+.swal2-popup.swal2-loading .swal2-title,
+.swal2-popup.swal-modern-loading-card .swal2-title {
+    color: #0f172a !important;
+    font-weight: 850 !important;
+    font-size: 1.28rem !important;
+    letter-spacing: -0.025em !important;
+    line-height: 1.35 !important;
+    margin-bottom: 6px !important;
+}
+
+/* HAPUS TOMBOL OKE / CONFIRM SAAT MEMUAT */
+.swal2-popup.swal2-loading .swal2-confirm,
+.swal2-popup.swal-modern-loading-card .swal2-confirm,
+.swal2-loading .swal2-confirm,
+.swal2-loading .swal-btn-pill-primary,
+.swal2-loading .swal-btn-pill-oke,
+.swal2-loading .swal-btn-pill-confirm,
+.swal-modern-loading-card .swal2-confirm {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* TOMBOL SILANG (X) */
+.swal2-popup .swal2-close {
+    width: 38px !important;
+    height: 38px !important;
+    line-height: 36px !important;
+    border-radius: 50% !important;
+    top: 14px !important;
+    right: 14px !important;
+    color: #64748b !important;
+    font-size: 20px !important;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-weight: 700 !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #e2e8f0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    outline: none !important;
+    cursor: pointer !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    z-index: 10 !important;
+}
+
+.swal2-popup .swal2-close:hover {
+    color: #ef4444 !important;
+    background: #fee2e2 !important;
+    border-color: #fca5a5 !important;
+    transform: rotate(90deg) scale(1.08) !important;
+}
+
+/* TOMBOL BATALKAN */
+.swal2-popup .swal2-cancel.swal-btn-pill-cancel,
+.swal2-popup.swal-modern-loading-card .swal2-cancel,
+.swal2-loading .swal2-cancel {
+    border-radius: 9999px !important;
+    padding: 10px 26px !important;
+    font-size: 0.9rem !important;
+    font-weight: 750 !important;
+    background: #ffffff !important;
+    color: #dc2626 !important;
+    border: 1.5px solid #fecaca !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.08) !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    outline: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    margin: 14px auto 2px auto !important;
+}
+
+.swal2-popup .swal2-cancel.swal-btn-pill-cancel:hover,
+.swal2-popup.swal-modern-loading-card .swal2-cancel:hover,
+.swal2-loading .swal2-cancel:hover {
+    background: #fef2f2 !important;
+    color: #b91c1c !important;
+    border-color: #f87171 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 16px rgba(220, 38, 38, 0.16) !important;
+}
+
+/* ANIMASI LOADING MODERN SINGLE */
+.modern-single-container {
+    padding: 6px 0 12px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.modern-single-loader {
+    position: relative;
+    width: 74px;
+    height: 74px;
+    margin: 12px auto 14px auto;
+}
+
+.modern-single-loader .loader-glow {
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 152, 70, 0.22) 0%, rgba(6, 182, 212, 0.14) 50%, transparent 75%);
+    animation: modernGlowPulse 2s ease-in-out infinite alternate;
+}
+
+.modern-single-loader .loader-track {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 3.5px solid #f1f5f9;
+}
+
+.modern-single-loader .loader-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 3.5px solid transparent;
+    border-top-color: #009846;
+    border-right-color: #06b6d4;
+    animation: modernRingSpin 0.95s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
+    filter: drop-shadow(0 0 6px rgba(0, 152, 70, 0.3));
+}
+
+.modern-single-loader .loader-ring-inner {
+    position: absolute;
+    inset: 9px;
+    border-radius: 50%;
+    border: 2px dashed #93c5fd;
+    animation: modernRingSpinReverse 2.2s linear infinite;
+}
+
+.modern-single-loader .loader-core {
+    position: absolute;
+    inset: 21px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #009846, #0284c7);
+    box-shadow: 0 0 14px rgba(0, 152, 70, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 13px;
+    animation: modernCorePulse 1.8s ease-in-out infinite alternate;
+}
+
+.modern-single-subtext {
+    font-size: 0.88rem;
+    color: #475569;
+    line-height: 1.5;
+    margin-top: 4px;
+    max-width: 400px;
+    text-align: center;
+}
+
+.modern-single-stage-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 10px;
+    padding: 4px 14px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #15803d;
+}
+
+/* ANIMASI LOADING MODERN BULK (PROGRESS DENGAN PERSENTASE) */
+.modern-bulk-container {
+    padding: 6px 0 10px 0;
+    width: 100%;
+}
+
+.modern-bulk-header-stat {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding: 0 4px;
+}
+
+.modern-bulk-percent-wrap {
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    font-family: 'JetBrains Mono', 'Inter', monospace;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.modern-bulk-percent-num {
+    font-size: 2.3rem;
+    line-height: 1;
+    color: #009846;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+}
+
+.modern-bulk-percent-sign {
+    font-size: 1.2rem;
+    color: #10b981;
+    font-weight: 700;
+}
+
+.modern-bulk-count-badge {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #334155;
+    background: #f1f5f9;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid #e2e8f0;
+    font-variant-numeric: tabular-nums;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.modern-bulk-track {
+    position: relative;
+    width: 100%;
+    height: 15px;
+    background: #f1f5f9;
+    border-radius: 9999px;
+    overflow: hidden;
+    border: 1px solid #cbd5e1;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.modern-bulk-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #009846 0%, #10b981 35%, #06b6d4 70%, #6366f1 100%);
+    background-size: 36px 36px;
+    background-image: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.25) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.25) 50%,
+        rgba(255, 255, 255, 0.25) 75%,
+        transparent 75%,
+        transparent
+    );
+    border-radius: 9999px;
+    transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: modernProgressBarStripes 1s linear infinite;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.45);
+}
+
+.modern-bulk-stage-pill {
+    margin-top: 14px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    font-size: 0.85rem;
+    color: #334155;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    text-align: left;
+}
+
+.modern-bulk-stage-pill i {
+    color: #009846;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.modern-bulk-cancel-note {
+    font-size: 0.76rem;
+    color: #94a3b8;
+    margin-top: 8px;
+    text-align: center;
+}

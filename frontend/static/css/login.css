@@ -56,8 +56,33 @@ body.page-login {
 .modal-card { background: var(--surface); padding: 40px; border-radius: var(--radius-xl); width: 100%; max-width: 450px; box-shadow: 0 30px 60px -12px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.8); }
 
 @media (max-width: 768px) {
-    .public-portal-link, .tutorial-link { padding: 10px 15px; font-size: 0.85rem; top: 15px; }
-    .public-portal-link { right: 15px; } .tutorial-link { left: 15px; }
-    .bps-circle-btn { bottom: 20px; right: 20px; width: 65px; height: 65px; }
-    .bps-circle-btn i { font-size: 1.3rem; }
+    body.page-login {
+        padding: 60px 12px 24px 12px;
+        align-items: flex-start;
+    }
+    .login-wrapper {
+        padding: 32px 20px;
+        max-width: 100%;
+        margin-top: 20px;
+    }
+    .public-portal-link, .tutorial-link {
+        padding: 8px 12px;
+        font-size: 0.78rem;
+        top: 12px;
+    }
+    .public-portal-link { right: 12px; }
+    .tutorial-link { left: 12px; }
+    .bps-circle-btn { bottom: 16px; right: 16px; width: 58px; height: 58px; }
+    .bps-circle-btn i { font-size: 1.2rem; }
+    .logo-box { width: 70px; height: 70px; font-size: 2rem; margin-bottom: 14px; }
+    .login-header h2 { font-size: 1.35rem; }
+}
+
+@media (max-width: 420px) {
+    .tutorial-link span, .public-portal-link span {
+        display: none;
+    }
+    .tutorial-link, .public-portal-link {
+        padding: 8px 10px;
+    }
 }

@@ -12,6 +12,8 @@
 const API_BASE_URL = (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
     ? window.CONFIG.BASE_URL : window.location.origin;
 window.API_BASE_URL = API_BASE_URL;
+window.BASE_URL = API_BASE_URL;
+window.BASE_API_URL = API_BASE_URL;
 
 // 2. HELPER TOKEN & DECODER JWT
 function isTokenExpired(token) {
@@ -368,7 +370,166 @@ function applyCustomRoundedDropdowns() {
 window.applyCustomRoundedDropdowns = applyCustomRoundedDropdowns;
 document.addEventListener('DOMContentLoaded', applyCustomRoundedDropdowns);
 
-// 7. EXPORT OBJECT LINTAS MODUL
+// 7. SISTEM ANIMASI LOADING MODERN & PEMBATALAN AKTIVITAS TERPADU
+window.showModernLoadingAlert = function (options = {}) {
+    if (typeof Swal === 'undefined') {
+        const fallbackCtrl = new AbortController();
+        return {
+            updateProgress: () => {},
+            setStage: () => {},
+            isCancelled: () => false,
+            abortController: fallbackCtrl,
+            abortSignal: fallbackCtrl.signal,
+            close: () => {}
+        };
+    }
+
+    const abortController = options.abortController || new AbortController();
+    let isCancelled = false;
+
+    // Deteksi otomatis jika operasi adalah bulk (data banyak) atau single (data sedikit)
+    let totalItems = options.totalItems || 0;
+    if (!totalItems && Array.isArray(options.data)) {
+        totalItems = options.data.length;
+    }
+    if (!totalItems) {
+        const textToSearch = `${options.title || ''} ${options.text || ''} ${options.subtitle || ''}`;
+        const match = textToSearch.match(/(\d+)\s+data/i);
+        if (match) {
+            totalItems = parseInt(match[1], 10);
+        }
+    }
+
+    const isBulk = options.isBulk !== undefined ? options.isBulk : (totalItems >= 15);
+    const subtitle = options.subtitle || options.text || '';
+    const initialStage = options.initialStage || (isBulk ? 'Menyiapkan antrean data...' : 'Menghubungkan ke peladen...');
+    const cancelLabel = options.cancelText || (isBulk ? 'Batalkan Proses' : 'Batalkan');
+
+    let htmlContent = '';
+    if (isBulk) {
+        htmlContent = `
+            <div class="modern-bulk-container" id="swalModernLoadingContent">
+                ${subtitle ? `<div style="font-size:0.88rem; color:#475569; margin-bottom:12px; line-height:1.45;">${safeHtml(subtitle)}</div>` : ''}
+                <div class="modern-bulk-header-stat">
+                    <div class="modern-bulk-percent-wrap">
+                        <span class="modern-bulk-percent-num" id="swalBulkPercent">0</span>
+                        <span class="modern-bulk-percent-sign">%</span>
+                    </div>
+                    <div class="modern-bulk-count-badge" id="swalBulkCountBadge">
+                        <i class="fas fa-list-check" style="color:#009846;"></i>
+                        <span id="swalBulkProcessed">0</span> / <span id="swalBulkTotal">${totalItems || '?'}</span> Data
+                    </div>
+                </div>
+                <div class="modern-bulk-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <div class="modern-bulk-fill" id="swalBulkFill" style="width: 0%;"></div>
+                </div>
+                <div class="modern-bulk-stage-pill" id="swalBulkStage">
+                    <i class="fas fa-circle-notch fa-spin"></i>
+                    <span id="swalBulkStageText">${safeHtml(initialStage)}</span>
+                </div>
+                <div class="modern-bulk-cancel-note">
+                    <i class="fas fa-info-circle mr-1"></i> Klik <b>Batalkan Proses</b> atau tombol <b>(X)</b> untuk menghentikan penginputan kapan saja.
+                </div>
+            </div>
+        `;
+    } else {
+        htmlContent = `
+            <div class="modern-single-container" id="swalModernLoadingContent">
+                <div class="modern-single-loader">
+                    <div class="loader-glow"></div>
+                    <div class="loader-track"></div>
+                    <div class="loader-ring"></div>
+                    <div class="loader-ring-inner"></div>
+                    <div class="loader-core">
+                        <i class="fas fa-sync-alt fa-spin"></i>
+                    </div>
+                </div>
+                ${subtitle ? `<div class="modern-single-subtext">${safeHtml(subtitle)}</div>` : ''}
+                <div class="modern-single-stage-pill" id="swalSingleStage">
+                    <i class="fas fa-shield-alt"></i>
+                    <span id="swalSingleStageText">${safeHtml(initialStage)}</span>
+                </div>
+                <div class="modern-bulk-cancel-note" style="margin-top:10px;">
+                    <i class="fas fa-info-circle mr-1"></i> Tekan <b>Batalkan</b> atau <b>(X)</b> jika ingin membatalkan aktivitas ini.
+                </div>
+            </div>
+        `;
+    }
+
+    const swalPromise = Swal.fire({
+        title: options.title || 'Sedang Memproses...',
+        html: htmlContent,
+        showConfirmButton: false, // MUTLAK HILANGKAN TOMBOL OKE!
+        showCancelButton: options.canCancel !== false,
+        cancelButtonText: `<i class="fas fa-times mr-1"></i> ${cancelLabel}`,
+        showCloseButton: options.canCancel !== false,
+        allowOutsideClick: false,
+        allowEscapeKey: options.canCancel !== false,
+        focusCancel: true,
+        customClass: {
+            popup: 'swal-modern-rounded swal-modern-loading-card',
+            cancelButton: 'swal-btn-pill-cancel',
+            closeButton: 'swal-close-btn'
+        },
+        didOpen: (popup) => {
+            const nativeLoader = popup.querySelector('.swal2-loader');
+            if (nativeLoader) nativeLoader.style.display = 'none';
+            if (typeof options.didOpen === 'function') {
+                try { options.didOpen(popup); } catch (e) {}
+            }
+        }
+    }).then((result) => {
+        if (result.dismiss === Swal.DismissReason.cancel || 
+            result.dismiss === Swal.DismissReason.close || 
+            result.dismiss === Swal.DismissReason.esc) {
+            isCancelled = true;
+            try { abortController.abort('Proses dibatalkan oleh pengguna'); } catch (e) {}
+            if (typeof options.onCancel === 'function') {
+                try { options.onCancel(); } catch (e) {}
+            }
+            if (options.showCancelNotice !== false) {
+                showToast('info', 'Aktivitas berhasil dibatalkan oleh pengguna.');
+            }
+        }
+        return result;
+    });
+
+    const handle = {
+        swalPromise,
+        updateProgress: (current, total, stageText) => {
+            const maxTot = total || totalItems || 1;
+            const pct = Math.min(100, Math.max(0, Math.round((current / maxTot) * 100)));
+            const pctEl = document.getElementById('swalBulkPercent');
+            const fillEl = document.getElementById('swalBulkFill');
+            const procEl = document.getElementById('swalBulkProcessed');
+            const totEl = document.getElementById('swalBulkTotal');
+            const stageEl = document.getElementById('swalBulkStageText') || document.getElementById('swalSingleStageText');
+            
+            if (pctEl) pctEl.innerText = String(pct);
+            if (fillEl) fillEl.style.width = `${pct}%`;
+            if (procEl) procEl.innerText = String(current);
+            if (totEl && total) totEl.innerText = String(total);
+            if (stageEl && stageText) stageEl.innerText = stageText;
+        },
+        setStage: (stageText) => {
+            const stageEl = document.getElementById('swalBulkStageText') || document.getElementById('swalSingleStageText');
+            if (stageEl && stageText) stageEl.innerText = stageText;
+        },
+        isCancelled: () => isCancelled,
+        abortController: abortController,
+        abortSignal: abortController.signal,
+        close: () => {
+            if (!isCancelled && Swal.isVisible()) {
+                Swal.close();
+            }
+        }
+    };
+
+    window._activeModernLoadingHandle = handle;
+    return handle;
+};
+
+// 8. EXPORT OBJECT LINTAS MODUL
 const Global = {
     formatRupiah,
     formatTanggal: formatDateIndo,
@@ -385,7 +546,8 @@ const Global = {
     isTokenExpired,
     openModal: window.openModal,
     closeModal: window.closeModal,
-    applyCustomRoundedDropdowns
+    applyCustomRoundedDropdowns,
+    showModernLoadingAlert: window.showModernLoadingAlert
 };
 
 window.Global = Global;

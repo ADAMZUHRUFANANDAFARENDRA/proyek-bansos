@@ -93,3 +93,100 @@
 
 .btn-help-tour { background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: #ffffff; border: 2px solid white; padding: 16px 36px; border-radius: 40px; font-weight: 800; font-size: 1.15rem; cursor: pointer; display: inline-flex; align-items: center; gap: 12px; box-shadow: 0 10px 25px rgba(245, 158, 11, 0.5); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .btn-help-tour:hover { transform: translateY(-5px) scale(1.03); box-shadow: 0 15px 35px rgba(245, 158, 11, 0.7); background: linear-gradient(135deg, var(--accent-dark), #b45309); }
+
+/* =============================================================================
+   RESPONSIVE MEDIA QUERIES PUBLIK PORTAL WARGA
+   ============================================================================= */
+@media (max-width: 768px) {
+    .hero-public {
+        padding: 4rem 1.25rem 6rem 1.25rem;
+    }
+    .hero-content h1 {
+        font-size: clamp(1.75rem, 6vw, 2.5rem);
+    }
+    .hero-content p {
+        font-size: 0.95rem;
+    }
+    .container-public {
+        margin: -50px auto 3rem auto;
+        padding: 0 12px;
+    }
+    .tabs {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        padding: 6px;
+    }
+    .tab-btn {
+        padding: 12px 6px;
+        font-size: 0.88rem;
+    }
+    .login-warga-box {
+        padding: 24px 16px;
+    }
+    .login-warga-box input {
+        font-size: 1.15rem;
+        padding: 14px;
+        letter-spacing: 1px;
+    }
+    .warga-captcha {
+        flex-direction: column;
+        gap: 12px;
+        padding: 18px 16px;
+        text-align: center;
+    }
+    .w-cap-input {
+        width: 100%;
+        max-width: 180px;
+    }
+    .stepper {
+        margin-top: 30px;
+    }
+    .step-circle {
+        width: 54px;
+        height: 54px;
+        font-size: 1.2rem;
+    }
+    .step-label {
+        font-size: 0.82rem;
+    }
+    .stepper::before {
+        top: 25px;
+    }
+    .guide-box {
+        flex-direction: column;
+        gap: 14px;
+        padding: 20px;
+    }
+    .guide-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.5rem;
+        border-radius: 14px;
+    }
+    .chat-fab {
+        width: 60px;
+        height: 60px;
+        font-size: 1.7rem;
+        bottom: 20px;
+        right: 20px;
+    }
+    .chat-window {
+        width: calc(100vw - 24px);
+        right: 12px;
+        bottom: 85px;
+        max-height: 75vh;
+    }
+    .admin-portal-link {
+        top: 14px;
+        right: 14px;
+        padding: 8px 16px;
+        font-size: 0.82rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .tabs {
+        grid-template-columns: 1fr;
+    }
+}

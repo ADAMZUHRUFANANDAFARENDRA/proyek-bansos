@@ -5,14 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "node -e \"console.log('Build succeeded')\"",
+    "build": "tsc",
     "start": "tsx server.ts",
-    "lint": "node --check server.ts"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "multer": "^2.4.0",
+    "mysql2": "^3.24.4",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
