@@ -1,13 +1,15 @@
 /**
  * Modul: admin-export.js
- * Deskripsi: Ekspor terpadu data warga (Excel XLSX kustom, PDF resmi, Microsoft Word)
+ * Deskripsi: Ekspor terpadu data arsip warga (Excel XLSX dinamis, PDF resmi, Microsoft Word)
+ * Fitur: Penyesuaian luas teks, kop dinas, tata letak, orientasi kertas, auto-fit tipografi,
+ *        dan seleksi dinamis seluruh variabel (10, 50, atau >50 variabel otomatis menyesuaikan).
  */
 
-// 17. EKSPOR TERPADU (EXCEL, PDF, WORD) SELURUH ARSIP DATA WARGA
-// =========================================================================
-window.activeExportTab = 'standar';
 window.currentExportFormat = 'excel';
+window.currentExportOrientation = 'landscape';
+window.activeExportCategory = 'all';
 
+// Pilihan Format Aktif (Excel, PDF, Word)
 window.pilihFormatEksporAktif = function (format) {
     window.currentExportFormat = format;
     const cards = {
@@ -16,10 +18,35 @@ window.pilihFormatEksporAktif = function (format) {
         'word': document.getElementById('cardChoiceExportWord')
     };
 
+    const statusBadge = document.getElementById('exportFormatBadgeStatus');
+
     Object.keys(cards).forEach(k => {
-        if (cards[k]) {
-            if (k === format) cards[k].classList.add('active');
-            else cards[k].classList.remove('active');
+        const el = cards[k];
+        if (el) {
+            if (k === format) {
+                el.classList.add('active');
+                if (k === 'excel') {
+                    el.style.borderColor = '#10b981';
+                    el.style.background = '#f0fdf4';
+                    el.style.boxShadow = '0 3px 10px rgba(16,185,129,0.2)';
+                    if (statusBadge) { statusBadge.className = 'badge badge-green'; statusBadge.innerText = 'Format Aktif: Excel (.xlsx)'; }
+                } else if (k === 'pdf') {
+                    el.style.borderColor = '#ef4444';
+                    el.style.background = '#fef2f2';
+                    el.style.boxShadow = '0 3px 10px rgba(239,68,68,0.2)';
+                    if (statusBadge) { statusBadge.className = 'badge badge-red'; statusBadge.innerText = 'Format Aktif: Dokumen PDF'; }
+                } else if (k === 'word') {
+                    el.style.borderColor = '#3b82f6';
+                    el.style.background = '#eff6ff';
+                    el.style.boxShadow = '0 3px 10px rgba(59,130,246,0.2)';
+                    if (statusBadge) { statusBadge.className = 'badge badge-blue'; statusBadge.innerText = 'Format Aktif: Word (.docx)'; }
+                }
+            } else {
+                el.classList.remove('active');
+                el.style.borderColor = '#e2e8f0';
+                el.style.background = '#ffffff';
+                el.style.boxShadow = 'none';
+            }
         }
     });
 
@@ -29,33 +56,45 @@ window.pilihFormatEksporAktif = function (format) {
 
     if (btn && icon && text) {
         if (format === 'excel') {
-            btn.style.background = '#059669';
-            btn.style.borderColor = '#059669';
-            btn.style.boxShadow = '0 4px 12px rgba(5,150,105,0.25)';
+            btn.style.background = '#009846';
+            btn.style.borderColor = '#009846';
+            btn.style.boxShadow = '0 4px 12px rgba(0,152,70,0.3)';
             icon.className = 'fas fa-file-excel';
             text.innerText = 'Unduh Berkas Excel (.xlsx)';
         } else if (format === 'pdf') {
             btn.style.background = '#dc2626';
             btn.style.borderColor = '#dc2626';
-            btn.style.boxShadow = '0 4px 12px rgba(220,38,38,0.25)';
+            btn.style.boxShadow = '0 4px 12px rgba(220,38,38,0.3)';
             icon.className = 'fas fa-file-pdf';
             text.innerText = 'Cetak / Unduh Dokumen PDF (.pdf)';
         } else if (format === 'word') {
             btn.style.background = '#2563eb';
             btn.style.borderColor = '#2563eb';
-            btn.style.boxShadow = '0 4px 12px rgba(37,99,235,0.25)';
+            btn.style.boxShadow = '0 4px 12px rgba(37,99,235,0.3)';
             icon.className = 'fas fa-file-word';
             text.innerText = 'Unduh Dokumen Word (.docx)';
         }
     }
+
+    if (document.getElementById('panelExportMainPreview')?.style.display !== 'none') {
+        window.updateLivePreview();
+    }
 };
 
+// Buka Modal Ekspor Data Warga
 window.bukaModalExportExcel = window.bukaModalExportArsip = function () {
     const dataList = window.globalDataWarga || [];
     const totalEl = document.getElementById('exportStandarTotalRows');
     if (totalEl) totalEl.innerText = `${dataList.length} Baris`;
 
-    window.switchExportTab('standar');
+    // Inisialisasi tanggal jika belum diisi
+    const tglInput = document.getElementById('exportTextTanggal');
+    if (tglInput && !tglInput.value) {
+        const now = new Date();
+        tglInput.value = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    window.switchExportMainTab('variabel');
     window.pilihFormatEksporAktif(window.currentExportFormat || 'excel');
     window.renderExportVariableCheckboxes();
 
@@ -66,87 +105,209 @@ window.bukaModalExportExcel = window.bukaModalExportArsip = function () {
     }
 };
 
-window.switchExportTab = function (mode) {
-    window.activeExportTab = mode;
-    const btnStandar = document.getElementById('tabExportStandarBtn');
-    const btnKustom = document.getElementById('tabExportKustomBtn');
-    const panelStandar = document.getElementById('panelExportStandar');
-    const panelKustom = document.getElementById('panelExportKustom');
+// Navigasi Antar Tab Pengaturan Ekspor Luas
+window.switchExportMainTab = function (tab) {
+    const panels = {
+        'variabel': document.getElementById('panelExportMainVariabel'),
+        'teks': document.getElementById('panelExportMainTeks'),
+        'layout': document.getElementById('panelExportMainLayout'),
+        'preview': document.getElementById('panelExportMainPreview')
+    };
+    const buttons = {
+        'variabel': document.getElementById('tabExportMainVariabelBtn'),
+        'teks': document.getElementById('tabExportMainTeksBtn'),
+        'layout': document.getElementById('tabExportMainLayoutBtn'),
+        'preview': document.getElementById('tabExportMainPreviewBtn')
+    };
 
-    if (mode === 'standar') {
-        if (btnStandar) { btnStandar.className = 'btn btn-sm btn-primary'; btnStandar.style.background = ''; btnStandar.style.color = ''; }
-        if (btnKustom) { btnKustom.className = 'btn btn-sm btn-secondary'; btnKustom.style.background = '#ffffff'; btnKustom.style.color = '#0f172a'; }
-        if (panelStandar) panelStandar.style.display = 'block';
-        if (panelKustom) panelKustom.style.display = 'none';
-    } else {
-        if (btnStandar) { btnStandar.className = 'btn btn-sm btn-secondary'; btnStandar.style.background = '#ffffff'; btnStandar.style.color = '#0f172a'; }
-        if (btnKustom) { btnKustom.className = 'btn btn-sm btn-primary'; btnKustom.style.background = '#059669'; btnKustom.style.borderColor = '#059669'; btnKustom.style.color = '#ffffff'; }
-        if (panelStandar) panelStandar.style.display = 'none';
-        if (panelKustom) panelKustom.style.display = 'block';
+    Object.keys(panels).forEach(k => {
+        if (panels[k]) panels[k].style.display = k === tab ? 'block' : 'none';
+        if (buttons[k]) {
+            if (k === tab) {
+                buttons[k].style.background = '#009846';
+                buttons[k].style.borderColor = '#009846';
+                buttons[k].style.color = '#ffffff';
+            } else {
+                buttons[k].style.background = '#f8fafc';
+                buttons[k].style.borderColor = '#cbd5e1';
+                buttons[k].style.color = '#475569';
+            }
+        }
+    });
+
+    if (tab === 'preview') {
+        window.updateLivePreview();
     }
-    window.updateExportSelectedCount();
 };
 
+// Pengaturan Orientasi Kertas (Landscape / Portrait)
+window.setExportOrientation = function (orient) {
+    window.currentExportOrientation = orient;
+    const cardLand = document.getElementById('cardOrientLandscape');
+    const cardPort = document.getElementById('cardOrientPortrait');
+
+    if (orient === 'landscape') {
+        if (cardLand) {
+            cardLand.style.border = '1.5px solid #009846';
+            cardLand.style.background = '#f0fdf4';
+            const r = cardLand.querySelector('input');
+            if (r) r.checked = true;
+        }
+        if (cardPort) {
+            cardPort.style.border = '1.5px solid #cbd5e1';
+            cardPort.style.background = '#ffffff';
+        }
+    } else {
+        if (cardPort) {
+            cardPort.style.border = '1.5px solid #009846';
+            cardPort.style.background = '#f0fdf4';
+            const r = cardPort.querySelector('input');
+            if (r) r.checked = true;
+        }
+        if (cardLand) {
+            cardLand.style.border = '1.5px solid #cbd5e1';
+            cardLand.style.background = '#ffffff';
+        }
+    }
+    window.updateLivePreview();
+};
+
+// Pindai Seluruh Variabel di Arsip (Otomatis: jika ada 10 maka 10, jika 50 maka 50, jika >50 maka >50)
 window.renderExportVariableCheckboxes = function () {
     const container = document.getElementById('exportVariableCheckboxesContainer');
     if (!container) return;
 
     const dataList = window.globalDataWarga || [];
-    const detectedKeys = new Set([
-        'nik', 'nama', 'tempat_lahir', 'tanggal_lahir', 'alamat', 'no_hp', 'email',
-        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10',
-        'desil', 'skor_saw', 'rank_saw', 'status_validasi', 'status_salur',
-        'nominal_bantuan', 'tanggal_salur', 'lat', 'lng', 'catatan'
-    ]);
+    
+    // Kamus Variabel Standar & Label Resmi
+    const labelMap = {
+        'nik': { label: 'Nomor NIK (KTP)', cat: 'identitas' },
+        'nama': { label: 'Nama Lengkap Warga', cat: 'identitas' },
+        'tempat_lahir': { label: 'Tempat Lahir', cat: 'identitas' },
+        'tanggal_lahir': { label: 'Tanggal Lahir', cat: 'identitas' },
+        'alamat': { label: 'Alamat Domisili Lengkap', cat: 'identitas' },
+        'no_hp': { label: 'No. WhatsApp / HP', cat: 'identitas' },
+        'email': { label: 'Alamat Email', cat: 'identitas' },
+        'lat': { label: 'Garis Lintang (Lat)', cat: 'identitas' },
+        'lng': { label: 'Garis Bujur (Lng)', cat: 'identitas' },
+        'c1': { label: 'C1 - Penghasilan (Ekonomi)', cat: 'kriteria' },
+        'c2': { label: 'C2 - Kondisi Rumah / Aset', cat: 'kriteria' },
+        'c3': { label: 'C3 - Usia Kepala Keluarga', cat: 'kriteria' },
+        'c4': { label: 'C4 - Jenis Kelamin', cat: 'kriteria' },
+        'c5': { label: 'C5 - Jumlah Tanggungan', cat: 'kriteria' },
+        'c6': { label: 'C6 - Status Pernikahan', cat: 'kriteria' },
+        'c7': { label: 'C7 - Kepemilikan Anak Sekolah', cat: 'kriteria' },
+        'c8': { label: 'C8 - Status Tempat Tinggal', cat: 'kriteria' },
+        'c9': { label: 'C9 - Tingkat Pendidikan Terakhir', cat: 'kriteria' },
+        'c10': { label: 'C10 - Riwayat Kesehatan', cat: 'kriteria' },
+        'desil': { label: 'Desil Kemiskinan', cat: 'status' },
+        'skor_saw': { label: 'Skor Akhir SPK SAW', cat: 'status' },
+        'rank_saw': { label: 'Peringkat Prioritas', cat: 'status' },
+        'status_validasi': { label: 'Status Validasi Dinas', cat: 'status' },
+        'status_salur': { label: 'Status Penyaluran Bansos', cat: 'status' },
+        'nominal_bantuan': { label: 'Jenis / Nominal Bansos', cat: 'status' },
+        'tanggal_salur': { label: 'Waktu Penyaluran', cat: 'status' },
+        'catatan': { label: 'Catatan Khusus Petugas', cat: 'status' }
+    };
 
-    // Pindai setiap variabel kustom tambahan yang ada di dataset warga aktif
+    const detectedKeys = new Map();
+
+    // 1. Masukkan seluruh variabel standar dasar
+    Object.keys(labelMap).forEach(k => {
+        detectedKeys.set(k, {
+            key: k,
+            label: labelMap[k].label,
+            category: labelMap[k].cat,
+            isCustom: false
+        });
+    });
+
+    // 2. Pindai seluruh variabel kustom tambahan / dinamis dari dataset aktif warga
     dataList.forEach(w => {
         Object.keys(w).forEach(k => {
-            if (!['id', 'is_verified', 'is_layak', 'created_at', 'bukti_salur'].includes(k) && !k.startsWith('_')) {
-                detectedKeys.add(k);
+            if (!['id', 'is_verified', 'is_layak', 'created_at', 'bukti_salur', 'keterangan_salur', 'konfirmasi_warga', 'waktu_konfirmasi_warga', 'extra_data', 'custom_fields'].includes(k) && !k.startsWith('_')) {
+                if (!detectedKeys.has(k)) {
+                    detectedKeys.set(k, {
+                        key: k,
+                        label: k.replace(/_/g, ' ').toUpperCase(),
+                        category: 'kustom',
+                        isCustom: true
+                    });
+                }
             }
         });
         if (w.extra_data && typeof w.extra_data === 'object') {
-            Object.keys(w.extra_data).forEach(ek => detectedKeys.add(ek));
+            Object.keys(w.extra_data).forEach(ek => {
+                if (!detectedKeys.has(ek)) {
+                    detectedKeys.set(ek, {
+                        key: ek,
+                        label: ek.replace(/_/g, ' ').toUpperCase(),
+                        category: 'kustom',
+                        isCustom: true
+                    });
+                }
+            });
         }
     });
 
-    const labelMap = {
-        'nik': 'Nomor NIK (KTP)',
-        'nama': 'Nama Lengkap Warga',
-        'tempat_lahir': 'Tempat Lahir',
-        'tanggal_lahir': 'Tanggal Lahir',
-        'alamat': 'Alamat Domisili Lengkap',
-        'no_hp': 'No. WhatsApp / HP',
-        'email': 'Alamat Email',
-        'c1': 'C1 - Penghasilan (Ekonomi)',
-        'c2': 'C2 - Kondisi Rumah / Aset',
-        'c3': 'C3 - Usia Kepala Keluarga',
-        'c4': 'C4 - Jenis Kelamin',
-        'c5': 'C5 - Jumlah Tanggungan',
-        'c6': 'C6 - Status Pernikahan',
-        'c7': 'C7 - Kepemilikan Anak Sekolah',
-        'c8': 'C8 - Status Tempat Tinggal',
-        'c9': 'C9 - Tingkat Pendidikan Terakhir',
-        'c10': 'C10 - Riwayat Kesehatan',
-        'desil': 'Desil Kemiskinan',
-        'skor_saw': 'Skor Akhir SPK SAW',
-        'rank_saw': 'Peringkat Prioritas',
-        'status_validasi': 'Status Validasi Dinas',
-        'status_salur': 'Status Penyaluran Bansos',
-        'nominal_bantuan': 'Jenis / Nominal Bansos',
-        'tanggal_salur': 'Waktu Penyaluran',
-        'lat': 'Garis Lintang (Lat)',
-        'lng': 'Garis Bujur (Lng)',
-        'catatan': 'Catatan Verifikator'
-    };
+    // 3. Masukkan juga header dari impor yang baru saja dimasukkan jika ada
+    if (Array.isArray(window.stagedUnifiedHeaders)) {
+        window.stagedUnifiedHeaders.forEach(h => {
+            if (!h) return;
+            const hClean = h.trim();
+            if (!detectedKeys.has(hClean)) {
+                detectedKeys.set(hClean, {
+                    key: hClean,
+                    label: hClean.replace(/_/g, ' ').toUpperCase(),
+                    category: 'kustom',
+                    isCustom: true
+                });
+            }
+        });
+    }
 
-    container.innerHTML = Array.from(detectedKeys).map(k => {
-        const prettyLabel = labelMap[k] || k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    // Perbarui badge jumlah total variabel terdeteksi
+    const countBadge = document.getElementById('exportDetectedTotalVars');
+    if (countBadge) {
+        countBadge.innerText = `${detectedKeys.size} Variabel Terdeteksi`;
+    }
+
+    // Render kartu checkbox untuk setiap variabel
+    const entries = Array.from(detectedKeys.values());
+    container.innerHTML = entries.map((item, idx) => {
+        let badgeColor = '#475569';
+        let badgeBg = '#f1f5f9';
+        if (item.category === 'identitas') { badgeBg = '#ecfdf5'; badgeColor = '#065f46'; }
+        else if (item.category === 'kriteria') { badgeBg = '#eff6ff'; badgeColor = '#1d4ed8'; }
+        else if (item.category === 'status') { badgeBg = '#fef3c7'; badgeColor = '#92400e'; }
+        else { badgeBg = '#faf5ff'; badgeColor = '#7c3aed'; }
+
+        // Cari contoh nilai dari data warga pertama yang memilikinya
+        let sampleVal = '';
+        for (const w of dataList) {
+            let v = w[item.key];
+            if (v === undefined && w.extra_data && w.extra_data[item.key] !== undefined) {
+                v = w.extra_data[item.key];
+            }
+            if (v !== undefined && v !== null && String(v).trim() !== '') {
+                sampleVal = String(v);
+                break;
+            }
+        }
+        if (sampleVal.length > 24) sampleVal = sampleVal.slice(0, 22) + '...';
+
         return `
-            <label class="export-var-pill" style="display:flex; align-items:center; gap:8px; padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; font-size:0.8rem; font-weight:600; cursor:pointer; user-select:none;">
-                <input type="checkbox" class="export-var-cb" value="${k}" checked onchange="window.updateExportSelectedCount()" style="width:16px; height:16px; accent-color:#059669;">
-                <span class="export-var-name" style="color:#1e293b;">${prettyLabel}</span>
+            <label class="export-var-pill" data-category="${item.category}" style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; font-size:0.8rem; cursor:pointer; user-select:none; transition:all 0.15s;">
+                <input type="checkbox" class="export-var-cb" value="${window.escapeInlineJS(item.key)}" checked onchange="window.updateExportSelectedCount()" style="width:16px; height:16px; accent-color:#009846; margin-top:2px;">
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:5px; margin-bottom:2px;">
+                        <span style="font-size:0.65rem; font-weight:800; background:${badgeBg}; color:${badgeColor}; padding:1px 6px; border-radius:4px; text-transform:uppercase;">${item.category}</span>
+                        <span class="export-var-name" style="font-weight:800; color:#1e293b; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${window.safeHtml(item.label)}</span>
+                    </div>
+                    <div style="font-size:0.7rem; color:#64748b; font-family:monospace;">
+                        ${sampleVal ? `Contoh: <span style="color:#0f172a;">${window.safeHtml(sampleVal)}</span>` : `key: ${window.safeHtml(item.key)}`}
+                    </div>
+                </div>
             </label>
         `;
     }).join('');
@@ -154,34 +315,211 @@ window.renderExportVariableCheckboxes = function () {
     window.updateExportSelectedCount();
 };
 
-window.toggleAllExportVars = function (checked) {
+// Preset Cepat Seleksi Variabel
+window.pilihPresetVariabelEkspor = function (preset) {
     const cbs = document.querySelectorAll('.export-var-cb');
-    cbs.forEach(cb => { cb.checked = Boolean(checked); });
+    const coreKeys = new Set(['nik', 'nama', 'alamat', 'c1', 'c2', 'c5', 'desil', 'skor_saw', 'status_validasi', 'nominal_bantuan']);
+
+    cbs.forEach(cb => {
+        const val = cb.value;
+        const pill = cb.closest('.export-var-pill');
+        const cat = pill ? pill.getAttribute('data-category') : '';
+
+        if (preset === 'semua') {
+            cb.checked = true;
+        } else if (preset === 'inti') {
+            cb.checked = coreKeys.has(val);
+        } else if (preset === 'kustom') {
+            cb.checked = (cat === 'kustom');
+        } else if (preset === 'kosong') {
+            cb.checked = false;
+        }
+    });
+
     window.updateExportSelectedCount();
 };
 
-window.filterExportVarCheckboxes = function (query) {
-    const q = String(query || '').toLowerCase().trim();
+// Filter Tampilan Checkbox Variabel Berdasarkan Kategori
+window.filterExportVarCategory = function (cat, btn) {
+    window.activeExportCategory = cat;
+    document.querySelectorAll('.btn-export-cat-filter').forEach(b => {
+        b.style.background = '#ffffff';
+        b.style.borderColor = '#cbd5e1';
+        b.style.color = '#475569';
+    });
+    if (btn) {
+        btn.style.background = '#009846';
+        btn.style.borderColor = '#009846';
+        btn.style.color = '#ffffff';
+    }
+
+    const query = String(document.getElementById('searchExportVarInput')?.value || '').toLowerCase().trim();
     const pills = document.querySelectorAll('.export-var-pill');
+
     pills.forEach(p => {
-        const text = p.innerText.toLowerCase();
-        p.style.display = (!q || text.includes(q)) ? 'flex' : 'none';
+        const pCat = p.getAttribute('data-category');
+        const pText = p.innerText.toLowerCase();
+        const matchesCat = (cat === 'all' || pCat === cat);
+        const matchesQuery = (!query || pText.includes(query));
+        p.style.display = (matchesCat && matchesQuery) ? 'flex' : 'none';
     });
 };
 
+// Filter Pencarian Teks Variabel
+window.filterExportVarCheckboxes = function (query) {
+    const q = String(query || '').toLowerCase().trim();
+    const cat = window.activeExportCategory || 'all';
+    const pills = document.querySelectorAll('.export-var-pill');
+
+    pills.forEach(p => {
+        const pCat = p.getAttribute('data-category');
+        const pText = p.innerText.toLowerCase();
+        const matchesCat = (cat === 'all' || pCat === cat);
+        const matchesQuery = (!q || pText.includes(q));
+        p.style.display = (matchesCat && matchesQuery) ? 'flex' : 'none';
+    });
+};
+
+// Perbarui Ringkasan Variabel & Baris Terpilih
 window.updateExportSelectedCount = function () {
-    const isStandar = window.activeExportTab === 'standar';
-    const countEl = document.getElementById('exportSelectedVarsCount');
-    if (isStandar) {
-        if (countEl) countEl.innerText = 'Seluruh';
-    } else {
-        const cbs = document.querySelectorAll('.export-var-cb:checked');
-        const totalCbs = document.querySelectorAll('.export-var-cb');
-        if (countEl) countEl.innerText = `${cbs.length} dari ${totalCbs.length}`;
+    const checkedCbs = document.querySelectorAll('.export-var-cb:checked');
+    const totalCbs = document.querySelectorAll('.export-var-cb');
+    const varsCountEl = document.getElementById('exportSelectedVarsCount');
+    const rowsCountEl = document.getElementById('exportSelectedRowsCount');
+    const previewMeta = document.getElementById('exportPreviewMetaTag');
+
+    const dataList = window.globalDataWarga || [];
+    const statusFilter = document.getElementById('exportFilterStatus')?.value || 'all';
+
+    let filteredRows = [...dataList];
+    if (statusFilter === 'layak') {
+        filteredRows = filteredRows.filter(w => (w.desil || 5) <= 4 || w.is_verified);
+    } else if (statusFilter === 'menerima') {
+        filteredRows = filteredRows.filter(w => w.status_salur === 'Telah Menerima');
+    } else if (statusFilter === 'menunggu') {
+        filteredRows = filteredRows.filter(w => !w.is_verified || w.status_validasi === 'Menunggu');
+    } else if (statusFilter === 'sengketa') {
+        filteredRows = filteredRows.filter(w => String(w.status_salur || '').toLowerCase().includes('sengketa'));
+    }
+
+    if (varsCountEl) varsCountEl.innerText = `${checkedCbs.length} dari ${totalCbs.length}`;
+    if (rowsCountEl) rowsCountEl.innerText = `${filteredRows.length}`;
+    if (previewMeta) previewMeta.innerText = `${checkedCbs.length} Kolom Terpilih &bull; ${filteredRows.length} Baris Warga`;
+
+    if (document.getElementById('panelExportMainPreview')?.style.display !== 'none') {
+        window.updateLivePreview();
     }
 };
 
-// Orchestrator utama pengeksporan berdasarkan format aktif (Excel, PDF, Word)
+// Render Pratinjau Dokumen Langsung (Live Preview)
+window.updateLivePreview = function () {
+    const container = document.getElementById('exportLivePreviewContainer');
+    if (!container) return;
+
+    const dataList = window.globalDataWarga || [];
+    const statusFilter = document.getElementById('exportFilterStatus')?.value || 'all';
+
+    let filtered = [...dataList];
+    if (statusFilter === 'layak') filtered = filtered.filter(w => (w.desil || 5) <= 4 || w.is_verified);
+    else if (statusFilter === 'menerima') filtered = filtered.filter(w => w.status_salur === 'Telah Menerima');
+    else if (statusFilter === 'menunggu') filtered = filtered.filter(w => !w.is_verified || w.status_validasi === 'Menunggu');
+    else if (statusFilter === 'sengketa') filtered = filtered.filter(w => String(w.status_salur || '').toLowerCase().includes('sengketa'));
+
+    const selectedKeys = Array.from(document.querySelectorAll('.export-var-cb:checked')).map(cb => cb.value);
+
+    const includeKop = document.getElementById('exportIncludeKop')?.checked !== false;
+    const instansi = document.getElementById('exportTextInstansi')?.value || 'PEMERINTAH KABUPATEN SIDOARJO';
+    const dinas = document.getElementById('exportTextDinas')?.value || 'DINAS SOSIAL';
+    const alamat = document.getElementById('exportTextAlamat')?.value || 'Jl. Pahlawan No. 56, Sidoarjo';
+    const judul = document.getElementById('exportTextJudul')?.value || 'LAPORAN REKAPITULASI ARSIP DATA WARGA';
+    const subjudul = document.getElementById('exportTextSubjudul')?.value || 'Tahun Anggaran 2026';
+    const noSurat = document.getElementById('exportTextNomorSurat')?.value || '460/094/DINSOS.SDA/2026';
+    const tgl = document.getElementById('exportTextTanggal')?.value || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    const kota = document.getElementById('exportTextKota')?.value || 'Sidoarjo';
+    const jabatan = document.getElementById('exportTextJabatan')?.value || 'Kepala Dinas Sosial';
+    const pejabat = document.getElementById('exportTextPejabat')?.value || 'Dr. Drs. H. Ahmad Misbahul Munir, M.Si';
+    const nip = document.getElementById('exportTextNip')?.value || '19710815 199603 1 003';
+
+    const paper = document.getElementById('exportLayoutPaper')?.value || 'A4';
+    const orientation = window.currentExportOrientation || 'landscape';
+    const borderStyle = document.getElementById('exportLayoutBorder')?.value || 'formal';
+    const watermark = document.getElementById('exportLayoutWatermark')?.checked !== false;
+
+    // Batasi sample pratinjau maksimal 8 baris agar cepat dan mulus
+    const sampleRows = filtered.slice(0, 8);
+
+    let borderCss = 'border: 1px solid #000;';
+    if (borderStyle === 'halus') borderCss = 'border: 1px solid #cbd5e1;';
+
+    const tableHeadersHtml = `
+        <tr style="background:#f1f5f9;">
+            <th style="padding:6px 8px; ${borderCss} text-align:center; font-size:9pt; width:35px;">No</th>
+            ${selectedKeys.map(k => `
+                <th style="padding:6px 8px; ${borderCss} text-align:left; font-size:9pt; white-space:nowrap;">
+                    ${window.safeHtml(k.replace(/_/g, ' ').toUpperCase())}
+                </th>
+            `).join('')}
+        </tr>
+    `;
+
+    const tableRowsHtml = sampleRows.map((w, idx) => `
+        <tr style="${borderStyle === 'striped' && idx % 2 === 1 ? 'background:#f8fafc;' : ''}">
+            <td style="padding:5px 8px; ${borderCss} text-align:center; font-size:8.5pt;">${idx + 1}</td>
+            ${selectedKeys.map(k => {
+                let v = w[k];
+                if (v === undefined && w.extra_data && w.extra_data[k] !== undefined) v = w.extra_data[k];
+                if (k === 'skor_saw' && typeof v === 'number') v = v.toFixed(4);
+                return `<td style="padding:5px 8px; ${borderCss} font-size:8.5pt;">${window.safeHtml(String(v !== undefined && v !== null ? v : '-'))}</td>`;
+            }).join('')}
+        </tr>
+    `).join('');
+
+    container.innerHTML = `
+        ${watermark ? `<div style="position:relative;">` : ''}
+        ${watermark ? `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:0.04; font-size:3.5rem; font-weight:900; transform:rotate(-25deg); pointer-events:none; user-select:none;">PEMKAB SIDOARJO</div>` : ''}
+        
+        ${includeKop ? `
+            <div style="text-align:center; border-bottom:3px double #000; padding-bottom:8px; margin-bottom:12px;">
+                <h3 style="margin:0; font-size:14pt; letter-spacing:0.5px; text-transform:uppercase;">${window.safeHtml(instansi)}</h3>
+                <h2 style="margin:2px 0; font-size:16pt; font-weight:900; letter-spacing:0.8px; text-transform:uppercase;">${window.safeHtml(dinas)}</h2>
+                <p style="margin:2px 0 0 0; font-size:8.5pt; color:#333;">${window.safeHtml(alamat)}</p>
+            </div>
+        ` : ''}
+
+        <div style="text-align:center; margin-bottom:12px;">
+            <h4 style="margin:0; font-size:12pt; text-decoration:underline; font-weight:800; text-transform:uppercase;">${window.safeHtml(judul)}</h4>
+            <p style="margin:3px 0 0 0; font-size:9pt; color:#475569;">${window.safeHtml(subjudul)}</p>
+            <p style="margin:2px 0 0 0; font-size:8pt; color:#64748b; font-family:monospace;">Nomor: ${window.safeHtml(noSurat)} &bull; Tanggal: ${window.safeHtml(tgl)} &bull; Kertas: ${paper} (${orientation})</p>
+        </div>
+
+        <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; margin-bottom:14px;">
+                <thead>${tableHeadersHtml}</thead>
+                <tbody>${tableRowsHtml}</tbody>
+            </table>
+        </div>
+
+        ${filtered.length > 8 ? `
+            <div style="text-align:center; font-size:8pt; color:#64748b; margin-bottom:14px; font-style:italic;">
+                ... dan ${filtered.length - 8} baris data warga lainnya akan diekspor secara utuh ke dalam berkas resmi.
+            </div>
+        ` : ''}
+
+        <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+            <div style="text-align:center; width:260px;">
+                <div style="font-size:9pt;">${window.safeHtml(kota)}, ${window.safeHtml(tgl)}</div>
+                <div style="font-size:9pt; font-weight:bold; margin-top:2px;">${window.safeHtml(jabatan)}</div>
+                <div style="height:45px;"></div>
+                <div style="font-size:9.5pt; font-weight:bold; text-decoration:underline;">${window.safeHtml(pejabat)}</div>
+                <div style="font-size:8pt; font-family:monospace; margin-top:2px;">NIP. ${window.safeHtml(nip)}</div>
+            </div>
+        </div>
+
+        ${watermark ? `</div>` : ''}
+    `;
+};
+
+// Eksekutor Utama Berdasarkan Format Terpilih
 window.eksekusiUnduhDokumenArsip = function () {
     const format = window.currentExportFormat || 'excel';
     if (format === 'pdf') {
@@ -193,7 +531,7 @@ window.eksekusiUnduhDokumenArsip = function () {
     }
 };
 
-// 1. EKSPOR EXCEL (.XLSX) - MENCAKUP SELURUH DATA ARSIP & SELURUH VARIABEL
+// 1. EKSPOR EXCEL (.XLSX) MENCAKUP SELURUH DATA & VARIABEL TERPILIH
 window.eksekusiUnduhExcelKustom = function () {
     const dataList = window.globalDataWarga || [];
     if (!dataList || dataList.length === 0) {
@@ -201,170 +539,83 @@ window.eksekusiUnduhExcelKustom = function () {
     }
 
     if (typeof XLSX === 'undefined') {
-        return showAdminAlert({ icon: 'error', title: 'Pustaka SheetJS Belum Siap', text: 'Mohon tunggu beberapa detik hingga pustaka Excel selesai dimuat.' });
+        return showAdminAlert({ icon: 'error', title: 'Pustaka Excel Belum Siap', text: 'Mohon tunggu beberapa detik hingga pustaka SheetJS selesai dimuat.' });
     }
 
-    const isStandar = window.activeExportTab === 'standar';
-    const statusFilter = isStandar
-        ? (document.getElementById('exportFilterStatusStandar')?.value || 'all')
-        : (document.getElementById('exportFilterStatusKustom')?.value || 'all');
+    const statusFilter = document.getElementById('exportFilterStatus')?.value || 'all';
 
-    // Terapkan filter baris
     let filtered = [...dataList];
-    if (statusFilter === 'layak') {
-        filtered = filtered.filter(w => (w.desil || 5) <= 4 || w.is_verified);
-    } else if (statusFilter === 'menerima') {
-        filtered = filtered.filter(w => w.status_salur === 'Telah Menerima');
-    } else if (statusFilter === 'menunggu') {
-        filtered = filtered.filter(w => !w.is_verified || w.status_validasi === 'Menunggu');
-    } else if (statusFilter === 'sengketa') {
-        filtered = filtered.filter(w => String(w.status_salur || '').toLowerCase().includes('sengketa'));
-    }
+    if (statusFilter === 'layak') filtered = filtered.filter(w => (w.desil || 5) <= 4 || w.is_verified);
+    else if (statusFilter === 'menerima') filtered = filtered.filter(w => w.status_salur === 'Telah Menerima');
+    else if (statusFilter === 'menunggu') filtered = filtered.filter(w => !w.is_verified || w.status_validasi === 'Menunggu');
+    else if (statusFilter === 'sengketa') filtered = filtered.filter(w => String(w.status_salur || '').toLowerCase().includes('sengketa'));
 
     if (filtered.length === 0) {
-        return showAdminAlert({ icon: 'info', title: 'Hasil Filter Kosong', text: 'Tidak ada data warga yang sesuai dengan kriteria filter status yang dipilih.' });
+        return showAdminAlert({ icon: 'info', title: 'Hasil Filter Kosong', text: 'Tidak ada data warga yang memenuhi kriteria filter status yang dipilih.' });
     }
 
-    // Ambil seluruh nama variabel yang ada di arsip
-    const allCustomKeys = new Set();
-    filtered.forEach(w => {
-        if (w.extra_data && typeof w.extra_data === 'object') {
-            Object.keys(w.extra_data).forEach(k => allCustomKeys.add(k));
-        }
-        Object.keys(w).forEach(k => {
-            if (!['id', 'is_verified', 'is_layak', 'created_at', 'bukti_salur', 'extra_data', 'custom_fields'].includes(k) && !k.startsWith('_')) {
-                allCustomKeys.add(k);
+    const selectedKeys = Array.from(document.querySelectorAll('.export-var-cb:checked')).map(cb => cb.value);
+    if (!selectedKeys.length) {
+        return showAdminAlert({ icon: 'warning', title: 'Pilih Minimal 1 Variabel', text: 'Silakan centang minimal satu kolom/variabel untuk diekspor ke Excel.' });
+    }
+
+    const rowsToExport = filtered.map((w, idx) => {
+        const row = { 'No': idx + 1 };
+        selectedKeys.forEach(k => {
+            const headerTitle = k.replace(/_/g, ' ').toUpperCase();
+            let val = w[k];
+            if (val === undefined && w.extra_data && w.extra_data[k] !== undefined) {
+                val = w.extra_data[k];
             }
+            if (k === 'nik') val = String(w.nik);
+            if (k === 'skor_saw' && typeof val === 'number') val = Number(val.toFixed(4));
+            row[headerTitle] = val !== undefined && val !== null ? val : '';
         });
+        return row;
     });
 
-    let rowsToExport = [];
-    if (isStandar) {
-        // Ekspor seluruh data arsip warga dengan SEMUA variabel (baik 20, 39, 50, atau 100 variabel!)
-        rowsToExport = filtered.map((w, idx) => {
-            const row = {
-                'No': idx + 1,
-                'Nomor NIK': String(w.nik),
-                'Nama Lengkap Warga': w.nama || '',
-                'Tempat Lahir': w.tempat_lahir || 'Sidoarjo',
-                'Tanggal Lahir': w.tanggal_lahir || '',
-                'Alamat Domisili Lengkap': w.alamat || '',
-                'No. WhatsApp / HP': w.no_hp || '',
-                'Email': w.email || '',
-                'C1 Ekonomi (Penghasilan)': w.c1 || 0,
-                'C2 Aset / Rumah': w.c2 || 0,
-                'C3 Usia KK': w.c3 || 0,
-                'C4 Jenis Kelamin': w.c4 || 1,
-                'C5 Tanggungan': w.c5 || 0,
-                'C6 Status Kawin': w.c6 || 1,
-                'C7 Anak Sekolah': w.c7 || 0,
-                'C8 Tempat Tinggal': w.c8 || 1,
-                'C9 Pendidikan': w.c9 || 1,
-                'C10 Kesehatan': w.c10 || 1,
-                'Desil Kemiskinan': w.desil || 5,
-                'Skor SPK SAW': typeof w.skor_saw === 'number' ? Number(w.skor_saw.toFixed(4)) : (w.skor_saw || 0),
-                'Peringkat Prioritas': w.rank_saw || idx + 1,
-                'Status Validasi': w.status_validasi || (w.is_verified ? 'Disetujui' : 'Menunggu'),
-                'Status Penyaluran': w.status_salur || 'Belum Salur',
-                'Bantuan Ditetapkan': w.nominal_bantuan || 'Beras 10 Kg / Rp 600.000',
-                'Waktu Penyaluran': w.tanggal_salur || '-',
-                'Garis Lintang': w.lat || '',
-                'Garis Bujur': w.lng || '',
-                'Catatan Khusus': w.catatan || ''
-            };
-
-            // Sertakan seluruh variabel tambahan / dinamis arsip
-            allCustomKeys.forEach(ck => {
-                const headerName = ck.replace(/_/g, ' ').toUpperCase();
-                if (!(headerName in row)) {
-                    let val = (w.extra_data && w.extra_data[ck] !== undefined) ? w.extra_data[ck] : w[ck];
-                    row[headerName] = val !== undefined && val !== null ? val : '';
-                }
-            });
-
-            return row;
-        });
-    } else {
-        const selectedCols = Array.from(document.querySelectorAll('.export-var-cb:checked')).map(cb => cb.value);
-        if (!selectedCols.length) {
-            return showAdminAlert({ icon: 'warning', title: 'Pilih Minimal 1 Kolom', text: 'Silakan centang minimal satu variabel untuk diekspor.' });
-        }
-
-        const labelMap = {
-            'nik': 'Nomor NIK',
-            'nama': 'Nama Lengkap',
-            'tempat_lahir': 'Tempat Lahir',
-            'tanggal_lahir': 'Tanggal Lahir',
-            'alamat': 'Alamat Domisili',
-            'no_hp': 'No. WhatsApp/HP',
-            'email': 'Email',
-            'c1': 'C1 Ekonomi',
-            'c2': 'C2 Aset',
-            'c3': 'C3 Usia KK',
-            'c4': 'C4 Jenis Kelamin',
-            'c5': 'C5 Tanggungan',
-            'c6': 'C6 Status Kawin',
-            'c7': 'C7 Anak Sekolah',
-            'c8': 'C8 Tempat Tinggal',
-            'c9': 'C9 Pendidikan',
-            'c10': 'C10 Kesehatan',
-            'desil': 'Desil Kemiskinan',
-            'skor_saw': 'Skor SAW',
-            'rank_saw': 'Peringkat',
-            'status_validasi': 'Status Validasi',
-            'status_salur': 'Status Penyaluran',
-            'nominal_bantuan': 'Jenis Bantuan',
-            'tanggal_salur': 'Waktu Salur',
-            'lat': 'Garis Lintang',
-            'lng': 'Garis Bujur',
-            'catatan': 'Catatan Petugas'
-        };
-
-        rowsToExport = filtered.map((w, idx) => {
-            const row = { 'No': idx + 1 };
-            selectedCols.forEach(col => {
-                const headerName = labelMap[col] || col.replace(/_/g, ' ').toUpperCase();
-                let val = w[col];
-                if (val === undefined && w.extra_data && w.extra_data[col] !== undefined) {
-                    val = w.extra_data[col];
-                }
-                if (col === 'nik') val = String(w.nik);
-                row[headerName] = val !== undefined && val !== null ? val : '';
-            });
-            return row;
-        });
-    }
-
     const worksheet = XLSX.utils.json_to_sheet(rowsToExport);
+
+    // Hitung lebar kolom otomatis agar rapi
+    const colWidths = [{ wch: 6 }];
+    selectedKeys.forEach(k => {
+        const headerTitle = k.replace(/_/g, ' ').toUpperCase();
+        let maxLen = headerTitle.length;
+        rowsToExport.slice(0, 50).forEach(r => {
+            const v = String(r[headerTitle] || '');
+            if (v.length > maxLen) maxLen = v.length;
+        });
+        colWidths.push({ wch: Math.min(45, Math.max(maxLen + 2, 10)) });
+    });
+    worksheet['!cols'] = colWidths;
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Arsip Warga Bansos");
 
     const tgl = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const fileName = `Arsip_Data_Warga_Sidoarjo_${isStandar ? 'Lengkap' : 'Kustom'}_${tgl}.xlsx`;
+    const fileName = `Arsip_Data_Warga_Sidoarjo_${selectedKeys.length}Var_${tgl}.xlsx`;
 
     XLSX.writeFile(workbook, fileName, { bookType: 'xlsx' });
     window.closeModal('modalExportExcel');
+
     showAdminAlert({
         toast: true,
         position: 'top-end',
         icon: 'success',
-        title: `Berhasil mengekspor ${rowsToExport.length} data arsip ke Excel!`,
+        title: `Berhasil mengekspor ${rowsToExport.length} data dengan ${selectedKeys.length} variabel ke Excel!`,
         showConfirmButton: false,
-        timer: 2200
+        timer: 2400
     });
 };
 
-// 2. EKSPOR DOKUMEN PDF RESMI (.PDF)
+// 2. EKSPOR DOKUMEN PDF RESMI DENGAN AUTO-FIT TIPOGRAFI & ORIENTASI
 window.eksekusiUnduhPdfArsip = function () {
     const dataList = window.globalDataWarga || [];
     if (!dataList || dataList.length === 0) {
         return showAdminAlert({ icon: 'warning', title: 'Data Kosong', text: 'Tidak ada data warga di dalam arsip untuk diekspor.' });
     }
 
-    const isStandar = window.activeExportTab === 'standar';
-    const statusFilter = isStandar
-        ? (document.getElementById('exportFilterStatusStandar')?.value || 'all')
-        : (document.getElementById('exportFilterStatusKustom')?.value || 'all');
+    const statusFilter = document.getElementById('exportFilterStatus')?.value || 'all';
 
     let filtered = [...dataList];
     if (statusFilter === 'layak') filtered = filtered.filter(w => (w.desil || 5) <= 4 || w.is_verified);
@@ -376,149 +627,172 @@ window.eksekusiUnduhPdfArsip = function () {
         return showAdminAlert({ icon: 'info', title: 'Data Tidak Ditemukan', text: 'Tidak ada baris data warga yang memenuhi kriteria filter.' });
     }
 
-    const now = new Date();
-    const tglResmi = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-    const noSurat = `460/${String(now.getMonth() + 1).padStart(3, '0')}/DINSOS.SDA/${now.getFullYear()}`;
-
-    const logoHtml = (typeof window.LOGO_SIDOARJO_BASE64 !== 'undefined' && window.LOGO_SIDOARJO_BASE64)
-        ? `<img src="${window.LOGO_SIDOARJO_BASE64}" style="width:75px; height:auto; margin-right:16px;">`
-        : `<div style="font-size:2.5rem; color:#009846; margin-right:16px;"><i class="fas fa-landmark"></i></div>`;
-
-    // Tentukan Kolom yang Diekspor (Standar vs Kustom Variabel Pilihan)
-    let columns = [];
-    if (isStandar) {
-        columns = [
-            { key: 'nik', title: 'Nomor NIK', width: '135px', align: 'left', format: (w) => `<b>${window.safeHtml(String(w.nik))}</b>` },
-            { key: 'nama', title: 'Nama Lengkap Warga', align: 'left', format: (w) => `<b>${window.safeHtml(w.nama || '')}</b>` },
-            { key: 'alamat', title: 'Alamat Domisili', align: 'left', format: (w) => window.safeHtml(w.alamat || 'Sidoarjo') },
-            { key: 'desil', title: 'Desil', width: '60px', align: 'center', format: (w) => `Desil ${w.desil || 5}` },
-            { key: 'skor_saw', title: 'Skor SAW', width: '75px', align: 'center', format: (w) => `<span style="color:#009846; font-weight:bold;">${typeof w.skor_saw === 'number' ? w.skor_saw.toFixed(4) : (w.skor_saw || '-')}</span>` },
-            { key: 'rank_saw', title: 'Rank', width: '50px', align: 'center', format: (w, idx) => `<b>${w.rank_saw || idx + 1}</b>` },
-            { key: 'status_validasi', title: 'Validasi', width: '90px', align: 'center', format: (w) => window.safeHtml(w.status_validasi || (w.is_verified ? 'Disetujui' : 'Menunggu')) },
-            { key: 'nominal_bantuan', title: 'Bantuan Ditetapkan', width: '135px', align: 'left', format: (w) => window.safeHtml(w.nominal_bantuan || 'Beras 10 Kg') }
-        ];
-    } else {
-        const selectedCols = Array.from(document.querySelectorAll('.export-var-cb:checked')).map(cb => cb.value);
-        if (!selectedCols.length) {
-            return showAdminAlert({ icon: 'warning', title: 'Pilih Kolom', text: 'Silakan centang minimal satu kolom untuk diekspor ke PDF.' });
-        }
-        const labelMap = {
-            'nik': 'Nomor NIK', 'nama': 'Nama Lengkap', 'tempat_lahir': 'Tempat Lahir', 'tanggal_lahir': 'Tgl Lahir',
-            'alamat': 'Alamat', 'no_hp': 'No. HP', 'email': 'Email', 'c1': 'C1 Ekonomi', 'c2': 'C2 Aset',
-            'c3': 'C3 Usia', 'c4': 'C4 JK', 'c5': 'C5 Tanggungan', 'c6': 'C6 Kawin', 'c7': 'C7 Sekolah',
-            'c8': 'C8 Rumah', 'c9': 'C9 Pddk', 'c10': 'C10 Sehat', 'desil': 'Desil', 'skor_saw': 'Skor SAW',
-            'rank_saw': 'Rank', 'status_validasi': 'Validasi', 'status_salur': 'Status Salur',
-            'nominal_bantuan': 'Bantuan', 'catatan': 'Catatan'
-        };
-        columns = selectedCols.map(c => ({
-            key: c,
-            title: labelMap[c] || c.replace(/_/g, ' ').toUpperCase(),
-            align: ['nik', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10', 'desil', 'skor_saw', 'rank_saw'].includes(c) ? 'center' : 'left',
-            format: (w) => {
-                let v = w[c];
-                if (v === undefined && w.extra_data && w.extra_data[c] !== undefined) v = w.extra_data[c];
-                if (c === 'skor_saw' && typeof v === 'number') return v.toFixed(4);
-                return window.safeHtml(String(v !== undefined && v !== null ? v : '-'));
-            }
-        }));
+    const selectedKeys = Array.from(document.querySelectorAll('.export-var-cb:checked')).map(cb => cb.value);
+    if (!selectedKeys.length) {
+        return showAdminAlert({ icon: 'warning', title: 'Pilih Kolom', text: 'Silakan centang minimal satu variabel untuk diekspor ke PDF.' });
     }
 
-    const tableHeadersHtml = `
-        <tr>
-            <th style="width: 32px; text-align: center; border: 1px solid #000; padding: 6px; background-color: #f1f5f9; font-size: 10px;">No</th>
-            ${columns.map(c => `<th style="${c.width ? `width:${c.width};` : ''} text-align:${c.align}; border: 1px solid #000; padding: 6px; background-color: #f1f5f9; font-size: 10px;">${window.safeHtml(c.title)}</th>`).join('')}
-        </tr>
-    `;
+    const includeKop = document.getElementById('exportIncludeKop')?.checked !== false;
+    const instansi = document.getElementById('exportTextInstansi')?.value || 'PEMERINTAH KABUPATEN SIDOARJO';
+    const dinas = document.getElementById('exportTextDinas')?.value || 'DINAS SOSIAL';
+    const alamat = document.getElementById('exportTextAlamat')?.value || 'Jl. Pahlawan No. 56, Sidoarjo - 61213';
+    const judul = document.getElementById('exportTextJudul')?.value || 'LAPORAN REKAPITULASI ARSIP DATA WARGA';
+    const subjudul = document.getElementById('exportTextSubjudul')?.value || 'Tahun Anggaran 2026';
+    const noSurat = document.getElementById('exportTextNomorSurat')?.value || '460/094/DINSOS.SDA/2026';
+    const tgl = document.getElementById('exportTextTanggal')?.value || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    const kota = document.getElementById('exportTextKota')?.value || 'Sidoarjo';
+    const jabatan = document.getElementById('exportTextJabatan')?.value || 'Kepala Dinas Sosial';
+    const pejabat = document.getElementById('exportTextPejabat')?.value || 'Dr. Drs. H. Ahmad Misbahul Munir, M.Si';
+    const nip = document.getElementById('exportTextNip')?.value || '19710815 199603 1 003';
 
-    const tableRowsHtml = filtered.map((w, idx) => `
-        <tr style="border-bottom: 1px solid #cbd5e1; ${idx % 2 === 1 ? 'background-color: #f8fafc;' : ''}">
-            <td style="padding: 5px 6px; text-align: center; font-size: 10px; border: 1px solid #94a3b8;">${idx + 1}</td>
-            ${columns.map(c => `<td style="padding: 5px 6px; text-align: ${c.align}; font-size: 10px; border: 1px solid #94a3b8;">${c.format(w, idx)}</td>`).join('')}
-        </tr>
-    `).join('');
+    const paper = document.getElementById('exportLayoutPaper')?.value || 'A4';
+    const orientation = window.currentExportOrientation || 'landscape';
+    const margin = document.getElementById('exportLayoutMargin')?.value || '8mm';
+    const borderStyle = document.getElementById('exportLayoutBorder')?.value || 'formal';
+    const watermark = document.getElementById('exportLayoutWatermark')?.checked !== false;
+
+    // Hitung ukuran font secara otomatis berdasarkan jumlah kolom agar muat rapi tanpa terpotong
+    let fontSize = document.getElementById('exportLayoutFontSize')?.value || 'auto';
+    if (fontSize === 'auto') {
+        const colCount = selectedKeys.length;
+        if (colCount > 35) fontSize = '6.5pt';
+        else if (colCount > 20) fontSize = '7.5pt';
+        else if (colCount > 12) fontSize = '8.5pt';
+        else if (colCount > 7) fontSize = '9.5pt';
+        else fontSize = '10.5pt';
+    } else {
+        fontSize = `${fontSize}pt`;
+    }
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
         return showAdminAlert({ icon: 'warning', title: 'Pop up Terblokir', text: 'Izinkan jendela pop up pada peramban untuk mencetak dokumen PDF resmi.' });
     }
 
+    const tableHeadersHtml = `
+        <tr>
+            <th style="width:28px; text-align:center; padding:5px 4px; background:#f1f5f9; border:1px solid #000; font-size:${fontSize};">No</th>
+            ${selectedKeys.map(k => `
+                <th style="padding:5px 6px; text-align:left; background:#f1f5f9; border:1px solid #000; font-size:${fontSize}; white-space:nowrap;">
+                    ${window.safeHtml(k.replace(/_/g, ' ').toUpperCase())}
+                </th>
+            `).join('')}
+        </tr>
+    `;
+
+    const tableRowsHtml = filtered.map((w, idx) => `
+        <tr style="${borderStyle === 'striped' && idx % 2 === 1 ? 'background:#f8fafc;' : ''}">
+            <td style="padding:4px 4px; text-align:center; border:1px solid ${borderStyle === 'halus' ? '#94a3b8' : '#000'}; font-size:${fontSize};">${idx + 1}</td>
+            ${selectedKeys.map(k => {
+                let v = w[k];
+                if (v === undefined && w.extra_data && w.extra_data[k] !== undefined) v = w.extra_data[k];
+                if (k === 'skor_saw' && typeof v === 'number') v = v.toFixed(4);
+                return `<td style="padding:4px 6px; border:1px solid ${borderStyle === 'halus' ? '#94a3b8' : '#000'}; font-size:${fontSize};">${window.safeHtml(String(v !== undefined && v !== null ? v : '-'))}</td>`;
+            }).join('')}
+        </tr>
+    `).join('');
+
     printWindow.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="utf-8">
             <title>Laporan Resmi Arsip Data Warga - Pemkab Sidoarjo</title>
             <style>
-                @page { size: A4 landscape; margin: 10mm 12mm; }
-                body { font-family: 'Times New Roman', serif; color: #000; margin: 0; padding: 12px; }
-                .kop-header { display: flex; align-items: center; justify-content: center; border-bottom: 3px double #000; padding-bottom: 8px; margin-bottom: 12px; }
-                .kop-text { text-align: center; }
-                .kop-text h2 { margin: 0; font-size: 16pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
-                .kop-text h3 { margin: 2px 0; font-size: 14pt; font-weight: bold; text-transform: uppercase; }
-                .kop-text p { margin: 2px 0 0 0; font-size: 9.5pt; font-family: Arial, sans-serif; }
-                .report-title { text-align: center; margin: 12px 0 8px 0; }
-                .report-title h4 { margin: 0; font-size: 12pt; text-decoration: underline; text-transform: uppercase; font-weight: bold; }
-                .report-title p { margin: 3px 0 0 0; font-size: 9.5pt; font-family: Arial, sans-serif; }
-                table.data-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-family: Arial, sans-serif; }
-                table.data-table th { font-weight: bold; }
-                .ttd-container { display: flex; justify-content: space-between; margin-top: 25px; page-break-inside: avoid; font-family: Arial, sans-serif; }
-                @media print {
-                    .no-print { display: none !important; }
-                    body { padding: 0; }
+                @page {
+                    size: ${paper} ${orientation};
+                    margin: ${margin};
                 }
+                body {
+                    font-family: 'Times New Roman', Times, serif;
+                    margin: 0;
+                    padding: 0;
+                    color: #000;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+                .kop-header {
+                    text-align: center;
+                    border-bottom: 3px double #000;
+                    padding-bottom: 8px;
+                    margin-bottom: 12px;
+                }
+                .doc-title {
+                    text-align: center;
+                    margin-bottom: 12px;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 16px;
+                }
+                th, td {
+                    word-break: break-word;
+                }
+                .ttd-box {
+                    float: right;
+                    width: 280px;
+                    text-align: center;
+                    page-break-inside: avoid;
+                }
+                ${watermark ? `
+                    .watermark {
+                        position: fixed;
+                        top: 40%;
+                        left: 10%;
+                        width: 80%;
+                        text-align: center;
+                        font-size: 55pt;
+                        font-weight: 900;
+                        color: rgba(0, 0, 0, 0.04);
+                        transform: rotate(-25deg);
+                        z-index: -1;
+                        pointer-events: none;
+                    }
+                ` : ''}
             </style>
         </head>
         <body>
-            <div class="no-print" style="background:#f1f5f9; padding:10px 16px; border-bottom:1px solid #cbd5e1; display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-radius:10px; font-family:Arial, sans-serif;">
-                <span style="font-weight:700; color:#334155; font-size:13px;"><i class="fas fa-file-pdf text-danger"></i> Pratinjau Dokumen PDF Resmi (${filtered.length} Data Warga &bull; ${columns.length} Kolom)</span>
-                <div>
-                    <button onclick="window.print()" style="background:#009846; color:#fff; border:none; padding:8px 20px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:13px;">
-                        Cetak / Simpan PDF
-                    </button>
-                    <button onclick="window.close()" style="background:#64748b; color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:13px; margin-left:8px;">
-                        Tutup
-                    </button>
+            ${watermark ? `<div class="watermark">PEMKAB SIDOARJO</div>` : ''}
+
+            ${includeKop ? `
+                <div class="kop-header">
+                    <h3 style="margin:0; font-size:13pt; text-transform:uppercase; letter-spacing:0.5px;">${window.safeHtml(instansi)}</h3>
+                    <h2 style="margin:2px 0; font-size:16pt; font-weight:bold; text-transform:uppercase; letter-spacing:0.8px;">${window.safeHtml(dinas)}</h2>
+                    <p style="margin:2px 0 0 0; font-size:9pt;">${window.safeHtml(alamat)}</p>
                 </div>
+            ` : ''}
+
+            <div class="doc-title">
+                <h4 style="margin:0; font-size:12pt; text-decoration:underline; font-weight:bold; text-transform:uppercase;">${window.safeHtml(judul)}</h4>
+                <p style="margin:3px 0 0 0; font-size:9.5pt;">${window.safeHtml(subjudul)}</p>
+                <p style="margin:2px 0 0 0; font-size:8.5pt;">Nomor: ${window.safeHtml(noSurat)} &bull; Tanggal: ${window.safeHtml(tgl)} &bull; Total: ${filtered.length} Data Warga (${selectedKeys.length} Variabel)</p>
             </div>
 
-            <div class="kop-header">
-                ${logoHtml}
-                <div class="kop-text">
-                    <h2>Pemerintah Kabupaten Sidoarjo</h2>
-                    <h3>Dinas Sosial</h3>
-                    <p>Jl. Pahlawan No. 56, Telp. (031) 8921855, Faks. (031) 8941162 Sidoarjo - 61213<br>Laman Resmi: dinsos.sidoarjokab.go.id | Pos-el: dinsos@sidoarjokab.go.id</p>
-                </div>
-            </div>
-
-            <div class="report-title">
-                <h4>Laporan Rekapitulasi Terpadu Arsip Data Warga</h4>
-                <p>Nomor Registrasi Dinas: <b>${noSurat}</b> &bull; Tanggal Ekstraksi: <b>${tglResmi}</b> &bull; Total: <b>${filtered.length} Warga</b></p>
-            </div>
-
-            <table class="data-table">
-                <thead>
-                    ${tableHeadersHtml}
-                </thead>
-                <tbody>
-                    ${tableRowsHtml}
-                </tbody>
+            <table>
+                <thead>${tableHeadersHtml}</thead>
+                <tbody>${tableRowsHtml}</tbody>
             </table>
 
-            <div class="ttd-container">
-                <div style="font-size: 9.5pt; color: #475569;">
-                    <p style="margin: 0; font-weight: bold;">Catatan Validasi Sistem:</p>
-                    <p style="margin: 2px 0 0 0;">1. Dokumen ini diekspor dari Basis Data Terpadu Pemkab Sidoarjo.</p>
-                    <p style="margin: 2px 0 0 0;">2. Keabsahan data terverifikasi sertifikasi elektronik BSrE BSSN.</p>
-                </div>
-                <div style="text-align: center; width: 260px; font-size: 10.5pt;">
-                    <p style="margin: 0;">Sidoarjo, ${tglResmi}</p>
-                    <p style="margin: 3px 0 50px 0; font-weight: bold;">Kepala Dinas Sosial Kabupaten Sidoarjo</p>
-                    <p style="margin: 0; font-weight: bold; text-decoration: underline;">Dr. Drs. H. Ahmad Misbahul Munir, M.Si</p>
-                    <p style="margin: 2px 0 0 0; font-size: 8.5pt;">Pembina Utama Muda &bull; NIP. 19710815 199603 1 003</p>
+            <div style="width:100%; overflow:hidden; margin-top:20px;">
+                <div class="ttd-box">
+                    <div style="font-size:9.5pt;">${window.safeHtml(kota)}, ${window.safeHtml(tgl)}</div>
+                    <div style="font-size:9.5pt; font-weight:bold; margin-top:2px;">${window.safeHtml(jabatan)}</div>
+                    <div style="height:55px;"></div>
+                    <div style="font-size:10pt; font-weight:bold; text-decoration:underline;">${window.safeHtml(pejabat)}</div>
+                    <div style="font-size:8.5pt; margin-top:2px;">NIP. ${window.safeHtml(nip)}</div>
                 </div>
             </div>
+
+            <script>
+                window.onload = function() {
+                    window.print();
+                };
+            </script>
         </body>
         </html>
     `);
+
     printWindow.document.close();
     window.closeModal('modalExportExcel');
 };
@@ -530,10 +804,7 @@ window.eksekusiUnduhWordArsip = function () {
         return showAdminAlert({ icon: 'warning', title: 'Data Kosong', text: 'Tidak ada data warga di dalam arsip untuk diekspor.' });
     }
 
-    const isStandar = window.activeExportTab === 'standar';
-    const statusFilter = isStandar
-        ? (document.getElementById('exportFilterStatusStandar')?.value || 'all')
-        : (document.getElementById('exportFilterStatusKustom')?.value || 'all');
+    const statusFilter = document.getElementById('exportFilterStatus')?.value || 'all';
 
     let filtered = [...dataList];
     if (statusFilter === 'layak') filtered = filtered.filter(w => (w.desil || 5) <= 4 || w.is_verified);
@@ -545,59 +816,45 @@ window.eksekusiUnduhWordArsip = function () {
         return showAdminAlert({ icon: 'info', title: 'Data Tidak Ditemukan', text: 'Tidak ada baris data warga yang memenuhi kriteria filter.' });
     }
 
-    const now = new Date();
-    const tglStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-    const noSurat = `460/${String(now.getMonth() + 1).padStart(3, '0')}/DINSOS.SDA/${now.getFullYear()}`;
-
-    // Tentukan Kolom yang Diekspor
-    let columns = [];
-    if (isStandar) {
-        columns = [
-            { key: 'nik', title: 'Nomor NIK', format: (w) => `<b>${window.safeHtml(String(w.nik))}</b>` },
-            { key: 'nama', title: 'Nama Lengkap Warga', format: (w) => `<b>${window.safeHtml(w.nama || '')}</b>` },
-            { key: 'alamat', title: 'Alamat Domisili', format: (w) => window.safeHtml(w.alamat || 'Sidoarjo') },
-            { key: 'desil', title: 'Desil', format: (w) => `Desil ${w.desil || 5}` },
-            { key: 'skor_saw', title: 'Skor SAW', format: (w) => `<span style="color:#009846; font-weight:bold;">${typeof w.skor_saw === 'number' ? w.skor_saw.toFixed(4) : (w.skor_saw || '-')}</span>` },
-            { key: 'rank_saw', title: 'Rank', format: (w, idx) => `<b>${w.rank_saw || idx + 1}</b>` },
-            { key: 'status_validasi', title: 'Validasi', format: (w) => window.safeHtml(w.status_validasi || (w.is_verified ? 'Disetujui' : 'Menunggu')) },
-            { key: 'nominal_bantuan', title: 'Bantuan Ditetapkan', format: (w) => window.safeHtml(w.nominal_bantuan || 'Beras 10 Kg') }
-        ];
-    } else {
-        const selectedCols = Array.from(document.querySelectorAll('.export-var-cb:checked')).map(cb => cb.value);
-        if (!selectedCols.length) {
-            return showAdminAlert({ icon: 'warning', title: 'Pilih Kolom', text: 'Silakan centang minimal satu kolom untuk diekspor ke Word.' });
-        }
-        const labelMap = {
-            'nik': 'Nomor NIK', 'nama': 'Nama Lengkap', 'tempat_lahir': 'Tempat Lahir', 'tanggal_lahir': 'Tgl Lahir',
-            'alamat': 'Alamat', 'no_hp': 'No. HP', 'email': 'Email', 'c1': 'C1 Ekonomi', 'c2': 'C2 Aset',
-            'c3': 'C3 Usia', 'c4': 'C4 JK', 'c5': 'C5 Tanggungan', 'c6': 'C6 Kawin', 'c7': 'C7 Sekolah',
-            'c8': 'C8 Rumah', 'c9': 'C9 Pddk', 'c10': 'C10 Sehat', 'desil': 'Desil', 'skor_saw': 'Skor SAW',
-            'rank_saw': 'Rank', 'status_validasi': 'Validasi', 'status_salur': 'Status Salur',
-            'nominal_bantuan': 'Bantuan', 'catatan': 'Catatan'
-        };
-        columns = selectedCols.map(c => ({
-            key: c,
-            title: labelMap[c] || c.replace(/_/g, ' ').toUpperCase(),
-            format: (w) => {
-                let v = w[c];
-                if (v === undefined && w.extra_data && w.extra_data[c] !== undefined) v = w.extra_data[c];
-                if (c === 'skor_saw' && typeof v === 'number') return v.toFixed(4);
-                return window.safeHtml(String(v !== undefined && v !== null ? v : '-'));
-            }
-        }));
+    const selectedKeys = Array.from(document.querySelectorAll('.export-var-cb:checked')).map(cb => cb.value);
+    if (!selectedKeys.length) {
+        return showAdminAlert({ icon: 'warning', title: 'Pilih Kolom', text: 'Silakan centang minimal satu kolom untuk diekspor ke Word.' });
     }
+
+    const includeKop = document.getElementById('exportIncludeKop')?.checked !== false;
+    const instansi = document.getElementById('exportTextInstansi')?.value || 'PEMERINTAH KABUPATEN SIDOARJO';
+    const dinas = document.getElementById('exportTextDinas')?.value || 'DINAS SOSIAL';
+    const alamat = document.getElementById('exportTextAlamat')?.value || 'Jl. Pahlawan No. 56, Sidoarjo - 61213';
+    const judul = document.getElementById('exportTextJudul')?.value || 'LAPORAN REKAPITULASI ARSIP DATA WARGA';
+    const subjudul = document.getElementById('exportTextSubjudul')?.value || 'Tahun Anggaran 2026';
+    const noSurat = document.getElementById('exportTextNomorSurat')?.value || '460/094/DINSOS.SDA/2026';
+    const tgl = document.getElementById('exportTextTanggal')?.value || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    const kota = document.getElementById('exportTextKota')?.value || 'Sidoarjo';
+    const jabatan = document.getElementById('exportTextJabatan')?.value || 'Kepala Dinas Sosial';
+    const pejabat = document.getElementById('exportTextPejabat')?.value || 'Dr. Drs. H. Ahmad Misbahul Munir, M.Si';
+    const nip = document.getElementById('exportTextNip')?.value || '19710815 199603 1 003';
+    const orientation = window.currentExportOrientation || 'landscape';
 
     const tableHeaders = `
         <tr>
-            <th style="width:30px; background:#009846; color:#ffffff; border:1px solid #000; padding:6px; font-size:10pt;">No</th>
-            ${columns.map(c => `<th style="background:#009846; color:#ffffff; border:1px solid #000; padding:6px; font-size:10pt;">${window.safeHtml(c.title)}</th>`).join('')}
+            <th style="width:30px; background:#009846; color:#ffffff; border:1px solid #000; padding:6px; font-size:9.5pt;">No</th>
+            ${selectedKeys.map(k => `
+                <th style="background:#009846; color:#ffffff; border:1px solid #000; padding:6px; font-size:9.5pt;">
+                    ${window.safeHtml(k.replace(/_/g, ' ').toUpperCase())}
+                </th>
+            `).join('')}
         </tr>
     `;
 
     const tableRows = filtered.map((w, idx) => `
         <tr style="background:${idx % 2 === 1 ? '#f8fafc' : '#ffffff'};">
-            <td style="border:1px solid #94a3b8; padding:6px; text-align:center; font-size:10pt;">${idx + 1}</td>
-            ${columns.map(c => `<td style="border:1px solid #94a3b8; padding:6px; font-size:10pt;">${c.format(w, idx)}</td>`).join('')}
+            <td style="border:1px solid #94a3b8; padding:5px; text-align:center; font-size:9.5pt;">${idx + 1}</td>
+            ${selectedKeys.map(k => {
+                let v = w[k];
+                if (v === undefined && w.extra_data && w.extra_data[k] !== undefined) v = w.extra_data[k];
+                if (k === 'skor_saw' && typeof v === 'number') v = v.toFixed(4);
+                return `<td style="border:1px solid #94a3b8; padding:5px; font-size:9.5pt;">${window.safeHtml(String(v !== undefined && v !== null ? v : '-'))}</td>`;
+            }).join('')}
         </tr>
     `).join('');
 
@@ -605,44 +862,56 @@ window.eksekusiUnduhWordArsip = function () {
         <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
         <head>
             <meta charset='utf-8'>
-            <title>Laporan Arsip Data Warga Pemkab Sidoarjo</title>
+            <title>${window.safeHtml(judul)}</title>
             <style>
-                body { font-family: Arial, sans-serif; font-size: 11pt; }
+                @page Section1 {
+                    size: 841.9pt 595.3pt;
+                    mso-page-orientation: ${orientation};
+                    margin: 1.5cm 1.5cm 1.5cm 1.5cm;
+                    mso-header-margin: 36.0pt;
+                    mso-footer-margin: 36.0pt;
+                }
+                div.Section1 { page: Section1; }
+                body { font-family: Arial, sans-serif; font-size: 10.5pt; }
                 table { border-collapse: collapse; width: 100%; }
-                th { background-color: #009846; color: #ffffff; border: 1px solid #000; padding: 8px; font-size: 10pt; }
-                td { border: 1px solid #94a3b8; padding: 6px; font-size: 10pt; }
+                th { background-color: #009846; color: #ffffff; border: 1px solid #000; padding: 6px; font-size: 9.5pt; }
+                td { border: 1px solid #94a3b8; padding: 5px; font-size: 9.5pt; }
             </style>
         </head>
         <body>
-            <div style="text-align:center; border-bottom:3px double #000; padding-bottom:10px; margin-bottom:15px;">
-                <h2 style="margin:0; font-size:16pt; text-transform:uppercase;">Pemerintah Kabupaten Sidoarjo</h2>
-                <h3 style="margin:2px 0; font-size:14pt; text-transform:uppercase;">Dinas Sosial</h3>
-                <p style="margin:2px 0 0 0; font-size:9pt;">Jl. Pahlawan No. 56, Sidoarjo - 61213 &bull; Telp. (031) 8921855 &bull; dinsos.sidoarjokab.go.id</p>
+            <div class="Section1">
+                ${includeKop ? `
+                    <div style="text-align:center; border-bottom:3px double #000; padding-bottom:10px; margin-bottom:14px;">
+                        <h3 style="margin:0; font-size:14pt; text-transform:uppercase;">${window.safeHtml(instansi)}</h3>
+                        <h2 style="margin:2px 0; font-size:16pt; text-transform:uppercase;">${window.safeHtml(dinas)}</h2>
+                        <p style="margin:2px 0 0 0; font-size:9pt;">${window.safeHtml(alamat)}</p>
+                    </div>
+                ` : ''}
+
+                <div style="text-align:center; margin-bottom:14px;">
+                    <h4 style="margin:0; font-size:13pt; text-decoration:underline; text-transform:uppercase;">${window.safeHtml(judul)}</h4>
+                    <p style="margin:3px 0 0 0; font-size:10pt;">${window.safeHtml(subjudul)}</p>
+                    <p style="margin:2px 0 0 0; font-size:9pt;">Nomor: ${window.safeHtml(noSurat)} &bull; Tanggal: ${window.safeHtml(tgl)} &bull; Total: ${filtered.length} Warga Terdaftar &bull; ${selectedKeys.length} Variabel</p>
+                </div>
+
+                <table>
+                    <thead>${tableHeaders}</thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+
+                <br><br>
+                <table style="border:none; width:100%;">
+                    <tr style="border:none;">
+                        <td style="border:none; width:60%;"></td>
+                        <td style="border:none; width:40%; text-align:center;">
+                            <p style="margin:0; font-size:10pt;">${window.safeHtml(kota)}, ${window.safeHtml(tgl)}</p>
+                            <p style="margin:3px 0 50px 0; font-weight:bold; font-size:10pt;">${window.safeHtml(jabatan)}</p>
+                            <p style="margin:0; font-weight:bold; text-decoration:underline; font-size:10.5pt;">${window.safeHtml(pejabat)}</p>
+                            <p style="margin:2px 0 0 0; font-size:8.5pt;">NIP. ${window.safeHtml(nip)}</p>
+                        </td>
+                    </tr>
+                </table>
             </div>
-            <div style="text-align:center; margin-bottom:15px;">
-                <h4 style="margin:0; font-size:13pt; text-decoration:underline; text-transform:uppercase;">Rekapitulasi Lengkap Arsip Data Warga</h4>
-                <p style="margin:4px 0 0 0; font-size:10pt;">Nomor: ${noSurat} &bull; Tanggal: ${tglStr} &bull; Total: ${filtered.length} Warga Terdaftar &bull; ${columns.length} Variabel</p>
-            </div>
-            <table>
-                <thead>
-                    ${tableHeaders}
-                </thead>
-                <tbody>
-                    ${tableRows}
-                </tbody>
-            </table>
-            <br><br>
-            <table style="border:none; width:100%;">
-                <tr style="border:none;">
-                    <td style="border:none; width:60%;"></td>
-                    <td style="border:none; width:40%; text-align:center;">
-                        <p style="margin:0;">Sidoarjo, ${tglStr}</p>
-                        <p style="margin:4px 0 60px 0; font-weight:bold;">Kepala Dinas Sosial Kabupaten Sidoarjo</p>
-                        <p style="margin:0; font-weight:bold; text-decoration:underline;">Dr. Drs. H. Ahmad Misbahul Munir, M.Si</p>
-                        <p style="margin:2px 0 0 0; font-size:9pt;">NIP. 19710815 199603 1 003</p>
-                    </td>
-                </tr>
-            </table>
         </body>
         </html>
     `;
@@ -651,7 +920,7 @@ window.eksekusiUnduhWordArsip = function () {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Arsip_Data_Warga_Sidoarjo_Resmi_${now.toISOString().slice(0, 10)}.doc`;
+    a.download = `Arsip_Data_Warga_Sidoarjo_Resmi_${new Date().toISOString().slice(0, 10)}.doc`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -662,10 +931,8 @@ window.eksekusiUnduhWordArsip = function () {
         toast: true,
         position: 'top-end',
         icon: 'success',
-        title: `Berhasil mengekspor ${filtered.length} data arsip ke dokumen Word!`,
+        title: `Berhasil mengekspor ${filtered.length} data warga ke dokumen Word!`,
         showConfirmButton: false,
-        timer: 2200
+        timer: 2400
     });
 };
-
-// =========================================================================

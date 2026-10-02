@@ -1022,16 +1022,65 @@
                         </div>
                     </div>
 
+                    <!-- BANNER IDENTITAS PETUGAS / ADMIN YANG MERESPON -->
+                    <div id="wargaOfficerActiveBanner" style="display:flex; padding:6px 18px; background:linear-gradient(135deg, #eff6ff, #dbeafe); border-bottom:1px solid #bfdbfe; font-size:0.78rem; color:#1e40af; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-user-shield" style="color:#2563eb;"></i>
+                            <span>Respon Resmi: <b id="wargaOfficerNameBadge">🛡️ Admin 1 / Petugas Dinsos</b></span>
+                        </div>
+                        <span style="background:#2563eb; color:white; border-radius:12px; padding:1px 8px; font-size:0.68rem; font-weight:800;">SIAP MELAYANI</span>
+                    </div>
+
                     <div id="wargaChatMessages" style="flex:1; padding:16px; overflow-y:auto; background:#f8fafc; display:flex; flex-direction:column; gap:10px;"></div>
+
+                    <!-- BILAH PERTANYAAN CEPAT WARGA -->
+                    <div style="display:flex; gap:6px; overflow-x:auto; padding:8px 14px; background:#f8fafc; border-top:1px solid #e2e8f0; white-space:nowrap; scrollbar-width:thin;">
+                        <span style="font-size:0.72rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-right:2px; display:inline-flex; align-items:center; gap:4px;"><i class="fas fa-question-circle text-primary"></i> Pertanyaan Cepat:</span>
+                        <button type="button" class="chat-template-chip" onclick="window.tanyaCepatWarga('jadwal')">❓ Jadwal Pencairan Bansos</button>
+                        <button type="button" class="chat-template-chip" onclick="window.tanyaCepatWarga('berkas')">📋 Syarat Berkas KTP & KK</button>
+                        <button type="button" class="chat-template-chip" onclick="window.tanyaCepatWarga('nominal')">💰 Alokasi Dana Rp 600.000,-</button>
+                        <button type="button" class="chat-template-chip" onclick="window.tanyaCepatWarga('lokasi')">📍 Alamat Kantor Dinsos Sidoarjo</button>
+                    </div>
+
+                    <!-- BILAH PRATINJAU BALASAN PESAN WARGA -->
+                    <div id="replyPreviewContainerWarga" style="display:none; align-items:center; justify-content:space-between; padding:6px 14px; background:#f1f5f9; border-top:2px solid #009846; font-size:0.78rem; color:#334155;">
+                        <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                            <i class="fas fa-reply text-success"></i>
+                            <div style="overflow:hidden;">
+                                <b>Membalas <span id="replyPreviewSenderWarga">Petugas</span>:</b>
+                                <span id="replyPreviewTextWarga" style="color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-left:4px;">...</span>
+                            </div>
+                        </div>
+                        <button type="button" onclick="window.batalReplyWarga()" style="background:none; border:none; color:#64748b; cursor:pointer;"><i class="fas fa-times"></i></button>
+                    </div>
+
+                    <!-- BILAH PRATINJAU LAMPIRAN BERKAS WARGA -->
+                    <div id="attachmentPreviewContainerWarga" style="display:none; align-items:center; gap:8px; padding:6px 14px; background:#ecfdf5; border-top:1px solid #a7f3d0; font-size:0.78rem; color:#065f46;">
+                        <i class="fas fa-paperclip text-success"></i>
+                        <span id="attachmentFileNameWarga" style="flex:1; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">berkas.pdf</span>
+                        <button type="button" onclick="window.batalLampiranWarga()" style="background:none; border:none; color:#065f46; cursor:pointer;"><i class="fas fa-times"></i></button>
+                    </div>
 
                     <!-- BILAH INPUT WARGA TERPADU -->
                     <div style="padding: 12px 16px; border-top: 1px solid #e2e8f0; background:white; display:flex; align-items:center; gap:8px; position:relative;">
-                        <button type="button" onclick="window.toggleEmojiPickerWarga(event)" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer;"><i class="fas fa-smile"></i></button>
+                        <button type="button" onclick="window.toggleEmojiPickerWarga(event)" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer;"><i class="far fa-smile"></i></button>
                         
-                        <input type="file" id="wargaChatFile" style="display:none;" accept="image/*,video/*,.pdf" onchange="window.handleWargaFileSelected(this)">
-                        <button type="button" onclick="document.getElementById('wargaChatFile').click()" style="background:none; border:none; font-size:1.1rem; color:#64748b; cursor:pointer;"><i class="fas fa-paperclip"></i></button>
+                        <!-- EMOJI PICKER POPOVER WARGA -->
+                        <div id="emojiPickerWarga" class="emoji-picker-container" style="bottom:65px; left:12px;" onclick="event.stopPropagation()">
+                            <div style="padding-bottom:6px; margin-bottom:6px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-size:0.72rem; font-weight:800; color:#64748b; text-transform:uppercase;">Pilih Emoji</span>
+                                <button type="button" onclick="document.getElementById('emojiPickerWarga').style.display='none'" style="background:none; border:none; color:#94a3b8; cursor:pointer;"><i class="fas fa-times"></i></button>
+                            </div>
+                            <div class="emoji-grid-cells" id="emojiGridListWarga"></div>
+                        </div>
 
-                        <input type="text" id="wargaChatInput" placeholder="Ketik pesan koordinasi..." class="chat-pill-input" onkeypress="if(event.key==='Enter') window.sendWargaChat()">
+                        <input type="file" id="wargaChatFile" style="display:none;" accept="image/*,video/*,.pdf,.doc,.docx" onchange="window.handleWargaFileSelected(this)">
+                        <button type="button" onclick="document.getElementById('wargaChatFile').click()" style="background:none; border:none; font-size:1.15rem; color:#64748b; cursor:pointer;" title="Lampirkan Dokumen / Foto"><i class="fas fa-paperclip"></i></button>
+
+                        <!-- TOMBOL BAGIKAN LOKASI GEOTAGGING ARSIP RESMI -->
+                        <button type="button" onclick="window.kirimLokasiGeotagWarga()" style="background:none; border:none; font-size:1.15rem; color:#dc2626; cursor:pointer;" title="Bagikan Titik Lokasi Geotagging Resmi Arsip Anda"><i class="fas fa-map-marker-alt"></i></button>
+
+                        <input type="text" id="wargaChatInput" placeholder="Ketik pesan koordinasi untuk petugas... (Enter)" class="chat-pill-input" onkeypress="if(event.key==='Enter') window.sendWargaChat()">
 
                         <!-- CONTROLLER VOICE RECORD WARGA -->
                         <div id="wargaRecordingUI" style="display:none; flex:1; align-items:center; gap:10px; background:#fff1f2; border:1px solid #fecdd3; padding:4px 14px; border-radius:25px;">
@@ -1040,8 +1089,8 @@
                             <button type="button" onclick="window.cancelVoiceRecordWarga()" style="background:none; border:none; color:#e11d48; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
                         </div>
 
-                        <button type="button" id="btnRecordWarga" onclick="window.toggleVoiceRecordWarga()" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer;"><i class="fas fa-microphone"></i></button>
-                        <button type="button" id="btnSendWarga" onclick="window.sendWargaChat()" style="background:#009846; color:white; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;"><i class="fas fa-paper-plane"></i></button>
+                        <button type="button" id="btnRecordWarga" onclick="window.toggleVoiceRecordWarga()" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer;" title="Rekam Pesan Suara"><i class="fas fa-microphone"></i></button>
+                        <button type="button" id="btnSendWarga" onclick="window.sendWargaChat()" style="background:linear-gradient(135deg, #009846, #047857); color:white; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(0,152,70,0.25);" title="Kirim Pesan"><i class="fas fa-paper-plane" style="font-size:0.9rem;"></i></button>
                     </div>
                 </div>
             </div>
@@ -1138,6 +1187,9 @@
                         <!-- File Input Lengkap (Foto, Video, Audio, Dokumen, PPT, PPTX, XLS, XLSX) -->
                         <input type="file" id="aduanChatFile" style="display:none;" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.zip" onchange="window.handleAduanFileSelected(this)">
                         <button type="button" onclick="document.getElementById('aduanChatFile').click()" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer;" title="Kirim Berkas / Foto / Video / PPT / Excel"><i class="fas fa-paperclip"></i></button>
+
+                        <!-- TOMBOL BAGIKAN LOKASI GEOTAGGING -->
+                        <button type="button" onclick="window.kirimLokasiGeotagWarga()" style="background:none; border:none; font-size:1.2rem; color:#dc2626; cursor:pointer;" title="Bagikan Titik Lokasi Geotagging Resmi Anda"><i class="fas fa-map-marker-alt"></i></button>
 
                         <input type="text" id="aduanChatInput" placeholder="Ketik pesan atau tanggapan..." class="chat-pill-input" onkeypress="if(event.key==='Enter') window.kirimPesanAduan()">
 
@@ -1248,14 +1300,35 @@
                 <video id="wargaLocalVideo" autoplay muted playsinline style="position:absolute; bottom:10px; right:10px; width:80px; height:110px; border-radius:10px; border:2px solid #009846; object-fit:cover;"></video>
             </div>
             <div id="wargaAudioCallArea" style="width:100%; height:180px; display:flex; justify-content:center; align-items:center; background:#0f172a;">
-                <div style="width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg, #009846, #059669); color:white; font-size:2.4rem; display:flex; justify-content:center; align-items:center;">
+                <div style="width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg, #009846, #059669); color:white; font-size:2.4rem; display:flex; justify-content:center; align-items:center; box-shadow:0 0 20px rgba(0,152,70,0.4);">
                     <i class="fas fa-headset"></i>
                 </div>
             </div>
-            <div style="padding:16px; background:#1e293b; display:flex; justify-content:center; gap:14px;">
-                <button type="button" id="wargaBtnMute" onclick="window.toggleMuteCallWarga()" class="ctrl-btn" style="width:48px; height:48px; border-radius:50%; background:#334155; color:white; border:none; cursor:pointer;"><i class="fas fa-microphone"></i></button>
-                <button type="button" onclick="window.endCallWarga()" class="ctrl-btn btn-end" style="width:48px; height:48px; border-radius:50%; background:#ef4444; color:white; border:none; cursor:pointer;"><i class="fas fa-phone-slash"></i></button>
+
+            <!-- DOCK REAKSI EMOJI DALAM PANGGILAN WARGA -->
+            <div style="padding:0 16px 10px 16px; background:#1e293b; display:flex; flex-direction:column; align-items:center;">
+                <div style="font-size:0.68rem; color:#94a3b8; font-weight:700; margin-bottom:4px; text-transform:uppercase;">Kirim Reaksi ke Petugas:</div>
+                <div class="call-emoji-dock" style="margin-top:0;">
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('👍')" title="Jempol">👍</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('❤️')" title="Hati">❤️</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('😂')" title="Tertawa">😂</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('😮')" title="Kaget">😮</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('🙏')" title="Terima Kasih">🙏</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('🔥')" title="Semangat">🔥</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('👏')" title="Tepuk Tangan">👏</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('🚨')" title="Darurat">🚨</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('✅')" title="Setuju">✅</button>
+                </div>
             </div>
+
+            <div style="padding:14px; background:#0f172a; display:flex; justify-content:center; gap:14px; border-top:1px solid rgba(255,255,255,0.06);">
+                <button type="button" id="wargaBtnMute" onclick="window.toggleMuteCallWarga()" class="ctrl-btn" style="width:48px; height:48px; border-radius:50%; background:#334155; color:white; border:none; cursor:pointer;" title="Mikrofon"><i class="fas fa-microphone"></i></button>
+                <button type="button" id="wargaBtnVideo" onclick="window.toggleVideoCallWarga()" class="ctrl-btn" style="width:48px; height:48px; border-radius:50%; background:#334155; color:white; border:none; cursor:pointer;" title="Kamera Video"><i class="fas fa-video"></i></button>
+                <button type="button" onclick="window.endCallWarga()" class="ctrl-btn btn-end" style="width:48px; height:48px; border-radius:50%; background:#ef4444; color:white; border:none; cursor:pointer;" title="Tutup Panggilan"><i class="fas fa-phone-slash"></i></button>
+            </div>
+
+            <!-- LAYER ANIMASI FLOATING EMOJI WARGA -->
+            <div id="wargaCallReactionAnimationArea" style="position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:1000000;"></div>
         </div>
     </div>
 

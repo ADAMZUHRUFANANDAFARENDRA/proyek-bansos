@@ -5,13 +5,22 @@
 
 // 9. CHAT MULTIMEDIA (TITIK TIGA POJOK KIRI/KANAN, EMOJI FLOAT, LAPORAN MEMBULAT)
 // =========================================================================
+document.addEventListener('click', function (e) {
+    if (!e.target.closest('.aduan-dropdown-menu') && !e.target.closest('.btn-msg-dots')) {
+        document.querySelectorAll('.aduan-dropdown-menu').forEach(m => m.style.display = 'none');
+    }
+    if (!e.target.closest('.emoji-picker-container') && !e.target.closest('[onclick*="toggleEmojiPicker"]')) {
+        const picker = document.getElementById('emojiPickerWarga');
+        if (picker) picker.style.display = 'none';
+    }
+});
+
 window.toggleAduanMsgMenu = function (id, event) {
     if (event && event.stopPropagation) event.stopPropagation();
-    document.querySelectorAll('[id^="aduan-menu-"]').forEach(m => {
-        if (m.id !== `aduan-menu-${id}`) m.style.display = 'none';
-    });
     const menu = document.getElementById(`aduan-menu-${id}`);
-    if (menu) menu.style.display = (menu.style.display === 'none' || menu.style.display === '') ? 'flex' : 'none';
+    const isShown = menu && (menu.style.display === 'flex' || menu.style.display === 'block');
+    document.querySelectorAll('.aduan-dropdown-menu').forEach(m => m.style.display = 'none');
+    if (!isShown && menu) menu.style.display = 'flex';
 };
 
 window.setReplyAduan = function (id, sender, text) {
@@ -59,6 +68,7 @@ window.reactToMessageAduan = async function (msgId) {
 };
 
 window.submitReactionAduan = async function (msgId, emoji) {
+    document.querySelectorAll('[id^="aduan-menu-"], .aduan-dropdown-menu').forEach(m => m.style.display = 'none');
     Swal?.close();
     try {
         await fetch(`${API_URL}/api/chat/react/${msgId}`, {
@@ -189,26 +199,177 @@ window.laporPesanAdmin = async function (msgId) {
             const pelaporNik = wargaNik || sesiAduanAktif?.nik || '-';
             const pelaporNama = wargaNama || sesiAduanAktif?.nama || 'Warga';
 
-            await fetch(`${API_URL}/api/publik/pengaduan`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    nik: pelaporNik,
-                    nama_pelapor: pelaporNama,
-                    kategori: 'Pelanggaran Komunikasi Chat Petugas',
-                    isi_laporan: `[LAPORAN PESAN ID #${msgId}] Alasan: ${alasan}. Dilaporkan oleh warga ${pelaporNama} (NIK: ${pelaporNik}).`
+            // Kirim ke antrean pengaduan dan antrean moderasi pelanggaran chat
+            await Promise.allSettled([
+                fetch(`${API_URL}/api/publik/pengaduan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nik: pelaporNik,
+                        nama_pelapor: pelaporNama,
+                        kategori: 'Pelanggaran Komunikasi Chat Petugas',
+                        isi_laporan: `[LAPORAN PESAN ID #${msgId}] Alasan: ${alasan}. Dilaporkan oleh warga ${pelaporNama} (NIK: ${pelaporNik}).`
+                    })
+                }),
+                fetch(`${API_URL}/api/chat/lapor-pesan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        msg_id: parseInt(msgId, 10) || 0,
+                        nik: pelaporNik,
+                        nama_terlapor: 'Petugas Dinsos',
+                        sender_terlapor: 'petugas',
+                        pesan: `Pesan ID #${msgId}`,
+                        alasan: alasan,
+                        kategori: alasan.includes('Kasar') ? 'Kata-kata Kasar / Pelecehan' : (alasan.includes('Pungli') ? 'Pungutan Liar (Pungli)' : 'Pelanggaran Kode Etik Petugas'),
+                        deskripsi: `Laporan warga ${pelaporNama}: ${alasan}`,
+                        pelapor_role: 'warga',
+                        pelapor_nama: pelaporNama,
+                        pelapor_nik: pelaporNik
+                    })
                 })
-            });
+            ]);
 
             showPortalAlert({
                 icon: 'success',
                 title: 'Laporan Diterima',
-                text: 'Laporan Anda telah diteruskan ke meja Pengawas Utama Dinas Sosial Sidoarjo untuk ditindaklanjuti.',
+                text: 'Laporan Anda telah diteruskan ke Pusat Pengawasan & Moderasi Dinas Sosial Sidoarjo untuk ditindaklanjuti secara resmi.',
                 customClass: { popup: 'swal-rounded-popup', confirmButton: 'swal-btn-pill' }
             });
         } catch (e) {
             showPortalAlert({ icon: 'error', title: 'Gagal', text: 'Terjadi gangguan saat mengirim laporan.' });
         }
+    }
+};
+
+window.formatGeotagCardHtml = function (rawText) {
+    try {
+        const jsonStr = rawText.replace('[GEOTAG_LOKASI]', '').trim();
+        const loc = JSON.parse(jsonStr);
+        const latVal = Number(loc.lat) || -7.4478;
+        const lngVal = Number(loc.lng) || 112.7183;
+        return `
+            <div class="chat-geotag-card">
+                <div class="chat-geotag-header">
+                    <i class="fas fa-map-marked-alt" style="font-size:1.1rem; color:#009846;"></i>
+                    <span>Lokasi Arsip Kependudukan</span>
+                </div>
+                <div class="chat-geotag-badge">
+                    <i class="fas fa-check-circle"></i> Terverifikasi Geotag Dinsos
+                </div>
+                <div style="font-size:0.82rem; font-weight:800; color:#0f172a; margin-bottom:2px;">
+                    ${safeHtml(loc.nama || 'Warga Terdaftar')}
+                </div>
+                <div style="font-size:0.7rem; color:#64748b; font-family:monospace; margin-bottom:4px;">
+                    NIK: ${safeHtml(loc.nik || '-')}
+                </div>
+                <div style="font-size:0.75rem; color:#334155; line-height:1.4; margin-bottom:6px;">
+                    <i class="fas fa-map-marker-alt text-danger"></i> ${safeHtml(loc.alamat || 'Kabupaten Sidoarjo, Jawa Timur')}
+                </div>
+                <div class="chat-geotag-coord">
+                    📍 Lat: ${latVal.toFixed(4)}, Lng: ${lngVal.toFixed(4)}
+                </div>
+                <div class="chat-geotag-actions">
+                    <a href="${loc.maps_url || `https://www.google.com/maps?q=${latVal},${lngVal}`}" target="_blank" class="btn-geotag-map">
+                        <i class="fas fa-external-link-alt"></i> Peta Maps
+                    </a>
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${latVal},${lngVal}" target="_blank" class="btn-geotag-rute">
+                        <i class="fas fa-route"></i> Rute Penyalur
+                    </a>
+                </div>
+            </div>
+        `;
+    } catch (e) {
+        return `<div style="font-size:0.85rem; line-height:1.4;">📍 ${safeHtml(rawText)}</div>`;
+    }
+};
+
+window.kirimLokasiGeotagWarga = async function () {
+    const nik = wargaNik || sesiAduanAktif?.nik;
+    const nama = wargaNama || sesiAduanAktif?.nama || 'Warga';
+
+    if (!nik) {
+        showPortalAlert({ icon: 'warning', title: 'Perhatian', text: 'Silakan verifikasi NIK Anda terlebih dahulu sebelum membagikan lokasi.' });
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/api/chat/geotag/${nik}`);
+        const json = await res.json();
+        if (!json || json.status !== 'success' || !json.data) {
+            showPortalAlert({ icon: 'info', title: 'Data Belum Tersedia', text: 'Data arsip geotagging belum ditemukan untuk NIK ini.' });
+            return;
+        }
+
+        const geo = json.data;
+        const lat = Number(geo.lat) || -7.4478;
+        const lng = Number(geo.lng) || 112.7183;
+
+        const { isConfirmed } = await Swal.fire({
+            title: '<i class="fas fa-map-marked-alt text-success"></i> Bagikan Lokasi Arsip Terdaftar',
+            html: `
+                <div style="text-align:left; font-size:0.86rem; color:#334155;">
+                    <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:12px 14px; margin-bottom:12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <span style="font-weight:800; color:#15803d; font-size:0.92rem;">${safeHtml(geo.nama)}</span>
+                            <span style="background:#dcfce7; color:#15803d; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:12px;">
+                                <i class="fas fa-check-circle"></i> Terverifikasi
+                            </span>
+                        </div>
+                        <div style="font-size:0.75rem; color:#64748b; font-family:monospace; margin-bottom:4px;">NIK: ${geo.nik}</div>
+                        <div style="font-size:0.8rem; color:#334155; margin-bottom:8px;">
+                            <i class="fas fa-home text-success"></i> ${safeHtml(geo.alamat)}
+                        </div>
+                        <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:6px 10px; font-family:monospace; font-size:0.76rem; color:#009846; font-weight:700;">
+                            📍 Koordinat: Latitude ${lat.toFixed(5)}, Longitude ${lng.toFixed(5)}
+                        </div>
+                    </div>
+                    <p style="margin:0; font-size:0.8rem; color:#64748b;">
+                        Titik lokasi rumah resmi Anda dari arsip Dinsos akan dikirim ke petugas dalam ruang chat ini agar petugas lapangan dapat langsung bernavigasi ke rumah Anda.
+                    </p>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-paper-plane"></i> Bagikan Sekarang',
+            confirmButtonColor: '#009846',
+            cancelButtonText: 'Batal',
+            cancelButtonColor: '#64748b',
+            customClass: { popup: 'swal-rounded-popup', confirmButton: 'swal-btn-pill', cancelButton: 'swal-btn-pill' }
+        });
+
+        if (isConfirmed) {
+            const sendRes = await fetch(`${API_URL}/api/chat/share-geotag`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nik,
+                    sender: 'warga',
+                    nama
+                })
+            });
+
+            if (sendRes.ok) {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: '📍 Lokasi terdaftar Anda berhasil dikirim ke petugas!',
+                    timer: 3000,
+                    showConfirmButton: false
+                });
+
+                if (typeof window.loadChatMessagesWarga === 'function') {
+                    window.loadChatMessagesWarga(true);
+                }
+                if (typeof window.muatPesanAduan === 'function' && sesiAduanAktif) {
+                    window.muatPesanAduan();
+                }
+            } else {
+                showPortalAlert({ icon: 'error', title: 'Gagal', text: 'Gagal membagikan lokasi.' });
+            }
+        }
+    } catch (e) {
+        showPortalAlert({ icon: 'error', title: 'Error', text: 'Terjadi gangguan saat mengambil data lokasi geotagging.' });
     }
 };
 
@@ -331,6 +492,28 @@ window.muatPesanAduan = async function (forceScroll = false) {
         }
         lastAduanChatHash = currentHash;
 
+        // Notifikasi tanggapan baru dari petugas investigasi
+        const lastAdminMsg = [...chats].reverse().find(c => c.sender !== 'warga');
+        if (lastAdminMsg && window.lastSeenAduanOfficerMsgId && lastAdminMsg.id > window.lastSeenAduanOfficerMsgId) {
+            const responderName = lastAdminMsg.nama || (lastAdminMsg.sender === 'admin' ? 'Admin 1 (Super Admin)' : 'Petugas Investigasi');
+            const previewText = (lastAdminMsg.pesan || 'Mengirim berkas / tanggapan').substring(0, 48);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'info',
+                    title: `🛡️ Tanggapan: ${safeHtml(responderName)}`,
+                    text: `${previewText}...`,
+                    timer: 4500,
+                    showConfirmButton: false,
+                    timerProgressBar: true
+                });
+            }
+        }
+        if (lastAdminMsg) {
+            window.lastSeenAduanOfficerMsgId = lastAdminMsg.id;
+        }
+
         const isNearBottom = (box.scrollHeight - box.scrollTop - box.clientHeight < 120);
 
         if (chats.length === 0) {
@@ -346,9 +529,9 @@ window.muatPesanAduan = async function (forceScroll = false) {
                 const ext = c.file_path.split('.').pop().toLowerCase();
 
                 if (c.file_type === 'image') {
-                    mediaHtml = `<img src="${url}" style="max-width:240px; border-radius:14px; margin-bottom:6px; cursor:pointer; object-fit:cover;" onclick="window.openLightbox('image', '${url}')">`;
+                    mediaHtml = `<img src="${url}" style="max-width:200px; max-height:160px; border-radius:10px; margin:2px 0 4px 0; cursor:pointer; object-fit:cover; display:block;" onclick="window.openLightbox('image', '${url}')">`;
                 } else if (c.file_type === 'video') {
-                    mediaHtml = `<video src="${url}" controls style="max-width:240px; border-radius:14px; margin-bottom:6px; background:#000;"></video>`;
+                    mediaHtml = `<video src="${url}" controls style="max-width:210px; max-height:160px; border-radius:10px; margin:2px 0 4px 0; background:#000; display:block;"></video>`;
                 } else if (c.file_type === 'audio') {
                     const audioId = `aduan_audio_${c.id}_${idx}`;
                     mediaHtml = `
@@ -359,11 +542,11 @@ window.muatPesanAduan = async function (forceScroll = false) {
                             </button>
                             <div class="voice-track-col">
                                 <div class="voice-info-row">
-                                    <span class="voice-title"><i class="fas fa-microphone"></i> Pesan Suara</span>
-                                    <span class="voice-timer" id="time_${audioId}">00:00 / --:--</span>
+                                    <span class="voice-title"><i class="fas fa-microphone"></i> Suara</span>
+                                    <span class="voice-timer" id="time_${audioId}">00:00</span>
                                 </div>
                                 <div class="voice-seek-wrapper">
-                                    <canvas id="canvas_${audioId}" class="voice-wave-canvas" width="180" height="26"></canvas>
+                                    <canvas id="canvas_${audioId}" class="voice-wave-canvas" width="130" height="20"></canvas>
                                     <input type="range" id="seek_${audioId}" class="voice-seek-input" min="0" max="100" value="0" step="0.1" oninput="window.seekAudioModern('${audioId}', this.value)">
                                 </div>
                             </div>
@@ -378,11 +561,11 @@ window.muatPesanAduan = async function (forceScroll = false) {
                     else if (['pdf'].includes(ext)) { iconClass = 'fa-file-pdf'; iconColor = '#dc2626'; }
 
                     mediaHtml = `
-                        <a href="${url}" target="_blank" style="display:flex; align-items:center; gap:12px; background:#ffffff; border:1.5px solid #e2e8f0; padding:10px 14px; border-radius:14px; text-decoration:none; margin-bottom:6px; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
-                            <i class="fas ${iconClass} fa-2x" style="color:${iconColor};"></i>
-                            <div>
-                                <span style="font-weight:800; font-size:0.85rem; color:#0f172a; display:block;">Unduh Berkas Lampiran</span>
-                                <small style="color:#64748b; text-transform:uppercase; font-weight:700;">Format .${ext}</small>
+                        <a href="${url}" target="_blank" style="display:flex; align-items:center; gap:8px; background:#ffffff; border:1px solid #e2e8f0; padding:6px 10px; border-radius:8px; text-decoration:none; margin:2px 0 4px 0; max-width:210px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                            <i class="fas ${iconClass}" style="color:${iconColor}; font-size:1.3rem;"></i>
+                            <div style="overflow:hidden;">
+                                <span style="font-weight:700; font-size:0.78rem; color:#0f172a; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Berkas .${ext.toUpperCase()}</span>
+                                <small style="color:#64748b; font-size:0.68rem;">Unduh</small>
                             </div>
                         </a>
                     `;
@@ -392,63 +575,66 @@ window.muatPesanAduan = async function (forceScroll = false) {
             let replyHtml = '';
             if (c.reply_text) {
                 replyHtml = `
-                    <div style="background:rgba(0,0,0,0.05); padding:6px 10px; border-radius:10px; border-left:4px solid ${isMe ? '#dc2626' : '#0284c7'}; margin-bottom:6px; font-size:0.8rem; color:#475569;">
+                    <div style="background:rgba(0,0,0,0.05); padding:4px 8px; border-radius:6px; border-left:3px solid ${isMe ? '#dc2626' : '#0284c7'}; margin-bottom:4px; font-size:0.75rem; color:#475569;">
                         <b>${safeHtml(c.reply_sender || 'Pesan')}:</b> <i>${safeHtml(c.reply_text)}</i>
                     </div>
                 `;
             }
 
-            let reactionBadge = c.reaction ? `<div style="position:absolute; ${isMe ? 'left:-6px' : 'right:-6px'}; bottom:-10px; background:#ffffff; border-radius:20px; padding:2px 8px; box-shadow:0 3px 8px rgba(0,0,0,0.18); font-size:0.95rem;">${c.reaction}</div>` : '';
+            let reactionBadge = c.reaction ? `<div style="position:absolute; ${isMe ? 'left:-4px' : 'right:-4px'}; bottom:-8px; background:#ffffff; border-radius:14px; padding:1px 6px; box-shadow:0 2px 6px rgba(0,0,0,0.15); font-size:0.85rem;">${c.reaction}</div>` : '';
 
-            const handlerName = c.nama_warga || c.sender_name || (c.sender === 'admin' ? '🛡️ Admin 1 (Super Admin)' : '👮 Petugas Dinsos');
+            const handlerName = c.nama || c.nama_warga || c.sender_name || (c.sender === 'admin' ? '🛡️ Admin 1' : '👮 Petugas');
 
             return `
-                <div style="align-self:${isMe ? 'flex-end' : 'flex-start'}; max-width:80%; background:${isMe ? '#fee2e2' : '#ffffff'}; color:${isMe ? '#991b1b' : '#0f172a'}; padding:12px 16px; border-radius:20px; font-size:0.9rem; border:1.5px solid ${isMe ? '#fecdd3' : '#e2e8f0'}; box-shadow:0 2px 6px rgba(0,0,0,0.04); position:relative;">
+                <div style="align-self:${isMe ? 'flex-end' : 'flex-start'}; width:fit-content; max-width:min(68%, 380px); background:${isMe ? '#fee2e2' : '#ffffff'}; color:${isMe ? '#991b1b' : '#0f172a'}; padding:7px 11px 5px 11px; border-radius:${isMe ? '16px 4px 16px 16px' : '4px 16px 16px 16px'}; font-size:0.88rem; border:1px solid ${isMe ? '#fecdd3' : '#e2e8f0'}; box-shadow:0 1px 4px rgba(0,0,0,0.04); position:relative;">
                     ${!isMe ? `
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid #f1f5f9;">
-                            <!-- Titik Tiga di Pojok Kiri Atas untuk Petugas -->
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <div style="position:relative; z-index:20;">
-                                    <button type="button" class="btn-msg-dots" onclick="window.toggleAduanMsgMenu(${c.id}, event)" title="Opsi Tindakan Pesan">
-                                        <i class="fas fa-ellipsis-v"></i>
-                                    </button>
-                                    <div id="aduan-menu-${c.id}" class="aduan-dropdown-menu menu-left" style="display:none;" onclick="event.stopPropagation()">
-                                        <button type="button" onclick="window.setReplyAduan(${c.id}, '${safeHtml(handlerName)}', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'))" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
-                                        <button type="button" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy"></i> Salin Teks</button>
-                                        <button type="button" onclick="window.reactToMessageAduan(${c.id})" style="color:#d97706;"><i class="fas fa-smile"></i> Reaksi Emoji</button>
-                                        <button type="button" onclick="window.hapusPesanAduan(${c.id}, 'me')" style="color:#64748b;"><i class="fas fa-trash-alt"></i> Hapus untuk Saya</button>
-                                        <button type="button" onclick="window.laporPesanAdmin(${c.id})" style="color:#dc2626;"><i class="fas fa-flag"></i> Laporkan Petugas</button>
-                                    </div>
-                                </div>
-                                <span style="background:#e0f2fe; color:#0284c7; padding:4px 12px; border-radius:14px; font-weight:800; font-size:0.75rem; display:inline-flex; align-items:center; gap:5px;">
-                                    <i class="fas fa-user-shield"></i> ${safeHtml(handlerName)}
-                                </span>
-                            </div>
-                        </div>
-                    ` : `
-                        <!-- Titik Tiga di Pojok Kanan Atas untuk Warga -->
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid rgba(220,38,38,0.08);">
-                            <span style="font-size:0.75rem; font-weight:800; color:#dc2626; opacity:0.85;">
-                                <i class="fas fa-user"></i> Anda (Pelapor)
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:3px;">
+                            <span style="font-size:0.7rem; font-weight:800; color:#0284c7; display:inline-flex; align-items:center; gap:4px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                <i class="fas fa-shield-alt"></i> ${safeHtml(handlerName)}
                             </span>
                             <div style="position:relative; z-index:20;">
-                                <button type="button" class="btn-msg-dots" onclick="window.toggleAduanMsgMenu(${c.id}, event)" title="Opsi Tindakan Pesan">
+                                <button type="button" class="btn-msg-dots" onclick="window.toggleAduanMsgMenu(${c.id}, event)" title="Opsi Pesan">
                                     <i class="fas fa-ellipsis-v"></i>
                                 </button>
                                 <div id="aduan-menu-${c.id}" class="aduan-dropdown-menu menu-right" style="display:none;" onclick="event.stopPropagation()">
-                                    <button type="button" onclick="window.setReplyAduan(${c.id}, 'Anda', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'))" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
+                                    <div class="emoji-react-row">
+                                        <span onclick="window.submitReactionAduan(${c.id}, '❤️')">❤️</span>
+                                        <span onclick="window.submitReactionAduan(${c.id}, '👍')">👍</span>
+                                        <span onclick="window.submitReactionAduan(${c.id}, '😂')">😂</span>
+                                        <span onclick="window.submitReactionAduan(${c.id}, '😮')">😮</span>
+                                        <span onclick="window.submitReactionAduan(${c.id}, '🙏')">🙏</span>
+                                    </div>
+                                    <button type="button" onclick="window.setReplyAduan(${c.id}, '${safeHtml(handlerName)}', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'))" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
                                     <button type="button" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy"></i> Salin Teks</button>
-                                    <button type="button" onclick="window.reactToMessageAduan(${c.id})" style="color:#d97706;"><i class="fas fa-smile"></i> Reaksi Emoji</button>
-                                    <button type="button" onclick="window.hapusPesanAduan(${c.id}, 'me')" style="color:#64748b;"><i class="fas fa-trash-alt"></i> Hapus untuk Saya</button>
-                                    <button type="button" onclick="window.hapusPesanAduan(${c.id}, 'everyone')" style="color:#dc2626;"><i class="fas fa-undo"></i> Tarik untuk Semua</button>
+                                    <button type="button" onclick="window.hapusPesanAduan(${c.id}, 'me')" style="color:#64748b;"><i class="fas fa-trash-alt"></i> Hapus</button>
+                                    <button type="button" onclick="window.laporPesanAdmin(${c.id})" style="color:#dc2626;"><i class="fas fa-flag"></i> Laporkan</button>
                                 </div>
+                            </div>
+                        </div>
+                    ` : `
+                        <div style="position:absolute; top:4px; right:4px; z-index:20;">
+                            <button type="button" class="btn-msg-dots" onclick="window.toggleAduanMsgMenu(${c.id}, event)" title="Opsi Pesan">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <div id="aduan-menu-${c.id}" class="aduan-dropdown-menu menu-right" style="display:none;" onclick="event.stopPropagation()">
+                                <div class="emoji-react-row">
+                                    <span onclick="window.submitReactionAduan(${c.id}, '❤️')">❤️</span>
+                                    <span onclick="window.submitReactionAduan(${c.id}, '👍')">👍</span>
+                                    <span onclick="window.submitReactionAduan(${c.id}, '😂')">😂</span>
+                                    <span onclick="window.submitReactionAduan(${c.id}, '😮')">😮</span>
+                                    <span onclick="window.submitReactionAduan(${c.id}, '🙏')">🙏</span>
+                                </div>
+                                <button type="button" onclick="window.setReplyAduan(${c.id}, 'Anda', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'))" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
+                                <button type="button" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy"></i> Salin Teks</button>
+                                <button type="button" onclick="window.hapusPesanAduan(${c.id}, 'me')" style="color:#64748b;"><i class="fas fa-trash-alt"></i> Hapus</button>
+                                <button type="button" onclick="window.hapusPesanAduan(${c.id}, 'everyone')" style="color:#dc2626;"><i class="fas fa-undo"></i> Tarik Semua</button>
                             </div>
                         </div>
                     `}
                     ${replyHtml}
                     ${mediaHtml}
-                    ${c.pesan ? `<div style="word-break:break-word; line-height:1.5; margin-top:2px;">${safeHtml(c.pesan)}</div>` : ''}
-                    <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:6px; font-size:0.7rem; color:#94a3b8;">
+                    ${c.pesan ? (c.pesan.startsWith('[GEOTAG_LOKASI]') ? window.formatGeotagCardHtml(c.pesan) : `<div style="word-break:break-word; line-height:1.45; margin-top:2px;">${safeHtml(c.pesan)}</div>`) : ''}
+                    <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:3px; font-size:0.68rem; color:#94a3b8;">
                         <span>${c.waktu || ''}</span>
                     </div>
                     ${reactionBadge}
@@ -490,6 +676,38 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
         }
         lastChatHashWarga = currentHash;
 
+        // Identifikasi & Notifikasi Petugas yang Merespon
+        const lastAdminMsg = [...chats].reverse().find(c => c.sender !== 'warga');
+        const badgeEl = document.getElementById('wargaOfficerNameBadge');
+        if (badgeEl) {
+            if (lastAdminMsg) {
+                const name = lastAdminMsg.nama || (lastAdminMsg.sender === 'admin' ? '🛡️ Admin 1 (Super Admin)' : '👮 Petugas Dinsos');
+                badgeEl.innerHTML = `<i class="fas fa-shield-alt text-primary"></i> ${safeHtml(name)}`;
+            } else {
+                badgeEl.innerText = '🛡️ Admin 1 / Petugas Dinsos';
+            }
+        }
+
+        if (lastAdminMsg && window.lastSeenWargaOfficerMsgId && lastAdminMsg.id > window.lastSeenWargaOfficerMsgId) {
+            const responderName = lastAdminMsg.nama || (lastAdminMsg.sender === 'admin' ? 'Admin 1 (Super Admin)' : 'Petugas Dinsos');
+            const previewText = (lastAdminMsg.pesan || 'Mengirim berkas / pesan suara').substring(0, 48);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'info',
+                    title: `💬 Respon dari: ${safeHtml(responderName)}`,
+                    text: `${previewText}...`,
+                    timer: 4500,
+                    showConfirmButton: false,
+                    timerProgressBar: true
+                });
+            }
+        }
+        if (lastAdminMsg) {
+            window.lastSeenWargaOfficerMsgId = lastAdminMsg.id;
+        }
+
         const isNearBottom = (box.scrollHeight - box.scrollTop - box.clientHeight < 120);
 
         if (chats.length === 0) {
@@ -505,9 +723,9 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
                 const ext = c.file_path.split('.').pop().toLowerCase();
 
                 if (c.file_type === 'image') {
-                    mediaHtml = `<img src="${url}" style="max-width:240px; border-radius:14px; margin-bottom:6px; cursor:pointer; object-fit:cover;" onclick="window.openLightbox('image', '${url}')">`;
+                    mediaHtml = `<img src="${url}" style="max-width:200px; max-height:160px; border-radius:10px; margin:2px 0 4px 0; cursor:pointer; object-fit:cover; display:block;" onclick="window.openLightbox('image', '${url}')">`;
                 } else if (c.file_type === 'video') {
-                    mediaHtml = `<video src="${url}" controls style="max-width:240px; border-radius:14px; margin-bottom:6px; background:#000;"></video>`;
+                    mediaHtml = `<video src="${url}" controls style="max-width:210px; max-height:160px; border-radius:10px; margin:2px 0 4px 0; background:#000; display:block;"></video>`;
                 } else if (c.file_type === 'audio') {
                     const audioId = `warga_audio_${c.id}_${idx}`;
                     mediaHtml = `
@@ -518,11 +736,11 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
                             </button>
                             <div class="voice-track-col">
                                 <div class="voice-info-row">
-                                    <span class="voice-title"><i class="fas fa-microphone"></i> Pesan Suara</span>
-                                    <span class="voice-timer" id="time_${audioId}">00:00 / --:--</span>
+                                    <span class="voice-title"><i class="fas fa-microphone"></i> Suara</span>
+                                    <span class="voice-timer" id="time_${audioId}">00:00</span>
                                 </div>
                                 <div class="voice-seek-wrapper">
-                                    <canvas id="canvas_${audioId}" class="voice-wave-canvas" width="180" height="26"></canvas>
+                                    <canvas id="canvas_${audioId}" class="voice-wave-canvas" width="130" height="20"></canvas>
                                     <input type="range" id="seek_${audioId}" class="voice-seek-input" min="0" max="100" value="0" step="0.1" oninput="window.seekAudioModern('${audioId}', this.value)">
                                 </div>
                             </div>
@@ -537,11 +755,11 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
                     else if (['pdf'].includes(ext)) { iconClass = 'fa-file-pdf'; iconColor = '#dc2626'; }
 
                     mediaHtml = `
-                        <a href="${url}" target="_blank" style="display:flex; align-items:center; gap:12px; background:#ffffff; border:1.5px solid #e2e8f0; padding:10px 14px; border-radius:14px; text-decoration:none; margin-bottom:6px; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
-                            <i class="fas ${iconClass} fa-2x" style="color:${iconColor};"></i>
-                            <div>
-                                <span style="font-weight:800; font-size:0.85rem; color:#0f172a; display:block;">Unduh Berkas Lampiran</span>
-                                <small style="color:#64748b; text-transform:uppercase; font-weight:700;">Format .${ext}</small>
+                        <a href="${url}" target="_blank" style="display:flex; align-items:center; gap:8px; background:#ffffff; border:1px solid #e2e8f0; padding:6px 10px; border-radius:8px; text-decoration:none; margin:2px 0 4px 0; max-width:210px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                            <i class="fas ${iconClass}" style="color:${iconColor}; font-size:1.3rem;"></i>
+                            <div style="overflow:hidden;">
+                                <span style="font-weight:700; font-size:0.78rem; color:#0f172a; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Berkas .${ext.toUpperCase()}</span>
+                                <small style="color:#64748b; font-size:0.68rem;">Unduh</small>
                             </div>
                         </a>
                     `;
@@ -551,61 +769,66 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
             let replyHtml = '';
             if (c.reply_text) {
                 replyHtml = `
-                    <div style="background:rgba(0,0,0,0.05); padding:6px 10px; border-radius:10px; border-left:4px solid ${isMe ? '#009846' : '#0284c7'}; margin-bottom:6px; font-size:0.8rem; color:#475569;">
+                    <div style="background:rgba(0,0,0,0.05); padding:4px 8px; border-radius:6px; border-left:3px solid ${isMe ? '#009846' : '#0284c7'}; margin-bottom:4px; font-size:0.75rem; color:#475569;">
                         <b>${safeHtml(c.reply_sender || 'Pesan')}:</b> <i>${safeHtml(c.reply_text)}</i>
                     </div>
                 `;
             }
 
-            let reactionBadge = c.reaction ? `<div style="position:absolute; ${isMe ? 'left:-6px' : 'right:-6px'}; bottom:-10px; background:#ffffff; border-radius:20px; padding:2px 8px; box-shadow:0 3px 8px rgba(0,0,0,0.18); font-size:0.95rem;">${c.reaction}</div>` : '';
+            let reactionBadge = c.reaction ? `<div style="position:absolute; ${isMe ? 'left:-4px' : 'right:-4px'}; bottom:-8px; background:#ffffff; border-radius:14px; padding:1px 6px; box-shadow:0 2px 6px rgba(0,0,0,0.15); font-size:0.85rem;">${c.reaction}</div>` : '';
 
-            const handlerName = c.nama_warga || c.sender_name || (c.sender === 'admin' ? '🛡️ Admin 1 (Super Admin)' : '👮 Petugas Dinsos');
+            const handlerName = c.nama || c.nama_warga || c.sender_name || (c.sender === 'admin' ? '🛡️ Admin 1' : '👮 Petugas');
 
             return `
-                <div id="msg-warga-${c.id}" style="align-self:${isMe ? 'flex-end' : 'flex-start'}; max-width:80%; background:${isMe ? '#e6f9f0' : '#ffffff'}; color:${isMe ? '#065f46' : '#0f172a'}; padding:12px 16px; border-radius:20px; font-size:0.9rem; border:1.5px solid ${isMe ? '#bbf7d0' : '#e2e8f0'}; box-shadow:0 2px 6px rgba(0,0,0,0.04); position:relative;">
+                <div id="msg-warga-${c.id}" style="align-self:${isMe ? 'flex-end' : 'flex-start'}; width:fit-content; max-width:min(68%, 380px); background:${isMe ? '#e6f9f0' : '#ffffff'}; color:${isMe ? '#065f46' : '#0f172a'}; padding:7px 11px 5px 11px; border-radius:${isMe ? '16px 4px 16px 16px' : '4px 16px 16px 16px'}; font-size:0.88rem; border:1px solid ${isMe ? '#bbf7d0' : '#e2e8f0'}; box-shadow:0 1px 4px rgba(0,0,0,0.04); position:relative;">
                     ${!isMe ? `
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid #f1f5f9;">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <div style="position:relative; z-index:20;">
-                                    <button type="button" class="btn-msg-dots" onclick="window.toggleChatMenuWarga(${c.id}, event)" title="Opsi Tindakan Pesan">
-                                        <i class="fas fa-ellipsis-v"></i>
-                                    </button>
-                                    <div id="menu-warga-${c.id}" class="aduan-dropdown-menu menu-left" style="display:none;" onclick="event.stopPropagation()">
-                                        <button type="button" onclick="window.setReplyWarga(${c.id}, '${safeHtml(handlerName)}', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'), '${c.file_type || ''}')" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
-                                        <button type="button" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy"></i> Salin Teks</button>
-                                        <button type="button" onclick="window.reactToMessageWarga(${c.id})" style="color:#d97706;"><i class="fas fa-smile"></i> Reaksi Emoji</button>
-                                        <button type="button" onclick="window.hapusPesanWarga(${c.id}, 'me')" style="color:#64748b;"><i class="fas fa-trash-alt"></i> Hapus untuk Saya</button>
-                                        <button type="button" onclick="window.laporPesanAdmin(${c.id})" style="color:#dc2626;"><i class="fas fa-flag"></i> Laporkan Petugas</button>
-                                    </div>
-                                </div>
-                                <span style="background:#e0f2fe; color:#0284c7; padding:4px 12px; border-radius:14px; font-weight:800; font-size:0.75rem; display:inline-flex; align-items:center; gap:5px;">
-                                    <i class="fas fa-user-shield"></i> ${safeHtml(handlerName)}
-                                </span>
-                            </div>
-                        </div>
-                    ` : `
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid rgba(0,152,70,0.12);">
-                            <span style="font-size:0.75rem; font-weight:800; color:#009846; opacity:0.85;">
-                                <i class="fas fa-user"></i> Anda (Warga)
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:3px;">
+                            <span style="font-size:0.7rem; font-weight:800; color:#0284c7; display:inline-flex; align-items:center; gap:4px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                <i class="fas fa-shield-alt"></i> ${safeHtml(handlerName)}
                             </span>
                             <div style="position:relative; z-index:20;">
-                                <button type="button" class="btn-msg-dots" onclick="window.toggleChatMenuWarga(${c.id}, event)" title="Opsi Tindakan Pesan">
+                                <button type="button" class="btn-msg-dots" onclick="window.toggleChatMenuWarga(${c.id}, event)" title="Opsi Pesan">
                                     <i class="fas fa-ellipsis-v"></i>
                                 </button>
                                 <div id="menu-warga-${c.id}" class="aduan-dropdown-menu menu-right" style="display:none;" onclick="event.stopPropagation()">
-                                    <button type="button" onclick="window.setReplyWarga(${c.id}, 'Anda', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'), '${c.file_type || ''}')" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
+                                    <div class="emoji-react-row">
+                                        <span onclick="window.submitReactionWarga(${c.id}, '❤️')">❤️</span>
+                                        <span onclick="window.submitReactionWarga(${c.id}, '👍')">👍</span>
+                                        <span onclick="window.submitReactionWarga(${c.id}, '😂')">😂</span>
+                                        <span onclick="window.submitReactionWarga(${c.id}, '😮')">😮</span>
+                                        <span onclick="window.submitReactionWarga(${c.id}, '🙏')">🙏</span>
+                                    </div>
+                                    <button type="button" onclick="window.setReplyWarga(${c.id}, '${safeHtml(handlerName)}', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'), '${c.file_type || ''}')" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
                                     <button type="button" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy"></i> Salin Teks</button>
-                                    <button type="button" onclick="window.reactToMessageWarga(${c.id})" style="color:#d97706;"><i class="fas fa-smile"></i> Reaksi Emoji</button>
-                                    <button type="button" onclick="window.hapusPesanWarga(${c.id}, 'me')" style="color:#64748b;"><i class="fas fa-trash-alt"></i> Hapus untuk Saya</button>
-                                    <button type="button" onclick="window.hapusPesanWarga(${c.id}, 'everyone')" style="color:#dc2626;"><i class="fas fa-undo"></i> Tarik untuk Semua</button>
+                                    <button type="button" onclick="window.hapusPesanWarga(${c.id}, 'me')" style="color:#64748b;"><i class="fas fa-trash-alt"></i> Hapus</button>
+                                    <button type="button" onclick="window.laporPesanAdmin(${c.id})" style="color:#dc2626;"><i class="fas fa-flag"></i> Laporkan</button>
                                 </div>
+                            </div>
+                        </div>
+                    ` : `
+                        <div style="position:absolute; top:4px; right:4px; z-index:20;">
+                            <button type="button" class="btn-msg-dots" onclick="window.toggleChatMenuWarga(${c.id}, event)" title="Opsi Pesan">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <div id="menu-warga-${c.id}" class="aduan-dropdown-menu menu-right" style="display:none;" onclick="event.stopPropagation()">
+                                <div class="emoji-react-row">
+                                    <span onclick="window.submitReactionWarga(${c.id}, '❤️')">❤️</span>
+                                    <span onclick="window.submitReactionWarga(${c.id}, '👍')">👍</span>
+                                    <span onclick="window.submitReactionWarga(${c.id}, '😂')">😂</span>
+                                    <span onclick="window.submitReactionWarga(${c.id}, '😮')">😮</span>
+                                    <span onclick="window.submitReactionWarga(${c.id}, '🙏')">🙏</span>
+                                </div>
+                                <button type="button" onclick="window.setReplyWarga(${c.id}, 'Anda', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'), '${c.file_type || ''}')" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
+                                <button type="button" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy"></i> Salin Teks</button>
+                                <button type="button" onclick="window.hapusPesanWarga(${c.id}, 'me')" style="color:#64748b;"><i class="fas fa-trash-alt"></i> Hapus</button>
+                                <button type="button" onclick="window.hapusPesanWarga(${c.id}, 'everyone')" style="color:#dc2626;"><i class="fas fa-undo"></i> Tarik Semua</button>
                             </div>
                         </div>
                     `}
                     ${replyHtml}
                     ${mediaHtml}
-                    ${c.pesan ? `<div style="word-break:break-word; line-height:1.5; margin-top:2px;">${safeHtml(c.pesan)}</div>` : ''}
-                    <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:6px; font-size:0.7rem; color:#94a3b8;">
+                    ${c.pesan ? (c.pesan.startsWith('[GEOTAG_LOKASI]') ? window.formatGeotagCardHtml(c.pesan) : `<div style="word-break:break-word; line-height:1.45; margin-top:2px;">${safeHtml(c.pesan)}</div>`) : ''}
+                    <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:3px; font-size:0.68rem; color:#94a3b8;">
                         <span>${c.waktu || ''}</span>
                     </div>
                     ${reactionBadge}
@@ -623,6 +846,87 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
             box.scrollTop = box.scrollHeight;
         }
     } catch (e) {}
+};
+
+window.tanyaCepatWarga = function (type) {
+    const questions = {
+        jadwal: 'Mohon informasi mengenai perkiraan jadwal penyaluran bantuan sosial tahap ini bagi warga terdaftar?',
+        berkas: 'Apakah data e-KTP dan Kartu Keluarga (KK) saya sudah sesuai dan lengkap di sistem Dinas Sosial?',
+        nominal: 'Berapakah nominal alokasi bantuan sosial yang ditetapkan untuk keluarga kami pada tahap ini?',
+        lokasi: 'Di manakah alamat lokasi pengambilan bantuan fisik dan apa saja syarat dokumen yang wajib dibawa?'
+    };
+    const input = document.getElementById('wargaChatInput');
+    if (input && questions[type]) {
+        input.value = questions[type];
+        input.focus();
+    }
+};
+
+window.filterEmojiWargaCategory = function (category) {
+    const grid = document.getElementById('emojiGridListWarga');
+    if (!grid) return;
+    let list = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','😉','😍','🥰','😘','😋','😎','🤩','🥳','😏','🥺','😢','😭','😤','😠','😡','🤔','🤫'];
+    if (category === 'reaksi') {
+        list = ['👍','👎','👏','🙌','🫶','🤝','🙏','💪','👌','✌️','🤞','🤟','🤙','👊','✊','🫡'];
+    } else if (category === 'simbol') {
+        list = ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','💔','❤️‍🔥','✨','🎉','🎊','🔥','⭐','🌟','⚡','💥','🚨','⚠️','✅','❌','💯'];
+    } else if (category === 'bansos') {
+        list = ['📦','🏠','📄','📊','📋','💰','🍚','💳','🏛️','🛡️','👤','👥','📍','📞','✉️','🗓️','🔍','💡'];
+    }
+    grid.innerHTML = list.map(em => `
+        <button type="button" class="emoji-cell-btn" onclick="window.insertEmojiWarga('${em}')">${em}</button>
+    `).join('');
+};
+
+window.toggleEmojiPickerWarga = function (event) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    const pop = document.getElementById('emojiPickerWarga');
+    if (!pop) return;
+    const isShown = pop.style.display === 'block';
+    pop.style.display = isShown ? 'none' : 'block';
+    if (!isShown) {
+        pop.innerHTML = `
+            <div style="padding-bottom:6px; margin-bottom:6px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:0.75rem; font-weight:800; color:#0f172a; text-transform:uppercase; letter-spacing:0.3px;">
+                    <i class="far fa-smile text-primary"></i> PILIH EMOJI
+                </span>
+                <button type="button" onclick="document.getElementById('emojiPickerWarga').style.display='none'" style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:0.9rem;"><i class="fas fa-times"></i></button>
+            </div>
+            <div style="display:flex; gap:4px; margin-bottom:8px; border-bottom:1px solid #f1f5f9; padding-bottom:6px; overflow-x:auto;">
+                <button type="button" onclick="window.filterEmojiWargaCategory('senyum')" style="background:#f1f5f9; border:none; border-radius:10px; padding:3px 8px; font-size:0.75rem; cursor:pointer; font-weight:700;">😀 Senyum</button>
+                <button type="button" onclick="window.filterEmojiWargaCategory('reaksi')" style="background:#f1f5f9; border:none; border-radius:10px; padding:3px 8px; font-size:0.75rem; cursor:pointer; font-weight:700;">👍 Reaksi</button>
+                <button type="button" onclick="window.filterEmojiWargaCategory('simbol')" style="background:#f1f5f9; border:none; border-radius:10px; padding:3px 8px; font-size:0.75rem; cursor:pointer; font-weight:700;">❤️ Simbol</button>
+                <button type="button" onclick="window.filterEmojiWargaCategory('bansos')" style="background:#f1f5f9; border:none; border-radius:10px; padding:3px 8px; font-size:0.75rem; cursor:pointer; font-weight:700;">📦 Bansos</button>
+            </div>
+            <div class="emoji-grid-cells" id="emojiGridListWarga"></div>
+        `;
+        window.filterEmojiWargaCategory('senyum');
+    }
+};
+
+window.insertEmojiWarga = function (emoji) {
+    const input = document.getElementById('wargaChatInput');
+    if (input) {
+        input.value += emoji;
+        input.focus();
+    }
+};
+
+window.showPreviewWarga = function (url, type, fileName) {
+    const bar = document.getElementById('attachmentPreviewContainerWarga');
+    const nameEl = document.getElementById('attachmentFileNameWarga');
+    if (bar && nameEl) {
+        nameEl.innerText = fileName || 'Berkas Lampiran';
+        bar.style.display = 'flex';
+    }
+};
+
+window.batalLampiranWarga = function () {
+    window.editedMediaBlob = null;
+    const bar = document.getElementById('attachmentPreviewContainerWarga');
+    if (bar) bar.style.display = 'none';
+    const fileInp = document.getElementById('wargaChatFile');
+    if (fileInp) fileInp.value = '';
 };
 
 window.handleWargaFileSelected = function (input) {
@@ -730,6 +1034,7 @@ window.reactToMessageWarga = async function (msgId) {
 };
 
 window.submitReactionWarga = async function (msgId, emoji) {
+    document.querySelectorAll('[id^="menu-warga-"], .aduan-dropdown-menu').forEach(m => m.style.display = 'none');
     Swal?.close();
     try {
         await fetch(`${API_URL}/api/chat/react/${msgId}`, {
@@ -767,11 +1072,10 @@ window.hapusPesanWarga = async function (id, tipe) {
 
 window.toggleChatMenuWarga = function (id, event) {
     if (event && event.stopPropagation) event.stopPropagation();
-    document.querySelectorAll('[id^="menu-warga-"]').forEach(m => {
-        if (m.id !== `menu-warga-${id}`) m.style.display = 'none';
-    });
     const menu = document.getElementById(`menu-warga-${id}`);
-    if (menu) menu.style.display = (menu.style.display === 'none' || menu.style.display === '') ? 'flex' : 'none';
+    const isShown = menu && (menu.style.display === 'flex' || menu.style.display === 'block');
+    document.querySelectorAll('.aduan-dropdown-menu').forEach(m => m.style.display = 'none');
+    if (!isShown && menu) menu.style.display = 'flex';
 };
 
 window.scrollToMessageWarga = function (id) {
@@ -783,53 +1087,138 @@ window.scrollToMessageWarga = function (id) {
     }
 };
 
-window.toggleEmojiPickerWarga = function (event) {
-    if (event && event.stopPropagation) event.stopPropagation();
-    const el = document.getElementById('emojiPickerWarga');
-    if (el) {
-        const emojisList = ['😀', '😂', '🥰', '😎', '😭', '😡', '👍', '🙏', '❤️', '🔥', '✅', '❌', '💡', '🎉', '😢', '🤔', '👏', '🚨'];
-        let html = '';
-        emojisList.forEach(e => {
-            html += `<div style="cursor:pointer; font-size:1.4rem; text-align:center; user-select:none; padding:4px;" onclick="window.addEmojiWarga('${e}')">${e}</div>`;
-        });
-        el.innerHTML = html;
-        el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'grid' : 'none';
-    }
-};
+window.wargaAudioChunks = [];
+window.wargaVoiceStream = null;
+window.wargaMediaRecorder = null;
+window.wargaVoiceTimerInterval = null;
+window.wargaVoiceSeconds = 0;
 
-window.addEmojiWarga = function (emoji) {
-    const input = document.getElementById('wargaChatInput');
-    if (input) {
-        input.value += emoji;
-        input.focus();
-    }
-};
+window.toggleVoiceRecordWarga = async function () {
+    const currentNik = wargaNik || (sesiWargaAktif && sesiWargaAktif.nik);
+    if (!currentNik) return;
 
-window.showPreviewWarga = function (srcUrl, type, fname = '') {
-    const previewContainer = document.getElementById('previewMediaContainerWarga');
-    const previewArea = document.getElementById('preSendPreviewWarga');
-    if (previewArea && previewContainer) {
-        if (type === 'image') {
-            previewContainer.innerHTML = `<img src="${srcUrl}" style="max-height:100px; border-radius:8px; object-fit:contain;">`;
-        } else if (type === 'video') {
-            previewContainer.innerHTML = `<video src="${srcUrl}" style="max-height:100px; border-radius:8px;" controls></video>`;
-        } else {
-            previewContainer.innerHTML = `<div style="font-weight:700; color:var(--info, #0284c7); text-align:center;"><i class="fas fa-file-alt fa-2x"></i><br><small>${safeHtml(fname)}</small></div>`;
+    if (window.wargaMediaRecorder && window.wargaMediaRecorder.state === 'recording') {
+        window.sendVoiceRecordWarga();
+        return;
+    }
+
+    try {
+        window.wargaVoiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+        return alert('Izin mikrofon diperlukan untuk merekam pesan suara.');
+    }
+
+    try {
+        window.wargaAudioChunks = [];
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+        window.wargaMediaRecorder = mimeType ? new MediaRecorder(window.wargaVoiceStream, { mimeType }) : new MediaRecorder(window.wargaVoiceStream);
+
+        window.wargaMediaRecorder.ondataavailable = e => {
+            if (e.data && e.data.size > 0) window.wargaAudioChunks.push(e.data);
+        };
+
+        window.wargaMediaRecorder.start(250);
+        window.wargaVoiceSeconds = 0;
+
+        const recUI = document.getElementById('wargaRecordingUI');
+        const inputEl = document.getElementById('wargaChatInput');
+        const btnRec = document.getElementById('btnRecordWarga');
+        if (recUI) recUI.style.display = 'flex';
+        if (inputEl) inputEl.style.display = 'none';
+        if (btnRec) {
+            btnRec.innerHTML = '<i class="fas fa-stop text-danger"></i>';
+            btnRec.title = 'Kirim Pesan Suara';
         }
-        previewArea.style.display = 'block';
+
+        clearInterval(window.wargaVoiceTimerInterval);
+        window.wargaVoiceTimerInterval = setInterval(() => {
+            window.wargaVoiceSeconds++;
+            const m = String(Math.floor(window.wargaVoiceSeconds / 60)).padStart(2, '0');
+            const s = String(window.wargaVoiceSeconds % 60).padStart(2, '0');
+            const timerEl = document.getElementById('wargaRecordTime');
+            if (timerEl) timerEl.innerText = `${m}:${s}`;
+        }, 1000);
+    } catch (err) {
+        alert('Gagal menginisialisasi mikrofon.');
     }
 };
 
-window.batalLampiranWarga = function () {
-    window.editedMediaBlob = null;
-    window.editedMediaExt = '';
-    window.editedMediaType = '';
-    const fileInput = document.getElementById('wargaChatFile');
-    if (fileInput) fileInput.value = '';
-    const preArea = document.getElementById('preSendPreviewWarga');
-    if (preArea) preArea.style.display = 'none';
-    const preContainer = document.getElementById('previewMediaContainerWarga');
-    if (preContainer) preContainer.innerHTML = '';
+window.cancelVoiceRecordWarga = function () {
+    if (window.wargaMediaRecorder && window.wargaMediaRecorder.state !== 'inactive') {
+        window.wargaMediaRecorder.stop();
+    }
+    if (window.wargaVoiceStream) {
+        window.wargaVoiceStream.getTracks().forEach(t => t.stop());
+    }
+    clearInterval(window.wargaVoiceTimerInterval);
+
+    const recUI = document.getElementById('wargaRecordingUI');
+    const inputEl = document.getElementById('wargaChatInput');
+    const btnRec = document.getElementById('btnRecordWarga');
+    if (recUI) recUI.style.display = 'none';
+    if (inputEl) inputEl.style.display = 'block';
+    if (btnRec) {
+        btnRec.innerHTML = '<i class="fas fa-microphone"></i>';
+        btnRec.title = 'Rekam Pesan Suara';
+    }
+    window.wargaAudioChunks = [];
+};
+
+window.sendVoiceRecordWarga = function () {
+    if (!window.wargaMediaRecorder || window.wargaAudioChunks.length === 0) {
+        return window.cancelVoiceRecordWarga();
+    }
+
+    window.wargaMediaRecorder.onstop = async () => {
+        if (window.wargaVoiceStream) {
+            window.wargaVoiceStream.getTracks().forEach(t => t.stop());
+        }
+        clearInterval(window.wargaVoiceTimerInterval);
+
+        const recUI = document.getElementById('wargaRecordingUI');
+        const inputEl = document.getElementById('wargaChatInput');
+        const btnRec = document.getElementById('btnRecordWarga');
+        if (recUI) recUI.style.display = 'none';
+        if (inputEl) inputEl.style.display = 'block';
+        if (btnRec) {
+            btnRec.innerHTML = '<i class="fas fa-microphone"></i>';
+            btnRec.title = 'Rekam Pesan Suara';
+        }
+
+        const audioBlob = new Blob(window.wargaAudioChunks, { type: 'audio/webm' });
+        window.wargaAudioChunks = [];
+
+        const currentNik = wargaNik || (sesiWargaAktif && sesiWargaAktif.nik);
+        const currentNama = wargaNama || (sesiWargaAktif && sesiWargaAktif.nama_lengkap) || 'Warga';
+        if (!currentNik) return;
+
+        const formData = new FormData();
+        formData.append('sender', 'warga');
+        formData.append('nama', currentNama);
+        formData.append('pesan', '🎤 Pesan Suara (Voice Note)');
+        formData.append('custom_file_type', 'audio');
+        formData.append('file', audioBlob, `voice_warga_${Date.now()}.webm`);
+
+        if (replyToDataWarga) {
+            formData.append('reply_to_id', replyToDataWarga.id);
+            formData.append('reply_to_text', replyToDataWarga.text);
+            formData.append('reply_to_sender', replyToDataWarga.sender);
+            window.batalReplyWarga();
+        }
+
+        try {
+            await fetch(`${API_URL}/api/chat/${encodeURIComponent(currentNik)}`, {
+                method: 'POST',
+                body: formData
+            });
+            lastChatHashWarga = '';
+            window.loadChatMessagesWarga(false);
+        } catch (e) {
+            console.error('[Send Voice Error]', e);
+        }
+    };
+
+    window.wargaMediaRecorder.stop();
 };
 
 window.openLightbox = function (type, src) {

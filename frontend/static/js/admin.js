@@ -120,6 +120,9 @@ window.isNotifUpdating = false;
         .fab-bulk { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #ffffff; padding: 10px 24px; border-radius: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); z-index: 1000; display: none; align-items: center; gap: 15px; border: 1px solid rgba(255,255,255,0.15); animation: slideUpFab 0.3s ease; }
         .fab-text { font-size: 0.92rem; font-weight: 700; }
         @keyframes slideUpFab { from { transform: translate(-50%, 60px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+        .swal-modern-loading-card .swal2-close { display: none !important; }
+        .swal-modern-loading-card .swal2-loader, .swal2-loading .swal2-loader { display: none !important; visibility: hidden !important; width: 0 !important; height: 0 !important; margin: 0 !important; padding: 0 !important; opacity: 0 !important; }
+        .swal-modern-loading-card .swal2-actions { display: flex !important; justify-content: center !important; margin: 18px auto 2px auto !important; width: 100% !important; gap: 0 !important; }
     `;
     document.head.appendChild(dtStyle);
 })();
@@ -202,13 +205,13 @@ function showAdminAlert(options = {}) {
         );
 
         if (isLoader) {
-            // Gunakan engine animasi modern terpadu: tanpa tombol OK, ada tombol Batalkan & (X)
+            // Gunakan engine animasi modern terpadu: tanpa tombol OK, satu tombol Batalkan di bawah, tanpa tombol silang di kanan atas
             if (typeof window.showModernLoadingAlert === 'function') {
                 const handle = window.showModernLoadingAlert({
                     ...options,
                     showConfirmButton: false,
                     showCancelButton: options.showCancelButton !== undefined ? options.showCancelButton : true,
-                    showCloseButton: options.showCloseButton !== undefined ? options.showCloseButton : true
+                    showCloseButton: false
                 });
                 return handle.swalPromise;
             }
@@ -418,7 +421,7 @@ window.cetakLaporanKomparasi = function () {
 
 // 25. PENGAMAN GLOBAL TOMBOL CHAT WARGA
 // =========================================================================
-window.openAdminChat = function () {
+window.openAdminChat = function (nik = null, nama = null) {
     const modalChat = document.getElementById('modalAdminChat') || 
                       document.getElementById('modalChat') || 
                       document.getElementById('modalLaporanChat');
@@ -427,19 +430,21 @@ window.openAdminChat = function () {
         modalChat.style.setProperty('z-index', '99999', 'important');
     }
 
-    try {
+    if (typeof window.loadChatList === 'function') {
+        window.loadChatList();
+    } else if (typeof window.loadChatInbox === 'function') {
+        window.loadChatInbox();
+    }
+
+    if (nik) {
+        if (typeof window.loadChatMessages === 'function') {
+            window.loadChatMessages(nik, nama);
+        }
+    } else {
         if (typeof window.tutupObrolanAktif === 'function') {
             window.tutupObrolanAktif();
         }
-    } catch (e) {
-        console.warn('[openAdminChat] Peringatan penutupan obrolan:', e);
     }
-
-    try {
-        if (typeof window.loadChatInbox === 'function') {
-            window.loadChatInbox();
-        }
-    } catch (e) {}
 };
 
 // =========================================================================

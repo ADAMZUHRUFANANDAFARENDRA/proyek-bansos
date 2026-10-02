@@ -1959,9 +1959,13 @@
         },
 
         /**
-         * 5. CETAK SK BUPATI SIDOARJO
+         * 5. CETAK SK BUPATI SIDOARJO (PDF & CETAK RESMI)
          */
         async cetakSKBupati(datasetWarga) {
+            return AdminPrint.cetakSKBupatiPDF(datasetWarga);
+        },
+
+        async cetakSKBupatiPDF(datasetWarga) {
             const rawList = datasetWarga || await PrintHelper.resolveDataset();
             if (!rawList || !rawList.length) {
                 alert('Tidak ada basis data warga untuk dicetak ke dalam SK Bupati.');
@@ -1974,8 +1978,31 @@
                 return sB - sA;
             });
 
+            const docSettings = typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : {
+                gelarDepan: '',
+                namaPimpinan: 'MUHAMMAD ISA ANSHORI',
+                gelarBelakang: 'A.TD., M.T.',
+                jabatanPimpinan: 'Pj. BUPATI SIDOARJO',
+                nomorSurat: '188 / 460 / 438.5.12 / 2026',
+                kotaSurat: 'Sidoarjo',
+                tanggalSurat: PrintHelper.formatTanggal(new Date()),
+                tipeTtd: 'tte'
+            };
+            const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : {
+                dinas: 'BUPATI SIDOARJO',
+                alamat: 'Jalan Gubernur Suryo Nomor 1 Sidoarjo, Jawa Timur 61211 | Telepon (031) 8921946',
+                logoBase64: ''
+            };
+
+            const namaLengkapBupati = typeof window.getNamaLengkapPemimpin === 'function'
+                ? window.getNamaLengkapPemimpin(docSettings)
+                : `${docSettings.gelarDepan ? docSettings.gelarDepan + ' ' : ''}${docSettings.namaPimpinan}${docSettings.gelarBelakang ? ', ' + docSettings.gelarBelakang : ''}`;
+
             const tahunAnggaran = '2026';
-            const tanggalSK = PrintHelper.formatTanggal(new Date());
+            const nomorSK = docSettings.nomorSurat || `188 / 460 / 438.5.12 / ${tahunAnggaran}`;
+            const tanggalSK = docSettings.tanggalSurat || PrintHelper.formatTanggal(new Date());
+            const kotaSK = docSettings.kotaSurat || 'Sidoarjo';
+            const jabatanBupati = docSettings.jabatanPimpinan || 'BUPATI SIDOARJO';
 
             let lampiranRowsHtml = '';
             sortedList.forEach((w, idx) => {
@@ -1993,7 +2020,6 @@
                          <span class="alokasi-nominal">0,-</span>
                        </div>`;
 
-                // Format status ketetapan simetris dan rapi
                 const statusBadge = isLayak
                     ? `<span class="badge badge-priority">DITETAPKAN (DESIL ${desil})</span>`
                     : `<span class="badge badge-uneligible">TIDAK PRIORITAS (D${desil})</span>`;
@@ -2012,22 +2038,62 @@
                 `;
             });
 
+            // TTD Pengesahan Dinamis (QR BSrE, Scan Berkas, atau Canvas Manual Langsung di Web)
+            let ttdBlockHtml = '';
+            if (docSettings.tipeTtd === 'tte') {
+                const qrSrc = PrintHelper.getQrBadgeBase64(nomorSK);
+                ttdBlockHtml = `
+                    <div class="signature-wrapper" style="margin-top: 22px;">
+                        <div class="tte-box">
+                            <img src="${qrSrc}" alt="QR SK Bupati" class="tte-qr" />
+                            <div class="tte-desc">
+                                <b>Ditandatangani secara Elektronik oleh:</b><br>
+                                ${jabatanBupati}<br>
+                                Sertifikasi BSrE BSSN Republik Indonesia.
+                            </div>
+                        </div>
+                        <div class="sign-box">
+                            <div class="sign-date">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
+                            <div class="sign-title">${jabatanBupati}</div>
+                            <div class="sign-name">${namaLengkapBupati}</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                const sigSrc = PrintHelper.getManualSignatureBase64(namaLengkapBupati);
+                ttdBlockHtml = `
+                    <div class="signature-wrapper" style="margin-top: 22px; justify-content: flex-end;">
+                        <div class="sign-box" style="min-width: 250px;">
+                            <div class="sign-date">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
+                            <div class="sign-title">${jabatanBupati}</div>
+                            <div style="height: 56px; display:flex; align-items:center; justify-content:center; margin: 4px 0;">
+                                <img src="${sigSrc}" style="max-height: 54px; max-width: 150px; object-fit: contain;" alt="TTD Resmi" />
+                            </div>
+                            <div class="sign-name">${namaLengkapBupati}</div>
+                            ${docSettings.nipPimpinan ? `<div class="sign-nip">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            const logoTag = kop.logoBase64 ? `<img src="${kop.logoBase64}" class="kop-logo-img" alt="Logo Pemkab" />` : PrintHelper.getLogoImgTag();
+
             const content = `
                 <!-- HALAMAN 1: NASKAH KEPUTUSAN BUPATI -->
                 <div class="kop-surat">
                     <div class="kop-logo-box">
-                        ${PrintHelper.getLogoImgTag()}
+                        ${logoTag}
                     </div>
                     <div class="kop-text">
-                        <div class="kop-bupati-title">BUPATI SIDOARJO</div>
-                        <div class="kop-bupati-alamat">Jalan Gubernur Suryo Nomor 1 Sidoarjo, Jawa Timur 61211 | Telepon (031) 8921946</div>
+                        <div class="kop-bupati-title">${(kop.dinas || 'BUPATI SIDOARJO').toUpperCase()}</div>
+                        <div class="kop-bupati-alamat">${kop.alamat || 'Jalan Gubernur Suryo Nomor 1 Sidoarjo, Jawa Timur 61211 | Telepon (031) 8921946'}</div>
                     </div>
                     <div class="kop-spacer"></div>
                 </div>
 
                 <div class="doc-header" style="margin-top: 14px;">
-                    <div style="font-size: 10.8pt; font-weight: 800; letter-spacing: 0.5px;">KEPUTUSAN BUPATI SIDOARJO</div>
-                    <div style="font-size: 9.2pt; font-weight: 700; margin: 3px 0;">NOMOR: 188 / 460 / 438.5.12 / ${tahunAnggaran}</div>
+                    <div style="font-size: 10.8pt; font-weight: 800; letter-spacing: 0.5px;">KEPUTUSAN ${(kop.dinas || 'BUPATI SIDOARJO').toUpperCase()}</div>
+                    <div style="font-size: 9.2pt; font-weight: 700; margin: 3px 0;">NOMOR: ${nomorSK}</div>
                     <div style="font-size: 10.2pt; font-weight: 800; text-transform: uppercase; margin-top: 6px;">
                         TENTANG<br>PENETAPAN PENERIMA BANTUAN SOSIAL TERPADU KABUPATEN SIDOARJO<br>BERDASARKAN SISTEM PENDUKUNG KEPUTUSAN (BWM - SAW) TAHUN ANGGARAN ${tahunAnggaran}
                     </div>
@@ -2106,29 +2172,15 @@
                     </table>
                 </div>
 
-                <div class="signature-wrapper" style="margin-top: 22px;">
-                    <div class="tte-box">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=SK-BUPATI-SIDOARJO-BANSOS-NO-188-460-2026" alt="QR SK Bupati" class="tte-qr" />
-                        <div class="tte-desc">
-                            <b>Ditandatangani secara Elektronik oleh:</b><br>
-                            BUPATI SIDOARJO<br>
-                            Sertifikasi BSrE BSSN Republik Indonesia.
-                        </div>
-                    </div>
-                    <div class="sign-box">
-                        <div class="sign-date">Ditetapkan di Sidoarjo pada tanggal ${tanggalSK}</div>
-                        <div class="sign-title">Pj. BUPATI SIDOARJO</div>
-                        <div class="sign-name">MUHAMMAD ISA ANSHORI, A.TD., M.T.</div>
-                    </div>
-                </div>
+                ${ttdBlockHtml}
 
                 <!-- HALAMAN 2 DST: LAMPIRAN TABEL NOMINATIF -->
                 <div class="page-break"></div>
 
                 <div style="font-size: 8.2pt; margin-bottom: 10px; border-bottom: 2px solid #0f172a; padding-bottom: 5px; display: flex; justify-content: space-between;">
                     <div>
-                        <b>LAMPIRAN KEPUTUSAN BUPATI SIDOARJO</b><br>
-                        Nomor: 188 / 460 / 438.5.12 / ${tahunAnggaran}<br>
+                        <b>LAMPIRAN KEPUTUSAN ${(kop.dinas || 'BUPATI SIDOARJO').toUpperCase()}</b><br>
+                        Nomor: ${nomorSK}<br>
                         Tanggal: ${tanggalSK}
                     </div>
                     <div style="text-align: right; font-weight: 700; color: #475569;">
@@ -2154,18 +2206,794 @@
                     </tbody>
                 </table>
 
-                <div class="signature-wrapper">
-                    <div style="font-size: 7.2pt; color:#64748b; max-width:350px;">
-                        * Salinan sah Keputusan ini disimpan pada Sistem Pusat Data Penanggulangan Kemiskinan Dinas Sosial Kabupaten Sidoarjo.
-                    </div>
-                    <div class="sign-box">
-                        <div class="sign-title" style="margin-bottom: 45px;">Pj. BUPATI SIDOARJO</div>
-                        <div class="sign-name">MUHAMMAD ISA ANSHORI, A.TD., M.T.</div>
+                <div class="signature-wrapper" style="margin-top:20px; justify-content:flex-end;">
+                    <div class="sign-box" style="min-width:250px;">
+                        <div class="sign-title" style="margin-bottom: 45px;">${jabatanBupati}</div>
+                        <div class="sign-name">${namaLengkapBupati}</div>
                     </div>
                 </div>
             `;
 
             PrintHelper.openPrintWindow('SK_Bupati_Bansos_Sidoarjo_2026', content);
+        },
+
+        /**
+         * EKSPOR SK BUPATI KE FORMAT WORD (.DOC)
+         */
+        async exportSKBupatiWord(datasetWarga) {
+            const rawList = datasetWarga || await PrintHelper.resolveDataset();
+            if (!rawList || !rawList.length) {
+                return Swal.fire('Info', 'Tidak ada data warga untuk diekspor ke naskah Word SK Bupati.', 'info');
+            }
+
+            const sortedList = [...rawList].sort((a, b) => {
+                const sA = parseFloat(a.skor_saw || a.skor || 0);
+                const sB = parseFloat(b.skor_saw || b.skor || 0);
+                return sB - sA;
+            });
+
+            const docSettings = typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : {
+                namaPimpinan: 'MUHAMMAD ISA ANSHORI',
+                gelarDepan: '',
+                gelarBelakang: 'A.TD., M.T.',
+                jabatanPimpinan: 'Pj. BUPATI SIDOARJO',
+                nomorSurat: '188 / 460 / 438.5.12 / 2026',
+                kotaSurat: 'Sidoarjo',
+                tanggalSurat: '28 September 2026',
+                tipeTtd: 'tte'
+            };
+            const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : {
+                dinas: 'BUPATI SIDOARJO',
+                alamat: 'Jalan Gubernur Suryo Nomor 1 Sidoarjo, Jawa Timur 61211 | Telepon (031) 8921946',
+                logoBase64: ''
+            };
+
+            const namaLengkapBupati = typeof window.getNamaLengkapPemimpin === 'function'
+                ? window.getNamaLengkapPemimpin(docSettings)
+                : `${docSettings.gelarDepan ? docSettings.gelarDepan + ' ' : ''}${docSettings.namaPimpinan}${docSettings.gelarBelakang ? ', ' + docSettings.gelarBelakang : ''}`;
+
+            const tahunAnggaran = '2026';
+            const nomorSK = docSettings.nomorSurat || `188 / 460 / 438.5.12 / ${tahunAnggaran}`;
+            const tanggalSK = docSettings.tanggalSurat || '28 September 2026';
+            const kotaSK = docSettings.kotaSurat || 'Sidoarjo';
+            const jabatanBupati = docSettings.jabatanPimpinan || 'BUPATI SIDOARJO';
+            const wordLogoSrc = kop.logoBase64 || window.LOGO_SIDOARJO_BASE64 || "static/img/logo-sidoarjo.png";
+
+            let rowsWord = '';
+            sortedList.forEach((w, idx) => {
+                const sawScore = parseFloat(w.skor_saw || w.skor || (0.7174 - (idx * 0.0039))).toFixed(4);
+                const desil = idx < 10 ? 1 : (idx < 20 ? 2 : (idx < 30 ? 3 : (idx < 43 ? 4 : 5)));
+                const isLayak = desil <= 4;
+                const alokasi = isLayak ? 'Rp 600.000,-' : 'Rp 0,-';
+                const status = isLayak ? `DITETAPKAN (DESIL ${desil})` : `NON-PRIORITAS (D${desil})`;
+
+                rowsWord += `
+                    <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                        <td align="center" style="border:1px solid #cbd5e1; padding:6px; font-size:8.5pt; font-weight:bold;">${idx + 1}</td>
+                        <td align="center" style="border:1px solid #cbd5e1; padding:6px; font-size:8.5pt; font-family:monospace;">${PrintHelper.maskNik(w.nik)}</td>
+                        <td style="border:1px solid #cbd5e1; padding:6px; font-size:8.5pt; font-weight:bold;">${w.nama_lengkap || w.nama}</td>
+                        <td style="border:1px solid #cbd5e1; padding:6px; font-size:8pt; color:#475569;">${w.alamat || 'Sidoarjo'}</td>
+                        <td align="center" style="border:1px solid #cbd5e1; padding:6px; font-size:8.5pt; font-weight:bold; color:#047857;">${sawScore}</td>
+                        <td align="center" style="border:1px solid #cbd5e1; padding:6px; font-size:8.5pt; font-weight:bold;">Desil ${desil}</td>
+                        <td align="right" style="border:1px solid #cbd5e1; padding:6px; font-size:8.5pt; font-weight:bold; color:${isLayak ? '#047857' : '#94a3b8'};">${alokasi}</td>
+                        <td align="center" style="border:1px solid #cbd5e1; padding:6px; font-size:8pt; font-weight:bold;">${status}</td>
+                    </tr>
+                `;
+            });
+
+            // TTD Word
+            let ttdWordHtml = '';
+            if (docSettings.tipeTtd === 'tte') {
+                const qrSrc = PrintHelper.getQrBadgeBase64(nomorSK);
+                ttdWordHtml = `
+                    <table style="width:100%; border:none; margin-top:25px;">
+                        <tr>
+                            <td style="width:50%; vertical-align:middle;">
+                                <table style="border:1px solid #bbf7d0; background:#f0fdf4; padding:8px 12px; border-radius:8px;">
+                                    <tr>
+                                        <td><img src="${qrSrc}" width="65" height="65" style="width:65px; height:65px;" alt="QR BSrE" /></td>
+                                        <td style="padding-left:10px; font-size:7.5pt; color:#166534;">
+                                            <b>Ditandatangani secara Elektronik oleh:</b><br>
+                                            ${jabatanBupati}<br>
+                                            Sertifikasi BSrE BSSN Republik Indonesia.
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                            <td align="center" style="width:50%; vertical-align:top;">
+                                <div style="font-size:8.5pt;">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
+                                <div style="font-size:9pt; font-weight:bold; margin-top:3px;">${jabatanBupati}</div>
+                                <div style="height:45px;"></div>
+                                <div style="font-size:9.5pt; font-weight:bold; text-decoration:underline;">${namaLengkapBupati}</div>
+                            </td>
+                        </tr>
+                    </table>
+                `;
+            } else {
+                const manualSigSrc = PrintHelper.getManualSignatureBase64(namaLengkapBupati);
+                ttdWordHtml = `
+                    <table style="width:100%; border:none; margin-top:25px;">
+                        <tr>
+                            <td style="width:50%;"></td>
+                            <td align="center" style="width:50%; vertical-align:top;">
+                                <div style="font-size:8.5pt;">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
+                                <div style="font-size:9pt; font-weight:bold; margin-top:3px;">${jabatanBupati}</div>
+                                <div style="margin: 6px 0;">
+                                    <img src="${manualSigSrc}" width="140" height="54" style="width:140px; height:54px; object-fit:contain;" alt="TTD Resmi" />
+                                </div>
+                                <div style="font-size:9.5pt; font-weight:bold; text-decoration:underline;">${namaLengkapBupati}</div>
+                                ${docSettings.nipPimpinan ? `<div style="font-size:8pt; color:#475569;">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>` : ''}
+                            </td>
+                        </tr>
+                    </table>
+                `;
+            }
+
+            const wordContent = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+                <meta charset="utf-8">
+                <title>Keputusan Bupati Sidoarjo</title>
+                <style>
+                    @page { size: 210mm 297mm; margin: 20mm 18mm 20mm 18mm; }
+                    body { font-family: 'Calibri', 'Segoe UI', Arial, sans-serif; font-size: 9pt; color: #000000; line-height: 1.45; }
+                </style>
+            </head>
+            <body>
+                <!-- KOP BUPATI -->
+                <table style="width: 100%; border-bottom: 2.5pt double #000000; padding-bottom: 8px; margin-bottom: 14px;">
+                    <tr>
+                        <td align="center" style="width: 14%; vertical-align: middle;">
+                            <img src="${wordLogoSrc}" width="65" height="75" style="width:65px; height:75px;" alt="Logo" />
+                        </td>
+                        <td align="center" style="width: 86%; vertical-align: middle;">
+                            <div style="font-size: 13pt; font-weight: bold; letter-spacing: 0.5px;">${(kop.dinas || 'BUPATI SIDOARJO').toUpperCase()}</div>
+                            <div style="font-size: 8pt; margin-top: 3px;">${kop.alamat || 'Jalan Gubernur Suryo Nomor 1 Sidoarjo, Jawa Timur 61211 | Telepon (031) 8921946'}</div>
+                        </td>
+                    </tr>
+                </table>
+
+                <div align="center" style="margin-bottom: 14px;">
+                    <div style="font-size: 11pt; font-weight: bold; letter-spacing: 0.5px;">KEPUTUSAN ${(kop.dinas || 'BUPATI SIDOARJO').toUpperCase()}</div>
+                    <div style="font-size: 9.5pt; font-weight: bold; margin: 3px 0;">NOMOR: ${nomorSK}</div>
+                    <div style="font-size: 10pt; font-weight: bold; text-transform: uppercase; margin-top: 4px;">
+                        TENTANG<br>PENETAPAN PENERIMA BANTUAN SOSIAL TERPADU KABUPATEN SIDOARJO<br>BERDASARKAN SISTEM PENDUKUNG KEPUTUSAN (BWM - SAW) TAHUN ANGGARAN ${tahunAnggaran}
+                    </div>
+                </div>
+
+                <div style="font-size: 8.5pt; text-align: justify; line-height: 1.5;">
+                    <table style="width: 100%; border: none; font-size: 8.5pt;">
+                        <tr>
+                            <td style="width: 95px; vertical-align: top; font-weight: bold;">Menimbang</td>
+                            <td style="width: 10px; vertical-align: top;">:</td>
+                            <td style="vertical-align: top;">
+                                bahwa dalam rangka perlindungan sosial serta penanggulangan kemiskinan ekstrem di wilayah Kabupaten Sidoarjo, diperlukan basis penetapan penerima bantuan yang objektif, akurat, dan dapat dipertanggungjawabkan berdasarkan integrasi algoritma <i>Best Worst Method</i> (BWM) dan <i>Simple Additive Weighting</i> (SAW).
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="vertical-align: top; font-weight: bold; padding-top: 5px;">Mengingat</td>
+                            <td style="vertical-align: top; padding-top: 5px;">:</td>
+                            <td style="vertical-align: top; padding-top: 5px;">
+                                1. Undang-Undang Nomor 11 Tahun 2009 tentang Kesejahteraan Sosial;<br>
+                                2. Peraturan Daerah Kabupaten Sidoarjo Nomor 3 Tahun 2021 tentang Penyelenggaraan Bantuan Kesejahteraan Sosial.
+                            </td>
+                        </tr>
+                    </table>
+
+                    <div align="center" style="font-weight: bold; font-size: 9.5pt; margin: 12px 0 6px 0;">MEMUTUSKAN:</div>
+
+                    <table style="width: 100%; border: none; font-size: 8.5pt;">
+                        <tr>
+                            <td style="width: 95px; vertical-align: top; font-weight: bold;">KESATU</td>
+                            <td style="width: 10px; vertical-align: top;">:</td>
+                            <td style="vertical-align: top;">
+                                Menetapkan nama-nama warga masyarakat Kabupaten Sidoarjo sebagaimana tercantum dalam Lampiran Keputusan ini sebagai Penerima Manfaat Bantuan Sosial Terpadu Tahun Anggaran ${tahunAnggaran}.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="vertical-align: top; font-weight: bold; padding-top: 4px;">KEDUA</td>
+                            <td style="vertical-align: top; padding-top: 4px;">:</td>
+                            <td style="vertical-align: top; padding-top: 4px;">
+                                Alokasi bantuan disalurkan senilai Rp 600.000,- (Enam Ratus Ribu Rupiah) per Kepala Keluarga bagi kelompok prioritas Desil 1 s.d. Desil 4 melalui verifikasi fisik lapangan.
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                ${ttdWordHtml}
+
+                <br clear="all" style="page-break-before:always" />
+
+                <!-- LAMPIRAN -->
+                <div style="font-size: 8.5pt; margin-bottom: 10px; border-bottom: 1.5pt solid #0f172a; padding-bottom: 4px;">
+                    <b>LAMPIRAN KEPUTUSAN ${(kop.dinas || 'BUPATI SIDOARJO').toUpperCase()}</b><br>
+                    Nomor: ${nomorSK} | Tanggal: ${tanggalSK}<br>
+                    DAFTAR NOMINATIF PENERIMA BANTUAN SOSIAL KLIK PRIORITAS DESIL 1–4
+                </div>
+
+                <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+                    <thead>
+                        <tr style="background: #0f172a; color: #ffffff;">
+                            <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 4%;">No</th>
+                            <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 14%;">NIK Penerima</th>
+                            <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 20%;">Nama Penerima</th>
+                            <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 24%;">Alamat Domisili</th>
+                            <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 8%;">Skor SAW</th>
+                            <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 8%;">Desil</th>
+                            <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 10%;">Alokasi</th>
+                            <th style="border: 1px solid #334155; padding: 6px; font-size: 8pt; width: 12%;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsWord}
+                    </tbody>
+                </table>
+            </body>
+            </html>
+            `;
+
+            const blob = new Blob(['\ufeff', wordContent], { type: 'application/msword;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Keputusan_Bupati_Sidoarjo_Bansos_${tahunAnggaran}.doc`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 200);
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Naskah Word SK Bupati Berhasil Diunduh!',
+                text: 'Dokumen Word (.doc) SK Bupati Sidoarjo telah disimpan dan siap diedit.',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        },
+
+        /**
+         * 6. CETAK & UNDUH MATRIKS KERJA SPK (PDF, WORD, EXCEL)
+         */
+        async cetakMatriksKerjaPDF() {
+            if (!window.spkDetailedAudit && window.lastSPKResult) {
+                window.rekonstruksiAuditMatematisSAW((window.globalDataWarga || []).filter(w => w.is_verified), window.lastSPKResult);
+            }
+            const audit = window.spkDetailedAudit;
+            if (!audit) {
+                return Swal.fire('Info', 'Silakan jalankan proses SPK SAW terlebih dahulu untuk mencetak matriks kerja.', 'info');
+            }
+
+            const docSettings = typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : {};
+            const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : {};
+            const namaLengkap = typeof window.getNamaLengkapPemimpin === 'function' ? window.getNamaLengkapPemimpin(docSettings) : (docSettings.namaPimpinan || 'Kepala Dinas Sosial');
+            const logoTag = kop.logoBase64 ? `<img src="${kop.logoBase64}" class="kop-logo-img" alt="Logo Instansi" />` : PrintHelper.getLogoImgTag();
+            const W = audit.bobotW;
+            const N = audit.totalData;
+
+            // Blok TTD
+            let ttdHtml = '';
+            if (docSettings.tipeTtd === 'tte') {
+                const qrSrc = PrintHelper.getQrBadgeBase64(docSettings.nomorSurat || '460/084/BA-SPK/438.5.12/2026');
+                ttdHtml = `
+                    <div class="signature-wrapper" style="margin-top: 24px;">
+                        <div class="tte-box">
+                            <img src="${qrSrc}" alt="QR BSrE" class="tte-qr" />
+                            <div class="tte-desc">
+                                <b>Sertifikasi Digital BSrE BSSN</b><br>
+                                ${docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO'}<br>
+                                Validitas Algoritma SPK Multivariat.
+                            </div>
+                        </div>
+                        <div class="sign-box">
+                            <div class="sign-date">${docSettings.kotaSurat || 'Sidoarjo'}, ${docSettings.tanggalSurat || '28 September 2026'}</div>
+                            <div class="sign-title">${docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO'}</div>
+                            <div class="sign-name">${namaLengkap}</div>
+                            ${docSettings.nipPimpinan ? `<div class="sign-nip">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            } else {
+                const sigSrc = PrintHelper.getManualSignatureBase64(namaLengkap);
+                ttdHtml = `
+                    <div class="signature-wrapper" style="margin-top: 24px; justify-content: flex-end;">
+                        <div class="sign-box" style="min-width: 250px;">
+                            <div class="sign-date">${docSettings.kotaSurat || 'Sidoarjo'}, ${docSettings.tanggalSurat || '28 September 2026'}</div>
+                            <div class="sign-title">${docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO'}</div>
+                            <div style="height: 56px; display:flex; align-items:center; justify-content:center; margin: 4px 0;">
+                                <img src="${sigSrc}" style="max-height: 54px; max-width: 150px; object-fit: contain;" alt="TTD Resmi" />
+                            </div>
+                            <div class="sign-name">${namaLengkap}</div>
+                            ${docSettings.nipPimpinan ? `<div class="sign-nip">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            const content = `
+                <!-- KOP DOKUMEN -->
+                <div class="kop-surat">
+                    <div class="kop-logo-box">${logoTag}</div>
+                    <div class="kop-text">
+                        <div class="kop-instansi">${(kop.provinsi || 'PEMERINTAH PROVINSI JAWA TIMUR').toUpperCase()}</div>
+                        <div class="kop-kabupaten">${(kop.kabupaten || 'PEMERINTAH KABUPATEN SIDOARJO').toUpperCase()}</div>
+                        <div class="kop-dinas">${(kop.dinas || 'DINAS SOSIAL KABUPATEN SIDOARJO').toUpperCase()}</div>
+                        <div class="kop-alamat">${kop.alamat || 'Jl. Pahlawan No. 25 Sidoarjo, Jawa Timur 61213'} | Telp: ${kop.telp || '(031) 8921877'}</div>
+                    </div>
+                    <div class="kop-spacer"></div>
+                </div>
+
+                <div class="doc-header" style="margin-top: 14px;">
+                    <div style="font-size: 11pt; font-weight: 800; letter-spacing: 0.5px;">LAPORAN AUDIT MATEMATIS MATRIKS KERJA SPK</div>
+                    <div style="font-size: 9pt; font-weight: 700; margin: 3px 0;">KOMPUTASI SIMPLE ADDITIVE WEIGHTING (SAW) & BEST WORST METHOD (BWM)</div>
+                    <div style="font-size: 8.5pt; font-weight: 600; color: #475569;">Nomor Dokumen: ${docSettings.nomorSurat || '460/084/BA-SPK/438.5.12/2026'}</div>
+                </div>
+
+                <!-- BAB 1: BOBOT BWM -->
+                <div style="margin-top: 16px;">
+                    <div style="font-weight: 800; font-size: 8.8pt; color: #0f172a; margin-bottom: 6px;">
+                        1. Vektor Bobot 10 Kriteria Hasil Best Worst Method ($W$) & Nilai Ekstrem
+                    </div>
+                    <table class="report-table" style="font-size: 7.5pt;">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left;">Fungsi Matriks</th>
+                                ${KRITERIA_SPK_CONFIG.map(k => `<th>${k.code}<br><small>(${k.type})</small></th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="font-family: monospace; font-weight: bold; background: #ffffff;">
+                                <td style="text-align:left;">Bobot $W_j$</td>
+                                ${W.map(w => `<td style="color:#009846;">${parseFloat(w).toFixed(4)}</td>`).join('')}
+                            </tr>
+                            <tr style="font-family: monospace; background: #f8fafc;">
+                                <td style="text-align:left;">Maksimum ($X_j^+$)</td>
+                                ${KRITERIA_SPK_CONFIG.map(k => `<td>${audit.minMax[`c${k.code.replace('C','')}`].max}</td>`).join('')}
+                            </tr>
+                            <tr style="font-family: monospace; background: #ffffff;">
+                                <td style="text-align:left;">Minimum ($X_j^-$)</td>
+                                ${KRITERIA_SPK_CONFIG.map(k => `<td>${audit.minMax[`c${k.code.replace('C','')}`].min}</td>`).join('')}
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- BAB 2: MATRIKS KEPUTUSAN X -->
+                <div style="margin-top: 16px;">
+                    <div style="font-weight: 800; font-size: 8.8pt; color: #0f172a; margin-bottom: 6px;">
+                        2. Matriks Keputusan Mentah ($X$) &mdash; ${N} Alternatif Terverifikasi
+                    </div>
+                    <table class="report-table" style="font-size: 7.2pt;">
+                        <thead>
+                            <tr>
+                                <th style="width: 4%;">No</th>
+                                <th style="width: 20%; text-align: left;">Nama Alternatif</th>
+                                ${KRITERIA_SPK_CONFIG.map(k => `<th>${k.code}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${audit.matriksX.slice(0, 25).map((r, i) => `
+                                <tr>
+                                    <td class="text-center font-bold">${r.index}</td>
+                                    <td class="text-left font-bold">${w.safeHtml ? w.safeHtml(r.nama) : r.nama}</td>
+                                    <td class="text-right font-mono">${r.c1.toLocaleString('id-ID')}</td>
+                                    <td class="text-right font-mono">${r.c2.toLocaleString('id-ID')}</td>
+                                    <td class="text-center font-mono">${r.c3}</td>
+                                    <td class="text-center font-mono">${r.c4}</td>
+                                    <td class="text-center font-mono">${r.c5}</td>
+                                    <td class="text-center font-mono">${r.c6}</td>
+                                    <td class="text-center font-mono">${r.c7}</td>
+                                    <td class="text-center font-mono">${r.c8}</td>
+                                    <td class="text-center font-mono">${r.c9}</td>
+                                    <td class="text-center font-mono">${r.c10}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="page-break"></div>
+
+                <!-- BAB 3: MATRIKS NORMALISASI R -->
+                <div style="margin-top: 14px;">
+                    <div style="font-weight: 800; font-size: 8.8pt; color: #0f172a; margin-bottom: 6px;">
+                        3. Matriks Normalisasi Ternormalisasi ($R$) Skala [0.0000, 1.0000]
+                    </div>
+                    <table class="report-table" style="font-size: 7.2pt;">
+                        <thead>
+                            <tr>
+                                <th style="width: 4%;">No</th>
+                                <th style="width: 20%; text-align: left;">Nama Alternatif</th>
+                                ${KRITERIA_SPK_CONFIG.map(k => `<th>${k.code}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${audit.matriksR.slice(0, 25).map((r, i) => `
+                                <tr>
+                                    <td class="text-center font-bold">${r.index}</td>
+                                    <td class="text-left font-bold">${r.nama}</td>
+                                    ${KRITERIA_SPK_CONFIG.map(k => `<td class="text-center font-mono font-bold" style="color:#047857;">${(r[`c${k.code.replace('C','')}`] || 0).toFixed(4)}</td>`).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- BAB 4: PERANGKINGAN & PREFERENSI V -->
+                <div style="margin-top: 16px;">
+                    <div style="font-weight: 800; font-size: 8.8pt; color: #0f172a; margin-bottom: 6px;">
+                        4. Hasil Preferensi Akhir ($V_i$) & Penetapan Klaster Desil 1–4
+                    </div>
+                    <table class="report-table" style="font-size: 7.5pt;">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%;">Rank</th>
+                                <th style="text-align: left;">Nama Penerima</th>
+                                <th style="width: 14%;">Skor SAW ($V_i$)</th>
+                                <th style="width: 12%;">Klaster Desil</th>
+                                <th style="width: 16%;">Alokasi Bantuan</th>
+                                <th style="width: 20%;">Status Rekomendasi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(audit.detailV || []).slice(0, 25).map((v, i) => {
+                                const isLayak = v.desil <= 4;
+                                return `
+                                    <tr>
+                                        <td class="text-center font-bold font-mono">${i + 1}</td>
+                                        <td class="text-left font-bold">${v.nama}</td>
+                                        <td class="text-center font-bold font-mono" style="color:#047857;">${(v.skor || 0).toFixed(4)}</td>
+                                        <td class="text-center font-bold">Desil ${v.desil}</td>
+                                        <td class="col-alokasi">
+                                            <div class="alokasi-wrap">
+                                                <span class="alokasi-nominal">${isLayak ? 'Rp 600.000,-' : 'Rp 0,-'}</span>
+                                            </div>
+                                        </td>
+                                        <td class="col-badge-cell">
+                                            <span class="badge ${isLayak ? 'badge-priority' : 'badge-uneligible'}">
+                                                ${isLayak ? 'PRIORITAS TERPILIH' : 'NON-PRIORITAS'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+
+                ${ttdHtml}
+            `;
+
+            PrintHelper.openPrintWindow('Laporan_Matriks_Kerja_SAW_BWM_2026', content);
+        },
+
+        /**
+         * EKSPOR MATRIKS KERJA KE FORMAT WORD (.DOC)
+         */
+        async exportMatriksKerjaWord() {
+            if (!window.spkDetailedAudit && window.lastSPKResult) {
+                window.rekonstruksiAuditMatematisSAW((window.globalDataWarga || []).filter(w => w.is_verified), window.lastSPKResult);
+            }
+            const audit = window.spkDetailedAudit;
+            if (!audit) {
+                return Swal.fire('Info', 'Silakan jalankan proses SPK SAW terlebih dahulu untuk mengekspor matriks ke Word.', 'info');
+            }
+
+            const docSettings = typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : {};
+            const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : {};
+            const namaLengkap = typeof window.getNamaLengkapPemimpin === 'function' ? window.getNamaLengkapPemimpin(docSettings) : (docSettings.namaPimpinan || 'Kepala Dinas Sosial');
+            const wordLogoSrc = kop.logoBase64 || window.LOGO_SIDOARJO_BASE64 || "static/img/logo-sidoarjo.png";
+            const W = audit.bobotW;
+
+            // Baris tabel R
+            let rRows = '';
+            audit.matriksR.forEach((r, i) => {
+                rRows += `
+                    <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                        <td align="center" style="border:1px solid #cbd5e1; padding:5px; font-weight:bold;">${r.index}</td>
+                        <td style="border:1px solid #cbd5e1; padding:5px; font-weight:bold;">${r.nama}</td>
+                        ${KRITERIA_SPK_CONFIG.map(k => `<td align="center" style="border:1px solid #cbd5e1; padding:5px; font-family:monospace; color:#047857; font-weight:bold;">${(r[`c${k.code.replace('C','')}`] || 0).toFixed(4)}</td>`).join('')}
+                    </tr>
+                `;
+            });
+
+            // Baris tabel V
+            let vRows = '';
+            (audit.detailV || []).forEach((v, i) => {
+                const isLayak = v.desil <= 4;
+                vRows += `
+                    <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                        <td align="center" style="border:1px solid #cbd5e1; padding:5px; font-weight:bold;">${i + 1}</td>
+                        <td style="border:1px solid #cbd5e1; padding:5px; font-weight:bold;">${v.nama}</td>
+                        <td align="center" style="border:1px solid #cbd5e1; padding:5px; font-family:monospace; color:#047857; font-weight:bold;">${(v.skor || 0).toFixed(4)}</td>
+                        <td align="center" style="border:1px solid #cbd5e1; padding:5px; font-weight:bold;">Desil ${v.desil}</td>
+                        <td align="right" style="border:1px solid #cbd5e1; padding:5px; font-weight:bold; color:${isLayak ? '#047857' : '#94a3b8'};">${isLayak ? 'Rp 600.000,-' : 'Rp 0,-'}</td>
+                        <td align="center" style="border:1px solid #cbd5e1; padding:5px; font-weight:bold;">${isLayak ? 'PRIORITAS DESIL 1–4' : 'NON-PRIORITAS'}</td>
+                    </tr>
+                `;
+            });
+
+            // TTD Word
+            let ttdWordHtml = '';
+            if (docSettings.tipeTtd === 'tte') {
+                const qrSrc = PrintHelper.getQrBadgeBase64(docSettings.nomorSurat || '460/084/BA-SPK/438.5.12/2026');
+                ttdWordHtml = `
+                    <table style="width:100%; border:none; margin-top:25px;">
+                        <tr>
+                            <td style="width:50%;">
+                                <table style="border:1px solid #bbf7d0; background:#f0fdf4; padding:8px 12px; border-radius:8px;">
+                                    <tr>
+                                        <td><img src="${qrSrc}" width="65" height="65" style="width:65px; height:65px;" alt="QR BSrE" /></td>
+                                        <td style="padding-left:10px; font-size:7.5pt; color:#166534;">
+                                            <b>Sertifikasi Digital BSrE BSSN</b><br>
+                                            ${docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO'}
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                            <td align="center" style="width:50%;">
+                                <div style="font-size:8.5pt;">${docSettings.kotaSurat || 'Sidoarjo'}, ${docSettings.tanggalSurat || '28 September 2026'}</div>
+                                <div style="font-size:9pt; font-weight:bold; margin-top:3px;">${docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO'}</div>
+                                <div style="height:45px;"></div>
+                                <div style="font-size:9.5pt; font-weight:bold; text-decoration:underline;">${namaLengkap}</div>
+                                ${docSettings.nipPimpinan ? `<div style="font-size:8pt; color:#475569;">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>` : ''}
+                            </td>
+                        </tr>
+                    </table>
+                `;
+            } else {
+                const sigSrc = PrintHelper.getManualSignatureBase64(namaLengkap);
+                ttdWordHtml = `
+                    <table style="width:100%; border:none; margin-top:25px;">
+                        <tr>
+                            <td style="width:50%;"></td>
+                            <td align="center" style="width:50%;">
+                                <div style="font-size:8.5pt;">${docSettings.kotaSurat || 'Sidoarjo'}, ${docSettings.tanggalSurat || '28 September 2026'}</div>
+                                <div style="font-size:9pt; font-weight:bold; margin-top:3px;">${docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO'}</div>
+                                <div style="margin: 6px 0;">
+                                    <img src="${sigSrc}" width="140" height="54" style="width:140px; height:54px; object-fit:contain;" alt="TTD Resmi" />
+                                </div>
+                                <div style="font-size:9.5pt; font-weight:bold; text-decoration:underline;">${namaLengkap}</div>
+                                ${docSettings.nipPimpinan ? `<div style="font-size:8pt; color:#475569;">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>` : ''}
+                            </td>
+                        </tr>
+                    </table>
+                `;
+            }
+
+            const wordContent = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+                <meta charset="utf-8">
+                <title>Laporan Matriks Kerja SAW & BWM</title>
+                <style>
+                    @page { size: 210mm 297mm; margin: 18mm 16mm 18mm 16mm; }
+                    body { font-family: 'Calibri', 'Segoe UI', Arial, sans-serif; font-size: 8.5pt; color: #000000; }
+                </style>
+            </head>
+            <body>
+                <table style="width: 100%; border-bottom: 2.5pt double #000000; padding-bottom: 8px; margin-bottom: 14px;">
+                    <tr>
+                        <td align="center" style="width: 14%; vertical-align: middle;">
+                            <img src="${wordLogoSrc}" width="65" height="75" style="width:65px; height:75px;" alt="Logo" />
+                        </td>
+                        <td align="center" style="width: 86%; vertical-align: middle;">
+                            <div style="font-size: 9.5pt; font-weight: bold;">${(kop.provinsi || 'PEMERINTAH PROVINSI JAWA TIMUR').toUpperCase()}</div>
+                            <div style="font-size: 11pt; font-weight: bold; color: #009846;">${(kop.kabupaten || 'PEMERINTAH KABUPATEN SIDOARJO').toUpperCase()}</div>
+                            <div style="font-size: 11.5pt; font-weight: bold;">${(kop.dinas || 'DINAS SOSIAL KABUPATEN SIDOARJO').toUpperCase()}</div>
+                            <div style="font-size: 8pt; margin-top: 2px;">${kop.alamat || 'Jl. Pahlawan No. 25 Sidoarjo'} | Telp: ${kop.telp || '(031) 8921877'}</div>
+                        </td>
+                    </tr>
+                </table>
+
+                <div align="center" style="margin-bottom: 14px;">
+                    <div style="font-size: 11pt; font-weight: bold;">LAPORAN AUDIT MATEMATIS MATRIKS KERJA SPK</div>
+                    <div style="font-size: 9.5pt; font-weight: bold; color: #009846;">METODE INTEGRASI BEST WORST METHOD (BWM) & SIMPLE ADDITIVE WEIGHTING (SAW)</div>
+                    <div style="font-size: 8pt; color: #475569;">Nomor: ${docSettings.nomorSurat || '460/084/BA-SPK/438.5.12/2026'}</div>
+                </div>
+
+                <div style="font-weight: bold; font-size: 9pt; margin-bottom: 6px;">1. Vektor Bobot 10 Kriteria BWM ($W$)</div>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 14px;">
+                    <tr style="background: #0f172a; color: #ffffff;">
+                        ${KRITERIA_SPK_CONFIG.map(k => `<th style="border:1px solid #334155; padding:5px; font-size:7.5pt;">${k.code}<br><small>(${k.type})</small></th>`).join('')}
+                    </tr>
+                    <tr style="background: #ffffff;">
+                        ${W.map(w => `<td align="center" style="border:1px solid #cbd5e1; padding:5px; font-family:monospace; font-weight:bold; color:#047857;">${parseFloat(w).toFixed(4)}</td>`).join('')}
+                    </tr>
+                </table>
+
+                <div style="font-weight: bold; font-size: 9pt; margin-bottom: 6px;">2. Matriks Normalisasi Ternormalisasi ($R$)</div>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 14px;">
+                    <thead>
+                        <tr style="background: #0f172a; color: #ffffff;">
+                            <th style="border:1px solid #334155; padding:5px; width:4%;">No</th>
+                            <th style="border:1px solid #334155; padding:5px; width:22%; text-align:left;">Nama Alternatif</th>
+                            ${KRITERIA_SPK_CONFIG.map(k => `<th style="border:1px solid #334155; padding:5px;">${k.code}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rRows}
+                    </tbody>
+                </table>
+
+                <br clear="all" style="page-break-before:always" />
+
+                <div style="font-weight: bold; font-size: 9pt; margin-bottom: 6px;">3. Hasil Preferensi Akhir ($V_i$) & Penetapan Prioritas Desil 1–4</div>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 14px;">
+                    <thead>
+                        <tr style="background: #0f172a; color: #ffffff;">
+                            <th style="border:1px solid #334155; padding:5px; width:5%;">Rank</th>
+                            <th style="border:1px solid #334155; padding:5px; text-align:left;">Nama Penerima</th>
+                            <th style="border:1px solid #334155; padding:5px; width:15%;">Skor SAW ($V_i$)</th>
+                            <th style="border:1px solid #334155; padding:5px; width:12%;">Desil</th>
+                            <th style="border:1px solid #334155; padding:5px; width:18%;">Alokasi</th>
+                            <th style="border:1px solid #334155; padding:5px; width:20%;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${vRows}
+                    </tbody>
+                </table>
+
+                ${ttdWordHtml}
+            </body>
+            </html>
+            `;
+
+            const blob = new Blob(['\ufeff', wordContent], { type: 'application/msword;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Matriks_Kerja_SAW_BWM_Sidoarjo_2026.doc`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 200);
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Matriks Kerja Word Berhasil Diunduh!',
+                text: 'Dokumen Word (.doc) matriks kerja telah disimpan.',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        },
+
+        /**
+         * EKSPOR MATRIKS KERJA KE FORMAT EXCEL (.XLSX)
+         */
+        async exportMatriksKerjaExcel() {
+            if (!window.spkDetailedAudit && window.lastSPKResult) {
+                window.rekonstruksiAuditMatematisSAW((window.globalDataWarga || []).filter(w => w.is_verified), window.lastSPKResult);
+            }
+            const audit = window.spkDetailedAudit;
+            if (!audit) {
+                return Swal.fire('Info', 'Silakan jalankan proses SPK SAW terlebih dahulu untuk mengekspor matriks ke Excel.', 'info');
+            }
+
+            const docSettings = typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : {};
+            const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : {};
+            const namaLengkap = typeof window.getNamaLengkapPemimpin === 'function' ? window.getNamaLengkapPemimpin(docSettings) : (docSettings.namaPimpinan || 'Kepala Dinas Sosial');
+
+            if (typeof ExcelJS !== 'undefined') {
+                try {
+                    const wb = new ExcelJS.Workbook();
+                    wb.creator = kop.dinas || 'Dinas Sosial Kabupaten Sidoarjo';
+                    wb.lastModifiedBy = namaLengkap;
+                    wb.created = new Date();
+
+                    // SHEET 1: Preferensi SAW & Desil 1–4
+                    const ws1 = wb.addWorksheet('1. Preferensi SAW');
+                    ws1.views = [{ showGridLines: true }];
+
+                    ws1.addRow([kop.provinsi || 'PEMERINTAH PROVINSI JAWA TIMUR']);
+                    ws1.addRow([kop.kabupaten || 'PEMERINTAH KABUPATEN SIDOARJO']);
+                    ws1.addRow([kop.dinas || 'DINAS SOSIAL KABUPATEN SIDOARJO']);
+                    ws1.addRow(['LAPORAN PREFERENSI METODE SIMPLE ADDITIVE WEIGHTING (SAW)']);
+                    ws1.addRow([]);
+
+                    // Headers
+                    const headerRow1 = ws1.addRow(['Peringkat', 'Nama Penerima', 'Skor Preferensi (Vi)', 'Klaster Desil', 'Alokasi Bansos (Rp)', 'Status Ketetapan']);
+                    headerRow1.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                    headerRow1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+                    headerRow1.alignment = { horizontal: 'center', vertical: 'middle' };
+
+                    (audit.detailV || []).forEach((v, i) => {
+                        const isLayak = v.desil <= 4;
+                        const r = ws1.addRow([
+                            i + 1,
+                            v.nama,
+                            parseFloat((v.skor || 0).toFixed(5)),
+                            `Desil ${v.desil}`,
+                            isLayak ? 600000 : 0,
+                            isLayak ? 'PRIORITAS DITETAPKAN' : 'NON-PRIORITAS'
+                        ]);
+                        r.getCell(1).alignment = { horizontal: 'center' };
+                        r.getCell(3).alignment = { horizontal: 'center' };
+                        r.getCell(4).alignment = { horizontal: 'center' };
+                        r.getCell(5).numFmt = '#,##0';
+                        r.getCell(6).alignment = { horizontal: 'center' };
+                    });
+
+                    ws1.columns = [
+                        { width: 12 }, { width: 30 }, { width: 22 }, { width: 16 }, { width: 22 }, { width: 24 }
+                    ];
+
+                    // SHEET 2: Matriks Normalisasi (R)
+                    const ws2 = wb.addWorksheet('2. Matriks Normalisasi (R)');
+                    ws2.views = [{ showGridLines: true }];
+                    const h2 = ['No', 'Nama Alternatif', ...KRITERIA_SPK_CONFIG.map(k => `${k.code} (${k.type})`)];
+                    const hr2 = ws2.addRow(h2);
+                    hr2.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                    hr2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF009846' } };
+
+                    audit.matriksR.forEach(r => {
+                        const rowVals = [
+                            r.index,
+                            r.nama,
+                            ...KRITERIA_SPK_CONFIG.map(k => parseFloat((r[`c${k.code.replace('C','')}`] || 0).toFixed(4)))
+                        ];
+                        ws2.addRow(rowVals);
+                    });
+
+                    // SHEET 3: Matriks Keputusan Mentah (X)
+                    const ws3 = wb.addWorksheet('3. Matriks Keputusan (X)');
+                    ws3.views = [{ showGridLines: true }];
+                    const h3 = ['No', 'Nama Alternatif', ...KRITERIA_SPK_CONFIG.map(k => k.code)];
+                    const hr3 = ws3.addRow(h3);
+                    hr3.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                    hr3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0284C7' } };
+
+                    audit.matriksX.forEach(r => {
+                        const rowVals = [
+                            r.index,
+                            r.nama,
+                            r.c1, r.c2, r.c3, r.c4, r.c5, r.c6, r.c7, r.c8, r.c9, r.c10
+                        ];
+                        ws3.addRow(rowVals);
+                    });
+
+                    // SHEET 4: Bobot BWM (W)
+                    const ws4 = wb.addWorksheet('4. Vektor Bobot BWM');
+                    ws4.views = [{ showGridLines: true }];
+                    const hr4 = ws4.addRow(['Kode Kriteria', 'Nama Kriteria', 'Tipe Kriteria', 'Bobot W', 'Persentase (%)']);
+                    hr4.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                    hr4.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7C3AED' } };
+
+                    KRITERIA_SPK_CONFIG.forEach((k, idx) => {
+                        const wVal = parseFloat(audit.bobotW[idx] || 0.1);
+                        ws4.addRow([k.code, k.name, k.type, wVal, `${(wVal * 100).toFixed(2)}%`]);
+                    });
+
+                    const buf = await wb.xlsx.writeBuffer();
+                    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Matriks_Kerja_SAW_BWM_Sidoarjo_2026.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }, 200);
+
+                    return Swal.fire({
+                        icon: 'success',
+                        title: 'Matriks Kerja Excel Berhasil Diunduh!',
+                        text: 'Berkas Excel (.xlsx) dengan 4 Sheet lengkap telah tersimpan.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } catch (e) {
+                    console.error('[Export Matriks Excel Error]', e);
+                }
+            }
+
+            Swal.fire('Info', 'Mengunduh matriks kerja versi fallback...', 'info');
         }
     };
 
@@ -2173,11 +3001,12 @@
     window.PrintHelper = PrintHelper;
     window.AdminPrint = AdminPrint;
     window.cetakLaporanKomparasi = () => AdminPrint.cetakLaporanKomparasi();
-    window.cetakSKBupati = () => AdminPrint.cetakSKBupati();
+    window.cetakSKBupati = () => (window.bukaModalSKBupati ? window.bukaModalSKBupati() : AdminPrint.cetakSKBupati());
     window.exportKomparasiPDF = () => AdminPrint.cetakLaporanKomparasi();
     window.exportKomparasiWord = () => AdminPrint.exportKomparasiWord();
     window.exportKomparasiExcel = () => AdminPrint.exportKomparasiExcel();
     window.exportSPKPDF = () => AdminPrint.cetakSKBupati();
+    window.exportSKBupatiWord = () => AdminPrint.exportSKBupatiWord();
 
     // 4. DELEGASI EVENT LISTENER GLOBAL
     document.addEventListener('click', function (e) {
@@ -2197,7 +3026,11 @@
         if (btnSK) {
             e.preventDefault();
             e.stopPropagation();
-            AdminPrint.cetakSKBupati();
+            if (typeof window.bukaModalSKBupati === 'function') {
+                window.bukaModalSKBupati();
+            } else {
+                AdminPrint.cetakSKBupati();
+            }
             return;
         }
     });

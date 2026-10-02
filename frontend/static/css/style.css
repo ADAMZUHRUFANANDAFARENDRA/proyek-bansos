@@ -765,57 +765,44 @@ img, svg, video, canvas {
 
 .modern-single-loader {
     position: relative;
-    width: 74px;
-    height: 74px;
-    margin: 12px auto 14px auto;
-}
-
-.modern-single-loader .loader-glow {
-    position: absolute;
-    inset: -6px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(0, 152, 70, 0.22) 0%, rgba(6, 182, 212, 0.14) 50%, transparent 75%);
-    animation: modernGlowPulse 2s ease-in-out infinite alternate;
-}
-
-.modern-single-loader .loader-track {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    border: 3.5px solid #f1f5f9;
-}
-
-.modern-single-loader .loader-ring {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    border: 3.5px solid transparent;
-    border-top-color: #009846;
-    border-right-color: #06b6d4;
-    animation: modernRingSpin 0.95s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
-    filter: drop-shadow(0 0 6px rgba(0, 152, 70, 0.3));
-}
-
-.modern-single-loader .loader-ring-inner {
-    position: absolute;
-    inset: 9px;
-    border-radius: 50%;
-    border: 2px dashed #93c5fd;
-    animation: modernRingSpinReverse 2.2s linear infinite;
-}
-
-.modern-single-loader .loader-core {
-    position: absolute;
-    inset: 21px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #009846, #0284c7);
-    box-shadow: 0 0 14px rgba(0, 152, 70, 0.45);
+    width: 64px;
+    height: 64px;
+    margin: 16px auto 12px auto;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #ffffff;
-    font-size: 13px;
-    animation: modernCorePulse 1.8s ease-in-out infinite alternate;
+}
+
+.modern-single-loader .single-clean-spinner {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 3.5px solid #e2e8f0;
+    border-top-color: #009846;
+    animation: modernSingleCleanSpin 0.85s linear infinite;
+    box-sizing: border-box;
+}
+
+@keyframes modernSingleCleanSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.modern-single-loader .loader-glow,
+.modern-single-loader .loader-track,
+.modern-single-loader .loader-ring,
+.modern-single-loader .loader-ring-inner,
+.modern-single-loader .loader-core {
+    display: none !important;
+}
+
+.swal2-loader,
+.swal-modern-loader {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
 }
 
 .modern-single-subtext {
@@ -950,4 +937,91 @@ img, svg, video, canvas {
     color: #94a3b8;
     margin-top: 8px;
     text-align: center;
+}
+
+/* HILANGKAN TOMBOL SILANG (X) PADA KANAN ATAS MODAL LOADING */
+.swal2-popup.swal-modern-loading-card .swal2-close,
+.swal-modern-loading-card .swal2-close {
+    display: none !important;
+}
+
+/* CEGAH TUMPANG TINDIH: HILANGKAN SPINNER KEDUA NATIVE DARI TOMBOL BATALKAN */
+.swal2-popup.swal-modern-loading-card .swal2-loader,
+.swal-modern-loading-card .swal2-loader,
+.swal2-loading .swal2-loader {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    opacity: 0 !important;
+    border: none !important;
+}
+
+/* SUSUN TOMBOL BATALKAN SECARA SIMETRIS DI TENGAH BAWAH */
+.swal2-popup.swal-modern-loading-card .swal2-actions,
+.swal-modern-loading-card .swal2-actions {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    margin: 16px auto 2px auto !important;
+    gap: 0 !important;
+}
+
+.swal2-popup.swal-modern-loading-card .swal2-cancel,
+.swal-modern-loading-card .swal2-cancel,
+.swal-modern-loading-card .swal-btn-pill-cancel {
+    border-radius: 9999px !important;
+    padding: 10px 28px !important;
+    font-size: 0.88rem !important;
+    font-weight: 700 !important;
+    background: #ffffff !important;
+    color: #ef4444 !important;
+    border: 1.5px solid #fecaca !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.08) !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    outline: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+}
+
+.swal2-popup.swal-modern-loading-card .swal2-cancel:hover,
+.swal-modern-loading-card .swal2-cancel:hover,
+.swal-modern-loading-card .swal-btn-pill-cancel:hover {
+    background: #fef2f2 !important;
+    color: #dc2626 !important;
+    border-color: #f87171 !important;
+    transform: translateY(-1.5px) !important;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.16) !important;
+}
+
+/* KEYFRAMES GLOBAL LOADING */
+@keyframes modernRingSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes modernRingSpinReverse {
+    0% { transform: rotate(360deg); }
+    100% { transform: rotate(0deg); }
+}
+
+@keyframes modernCorePulse {
+    0% { transform: scale(0.9); opacity: 0.88; }
+    100% { transform: scale(1.08); opacity: 1; filter: brightness(1.15); }
+}
+
+@keyframes modernGlowPulse {
+    0% { transform: scale(0.92); opacity: 0.5; }
+    100% { transform: scale(1.1); opacity: 0.9; }
+}
+
+@keyframes modernProgressBarStripes {
+    0% { background-position: 0 0; }
+    100% { background-position: 36px 0; }
 }

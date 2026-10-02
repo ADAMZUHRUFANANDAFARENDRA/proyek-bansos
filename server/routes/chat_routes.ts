@@ -4,12 +4,14 @@ import {
   chatStore,
   pengaduanStore,
   wargaStore,
+  laporanPelanggaranStore,
+  DATA_MASTER_SIDOARJO,
   catatNotifikasi,
   nowTimeStr,
   upload
 } from '../store.js';
 import { parseIntSafe } from '../spk_engine.js';
-import type { ChatItem, PengaduanItem } from '../types.js';
+import type { ChatItem, PengaduanItem, LaporanPelanggaranItem } from '../types.js';
 
 const router = Router();
 
@@ -180,64 +182,127 @@ router.get('/messages', (req: Request, res: Response) => {
   return res.json({ status: 'success', messages });
 });
 
-router.get('/:nik', (req: Request, res: Response) => {
+router.get('/:nik', (req: Request, res: Response, next: any) => {
   const nik = String(req.params.nik || '').trim();
+  if (['laporan-pelanggaran', 'geotag', 'share-geotag', 'messages', 'laporan-chat', 'react', 'pin', 'action'].includes(nik)) {
+    return next();
+  }
   const messages = chatStore.filter(c => c.nik === nik);
   res.json(messages);
 });
 
-router.post('/:nik', upload.any(), (req: Request, res: Response) => {
+router.post('/:nik', (req: Request, res: Response, next: any) => {
   const nik = String(req.params.nik || '').trim();
-  const d = req.body || {};
-  const sender = String(d.sender || 'warga');
-  const nama = String(d.nama || (sender === 'warga' ? 'Warga' : 'Petugas Dinsos'));
-  const pesan = String(d.pesan || d.text || '').trim();
-  const customType = d.custom_file_type ? String(d.custom_file_type) : null;
+  if (['laporan-pelanggaran', 'lapor-pesan', 'share-geotag', 'react', 'pin', 'action', 'investigasi', 'pengaduan'].includes(nik)) {
+    return next();
+  }
+  upload.any()(req, res, (err) => {
+    if (err) return res.status(500).json({ status: 'error', message: 'Gagal mengunggah berkas.' });
+    const d = req.body || {};
+    const sender = String(d.sender || 'warga');
+    const nama = String(d.nama || (sender === 'warga' ? 'Warga' : 'Petugas Dinsos'));
+    const pesan = String(d.pesan || d.text || '').trim();
+    const customType = d.custom_file_type ? String(d.custom_file_type) : null;
 
-  let filePath: string | null = null;
-  let fileType: string | null = customType;
+    let filePath: string | null = null;
+    let fileType: string | null = customType;
 
-  const files = (req.files as Express.Multer.File[]) || [];
-  if (files.length > 0) {
-    const f = files[0];
-    filePath = `/uploads/${f.filename}`;
-    const ext = path.extname(f.filename).toLowerCase().replace('.', '');
-    if (!fileType) {
-      if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) fileType = 'image';
-      else if (['mp4', 'webm', 'mov'].includes(ext)) fileType = 'video';
-      else if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) fileType = 'audio';
-      else fileType = 'document';
+    const files = (req.files as Express.Multer.File[]) || [];
+    if (files.length > 0) {
+      const f = files[0];
+      filePath = `/uploads/${f.filename}`;
+      const ext = path.extname(f.filename).toLowerCase().replace('.', '');
+      
+      // Voice notes in webm format or with voice_ prefix MUST be audio
+      if (f.filename.startsWith('voice_') || (f.mimetype && f.mimetype.startsWith('audio/')) || customType === 'audio') {
+        fileType = 'audio';
+      } else if (!fileType) {
+        if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) fileType = 'image';
+        else if (['mp4', 'mov'].includes(ext)) fileType = 'video';
+        else if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'weba'].includes(ext)) fileType = 'audio';
+        else if (ext === 'webm') fileType = (pesan.toLowerCase().includes('suara') || pesan.toLowerCase().includes('voice')) ? 'audio' : 'video';
+        else fileType = 'document';
+      }
     }
+
+    const nextId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
+    const newChat: ChatItem = {
+      id: nextId,
+      nik,
+      sender,
+      nama,
+      pesan: pesan || null,
+      text: pesan || null,
+      file_path: filePath,
+      file_type: fileType,
+      reply_sender: d.reply_to_sender || d.reply_sender || null,
+      reply_text: d.reply_to_text || d.reply_text || null,
+      reply_to_id: d.reply_to_id ? parseIntSafe(d.reply_to_id, 0) : null,
+      reaction: '',
+      is_pinned: false,
+      is_deleted_all: false,
+      deleted_for: null,
+      waktu: nowTimeStr().slice(-5),
+      created_at: nowTimeStr()
+    };
+
+    chatStore.push(newChat);
+
+    if (sender === 'warga') {
+      catatNotifikasi(`Pesan mediasi baru diterima dari ${nama} (NIK: ${nik}).`, 'Warga', 'chat');
+    }
+
+    return res.status(201).json({ status: 'success', message: 'Pesan berhasil dikirim.', data: newChat });
+  });
+});
+
+router.post(['/investigasi/selesaikan', '/pengaduan/selesaikan'], (req: Request, res: Response) => {
+  const d = req.body || {};
+  const idStr = String(d.id || '').replace('ADUAN-', '').trim();
+  const idNum = parseIntSafe(idStr, 0);
+  const nik = String(d.nik || '').trim();
+  const catatan = String(d.catatan || d.catatan_penyelesaian || 'Laporan telah diverifikasi dan diselesaikan oleh tim Dinsos.').trim();
+  const petugas = String(d.petugas || 'Admin 1 (Dinas Sosial Sidoarjo)').trim();
+
+  let aduan = pengaduanStore.find(a => (idNum > 0 && a.id === idNum) || (nik && a.nik === nik));
+  if (!aduan && pengaduanStore.length > 0) {
+    aduan = pengaduanStore.find(a => a.status !== 'Selesai') || pengaduanStore[0];
   }
 
-  const nextId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
-  const newChat: ChatItem = {
-    id: nextId,
-    nik,
-    sender,
-    nama,
-    pesan: pesan || null,
-    text: pesan || null,
-    file_path: filePath,
-    file_type: fileType,
-    reply_sender: d.reply_to_sender || d.reply_sender || null,
-    reply_text: d.reply_to_text || d.reply_text || null,
-    reply_to_id: d.reply_to_id ? parseIntSafe(d.reply_to_id, 0) : null,
-    reaction: '',
-    is_pinned: false,
-    is_deleted_all: false,
-    deleted_for: null,
-    waktu: nowTimeStr().slice(-5),
-    created_at: nowTimeStr()
-  };
+  if (aduan) {
+    aduan.status = 'Selesai';
+    aduan.status_step = 4;
+    aduan.status_text = 'Laporan Selesai & Ditutup';
+    aduan.catatan_petugas = catatan;
 
-  chatStore.push(newChat);
+    catatNotifikasi(`✅ Laporan sengketa ${aduan.nama} (NIK: ${aduan.nik}) resmi diselesaikan oleh ${petugas}.`, 'Petugas', 'success');
 
-  if (sender === 'warga') {
-    catatNotifikasi(`Pesan mediasi baru diterima dari ${nama} (NIK: ${nik}).`, 'Warga', 'chat');
+    const nextChatId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
+    const msgText = `✅ [LAPORAN RESMI DISELESAIKAN] Status pengaduan Anda telah diverifikasi dan dinyatakan SELESAI oleh ${petugas}.\n\nCatatan Tindak Lanjut: ${catatan}`;
+    chatStore.push({
+      id: nextChatId,
+      nik: aduan.nik,
+      sender: 'petugas',
+      nama: petugas,
+      pesan: msgText,
+      text: msgText,
+      file_path: null,
+      file_type: null,
+      reply_sender: null,
+      reply_text: null,
+      reply_to_id: null,
+      reaction: '✅',
+      is_pinned: true,
+      is_deleted_all: false,
+      deleted_for: null,
+      waktu: nowTimeStr().slice(-5),
+      created_at: nowTimeStr()
+    });
+
+    return res.json({ status: 'success', message: 'Laporan pengaduan berhasil diselesaikan.', data: aduan });
   }
 
-  return res.status(201).json({ status: 'success', message: 'Pesan berhasil dikirim.', data: newChat });
+  return res.status(404).json({ status: 'error', message: 'Pengaduan tidak ditemukan.' });
 });
 
 router.post('/react/:msg_id', (req: Request, res: Response) => {
@@ -268,6 +333,266 @@ router.delete('/action/:msg_id', (req: Request, res: Response) => {
     chatStore[idx].deleted_for = `me_${req.body?.requester || 'warga'}`;
   }
   return res.json({ status: 'success', message: 'Pesan berhasil dihapus.' });
+});
+
+// =========================================================================
+// PUSAT LAPORAN PELANGGARAN & MODERASI CHAT KESELURUHAN
+// =========================================================================
+router.get(['/laporan-pelanggaran', '/api/chat/laporan-pelanggaran', '/api/laporan-pelanggaran'], (_req: Request, res: Response) => {
+  const list = [...laporanPelanggaranStore].sort((a, b) => b.id - a.id);
+  const total = list.length;
+  const pending = list.filter(l => l.status === 'Menunggu Peninjauan' || l.status === 'Dalam Investigasi').length;
+  const terbukti = list.filter(l => l.status === 'Terbukti Melanggar').length;
+  const selesai = list.filter(l => l.status === 'Selesai Ditangani' || l.status === 'Ditolak/Bukan Pelanggaran').length;
+
+  return res.json({
+    status: 'success',
+    stats: { total, pending, terbukti, selesai },
+    data: list
+  });
+});
+
+router.post(['/laporan-pelanggaran', '/lapor-pesan', '/api/chat/lapor-pesan', '/api/chat/laporan-pelanggaran'], (req: Request, res: Response) => {
+  const d = req.body || {};
+  const msgId = parseIntSafe(d.msg_id, 0);
+  const nik = String(d.nik || '').trim();
+  const pesanKutipan = String(d.pesan || d.pesan_kutipan || '').trim();
+  const namaTerlapor = String(d.nama_terlapor || (d.sender_terlapor === 'warga' ? 'Warga' : 'Petugas Dinsos')).trim();
+  const senderTerlapor = String(d.sender_terlapor || 'petugas').trim();
+  const alasan = String(d.alasan || 'Pelanggaran Norma Komunikasi').trim();
+  const kategori = String(d.kategori || 'Kata-kata Kasar / Pelecehan').trim();
+  const deskripsi = String(d.deskripsi || d.rincian || alasan).trim();
+  const pelaporRole = (String(d.pelapor_role || 'warga').toLowerCase()) as 'warga' | 'petugas' | 'admin';
+  const pelaporNama = String(d.pelapor_nama || (pelaporRole === 'warga' ? 'Warga' : 'Petugas Dinsos')).trim();
+  const pelaporNik = String(d.pelapor_nik || nik || '-').trim();
+
+  const nextId = laporanPelanggaranStore.length > 0 ? Math.max(...laporanPelanggaranStore.map(l => l.id)) + 1 : 1;
+  const kodeLaporan = `VIO-2026-${String(nextId).padStart(3, '0')}`;
+
+  const newReport: LaporanPelanggaranItem = {
+    id: nextId,
+    kode_laporan: kodeLaporan,
+    msg_id: msgId,
+    nik,
+    nama_terlapor: namaTerlapor,
+    sender_terlapor: senderTerlapor,
+    pesan_kutipan: pesanKutipan,
+    alasan,
+    kategori,
+    deskripsi,
+    pelapor_role: pelaporRole,
+    pelapor_nama: pelaporNama,
+    pelapor_nik: pelaporNik,
+    status: 'Menunggu Peninjauan',
+    waktu: nowTimeStr(),
+    created_at: nowTimeStr()
+  };
+
+  laporanPelanggaranStore.unshift(newReport);
+  catatNotifikasi(`🚩 Laporan Pelanggaran Chat Baru (${kodeLaporan}) diajukan oleh ${pelaporNama} terkait "${alasan}".`, 'Pengawas', 'urgent');
+
+  return res.status(201).json({
+    status: 'success',
+    message: 'Laporan pelanggaran berhasil dicatat dan masuk ke antrean moderasi.',
+    data: newReport
+  });
+});
+
+router.post(['/laporan-pelanggaran/:id/tindak', '/api/chat/laporan-pelanggaran/:id/tindak'], (req: Request, res: Response) => {
+  const id = parseIntSafe(req.params.id, 0);
+  const report = laporanPelanggaranStore.find(l => l.id === id);
+  if (!report) {
+    return res.status(404).json({ status: 'error', message: 'Laporan pelanggaran tidak ditemukan.' });
+  }
+
+  const d = req.body || {};
+  const statusAksi = String(d.status || 'Terbukti Melanggar');
+  const tindakan = String(d.tindakan || 'Teguran resmi dan catatan disiplin diberikan.');
+  const petugas = String(d.petugas || 'Administrator Utama (Super Admin)');
+  const hapusPesan = Boolean(d.hapus_pesan);
+
+  report.status = statusAksi as any;
+  report.tindakan_petugas = tindakan;
+  report.petugas_penindak = petugas;
+  report.waktu_tindakan = nowTimeStr();
+
+  // If action is to delete/blank out the violating message from chatStore
+  if (hapusPesan && report.msg_id > 0) {
+    const targetMsg = chatStore.find(c => c.id === report.msg_id);
+    if (targetMsg) {
+      targetMsg.is_deleted_all = true;
+      targetMsg.pesan = '🚫 Pesan ini telah dihapus oleh Tim Moderasi & Pengawas karena melanggar pedoman komunikasi.';
+      targetMsg.text = targetMsg.pesan;
+    }
+  }
+
+  catatNotifikasi(`⚖️ Tindak Lanjut (${report.kode_laporan}): Status diubah menjadi "${statusAksi}" oleh ${petugas}.`, 'Moderasi', 'info');
+
+  return res.json({
+    status: 'success',
+    message: 'Tindak lanjut pelanggaran berhasil disimpan.',
+    data: report
+  });
+});
+
+// =========================================================================
+// TARIK & BAGIKAN LOKASI GEOTAGGING RESMI ARSIP WARGA
+// =========================================================================
+router.get(['/geotag/:nik', '/api/chat/geotag/:nik'], (req: Request, res: Response) => {
+  const nik = String(req.params.nik || '').trim();
+  if (!nik) return res.status(400).json({ status: 'error', message: 'NIK wajib diberikan.' });
+
+  // Cari di wargaStore terlebih dahulu
+  let warga = wargaStore.find(w => w.nik === nik);
+
+  // Jika belum di memory wargaStore, cari di DATA_MASTER_SIDOARJO
+  if (!warga) {
+    const master = DATA_MASTER_SIDOARJO.find(m => m[0] === nik);
+    if (master) {
+      warga = {
+        id: 9999,
+        nik: master[0],
+        nama: master[1],
+        tempat_lahir: master[2],
+        tanggal_lahir: master[3],
+        alamat: master[4],
+        no_hp: master[5],
+        email: master[6],
+        lat: parseFloat(master[7]) || -7.4478,
+        lng: parseFloat(master[8]) || 112.7183,
+        c1: master[9], c2: master[10], c3: master[11], c4: master[12], c5: master[13],
+        c6: master[14], c7: master[15], c8: master[16], c9: master[17], c10: master[18],
+        desil: 1, skor_saw: 0.85, rank_saw: 1, is_verified: master[19],
+        status_validasi: master[20], status_salur: master[21], status_bansos: master[20],
+        prioritas: 'Tinggi', bukti_salur: '', tanggal_salur: '', catatan: master[22],
+        nominal_bantuan: 'Rp 600.000', created_at: '2026-01-01'
+      };
+    }
+  }
+
+  if (!warga) {
+    // Fallback koordinat pusat Sidoarjo jika warga umum belum ada di master
+    return res.json({
+      status: 'success',
+      data: {
+        nik,
+        nama: `Warga (${nik.slice(-4)})`,
+        alamat: 'Kabupaten Sidoarjo, Jawa Timur',
+        lat: -7.4478,
+        lng: 112.7183,
+        kecamatan: 'Sidoarjo',
+        desil: 2,
+        status_bansos: 'Terdaftar',
+        maps_url: `https://www.google.com/maps?q=-7.4478,112.7183`,
+        geotag_terverifikasi: false
+      }
+    });
+  }
+
+  const lat = Number(warga.lat) || -7.4478;
+  const lng = Number(warga.lng) || 112.7183;
+  const alamat = warga.alamat || 'Sidoarjo, Jawa Timur';
+
+  // Ekstrak nama kecamatan dari alamat jika ada
+  let kec = 'Sidoarjo';
+  const kecMatch = alamat.match(/Kec\.\s*([A-Za-z]+)/i);
+  if (kecMatch && kecMatch[1]) kec = kecMatch[1];
+
+  return res.json({
+    status: 'success',
+    data: {
+      nik: warga.nik,
+      nama: warga.nama,
+      alamat,
+      lat,
+      lng,
+      kecamatan: kec,
+      desil: warga.desil || 1,
+      status_bansos: warga.status_bansos || warga.status_validasi || 'Disetujui',
+      status_salur: warga.status_salur || 'Belum Salur',
+      maps_url: `https://www.google.com/maps?q=${lat},${lng}`,
+      geotag_terverifikasi: true
+    }
+  });
+});
+
+router.post(['/share-geotag', '/api/chat/share-geotag'], (req: Request, res: Response) => {
+  const d = req.body || {};
+  const nik = String(d.nik || '').trim();
+  const sender = String(d.sender || 'petugas');
+  const nama = String(d.nama || (sender === 'petugas' ? 'Petugas Dinsos' : 'Warga'));
+
+  if (!nik) {
+    return res.status(400).json({ status: 'error', message: 'NIK warga wajib disertakan.' });
+  }
+
+  // Cari data arsip warga
+  let w = wargaStore.find(x => x.nik === nik);
+  if (!w) {
+    const m = DATA_MASTER_SIDOARJO.find(x => x[0] === nik);
+    if (m) {
+      w = {
+        id: 9999,
+        nik: m[0], nama: m[1], tempat_lahir: m[2], tanggal_lahir: m[3], alamat: m[4],
+        no_hp: m[5], email: m[6], lat: parseFloat(m[7]), lng: parseFloat(m[8]),
+        c1: m[9], c2: m[10], c3: m[11], c4: m[12], c5: m[13], c6: m[14], c7: m[15], c8: m[16], c9: m[17], c10: m[18],
+        desil: 1, skor_saw: 0.85, rank_saw: 1, is_verified: m[19], status_validasi: m[20], status_salur: m[21],
+        status_bansos: m[20], prioritas: 'Tinggi', bukti_salur: '', tanggal_salur: '', catatan: m[22],
+        nominal_bantuan: 'Rp 600.000', created_at: '2026-01-01'
+      };
+    }
+  }
+
+  const lat = w ? Number(w.lat) : -7.4478;
+  const lng = w ? Number(w.lng) : 112.7183;
+  const namaWarga = w ? w.nama : nama;
+  const alamat = w ? w.alamat : 'Kabupaten Sidoarjo';
+
+  const geotagPayload = {
+    nik,
+    nama: namaWarga,
+    alamat,
+    lat,
+    lng,
+    maps_url: `https://www.google.com/maps?q=${lat},${lng}`,
+    terverifikasi: true,
+    pengirim: sender
+  };
+
+  const pesanGeotag = `[GEOTAG_LOKASI] ${JSON.stringify(geotagPayload)}`;
+
+  const nextChatId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
+  const newChat: ChatItem = {
+    id: nextChatId,
+    nik,
+    sender,
+    nama,
+    pesan: pesanGeotag,
+    text: pesanGeotag,
+    file_path: null,
+    file_type: 'location',
+    reply_sender: null,
+    reply_text: null,
+    reply_to_id: null,
+    reaction: '📍',
+    is_pinned: false,
+    is_deleted_all: false,
+    deleted_for: null,
+    waktu: nowTimeStr().slice(-5),
+    created_at: nowTimeStr()
+  };
+
+  chatStore.push(newChat);
+
+  const notifLabel = sender === 'warga' ? `Warga ${namaWarga}` : `Petugas`;
+  catatNotifikasi(`📍 ${notifLabel} membagikan titik lokasi geotagging arsip kependudukan (${lat.toFixed(4)}, ${lng.toFixed(4)}).`, 'Peta', 'info');
+
+  return res.status(201).json({
+    status: 'success',
+    message: 'Lokasi geotagging arsip warga berhasil dikirim ke ruang chat.',
+    data: newChat,
+    geotag: geotagPayload
+  });
 });
 
 export default router;

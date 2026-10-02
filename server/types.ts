@@ -106,6 +106,28 @@ export interface ChatItem {
   created_at: string;
 }
 
+export interface LaporanPelanggaranItem {
+  id: number;
+  kode_laporan: string;
+  msg_id: number;
+  nik: string;
+  nama_terlapor: string;
+  sender_terlapor: string;
+  pesan_kutipan: string;
+  alasan: string;
+  kategori: string;
+  deskripsi: string;
+  pelapor_role: 'warga' | 'petugas' | 'admin';
+  pelapor_nama: string;
+  pelapor_nik: string;
+  status: 'Menunggu Peninjauan' | 'Dalam Investigasi' | 'Terbukti Melanggar' | 'Ditolak/Bukan Pelanggaran' | 'Selesai Ditangani';
+  tindakan_petugas?: string;
+  petugas_penindak?: string;
+  waktu_tindakan?: string;
+  waktu: string;
+  created_at: string;
+}
+
 export type MasterSeedTuple = [
   string, string, string, string, string, string, string, string, string,
   number, number, number, number, number, number, number, number, number, number,

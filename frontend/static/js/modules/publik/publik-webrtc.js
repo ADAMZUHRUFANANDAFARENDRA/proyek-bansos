@@ -44,6 +44,41 @@ window.initPeerWarga = function () {
             }
         });
     });
+
+    peerWarga.on('connection', conn => {
+        wargaDataConn = conn;
+        conn.on('data', data => {
+            if (data && data.type === 'reaction') {
+                window.showFloatingReactionWarga(data.emoji);
+            }
+        });
+    });
+};
+
+let wargaDataConn = null;
+
+window.showFloatingReactionWarga = function (emoji) {
+    const area = document.getElementById('wargaCallReactionAnimationArea');
+    if (!area) return;
+    const el = document.createElement('div');
+    el.className = 'call-floating-reaction';
+    el.innerText = emoji;
+    const offset = (Math.random() * 40 - 20);
+    el.style.marginLeft = `${offset}px`;
+    area.appendChild(el);
+    setTimeout(() => el.remove(), 2300);
+};
+
+window.sendCallReactionWarga = function (emoji) {
+    window.showFloatingReactionWarga(emoji);
+    if (wargaDataConn && wargaDataConn.open) {
+        wargaDataConn.send({ type: 'reaction', emoji });
+    } else if (peerWarga) {
+        try {
+            const conn = peerWarga.connect('petugas_dinsos_sidoarjo');
+            conn.on('open', () => conn.send({ type: 'reaction', emoji }));
+        } catch (e) {}
+    }
 };
 
 window.startCallAdminFromAduan = function (type = 'audio') {
@@ -139,6 +174,37 @@ window.toggleMuteCallWarga = function () {
     aTrack.enabled = !aTrack.enabled;
     const btn = document.getElementById('wargaBtnMute');
     if (btn) btn.style.background = aTrack.enabled ? '#334155' : '#dc2626';
+};
+
+window.toggleVideoCallWarga = function () {
+    if (!localStreamWarga) return;
+    const vTrack = localStreamWarga.getVideoTracks()[0];
+    const vArea = document.getElementById('wargaVideoCallArea');
+    const aArea = document.getElementById('wargaAudioCallArea');
+    const btn = document.getElementById('wargaBtnVideo');
+    if (vTrack) {
+        vTrack.enabled = !vTrack.enabled;
+        if (vArea) vArea.style.display = vTrack.enabled ? 'block' : 'none';
+        if (aArea) aArea.style.display = vTrack.enabled ? 'none' : 'flex';
+        if (btn) btn.style.background = vTrack.enabled ? '#334155' : '#dc2626';
+    } else {
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(newStream => {
+            const newVTrack = newStream.getVideoTracks()[0];
+            localStreamWarga.addTrack(newVTrack);
+            const localV = document.getElementById('wargaLocalVideo');
+            if (localV) localV.srcObject = localStreamWarga;
+            if (vArea) vArea.style.display = 'block';
+            if (aArea) aArea.style.display = 'none';
+            if (btn) btn.style.background = '#334155';
+            if (currentCallWarga && currentCallWarga.peerConnection) {
+                const sender = currentCallWarga.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) sender.replaceTrack(newVTrack);
+                else currentCallWarga.peerConnection.addTrack(newVTrack, localStreamWarga);
+            }
+        }).catch(() => {
+            showPortalAlert({ icon: 'warning', title: 'Kamera Tidak Tersedia', text: 'Tidak dapat mengaktifkan video pada peramban ini.' });
+        });
+    }
 };
 
 window.endCallWarga = function () {

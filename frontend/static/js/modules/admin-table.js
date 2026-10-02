@@ -217,6 +217,7 @@ window.renderTable = function (data) {
             : '';
 
         const ttlText = (w.tempat_lahir || w.tanggal_lahir) ? `${w.tempat_lahir || 'Sidoarjo'}, ${w.tanggal_lahir || '-'}` : '-';
+        const totalVars = window.hitungTotalVariabelWarga ? window.hitungTotalVariabelWarga(w) : 20;
 
         html += `
             <tr>
@@ -226,16 +227,19 @@ window.renderTable = function (data) {
                     <div style="font-weight:800; color:#1e293b; font-size:0.95rem;">${window.safeHtml(w.nama)}</div>
                     <small style="color:#475569;"><i class="fas fa-birthday-cake text-muted"></i> ${window.safeHtml(ttlText)}</small><br>
                     <small class="text-muted"><i class="fas fa-map-marker-alt"></i> ${window.safeHtml(w.alamat || 'Sidoarjo')}</small><br>
-                    <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:2px;">
+                    <div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center; margin-top:2px;">
                         ${desilBadge}
                         ${statusSalurBadge}
+                        <button type="button" onclick="window.bukaDetailSemuaVariabelWarga(${w.id})" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; font-size:0.7rem; font-weight:700; color:#475569; padding:2px 7px; cursor:pointer; margin-top:3px;" title="Lihat & sesuaikan ${totalVars} variabel kependudukan warga ini">
+                            <i class="fas fa-sliders-h text-primary"></i> ${totalVars} Variabel
+                        </button>
                     </div>
                 </td>
                 <td><small><i class="fas fa-clock text-primary"></i> ${w.created_at || 'Hari ini'}</small></td>
                 <td style="text-align:center;">${verifBadge}</td>
                 <td style="text-align:center; white-space:nowrap;">
                     ${btnToggleVerif}
-                    <button onclick="window.bukaModalEdit(${w.id})" class="btn" style="padding:5px 8px; background:#fef3c7; color:#b45309; font-size:0.8rem; border-radius:6px; margin-right:3px;" title="Edit Data & 10 Kriteria"><i class="fas fa-edit"></i></button>
+                    <button onclick="window.bukaModalEdit(${w.id})" class="btn" style="padding:5px 8px; background:#fef3c7; color:#b45309; font-size:0.8rem; border-radius:6px; margin-right:3px;" title="Edit Data & Seluruh Variabel"><i class="fas fa-edit"></i></button>
                     ${btnKamera}
                     ${btnSengketa}
                     ${btnDelete}
@@ -285,29 +289,36 @@ window.toggleWargaViewMode = function (mode) {
 
     if (mode === 'card') {
         if (tableWrap) tableWrap.style.display = 'none';
-        if (cardWrap) cardWrap.style.display = 'block';
+        if (cardWrap) {
+            cardWrap.style.display = 'block';
+            window.renderWargaCards(window.globalDataWarga || []);
+        }
         if (btnCard) {
-            btnCard.style.background = 'white';
-            btnCard.style.color = '#0f172a';
-            btnCard.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            btnCard.style.setProperty('background', '#009846', 'important');
+            btnCard.style.setProperty('color', '#ffffff', 'important');
+            btnCard.style.setProperty('box-shadow', '0 2px 8px rgba(0, 152, 70, 0.35)', 'important');
+            btnCard.classList.add('active');
         }
         if (btnTable) {
-            btnTable.style.background = 'transparent';
-            btnTable.style.color = '#64748b';
-            btnTable.style.boxShadow = 'none';
+            btnTable.style.setProperty('background', 'transparent', 'important');
+            btnTable.style.setProperty('color', '#64748b', 'important');
+            btnTable.style.setProperty('box-shadow', 'none', 'important');
+            btnTable.classList.remove('active');
         }
     } else {
         if (tableWrap) tableWrap.style.display = 'block';
         if (cardWrap) cardWrap.style.display = 'none';
         if (btnTable) {
-            btnTable.style.background = 'white';
-            btnTable.style.color = '#0f172a';
-            btnTable.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            btnTable.style.setProperty('background', '#009846', 'important');
+            btnTable.style.setProperty('color', '#ffffff', 'important');
+            btnTable.style.setProperty('box-shadow', '0 2px 8px rgba(0, 152, 70, 0.35)', 'important');
+            btnTable.classList.add('active');
         }
         if (btnCard) {
-            btnCard.style.background = 'transparent';
-            btnCard.style.color = '#64748b';
-            btnCard.style.boxShadow = 'none';
+            btnCard.style.setProperty('background', 'transparent', 'important');
+            btnCard.style.setProperty('color', '#64748b', 'important');
+            btnCard.style.setProperty('box-shadow', 'none', 'important');
+            btnCard.classList.remove('active');
         }
     }
 };
@@ -407,13 +418,16 @@ window.renderWargaCards = function (data) {
                     <div style="font-size:0.82rem; color:#475569; margin-bottom:4px;"><i class="fas fa-map-marker-alt text-danger"></i> ${window.safeHtml(w.alamat || 'Kabupaten Sidoarjo')}</div>
                     <div style="font-size:0.8rem; color:#64748b; margin-bottom:8px;"><i class="fas fa-birthday-cake text-muted"></i> ${window.safeHtml(ttlText)}</div>
                     
-                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; align-items:center;">
                         <span class="badge ${desil <= 4 ? 'badge-green' : 'badge-warning'}" style="font-size:0.72rem;">
                             <i class="fas fa-award"></i> Desil ${desil} ${desil <= 4 ? '(Layak)' : ''}
                         </span>
                         <span class="badge" style="background:#f1f5f9; color:#475569; font-size:0.72rem; font-weight:700;">
                             <i class="fas fa-box"></i> ${w.nominal_bantuan || 'Beras 10 Kg'}
                         </span>
+                        <button type="button" onclick="window.bukaDetailSemuaVariabelWarga(${w.id})" class="badge" style="background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; cursor:pointer; font-size:0.72rem; padding:4px 9px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; transition:all 0.2s;" title="Lihat & telusuri seluruh ${window.hitungTotalVariabelWarga ? window.hitungTotalVariabelWarga(w) : 20} variabel warga">
+                            <i class="fas fa-layer-group text-emerald-600"></i> ${window.hitungTotalVariabelWarga ? window.hitungTotalVariabelWarga(w) : 20} Variabel
+                        </button>
                     </div>
 
                     ${statusSalurCard}
@@ -425,9 +439,167 @@ window.renderWargaCards = function (data) {
                     </div>
                     <div style="display:flex; gap:6px;">
                         ${btnSalur}
-                        <button onclick="window.bukaModalEdit(${w.id})" class="btn" style="padding:7px 10px; background:#fef3c7; color:#b45309; border-radius:10px; font-weight:700; font-size:0.8rem;" title="Edit Data Fleksibel"><i class="fas fa-edit"></i></button>
+                        <button onclick="window.bukaModalEdit(${w.id})" class="btn" style="padding:7px 10px; background:#fef3c7; color:#b45309; border-radius:10px; font-weight:700; font-size:0.8rem;" title="Edit Seluruh Data & Variabel"><i class="fas fa-edit"></i></button>
                         ${currentRole === 'admin' ? `<button onclick="window.hapusData(${w.id})" class="btn" style="padding:7px 10px; background:#fee2e2; color:#dc2626; border-radius:10px; font-size:0.8rem;" title="Hapus Data"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+};
+
+window.hitungTotalVariabelWarga = function (w) {
+    if (!w) return 0;
+    const baseKeys = [
+        'nik', 'nama', 'tempat_lahir', 'tanggal_lahir', 'alamat', 'no_hp', 'email',
+        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10',
+        'desil', 'skor_saw', 'rank_saw', 'status_validasi', 'status_salur',
+        'nominal_bantuan', 'tanggal_salur', 'lat', 'lng', 'catatan'
+    ];
+    let count = baseKeys.filter(k => w[k] !== undefined && w[k] !== null && String(w[k]).trim() !== '').length;
+    if (count < 10) count = 10;
+    if (w.extra_data && typeof w.extra_data === 'object') {
+        count += Object.keys(w.extra_data).length;
+    }
+    return count;
+};
+
+window.bukaDetailSemuaVariabelWarga = function (id) {
+    const dataList = window.globalDataWarga || [];
+    const w = dataList.find(x => String(x.id) === String(id));
+    if (!w) return;
+
+    const modal = document.getElementById('modalDetailSemuaVariabel');
+    const titleEl = document.getElementById('detailVarWargaNama');
+    const nikEl = document.getElementById('detailVarWargaNik');
+    const countBadge = document.getElementById('detailVarTotalCountBadge');
+    const container = document.getElementById('detailVarListContainer');
+    if (!modal || !container) return;
+
+    if (titleEl) titleEl.innerText = w.nama || 'Warga';
+    if (nikEl) nikEl.innerText = `NIK: ${w.nik || '-'}`;
+
+    const labelMap = {
+        'nik': 'Nomor NIK (KTP)',
+        'nama': 'Nama Lengkap Warga',
+        'tempat_lahir': 'Tempat Lahir',
+        'tanggal_lahir': 'Tanggal Lahir',
+        'alamat': 'Alamat Domisili Lengkap',
+        'no_hp': 'No. WhatsApp / HP',
+        'email': 'Alamat Email',
+        'c1': 'C1 - Penghasilan (Ekonomi)',
+        'c2': 'C2 - Kondisi Rumah / Aset',
+        'c3': 'C3 - Usia Kepala Keluarga',
+        'c4': 'C4 - Jenis Kelamin',
+        'c5': 'C5 - Jumlah Tanggungan',
+        'c6': 'C6 - Status Pernikahan',
+        'c7': 'C7 - Kepemilikan Anak Sekolah',
+        'c8': 'C8 - Status Tempat Tinggal',
+        'c9': 'C9 - Tingkat Pendidikan Terakhir',
+        'c10': 'C10 - Riwayat Kesehatan',
+        'desil': 'Desil Kemiskinan',
+        'skor_saw': 'Skor Akhir SPK SAW',
+        'rank_saw': 'Peringkat Prioritas',
+        'status_validasi': 'Status Validasi Dinas',
+        'status_salur': 'Status Penyaluran Bansos',
+        'nominal_bantuan': 'Jenis / Nominal Bansos',
+        'tanggal_salur': 'Waktu Penyaluran',
+        'lat': 'Garis Lintang (Lat)',
+        'lng': 'Garis Bujur (Lng)',
+        'catatan': 'Catatan Khusus Petugas'
+    };
+
+    const allEntries = [];
+    const standardKeys = [
+        'nik', 'nama', 'tempat_lahir', 'tanggal_lahir', 'alamat', 'no_hp', 'email',
+        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10',
+        'desil', 'skor_saw', 'rank_saw', 'status_validasi', 'status_salur',
+        'nominal_bantuan', 'tanggal_salur', 'lat', 'lng', 'catatan'
+    ];
+
+    standardKeys.forEach(k => {
+        let val = w[k];
+        if (val !== undefined && val !== null && String(val).trim() !== '') {
+            allEntries.push({
+                key: k,
+                label: labelMap[k] || k,
+                value: String(val),
+                category: k.startsWith('c') ? 'Kriteria SPK' : (['desil', 'skor_saw', 'rank_saw', 'status_validasi', 'status_salur', 'nominal_bantuan'].includes(k) ? 'Hasil SPK & Status' : 'Identitas')
+            });
+        }
+    });
+
+    if (w.extra_data && typeof w.extra_data === 'object') {
+        Object.keys(w.extra_data).forEach(ek => {
+            const val = w.extra_data[ek];
+            if (val !== undefined && val !== null && String(val).trim() !== '') {
+                allEntries.push({
+                    key: ek,
+                    label: ek.replace(/_/g, ' ').toUpperCase(),
+                    value: String(val),
+                    category: 'Variabel Kustom / Hasil Impor'
+                });
+            }
+        });
+    }
+
+    if (countBadge) countBadge.innerText = `${allEntries.length} Variabel`;
+
+    window._activeWargaDetailEntries = allEntries;
+    window._activeWargaDetailId = w.id;
+
+    window.filterDetailVarList('');
+
+    const btnEdit = document.getElementById('btnEditFromDetailVarModal');
+    if (btnEdit) {
+        btnEdit.onclick = function () {
+            window.closeModal('modalDetailSemuaVariabel');
+            window.bukaModalEdit(w.id);
+        };
+    }
+
+    modal.style.display = 'flex';
+    modal.style.zIndex = '99999';
+};
+
+window.filterDetailVarList = function (q) {
+    const container = document.getElementById('detailVarListContainer');
+    if (!container) return;
+    const entries = window._activeWargaDetailEntries || [];
+    const query = String(q || '').toLowerCase().trim();
+
+    const filtered = entries.filter(e => 
+        !query || e.label.toLowerCase().includes(query) || e.value.toLowerCase().includes(query) || e.key.toLowerCase().includes(query)
+    );
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:24px; color:#64748b;">Tidak ada variabel yang sesuai dengan pencarian "${window.safeHtml(query)}".</div>`;
+        return;
+    }
+
+    container.innerHTML = filtered.map(e => {
+        let badgeColor = '#475569';
+        let badgeBg = '#f1f5f9';
+        if (e.category === 'Identitas') { badgeBg = '#ecfdf5'; badgeColor = '#065f46'; }
+        else if (e.category === 'Kriteria SPK') { badgeBg = '#eff6ff'; badgeColor = '#1d4ed8'; }
+        else if (e.category === 'Hasil SPK & Status') { badgeBg = '#fef3c7'; badgeColor = '#92400e'; }
+        else { badgeBg = '#faf5ff'; badgeColor = '#7c3aed'; }
+
+        return `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; padding:10px 14px; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; gap:12px;">
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
+                        <span style="font-size:0.7rem; font-weight:800; background:${badgeBg}; color:${badgeColor}; padding:2px 8px; border-radius:6px;">
+                            ${e.category}
+                        </span>
+                        <span style="font-weight:800; font-size:0.85rem; color:#1e293b;">
+                            ${window.safeHtml(e.label)}
+                        </span>
+                    </div>
+                    <small style="font-family:monospace; color:#64748b; font-size:0.72rem;">key: ${window.safeHtml(e.key)}</small>
+                </div>
+                <div style="font-weight:700; font-size:0.88rem; color:#0f172a; text-align:right; max-width:55%; word-break:break-word;">
+                    ${window.safeHtml(e.value)}
                 </div>
             </div>
         `;

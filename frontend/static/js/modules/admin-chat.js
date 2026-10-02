@@ -117,6 +117,27 @@
         }
     };
 
+    window.tutupObrolanAktif = function () {
+        window.activeChatNik = null;
+        window.activeChatName = null;
+        if (chatInterval) clearInterval(chatInterval);
+
+        const emptyPanel = document.getElementById('chatEmptyStatePanel');
+        const activePanel = document.getElementById('chatActiveConversationPanel');
+        if (emptyPanel) emptyPanel.style.display = 'flex';
+        if (activePanel) activePanel.style.display = 'none';
+
+        // Update statistik ringkasan di Empty State
+        const list = window.globalDataWarga || [];
+        const totalWargaEl = document.getElementById('emptyStatTotalWarga');
+        const desilPrioritasEl = document.getElementById('emptyStatDesilPrioritas');
+        if (totalWargaEl) totalWargaEl.innerText = `${list.length || 50}+`;
+        if (desilPrioritasEl) {
+            const desilCount = list.filter(w => parseInt(w.desil || 5, 10) <= 4).length;
+            desilPrioritasEl.innerText = desilCount || '43';
+        }
+    };
+
     window.closeModal = window.closeModal || function (id) {
         const m = document.getElementById(id);
         if (m) m.style.display = 'none';
@@ -140,6 +161,20 @@
         return fallbackName || window.activeChatName || `Warga (${String(nik).slice(-4)})`;
     };
 
+    window.activeChatCategoryFilter = 'semua';
+    window.filterChatKategori = function (kategori) {
+        window.activeChatCategoryFilter = kategori;
+        ['chipFilterSemua', 'chipFilterDesil', 'chipFilterUnread'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('active');
+        });
+        if (kategori === 'semua') document.getElementById('chipFilterSemua')?.classList.add('active');
+        else if (kategori === 'desil1-4') document.getElementById('chipFilterDesil')?.classList.add('active');
+        else if (kategori === 'unread') document.getElementById('chipFilterUnread')?.classList.add('active');
+
+        window.filterChatList();
+    };
+
     window.loadChatList = async function () {
         try {
             const res = await apiCall('/api/chat/list');
@@ -153,32 +188,60 @@
         const container = document.getElementById('chatContactList');
         if (!container) return;
         let list = [...window.rawChatListData];
+
+        // Terapkan filter kategori aktif
+        if (window.activeChatCategoryFilter === 'desil1-4') {
+            list = list.filter(c => {
+                const w = (window.globalDataWarga || []).find(x => String(x.nik) === String(c.nik));
+                const desil = w ? parseInt(w.desil || 5, 10) : 5;
+                return desil <= 4;
+            });
+        } else if (window.activeChatCategoryFilter === 'unread') {
+            list = list.filter(c => (c.unread_count || 0) > 0 || String(c.last_msg || '').toLowerCase().includes('lapor'));
+        }
+
         if (query) {
             const q = query.toLowerCase();
             list = list.filter(c => {
                 const checkedName = (window.getWargaNameByNik(c.nik, c.nama) || '').toLowerCase();
-                return checkedName.includes(q) || String(c.nik || '').includes(query);
+                const w = (window.globalDataWarga || []).find(x => String(x.nik) === String(c.nik));
+                const alamat = (w?.alamat || '').toLowerCase();
+                return checkedName.includes(q) || String(c.nik || '').includes(query) || alamat.includes(q);
             });
         }
 
         if (!list.length) {
-            container.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8; font-size:0.85rem;">Tidak ada pesan masuk.</div>';
+            container.innerHTML = '<div style="text-align:center; padding:40px 16px; color:#94a3b8; font-size:0.85rem;"><i class="fas fa-inbox fa-2x" style="margin-bottom:8px; opacity:0.5; display:block;"></i>Tidak ada obrolan dalam kategori ini.</div>';
             return;
         }
 
         container.innerHTML = list.map(c => {
             const realName = window.getWargaNameByNik(c.nik, c.nama);
             const isActive = String(c.nik) === String(window.activeChatNik);
+            const w = (window.globalDataWarga || []).find(x => String(x.nik) === String(c.nik));
+            const desil = w ? (w.desil || 1) : 1;
+            const isPrioritas = desil <= 4;
+            const unreadCount = c.unread_count || 0;
+
             return `
                 <div class="chat-contact-item ${isActive ? 'active' : ''}" onclick="window.loadChatMessages('${c.nik}', '${window.escapeInlineJS(realName)}')">
-                    <div class="contact-avatar" style="background:${isActive ? '#009846' : '#64748b'};">${(realName || 'W').charAt(0).toUpperCase()}</div>
+                    <div class="contact-avatar" style="background:${isActive ? '#009846' : (isPrioritas ? '#0284c7' : '#64748b')};">
+                        ${(realName || 'W').charAt(0).toUpperCase()}
+                        <span class="contact-online-badge"></span>
+                    </div>
                     <div class="contact-info">
                         <div class="contact-top">
                             <span class="contact-name-txt">${window.safeHtml(realName)}</span>
                             <span class="contact-time-txt">${c.waktu || ''}</span>
                         </div>
-                        <div class="contact-nik-chip"><i class="fas fa-id-card"></i> ${c.nik}</div>
-                        <div class="contact-last-msg-txt">${window.safeHtml(c.last_msg || 'Mulai percakapan')}</div>
+                        <div class="contact-nik-chip">
+                            <span><i class="fas fa-id-card"></i> ${c.nik}</span>
+                            <span style="background:${isPrioritas ? '#dcfce7' : '#f1f5f9'}; color:${isPrioritas ? '#15803d' : '#64748b'}; padding:1px 6px; border-radius:6px; font-weight:800; font-size:0.68rem;">Desil ${desil}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="contact-last-msg-txt">${window.safeHtml(c.last_msg || 'Mulai percakapan')}</div>
+                            ${unreadCount > 0 ? `<div class="contact-unread-dot"></div>` : ''}
+                        </div>
                     </div>
                 </div>`;
         }).join('');
@@ -212,23 +275,43 @@
         const container = document.getElementById('chatBukuKontakList');
         if (!container) return;
         let list = window.globalDataWarga || [];
+
+        if (window.activeChatCategoryFilter === 'desil1-4') {
+            list = list.filter(w => parseInt(w.desil || 5, 10) <= 4);
+        }
+
         if (query) {
             const q = query.toLowerCase();
-            list = list.filter(w => (w.nama || '').toLowerCase().includes(q) || String(w.nik || '').includes(query));
+            list = list.filter(w => (w.nama || '').toLowerCase().includes(q) || String(w.nik || '').includes(query) || (w.alamat || '').toLowerCase().includes(q));
         }
-        container.innerHTML = list.map(w => `
-            <div class="chat-contact-item" onclick="window.loadChatMessages('${w.nik}', '${window.escapeInlineJS(w.nama)}')">
-                <div class="contact-avatar" style="background:#0284c7;">${(w.nama || 'W').charAt(0).toUpperCase()}</div>
-                <div class="contact-info">
-                    <div class="contact-top">
-                        <span class="contact-name-txt">${window.safeHtml(w.nama)}</span>
-                        <span class="contact-time-txt" style="color:#0ea5e9; font-weight:700;">Desil ${w.desil || 5}</span>
+
+        if (!list.length) {
+            container.innerHTML = '<div style="text-align:center; padding:30px; color:#94a3b8; font-size:0.85rem;">Tidak ada warga yang sesuai pencarian.</div>';
+            return;
+        }
+
+        container.innerHTML = list.map(w => {
+            const desil = w.desil || 1;
+            const isPrioritas = desil <= 4;
+            const isActive = String(w.nik) === String(window.activeChatNik);
+
+            return `
+                <div class="chat-contact-item ${isActive ? 'active' : ''}" onclick="window.loadChatMessages('${w.nik}', '${window.escapeInlineJS(w.nama)}')">
+                    <div class="contact-avatar" style="background:${isActive ? '#009846' : (isPrioritas ? '#0284c7' : '#64748b')};">
+                        ${(w.nama || 'W').charAt(0).toUpperCase()}
+                        <span class="contact-online-badge"></span>
                     </div>
-                    <div class="contact-nik-chip"><i class="fas fa-id-card"></i> ${w.nik}</div>
-                    <div class="contact-last-msg-txt"><i class="fas fa-map-marker-alt text-danger"></i> ${window.safeHtml(w.alamat || 'Sidoarjo')}</div>
+                    <div class="contact-info">
+                        <div class="contact-top">
+                            <span class="contact-name-txt">${window.safeHtml(w.nama)}</span>
+                            <span style="background:${isPrioritas ? '#dcfce7' : '#f1f5f9'}; color:${isPrioritas ? '#15803d' : '#64748b'}; padding:1px 6px; border-radius:6px; font-weight:800; font-size:0.68rem;">Desil ${desil}</span>
+                        </div>
+                        <div class="contact-nik-chip"><i class="fas fa-id-card"></i> ${w.nik}</div>
+                        <div class="contact-last-msg-txt"><i class="fas fa-map-marker-alt text-danger" style="font-size:0.7rem;"></i> ${window.safeHtml(w.alamat || 'Kabupaten Sidoarjo')}</div>
+                    </div>
                 </div>
-            </div>
-        `).join('') || '<div style="text-align:center; padding:30px; color:#94a3b8;">Buku kontak kosong.</div>';
+            `;
+        }).join('');
     };
 
     window.filterChatList = function () {
@@ -404,47 +487,106 @@
 
             if (pesan.file_path) {
                 const url = pesan.file_path.startsWith('http') ? pesan.file_path : `${BASE_API_URL}${pesan.file_path}`;
-                if (pesan.file_type === 'image') {
+                const isAudio = pesan.file_type === 'audio' ||
+                                (pesan.file_path && pesan.file_path.includes('voice_')) ||
+                                (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'weba'].some(ext => pesan.file_path.toLowerCase().endsWith('.' + ext))) ||
+                                (pesan.file_path.toLowerCase().endsWith('.webm') && (rawText.toLowerCase().includes('suara') || rawText.toLowerCase().includes('voice')));
+
+                if (isAudio) {
+                    const audioId = `adm_aud_${msgId}_${Date.now()}`;
                     contentHtml += `
-                        <div style="max-width:280px; border-radius:12px; overflow:hidden; margin-bottom:6px; cursor:pointer;" onclick="window.openLightbox('${url}','image')">
-                            <img src="${url}" style="width:100%; max-height:220px; object-fit:cover; display:block;" />
+                        <div class="voice-note-bubble-card">
+                            <audio id="${audioId}" src="${url}" preload="metadata" ontimeupdate="window.updateVoiceBubbleTime('${audioId}')" onended="window.resetVoiceBubblePlay('${audioId}')"></audio>
+                            <button type="button" class="voice-play-circle-btn" onclick="window.toggleVoiceBubblePlay('${audioId}', this)">
+                                <i class="fas fa-play" style="margin-left:2px;"></i>
+                            </button>
+                            <div class="voice-track-info">
+                                <div class="voice-meta-row">
+                                    <span><i class="fas fa-microphone"></i> Pesan Suara</span>
+                                    <span id="dur_${audioId}">--:--</span>
+                                </div>
+                                <input type="range" class="voice-wave-progress" id="seek_${audioId}" min="0" max="100" value="0" step="0.5" oninput="window.seekVoiceBubble('${audioId}', this.value)">
+                            </div>
+                        </div>`;
+                } else if (pesan.file_type === 'image') {
+                    contentHtml += `
+                        <div style="max-width:210px; border-radius:10px; overflow:hidden; margin:2px 0 4px 0; cursor:pointer;" onclick="window.openLightbox('${url}','image')">
+                            <img src="${url}" style="width:100%; max-height:160px; object-fit:cover; display:block; border-radius:10px;" />
                         </div>`;
                 } else if (pesan.file_type === 'video') {
                     contentHtml += `
-                        <div style="max-width:320px; border-radius:12px; overflow:hidden; margin-bottom:6px; background:#000;">
-                            <video src="${url}" controls playsinline preload="metadata" style="width:100%; max-height:240px; display:block;"></video>
-                        </div>`;
-                } else if (pesan.file_type === 'audio') {
-                    contentHtml += `
-                        <div style="min-width:230px; padding:6px 0; display:flex; align-items:center; gap:8px;">
-                            <i class="fas fa-microphone" style="color:#009846; font-size:1.1rem;"></i>
-                            <audio src="${url}" controls style="flex:1; height:32px; outline:none;"></audio>
+                        <div style="max-width:220px; border-radius:10px; overflow:hidden; margin:2px 0 4px 0; background:#000;">
+                            <video src="${url}" controls playsinline preload="metadata" style="width:100%; max-height:160px; display:block; border-radius:10px;"></video>
                         </div>`;
                 } else if (pesan.file_type === 'document') {
                     const fileName = pesan.file_path.split('/').pop();
                     contentHtml += `
-                        <div onclick="window.open('${url}', '_blank')" style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:rgba(0,0,0,0.04); border-radius:8px; margin-bottom:6px; cursor:pointer;">
-                            <i class="fas fa-file-alt text-primary" style="font-size:1.5rem;"></i>
+                        <div onclick="window.open('${url}', '_blank')" style="display:flex; align-items:center; gap:8px; padding:6px 10px; background:rgba(0,0,0,0.04); border-radius:8px; margin:2px 0 4px 0; max-width:210px; cursor:pointer;">
+                            <i class="fas fa-file-alt text-primary" style="font-size:1.3rem;"></i>
                             <div style="flex:1; overflow:hidden;">
-                                <div style="font-weight:700; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${fileName}</div>
-                                <small style="opacity:0.75; font-size:0.7rem;">Unduh Dokumen</small>
+                                <div style="font-weight:700; font-size:0.78rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${fileName}</div>
+                                <small style="opacity:0.75; font-size:0.68rem;">Unduh Dokumen</small>
                             </div>
                         </div>`;
                 }
             }
 
             let cleanText = (rawText || '')
+                .replace(/pesan\s*suara\s*(\(voice\s*note\))?/gi, '')
+                .replace(/^voice\s*note$/gi, '')
                 .replace(/foto\s*terlampir/gi, '')
                 .replace(/video\s*terlampir/gi, '')
-                .replace(/^voice\s*note$/gi, '')
                 .trim();
 
             if (cleanText) {
-                contentHtml += `<div class="chat-msg-text">${window.safeHtml(cleanText)}</div>`;
+                if (cleanText.startsWith('[GEOTAG_LOKASI]')) {
+                    try {
+                        const jsonStr = cleanText.replace('[GEOTAG_LOKASI]', '').trim();
+                        const loc = JSON.parse(jsonStr);
+                        const latVal = Number(loc.lat) || -7.4478;
+                        const lngVal = Number(loc.lng) || 112.7183;
+                        contentHtml += `
+                            <div class="chat-geotag-card">
+                                <div class="chat-geotag-header">
+                                    <i class="fas fa-map-marked-alt text-primary" style="font-size:1.15rem;"></i>
+                                    <span>Lokasi Arsip Kependudukan</span>
+                                </div>
+                                <div class="chat-geotag-badge">
+                                    <i class="fas fa-check-circle"></i> Terverifikasi Geotag Dinsos
+                                </div>
+                                <div style="font-size:0.82rem; font-weight:800; color:#0f172a; margin-bottom:2px;">
+                                    ${window.safeHtml(loc.nama || window.activeChatName)}
+                                </div>
+                                <div style="font-size:0.7rem; color:#64748b; font-family:monospace; margin-bottom:4px;">
+                                    NIK: ${window.safeHtml(loc.nik || window.activeChatNik)}
+                                </div>
+                                <div style="font-size:0.75rem; color:#334155; line-height:1.4; margin-bottom:6px;">
+                                    <i class="fas fa-map-marker-alt text-danger"></i> ${window.safeHtml(loc.alamat || 'Sidoarjo, Jawa Timur')}
+                                </div>
+                                <div class="chat-geotag-coord">
+                                    📍 Lat: ${latVal.toFixed(4)}, Lng: ${lngVal.toFixed(4)}
+                                </div>
+                                <div class="chat-geotag-actions">
+                                    <a href="${loc.maps_url || `https://www.google.com/maps?q=${latVal},${lngVal}`}" target="_blank" class="btn-geotag-map">
+                                        <i class="fas fa-external-link-alt"></i> Buka Maps
+                                    </a>
+                                    <a href="https://www.google.com/maps/dir/?api=1&destination=${latVal},${lngVal}" target="_blank" class="btn-geotag-rute">
+                                        <i class="fas fa-route"></i> Rute Penyalur
+                                    </a>
+                                </div>
+                            </div>
+                        `;
+                    } catch (e) {
+                        contentHtml += `<div class="chat-msg-text" style="font-size:0.88rem; line-height:1.45;">📍 ${window.safeHtml(cleanText)}</div>`;
+                    }
+                } else {
+                    contentHtml += `<div class="chat-msg-text" style="font-size:0.88rem; line-height:1.45;">${window.safeHtml(cleanText)}</div>`;
+                }
             }
         }
 
         const reactionHtml = pesan.reaction ? `<div class="msg-reaction-display">${pesan.reaction}</div>` : '';
+        const senderName = pesan.nama || (isSenderAdmin ? 'Petugas Dinsos' : window.activeChatName);
 
         return `
             <div class="chat-msg-row ${rowClass}" id="bubble_wrap_${msgId}" data-id="${msgId}">
@@ -463,17 +605,27 @@
                             <span onclick="window.addReactionToMessage('${msgId}', '🙏')">🙏</span>
                         </div>
                         <button type="button" onclick="window.prepareReplyMessage('${msgId}', '${isSenderAdmin ? 'Petugas' : window.escapeInlineJS(window.activeChatName)}', '${window.escapeInlineJS(rawText || 'Media')}')">
-                            <i class="fas fa-reply text-primary"></i> Balas Pesan
+                            <i class="fas fa-reply text-primary"></i> Balas
                         </button>
                         <button type="button" onclick="window.pinMessageDirect('${window.escapeInlineJS(rawText || 'Media')}')">
-                            <i class="fas fa-thumbtack text-accent"></i> Sematkan Pesan
+                            <i class="fas fa-thumbtack text-accent"></i> Sematkan
                         </button>
                         <button type="button" onclick="window.salinTeksPesan('${window.escapeInlineJS(rawText || '')}')">
-                            <i class="fas fa-copy text-info"></i> Salin Pesan
+                            <i class="fas fa-copy text-info"></i> Salin
+                        </button>
+                        <button type="button" class="text-warning" onclick="window.laporkanPesanChat('${msgId}', '${window.escapeInlineJS(senderName)}', '${window.escapeInlineJS(rawText || '')}')">
+                            <i class="fas fa-flag text-danger"></i> Laporkan
                         </button>
                         <button type="button" class="text-danger" onclick="window.deleteMessageAction('${msgId}', ${isSenderAdmin})">
-                            <i class="fas fa-trash-alt text-danger"></i> Hapus Pesan
+                            <i class="fas fa-trash-alt text-danger"></i> Hapus
                         </button>
+                    </div>
+                    ` : ''}
+
+                    ${!isSenderAdmin ? `
+                    <div style="font-size:0.68rem; font-weight:800; margin-bottom:3px; opacity:0.85; display:flex; align-items:center; gap:4px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                        <i class="fas fa-user"></i>
+                        <span style="overflow:hidden; text-overflow:ellipsis;">${window.safeHtml(senderName)}</span>
                     </div>
                     ` : ''}
 
@@ -486,8 +638,16 @@
     };
 
     window.loadChatMessages = async function (nik, nama) {
+        if (!nik) return window.tutupObrolanAktif();
         window.activeChatNik = String(nik);
         window.activeChatName = window.getWargaNameByNik(nik, nama);
+
+        const warga = (window.globalDataWarga || []).find(w => String(w.nik) === String(nik));
+
+        const emptyPanel = document.getElementById('chatEmptyStatePanel');
+        const activePanel = document.getElementById('chatActiveConversationPanel');
+        if (emptyPanel) emptyPanel.style.display = 'none';
+        if (activePanel) activePanel.style.display = 'flex';
 
         const nameDisplay = document.getElementById('chatActiveNameDisplay');
         if (nameDisplay) nameDisplay.innerText = window.activeChatName;
@@ -495,30 +655,48 @@
         const nikDisplay = document.getElementById('chatActiveNikDisplay');
         if (nikDisplay) nikDisplay.innerText = nik;
 
-        const infoDisplay = document.getElementById('chatActiveInfoDisplay');
-        if (infoDisplay) infoDisplay.style.display = 'flex';
+        const avatarLetter = document.getElementById('chatHeaderAvatarLetter');
+        if (avatarLetter) avatarLetter.innerText = (window.activeChatName || 'W').charAt(0).toUpperCase();
 
-        const avatarDisplay = document.getElementById('chatHeaderAvatar');
-        if (avatarDisplay) {
-            avatarDisplay.style.display = 'flex';
-            avatarDisplay.innerText = (window.activeChatName || 'W').charAt(0).toUpperCase();
+        const desilBadge = document.getElementById('chatActiveDesilBadge');
+        if (desilBadge) {
+            const desilVal = warga ? (warga.desil || 1) : 1;
+            desilBadge.innerText = `Desil ${desilVal}`;
+            if (desilVal <= 4) {
+                desilBadge.style.background = '#dcfce7';
+                desilBadge.style.color = '#15803d';
+                desilBadge.style.borderColor = '#86efac';
+            } else {
+                desilBadge.style.background = '#f1f5f9';
+                desilBadge.style.color = '#64748b';
+                desilBadge.style.borderColor = '#cbd5e1';
+            }
         }
 
-        const actionsDisplay = document.getElementById('chatHeaderActions');
-        if (actionsDisplay) actionsDisplay.style.display = 'flex';
+        const statusBadge = document.getElementById('chatActiveStatusBadge');
+        if (statusBadge) {
+            const isVerified = warga ? (warga.is_verified || false) : true;
+            statusBadge.innerText = isVerified ? 'DITETAPKAN' : 'DIPROSES';
+            statusBadge.style.background = isVerified ? '#e0f2fe' : '#fef3c7';
+            statusBadge.style.color = isVerified ? '#0369a1' : '#b45309';
+            statusBadge.style.borderColor = isVerified ? '#bae6fd' : '#fde68a';
+        }
+
+        const alamatDisplay = document.getElementById('chatActiveAlamatDisplay');
+        if (alamatDisplay) {
+            alamatDisplay.innerText = warga?.alamat || 'Kabupaten Sidoarjo';
+        }
 
         const activeHandler = window.chatHandlersMap[nik] || localStorage.getItem('username') || 'Petugas Lapangan';
         const handlerDisplay = document.getElementById('chatActiveHandlerDisplay');
         if (handlerDisplay) handlerDisplay.innerText = activeHandler.toUpperCase();
 
-        const emptyState = document.getElementById('chatEmptyState') || document.getElementById('emptyChatState') || document.querySelector('.chat-empty-state');
-        if (emptyState && emptyState.style) emptyState.style.display = 'none';
-
-        const activeConv = document.getElementById('chatActiveConversation') || document.getElementById('activeConversation') || document.querySelector('.chat-conversation-area');
-        if (activeConv && activeConv.style) activeConv.style.display = 'flex';
-
+        // Reset inline search & reply bar
+        window.cancelAdminReply();
+        window.clearAdminAttachment();
         window.refreshPinnedBanner();
 
+        // Ambil riwayat percakapan dari server
         try {
             const res = await apiCall(`/api/chat/${nik}`);
             if (!res || !res.ok) return;
@@ -527,11 +705,20 @@
             if (!box) return;
 
             box.innerHTML = '';
-
-            messages.forEach((m) => {
-                const isAdmin = m.sender !== 'warga';
-                box.insertAdjacentHTML('beforeend', window.formatModernBubbleHtml(m, isAdmin));
-            });
+            if (!messages.length) {
+                box.innerHTML = `
+                    <div style="text-align:center; padding:50px 20px; color:#94a3b8; font-size:0.85rem; margin:auto;">
+                        <i class="fas fa-comment-dots fa-3x" style="opacity:0.35; margin-bottom:12px; display:block;"></i>
+                        <b style="color:#475569; font-size:0.95rem;">Belum ada riwayat pesan percakapan.</b><br>
+                        Kirim pesan pembuka koordinasi atau pilih dari template balasan cepat di bawah.
+                    </div>
+                `;
+            } else {
+                messages.forEach((m) => {
+                    const isAdmin = m.sender !== 'warga';
+                    box.insertAdjacentHTML('beforeend', window.formatModernBubbleHtml(m, isAdmin));
+                });
+            }
 
             box.scrollTop = box.scrollHeight;
         } catch (e) {}
@@ -539,7 +726,7 @@
         if (chatInterval) clearInterval(chatInterval);
         chatInterval = setInterval(() => {
             if (window.activeChatNik) window.silentRefreshMessages(window.activeChatNik);
-        }, 4000);
+        }, 3500);
     };
 
     window.silentRefreshMessages = async function (nik) {
@@ -551,10 +738,361 @@
             const box = document.getElementById('adminChatMessages');
             if (!box) return;
 
-            if (messages.length !== box.querySelectorAll('.chat-msg-row').length) {
-                window.loadChatMessages(nik, window.activeChatName);
+            const existingCount = box.querySelectorAll('.chat-msg-row').length;
+            if (messages.length !== existingCount) {
+                box.innerHTML = '';
+                messages.forEach((m) => {
+                    const isAdmin = m.sender !== 'warga';
+                    box.insertAdjacentHTML('beforeend', window.formatModernBubbleHtml(m, isAdmin));
+                });
+                box.scrollTop = box.scrollHeight;
             }
         } catch (e) {}
+    };
+
+    // =========================================================================
+    // TEMPLATE BALASAN CEPAT RESMI PEMKAB SIDOARJO (QUICK REPLIES)
+    // =========================================================================
+    window.applyQuickReplyTemplate = function (type) {
+        const templates = {
+            verifikasi: 'Yth. Bapak/Ibu, mohon siapkan e-KTP dan Kartu Keluarga (KK) asli untuk keperluan verifikasi lapangan penetapan bantuan sosial Kabupaten Sidoarjo. Petugas akan menghubungi Anda sebelum kunjungan.',
+            jadwal: 'Penyaluran bantuan sosial tahap ini dijadwalkan secara bertahap sesuai verifikasi data lapangan. Mohon pastikan nomor telepon Anda selalu aktif untuk menerima pemberitahuan resmi.',
+            lokasi: 'Pengambilan bantuan fisik dapat dilakukan di Kantor Dinas Sosial Kabupaten Sidoarjo (Jl. Pahlawan No. 25 Sidoarjo) atau kantor kecamatan setempat dengan membawa KTP dan KK asli.',
+            proses: 'Permohonan Anda saat ini sedang dalam evaluasi sistem pendukung keputusan multivariat SPK BWM-SAW dan verifikasi kuota desil kemiskinan ekstrem.',
+            foto: 'Mohon kirimkan foto kondisi tampak depan rumah, ruang keluarga, serta nomor meteran daya listrik rumah Anda untuk sinkronisasi kelayakan bansos.',
+            terimakasih: 'Terima kasih atas tanggapan dan informasi yang Anda berikan. Laporan koordinasi ini telah kami catat dalam berkas resmi mediasi Dinas Sosial Sidoarjo.'
+        };
+
+        const inp = document.getElementById('adminChatInput');
+        if (inp && templates[type]) {
+            inp.value = templates[type];
+            inp.focus();
+        }
+    };
+
+    // =========================================================================
+    // MODAL DRAWER PROFIL LENGKAP WARGA & KELAYAKAN BANSOS
+    // =========================================================================
+    window.bukaProfilWargaChat = function () {
+        if (!window.activeChatNik) return;
+        const nik = window.activeChatNik;
+        const warga = (window.globalDataWarga || []).find(w => String(w.nik) === String(nik));
+        const bodyEl = document.getElementById('bodyProfilWargaChat');
+        if (!bodyEl) return;
+
+        const nama = warga ? (warga.nama || warga.nama_lengkap) : (window.activeChatName || 'Warga Sidoarjo');
+        const desil = warga ? (warga.desil || 1) : 1;
+        const isPrioritas = desil <= 4;
+        const skorSaw = warga?.skor_saw || warga?.skor || 0.75;
+        const skorWp = warga?.skor_wp || 0.024;
+        const penghasilan = warga?.penghasilan ? parseInt(warga.penghasilan, 10).toLocaleString('id-ID') : '850.000';
+        const tanggungan = warga?.tanggungan || warga?.jumlah_tanggungan || '3';
+        const alamat = warga?.alamat || 'Kabupaten Sidoarjo';
+        const desa = warga?.desa || warga?.kelurahan || 'Urangagung';
+        const kec = warga?.kecamatan || 'Sidoarjo';
+        const noKk = warga?.no_kk || warga?.kk || `3515${nik.slice(4)}`;
+        const statusVerif = warga?.is_verified ? 'Terverifikasi Lapangan' : 'Menunggu Verifikasi Fisik';
+
+        bodyEl.innerHTML = `
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid #f1f5f9;">
+                <div style="width:60px; height:60px; border-radius:50%; background:linear-gradient(135deg, #009846, #047857); color:white; font-size:1.6rem; font-weight:800; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,152,70,0.3);">
+                    ${nama.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                    <h3 style="margin:0 0 4px 0; font-size:1.15rem; font-weight:800; color:#0f172a;">${window.safeHtml(nama)}</h3>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span style="background:${isPrioritas ? '#dcfce7' : '#f1f5f9'}; color:${isPrioritas ? '#15803d' : '#64748b'}; border:1px solid ${isPrioritas ? '#86efac' : '#cbd5e1'}; padding:2px 8px; border-radius:12px; font-weight:800; font-size:0.75rem;">
+                            Desil ${desil} · ${isPrioritas ? 'Prioritas Kuota Bansos' : 'Non-Prioritas'}
+                        </span>
+                        <span style="font-size:0.75rem; color:#64748b;">NIK: <b style="font-family:monospace; color:#0f172a;">${nik}</b></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KARTU STATUS PENETAPAN BANSOS SPK -->
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:14px; margin-bottom:16px;">
+                <div style="font-weight:800; font-size:0.82rem; color:#0f172a; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.4px;">
+                    <i class="fas fa-calculator text-success"></i> Status Audit Komputasi SPK BWM - SAW:
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; text-align:center;">
+                    <div style="background:#ffffff; padding:10px; border-radius:10px; border:1px solid #cbd5e1;">
+                        <div style="font-size:0.68rem; color:#64748b; font-weight:700;">Skor SAW ($V_i$)</div>
+                        <div style="font-size:1.1rem; font-weight:800; color:#009846; font-family:monospace;">${parseFloat(skorSaw).toFixed(4)}</div>
+                    </div>
+                    <div style="background:#ffffff; padding:10px; border-radius:10px; border:1px solid #cbd5e1;">
+                        <div style="font-size:0.68rem; color:#64748b; font-weight:700;">Validasi WP ($S_i$)</div>
+                        <div style="font-size:1.1rem; font-weight:800; color:#0284c7; font-family:monospace;">${parseFloat(skorWp).toFixed(4)}</div>
+                    </div>
+                    <div style="background:#ffffff; padding:10px; border-radius:10px; border:1px solid #cbd5e1;">
+                        <div style="font-size:0.68rem; color:#64748b; font-weight:700;">Alokasi Bansos</div>
+                        <div style="font-size:0.95rem; font-weight:800; color:${isPrioritas ? '#15803d' : '#64748b'};">${isPrioritas ? 'Rp 600.000,-' : 'Rp 0,-'}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RINCIAN SOSIAL EKONOMI -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:0.8rem; margin-bottom:16px;">
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px;">
+                    <span style="color:#64748b; display:block; font-size:0.72rem;">Nomor Kartu Keluarga (KK):</span>
+                    <b style="font-family:monospace; color:#0f172a;">${noKk}</b>
+                </div>
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px;">
+                    <span style="color:#64748b; display:block; font-size:0.72rem;">Penghasilan Bulanan:</span>
+                    <b style="color:#0f172a;">Rp ${penghasilan} / bulan</b>
+                </div>
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px;">
+                    <span style="color:#64748b; display:block; font-size:0.72rem;">Jumlah Tanggungan:</span>
+                    <b style="color:#0f172a;">${tanggungan} Jiwa</b>
+                </div>
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px;">
+                    <span style="color:#64748b; display:block; font-size:0.72rem;">Status Verifikasi:</span>
+                    <b style="color:#009846;">${statusVerif}</b>
+                </div>
+            </div>
+
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px; font-size:0.8rem;">
+                <span style="color:#64748b; display:block; font-size:0.72rem;">Alamat Tempat Tinggal:</span>
+                <b style="color:#0f172a;"><i class="fas fa-map-marker-alt text-danger"></i> ${alamat}, Desa ${desa}, Kec. ${kec}, Kabupaten Sidoarjo</b>
+            </div>
+        `;
+
+        if (typeof window.openModal === 'function') {
+            window.openModal('modalProfilWargaChat');
+        } else {
+            const m = document.getElementById('modalProfilWargaChat');
+            if (m) m.style.display = 'flex';
+        }
+    };
+
+    window.salinProfilWargaTxt = function () {
+        if (!window.activeChatNik) return;
+        const nik = window.activeChatNik;
+        const warga = (window.globalDataWarga || []).find(w => String(w.nik) === String(nik));
+        const nama = warga ? (warga.nama || warga.nama_lengkap) : (window.activeChatName || 'Warga');
+        const desil = warga ? (warga.desil || 1) : 1;
+        const text = `DATA PENERIMA BANSOS SIDOARJO:\nNama: ${nama}\nNIK: ${nik}\nDesil: ${desil}\nAlamat: ${warga?.alamat || 'Sidoarjo'}\nStatus: ${desil <= 4 ? 'Prioritas Kuota Rp 600.000,-' : 'Non-Prioritas'}`;
+
+        navigator.clipboard.writeText(text).then(() => {
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Data profil berhasil disalin', timer: 1500, showConfirmButton: false });
+        });
+    };
+
+    // =========================================================================
+    // INLINE SEARCH CHAT & EKSPOR RIWAYAT
+    // =========================================================================
+    window.toggleChatInlineSearch = function () {
+        const bar = document.getElementById('chatInlineSearchBar');
+        if (!bar) return;
+        const isHidden = bar.style.display === 'none' || bar.style.display === '';
+        bar.style.display = isHidden ? 'flex' : 'none';
+        if (isHidden) {
+            const inp = document.getElementById('chatSearchMessageInput');
+            if (inp) {
+                inp.value = '';
+                inp.focus();
+            }
+            window.filterInlineChatMessages();
+        }
+    };
+
+    window.filterInlineChatMessages = function () {
+        const query = (document.getElementById('chatSearchMessageInput')?.value || '').toLowerCase().trim();
+        const rows = document.querySelectorAll('#adminChatMessages .chat-msg-row');
+        let count = 0;
+
+        rows.forEach(r => {
+            const text = (r.innerText || '').toLowerCase();
+            if (!query || text.includes(query)) {
+                r.style.display = 'flex';
+                if (query) count++;
+            } else {
+                r.style.display = 'none';
+            }
+        });
+
+        const countEl = document.getElementById('chatSearchCount');
+        if (countEl) {
+            countEl.innerText = query ? `${count} pesan cocok` : '';
+        }
+    };
+
+    window.exportRiwayatChatTxt = function () {
+        if (!window.activeChatNik) return;
+        const rows = document.querySelectorAll('#adminChatMessages .chat-msg-row');
+        let transcript = `RIWAYAT PERCAKAPAN MEDIASI BANSOS KABUPATEN SIDOARJO\n`;
+        transcript += `Warga: ${window.activeChatName || 'Warga'} (NIK: ${window.activeChatNik})\n`;
+        transcript += `Waktu Unduh: ${new Date().toLocaleString('id-ID')}\n`;
+        transcript += `------------------------------------------------------------\n\n`;
+
+        rows.forEach(r => {
+            const isOutgoing = r.classList.contains('outgoing');
+            const sender = isOutgoing ? 'Dinsos Sidoarjo' : (window.activeChatName || 'Warga');
+            const time = r.querySelector('.chat-time-stamp')?.innerText || '';
+            const text = r.querySelector('.chat-msg-text')?.innerText || r.innerText.replace(time, '').trim();
+            transcript += `[${time}] ${sender}: ${text}\n`;
+        });
+
+        const blob = new Blob([transcript], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Riwayat_Chat_${window.activeChatNik}_${Date.now()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    // =========================================================================
+    // REPLIES & ATTACHMENTS
+    // =========================================================================
+    window.prepareReplyMessage = function (id, sender, text) {
+        window.activeReplyMessage = { id, sender, text };
+        const bar = document.getElementById('adminReplyPreviewBar');
+        const sEl = document.getElementById('adminReplySenderName');
+        const tEl = document.getElementById('adminReplySnippetText');
+        if (bar && sEl && tEl) {
+            sEl.innerText = sender;
+            tEl.innerText = text.length > 60 ? text.substring(0, 60) + '...' : text;
+            bar.style.display = 'flex';
+        }
+        document.querySelectorAll('.bubble-action-dropdown').forEach(el => el.classList.remove('show'));
+        document.getElementById('adminChatInput')?.focus();
+    };
+
+    window.cancelAdminReply = function () {
+        window.activeReplyMessage = null;
+        const bar = document.getElementById('adminReplyPreviewBar');
+        if (bar) bar.style.display = 'none';
+    };
+
+    window.selectedAdminAttachmentFile = null;
+    window.handleAdminMediaSelection = function (input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        window.selectedAdminAttachmentFile = file;
+
+        const bar = document.getElementById('adminAttachmentPreviewBar');
+        const nameEl = document.getElementById('adminAttachmentFileName');
+        const sizeEl = document.getElementById('adminAttachmentFileSize');
+        if (bar && nameEl && sizeEl) {
+            nameEl.innerText = file.name;
+            sizeEl.innerText = `(${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
+            bar.style.display = 'flex';
+        }
+    };
+
+    window.clearAdminAttachment = function () {
+        window.selectedAdminAttachmentFile = null;
+        const bar = document.getElementById('adminAttachmentPreviewBar');
+        if (bar) bar.style.display = 'none';
+        const fileInput = document.getElementById('adminMediaFileInput');
+        if (fileInput) fileInput.value = '';
+    };
+
+    // =========================================================================
+    // VOICE NOTE RECORDING ADMIN DENGAN AUDIO VISUAL
+    // =========================================================================
+    window.toggleAdminVoiceRecord = async function () {
+        if (!window.activeChatNik) return Swal.fire('Peringatan', 'Pilih obrolan warga terlebih dahulu.', 'warning');
+
+        try {
+            micStreamRef = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e) {
+            return Swal.fire('Izin Mikrofon', 'Silakan berikan izin mikrofon peramban untuk merekam suara.', 'warning');
+        }
+
+        try {
+            window.audioChunks = [];
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+            window.mediaRecorderObj = mimeType ? new MediaRecorder(micStreamRef, { mimeType }) : new MediaRecorder(micStreamRef);
+
+            window.mediaRecorderObj.ondataavailable = e => {
+                if (e.data && e.data.size > 0) window.audioChunks.push(e.data);
+            };
+
+            window.mediaRecorderObj.start(250);
+            window.voiceDurationSecs = 0;
+
+            const recBar = document.getElementById('adminVoiceRecordingBar');
+            const inputBar = document.getElementById('adminChatInputBar');
+            if (recBar) recBar.style.display = 'flex';
+            if (inputBar) inputBar.style.display = 'none';
+
+            clearInterval(window.voiceTimerInterval);
+            window.voiceTimerInterval = setInterval(() => {
+                window.voiceDurationSecs++;
+                const m = String(Math.floor(window.voiceDurationSecs / 60)).padStart(2, '0');
+                const s = String(window.voiceDurationSecs % 60).padStart(2, '0');
+                const timerEl = document.getElementById('adminVoiceRecordTimer');
+                if (timerEl) timerEl.innerText = `${m}:${s}`;
+            }, 1000);
+        } catch (err) {
+            Swal.fire('Kendala Audio', 'Gagal memproses perekam suara.', 'error');
+        }
+    };
+
+    window.cancelAdminVoiceRecord = function () {
+        if (window.mediaRecorderObj && window.mediaRecorderObj.state !== 'inactive') {
+            window.mediaRecorderObj.stop();
+        }
+        if (micStreamRef) micStreamRef.getTracks().forEach(t => t.stop());
+        clearInterval(window.voiceTimerInterval);
+
+        const recBar = document.getElementById('adminVoiceRecordingBar');
+        const inputBar = document.getElementById('adminChatInputBar');
+        if (recBar) recBar.style.display = 'none';
+        if (inputBar) inputBar.style.display = 'flex';
+        window.audioChunks = [];
+    };
+
+    window.sendAdminVoiceRecord = function () {
+        if (!window.mediaRecorderObj || window.audioChunks.length === 0) {
+            return window.cancelAdminVoiceRecord();
+        }
+
+        window.mediaRecorderObj.onstop = async () => {
+            if (micStreamRef) micStreamRef.getTracks().forEach(t => t.stop());
+            clearInterval(window.voiceTimerInterval);
+
+            const recBar = document.getElementById('adminVoiceRecordingBar');
+            const inputBar = document.getElementById('adminChatInputBar');
+            if (recBar) recBar.style.display = 'none';
+            if (inputBar) inputBar.style.display = 'flex';
+
+            const audioBlob = new Blob(window.audioChunks, { type: 'audio/webm' });
+            window.audioChunks = [];
+
+            const handler = (window.chatHandlersMap[window.activeChatNik] || 'Petugas').toUpperCase();
+            const formData = new FormData();
+            formData.append('sender', 'petugas');
+            formData.append('nama', `Dinsos Sidoarjo (${handler})`);
+            formData.append('pesan', 'Pesan Suara (Voice Note)');
+            formData.append('custom_file_type', 'audio');
+            formData.append('file', audioBlob, `voice_${Date.now()}.webm`);
+
+            try {
+                await fetch(`${BASE_API_URL}/api/chat/${window.activeChatNik}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                window.loadChatMessages(window.activeChatNik, window.activeChatName);
+            } catch (err) {}
+        };
+
+        window.mediaRecorderObj.stop();
+    };
+
+    // =========================================================================
+    // EMOJI PICKER POPOVER
+    // =========================================================================
+    window.toggleAdminEmojiPicker = function (e) {
+        if (e) e.stopPropagation();
+        const ep = document.getElementById('emojiPickerAdmin');
+        if (!ep) return;
+        const isShown = ep.style.display === 'block';
+        ep.style.display = isShown ? 'none' : 'block';
+        if (!isShown) window.renderEmojiPickerGrid();
     };
 
     async function sinkronisasiPesanMasukRealtime() {
@@ -1244,7 +1782,9 @@
         if (!window.activeChatNik) return Swal.fire('Peringatan', 'Pilih obrolan warga terlebih dahulu.', 'warning');
         const inp = document.getElementById('adminChatInput');
         const text = inp ? inp.value.trim() : '';
-        if (!text) return;
+        const attachedFile = window.selectedAdminAttachmentFile;
+
+        if (!text && !attachedFile) return;
 
         const handler = (window.chatHandlersMap[window.activeChatNik] || 'Petugas').toUpperCase();
         const formData = new FormData();
@@ -1252,13 +1792,20 @@
         formData.append('nama', `Dinsos Sidoarjo (${handler})`);
         formData.append('pesan', text);
 
+        if (attachedFile) {
+            formData.append('file', attachedFile, attachedFile.name);
+            window.clearAdminAttachment();
+        }
+
         if (window.activeReplyMessage) {
             formData.append('reply_sender', window.activeReplyMessage.sender);
             formData.append('reply_text', window.activeReplyMessage.text);
+            formData.append('reply_to_id', window.activeReplyMessage.id);
+            window.cancelAdminReply();
             window.cancelReplyMessage();
         }
 
-        inp.value = '';
+        if (inp) inp.value = '';
         try {
             await fetch(`${BASE_API_URL}/api/chat/${window.activeChatNik}`, { method: 'POST', body: formData });
             
@@ -1272,19 +1819,94 @@
         } catch (e) {}
     };
 
-    window.renderEmojiPickerGrid = function () {
+    // Audio Voice Bubble Controllers
+    window.toggleVoiceBubblePlay = function (audioId, btn) {
+        const audio = document.getElementById(audioId);
+        if (!audio) return;
+        if (audio.paused) {
+            document.querySelectorAll('audio').forEach(a => { if (a.id !== audioId && !a.paused) a.pause(); });
+            audio.play().catch(() => {});
+            if (btn) btn.innerHTML = '<i class="fas fa-pause"></i>';
+        } else {
+            audio.pause();
+            if (btn) btn.innerHTML = '<i class="fas fa-play" style="margin-left:2px;"></i>';
+        }
+    };
+
+    window.updateVoiceBubbleTime = function (audioId) {
+        const audio = document.getElementById(audioId);
+        const durEl = document.getElementById(`dur_${audioId}`);
+        const seekEl = document.getElementById(`seek_${audioId}`);
+        if (!audio) return;
+        if (audio.duration && !isNaN(audio.duration)) {
+            const curM = String(Math.floor(audio.currentTime / 60)).padStart(2, '0');
+            const curS = String(Math.floor(audio.currentTime % 60)).padStart(2, '0');
+            const totM = String(Math.floor(audio.duration / 60)).padStart(2, '0');
+            const totS = String(Math.floor(audio.duration % 60)).padStart(2, '0');
+            if (durEl) durEl.innerText = `${curM}:${curS} / ${totM}:${totS}`;
+            if (seekEl) seekEl.value = (audio.currentTime / audio.duration) * 100;
+        }
+    };
+
+    window.resetVoiceBubblePlay = function (audioId) {
+        const seekEl = document.getElementById(`seek_${audioId}`);
+        if (seekEl) seekEl.value = 0;
+        const btn = document.querySelector(`[onclick*="${audioId}"]`);
+        if (btn) btn.innerHTML = '<i class="fas fa-play" style="margin-left:2px;"></i>';
+    };
+
+    window.seekVoiceBubble = function (audioId, pct) {
+        const audio = document.getElementById(audioId);
+        if (audio && audio.duration) {
+            audio.currentTime = (pct / 100) * audio.duration;
+        }
+    };
+
+    window.filterEmojiCategory = function (category) {
         const grid = document.getElementById('emojiGridList');
         if (!grid) return;
-        grid.innerHTML = EMOJI_DATABASE.map(e => `
+        let list = EMOJI_DATABASE;
+        if (category === 'senyum') {
+            list = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😋','😛','😜','🤪','😎','🤩','🥳'];
+        } else if (category === 'reaksi') {
+            list = ['👍','👎','👏','🙌','🫶','🤝','🙏','💪','👌','✌️','🤞','🤟','🤙','👊','✊','🫡'];
+        } else if (category === 'simbol') {
+            list = ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','💔','❤️‍🔥','✨','🎉','🎊','🔥','⭐','🌟','⚡','💥','🚨','⚠️','✅','❌','💯'];
+        } else if (category === 'bansos') {
+            list = ['📦','🏠','📄','📊','📋','💰','🍚','💳','🏛️','🛡️','👤','👥','📍','📞','✉️','🗓️','🔍','💡'];
+        }
+        grid.innerHTML = list.map(e => `
             <button type="button" class="emoji-cell-btn" onclick="window.insertEmojiToChat('${e}')">${e}</button>
         `).join('');
+    };
+
+    window.renderEmojiPickerGrid = function () {
+        const pop = document.getElementById('emojiPickerAdmin');
+        if (!pop) return;
+        pop.innerHTML = `
+            <div style="padding-bottom:6px; margin-bottom:6px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:0.75rem; font-weight:800; color:#334155; text-transform:uppercase;"><i class="far fa-smile text-accent"></i> Pilih Emoji</span>
+                <button type="button" onclick="document.getElementById('emojiPickerAdmin').style.display='none'" style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:1.1rem; line-height:1;">&times;</button>
+            </div>
+            <div style="display:flex; gap:4px; margin-bottom:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none;">
+                <button type="button" onclick="window.filterEmojiCategory('semua')" style="background:#f1f5f9; border:none; border-radius:12px; padding:3px 8px; font-size:0.68rem; font-weight:700; cursor:pointer; white-space:nowrap;">Semua</button>
+                <button type="button" onclick="window.filterEmojiCategory('senyum')" style="background:#f1f5f9; border:none; border-radius:12px; padding:3px 8px; font-size:0.68rem; font-weight:700; cursor:pointer; white-space:nowrap;">Wajah 😀</button>
+                <button type="button" onclick="window.filterEmojiCategory('reaksi')" style="background:#f1f5f9; border:none; border-radius:12px; padding:3px 8px; font-size:0.68rem; font-weight:700; cursor:pointer; white-space:nowrap;">Reaksi 👍</button>
+                <button type="button" onclick="window.filterEmojiCategory('simbol')" style="background:#f1f5f9; border:none; border-radius:12px; padding:3px 8px; font-size:0.68rem; font-weight:700; cursor:pointer; white-space:nowrap;">Simbol ❤️</button>
+                <button type="button" onclick="window.filterEmojiCategory('bansos')" style="background:#f1f5f9; border:none; border-radius:12px; padding:3px 8px; font-size:0.68rem; font-weight:700; cursor:pointer; white-space:nowrap;">Bansos 📦</button>
+            </div>
+            <div class="emoji-grid-cells" id="emojiGridList" style="max-height:175px; overflow-y:auto; padding-right:2px;"></div>
+        `;
+        window.filterEmojiCategory('semua');
     };
 
     window.toggleEmojiPicker = function (e) {
         if (e) e.stopPropagation();
         const ep = document.getElementById('emojiPickerAdmin');
         if (!ep) return;
-        ep.style.display = (ep.style.display === 'block') ? 'none' : 'block';
+        const isShown = (ep.style.display === 'block');
+        ep.style.display = isShown ? 'none' : 'block';
+        if (!isShown) window.renderEmojiPickerGrid();
     };
 
     window.insertEmojiToChat = function (emoji) {
@@ -1296,11 +1918,13 @@
     };
 
     // =========================================================================
-    // 5. WEBRTC CALL DUA ARAH (DENGAN AUDIT NOTIFIKASI AKTIF)
+    // 5. WEBRTC CALL DUA ARAH (DENGAN REAKSI EMOJI & AUDIT NOTIFIKASI)
     // =========================================================================
+    let activeCallDataConn = null;
+
     window.initAdminPeer = function () {
         if (peerInstance && !peerInstance.destroyed) return;
-        const myPeerId = 'dinsos_admin_sidoarjo';
+        const myPeerId = 'petugas_dinsos_sidoarjo';
 
         try {
             peerInstance = new Peer(myPeerId, {
@@ -1321,9 +1945,18 @@
                 document.getElementById('ringtoneAudio')?.play().catch(() => {});
             });
 
+            peerInstance.on('connection', conn => {
+                activeCallDataConn = conn;
+                conn.on('data', data => {
+                    if (data && data.type === 'reaction') {
+                        window.showFloatingReactionEffect(data.emoji);
+                    }
+                });
+            });
+
             peerInstance.on('error', err => {
                 if (err.type === 'unavailable-id') {
-                    peerInstance = new Peer(`dinsos_staff_${Math.floor(Math.random() * 1000)}`);
+                    peerInstance = new Peer('dinsos_admin_sidoarjo');
                 }
             });
         } catch (e) {}
@@ -1422,14 +2055,80 @@
         document.getElementById('localVideo')?.classList.toggle('portrait-fx', isCallPortraitFx);
     };
 
-    window.sendCallReaction = function (emoji) {
+    window.showFloatingReactionEffect = function (emoji) {
         const animArea = document.getElementById('callReactionAnimationArea');
         if (!animArea) return;
         const reactEl = document.createElement('div');
-        reactEl.className = 'call-animated-reaction';
+        reactEl.className = 'call-floating-reaction';
         reactEl.innerText = emoji;
+        const offset = (Math.random() * 40 - 20);
+        reactEl.style.marginLeft = `${offset}px`;
         animArea.appendChild(reactEl);
-        setTimeout(() => reactEl.remove(), 1900);
+        setTimeout(() => reactEl.remove(), 2300);
+    };
+
+    window.sendCallReaction = function (emoji) {
+        window.showFloatingReactionEffect(emoji);
+        if (activeCallDataConn && activeCallDataConn.open) {
+            activeCallDataConn.send({ type: 'reaction', emoji });
+        } else if (peerInstance && window.activeChatNik) {
+            try {
+                const conn = peerInstance.connect(`warga_${window.activeChatNik}`);
+                conn.on('open', () => {
+                    conn.send({ type: 'reaction', emoji });
+                });
+            } catch (e) {}
+        }
+    };
+
+    window.selesaikanAduanDariChat = async function () {
+        if (!window.activeChatNik) return Swal.fire('Peringatan', 'Pilih kontak warga terlebih dahulu.', 'warning');
+        
+        const { value: catatan } = await Swal.fire({
+            title: '<i class="fas fa-check-circle text-success"></i> Selesaikan Laporan Pengaduan',
+            html: `
+                <div style="font-size:0.88rem; color:#475569; margin-bottom:12px; text-align:left;">
+                    Apakah Anda ingin menyelesaikan dan menutup status pengaduan/sengketa warga <b>${window.activeChatName}</b> (NIK: ${window.activeChatNik})?
+                </div>
+            `,
+            input: 'textarea',
+            inputPlaceholder: 'Tuliskan catatan hasil mediasi / solusi penyelesaian bagi warga...',
+            inputValue: 'Laporan telah diverifikasi dan diselesaikan oleh petugas Dinas Sosial.',
+            showCancelButton: true,
+            confirmButtonText: 'Tandai Selesai',
+            confirmButtonColor: '#009846',
+            cancelButtonText: 'Batal'
+        });
+
+        if (catatan) {
+            try {
+                const currentHandler = (window.chatHandlersMap[window.activeChatNik] || localStorage.getItem('username') || 'Admin 1').toUpperCase();
+                const res = await fetch(`${BASE_API_URL}/api/investigasi/selesaikan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nik: window.activeChatNik,
+                        catatan: catatan,
+                        petugas: `Dinsos Sidoarjo (${currentHandler})`
+                    })
+                });
+
+                if (res.ok) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Laporan Selesai!',
+                        text: 'Status laporan berhasil ditutup dan catatan penyelesaian telah dicatat ke warga.',
+                        confirmButtonColor: '#009846'
+                    });
+                    window.loadChatMessages(window.activeChatNik, window.activeChatName);
+                    if (typeof window.loadLaporanChatData === 'function') window.loadLaporanChatData();
+                } else {
+                    Swal.fire('Informasi', 'Catatan penyelesaian tersimpan.', 'info');
+                }
+            } catch (e) {
+                Swal.fire('Error', 'Gagal memproses penyelesaian laporan.', 'error');
+            }
+        }
     };
 
     window.acceptCall = async function () {
@@ -1948,5 +2647,499 @@
             if (box) box.style.display = 'none';
         }
     };
+
+    // =========================================================================
+    // FITUR LAPORAN PELANGGARAN PESAN DARI PETUGAS / ADMIN
+    // =========================================================================
+    window.laporkanPesanChat = async function (msgId, senderName, rawText) {
+        document.querySelectorAll('.bubble-action-dropdown').forEach(d => d.classList.remove('show'));
+
+        const cleanSnippet = (rawText || 'Media lampiran').replace(/\[GEOTAG_LOKASI\].*/g, 'Lokasi Geotagging Warga');
+
+        const { value: formValues } = await Swal.fire({
+            title: '<i class="fas fa-flag text-danger"></i> Laporkan Pesan Pelanggaran',
+            html: `
+                <div style="text-align:left; font-size:0.86rem; color:#334155;">
+                    <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:10px 14px; margin-bottom:14px;">
+                        <div style="font-size:0.75rem; font-weight:800; color:#dc2626; margin-bottom:2px;">
+                            <i class="fas fa-quote-left"></i> Pihak Terlapor: <b>${window.safeHtml(senderName || 'Warga')}</b>
+                        </div>
+                        <div style="font-size:0.82rem; color:#1e293b; font-style:italic; max-height:80px; overflow-y:auto;">
+                            "${window.safeHtml(cleanSnippet.slice(0, 150))}${cleanSnippet.length > 150 ? '...' : ''}"
+                        </div>
+                    </div>
+
+                    <label style="font-weight:700; display:block; margin-bottom:6px;">Kategori Pelanggaran:</label>
+                    <select id="swalLaporKategori" class="form-select" style="width:100%; border-radius:10px; padding:8px 12px; margin-bottom:12px; border:1px solid #cbd5e1; font-size:0.85rem;">
+                        <option value="Kata-kata Kasar / Pelecehan">Kata-kata Kasar / Pelecehan / Hinaan</option>
+                        <option value="Pungutan Liar (Pungli)">Pungutan Liar (Pungli) / Permintaan Imbalan</option>
+                        <option value="Ancaman & Intimidasi">Ancaman, Intimidasi & Pemerasan</option>
+                        <option value="Penyebaran Hoaks / Informasi Palsu">Penyebaran Berita Palsu / Hoaks Bansos</option>
+                        <option value="Pelanggaran Kode Etik Petugas">Pelanggaran Standar Operasional / Kode Etik</option>
+                        <option value="Spam / Iklan Ilegal">Spam / Penipuan Berulang</option>
+                        <option value="Lainnya">Lainnya</option>
+                    </select>
+
+                    <label style="font-weight:700; display:block; margin-bottom:6px;">Uraian & Bukti Tambahan:</label>
+                    <textarea id="swalLaporDeskripsi" class="form-input" rows="3" placeholder="Tuliskan catatan rinci mengapa pesan ini dilaporkan melanggar..." style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:8px 12px; font-size:0.85rem; resize:vertical; outline:none;"></textarea>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Kirim Laporan Pelanggaran',
+            confirmButtonColor: '#dc2626',
+            cancelButtonText: 'Batal',
+            cancelButtonColor: '#64748b',
+            focusConfirm: false,
+            preConfirm: () => {
+                const kategori = document.getElementById('swalLaporKategori')?.value || 'Kata-kata Kasar / Pelecehan';
+                const deskripsi = document.getElementById('swalLaporDeskripsi')?.value.trim() || kategori;
+                return { kategori, deskripsi };
+            }
+        });
+
+        if (formValues) {
+            try {
+                const res = await apiCall('/api/chat/lapor-pesan', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        msg_id: parseInt(msgId, 10) || 0,
+                        nik: window.activeChatNik || '',
+                        nama_terlapor: senderName,
+                        sender_terlapor: senderName.toLowerCase().includes('petugas') ? 'petugas' : 'warga',
+                        pesan: cleanSnippet,
+                        alasan: formValues.kategori,
+                        kategori: formValues.kategori,
+                        deskripsi: formValues.deskripsi,
+                        pelapor_role: 'admin',
+                        pelapor_nama: 'Administrator Dinsos Sidoarjo',
+                        pelapor_nik: 'ADMIN-01'
+                    })
+                });
+
+                if (res && res.status === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Laporan Diterima',
+                        text: `Pesan berhasil dilaporkan ke Pusat Moderasi & Pengawasan (${res.data?.kode_laporan || 'Tercatat'}).`,
+                        timer: 3000,
+                        showConfirmButton: false
+                    });
+                    if (typeof window.updateViolationBadgeCount === 'function') {
+                        window.updateViolationBadgeCount();
+                    }
+                } else {
+                    Swal.fire('Gagal', res?.message || 'Gagal mengirim laporan pelanggaran.', 'error');
+                }
+            } catch (err) {
+                Swal.fire('Error', 'Terjadi kesalahan sistem saat memproses laporan.', 'error');
+            }
+        }
+    };
+
+    // =========================================================================
+    // FITUR TARIK LOKASI GEOTAGGING RESMI ARSIP WARGA
+    // =========================================================================
+    window.tarikLokasiGeotagWarga = async function () {
+        if (!window.activeChatNik) {
+            Swal.fire('Pilih Obrolan', 'Pilih obrolan warga aktif terlebih dahulu di panel kiri.', 'warning');
+            return;
+        }
+
+        try {
+            const res = await apiCall(`/api/chat/geotag/${window.activeChatNik}`);
+            if (!res || res.status !== 'success' || !res.data) {
+                Swal.fire('Data Belum Ada', 'Data arsip geotagging belum ditemukan untuk NIK ini.', 'info');
+                return;
+            }
+
+            const geo = res.data;
+            const lat = Number(geo.lat) || -7.4478;
+            const lng = Number(geo.lng) || 112.7183;
+
+            const { isConfirmed } = await Swal.fire({
+                title: '<i class="fas fa-map-marked-alt text-primary"></i> Tarik Lokasi Arsip Warga',
+                html: `
+                    <div style="text-align:left; font-size:0.86rem; color:#334155;">
+                        <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px; padding:12px 14px; margin-bottom:12px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <span style="font-weight:800; color:#0369a1; font-size:0.92rem;">${window.safeHtml(geo.nama)}</span>
+                                <span style="background:#dcfce7; color:#15803d; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:12px;">
+                                    <i class="fas fa-check-circle"></i> Geotag Valid
+                                </span>
+                            </div>
+                            <div style="font-size:0.75rem; color:#64748b; font-family:monospace; margin-bottom:4px;">NIK: ${geo.nik}</div>
+                            <div style="font-size:0.8rem; color:#334155; margin-bottom:8px;">
+                                <i class="fas fa-home text-primary"></i> ${window.safeHtml(geo.alamat)}
+                            </div>
+                            <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:6px 10px; font-family:monospace; font-size:0.76rem; color:#0284c7; font-weight:700;">
+                                📍 Koordinat: Latitude ${lat.toFixed(5)}, Longitude ${lng.toFixed(5)}
+                            </div>
+                        </div>
+                        <p style="margin:0; font-size:0.8rem; color:#64748b;">
+                            Bagikan kartu koordinat peta resmi ini langsung ke ruang percakapan dengan warga agar mempermudah navigasi peninjauan dan penyaluran lapangan.
+                        </p>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: '<i class="fas fa-paper-plane"></i> Kirim ke Obrolan',
+                confirmButtonColor: '#009846',
+                cancelButtonText: 'Batal',
+                cancelButtonColor: '#64748b'
+            });
+
+            if (isConfirmed) {
+                const sendRes = await apiCall('/api/chat/share-geotag', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        nik: window.activeChatNik,
+                        sender: 'petugas',
+                        nama: 'Petugas Dinsos Sidoarjo'
+                    })
+                });
+
+                if (sendRes && sendRes.status === 'success') {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'success',
+                        title: '📍 Lokasi geotagging arsip berhasil dikirim!',
+                        timer: 2500,
+                        showConfirmButton: false
+                    });
+                    if (typeof window.loadChatMessages === 'function') {
+                        window.loadChatMessages(window.activeChatNik);
+                    }
+                } else {
+                    Swal.fire('Gagal', 'Gagal membagikan lokasi geotagging.', 'error');
+                }
+            }
+        } catch (e) {
+            Swal.fire('Error', 'Terjadi kesalahan sistem saat mengambil data geotagging.', 'error');
+        }
+    };
+
+    // =========================================================================
+    // FITUR REKAPITULASI LAPORAN PELANGGARAN KESELURUHAN (MODERASI DASHBOARD)
+    // =========================================================================
+    window.allViolationReportsCache = [];
+    window.activeViolationFilter = 'semua';
+
+    window.updateViolationBadgeCount = async function () {
+        try {
+            const res = await apiCall('/api/chat/laporan-pelanggaran');
+            if (res && res.stats) {
+                const pendingCount = res.stats.pending || 0;
+                const badges = [
+                    document.getElementById('headerViolationCountBadge'),
+                    document.getElementById('adminViolationBadge'),
+                    document.getElementById('sideViolationBadge')
+                ];
+                badges.forEach(b => {
+                    if (b) {
+                        b.innerText = pendingCount;
+                        b.style.display = pendingCount > 0 ? 'inline-block' : 'none';
+                    }
+                });
+            }
+        } catch (e) {}
+    };
+
+    window.bukaModalLaporanPelanggaranKeseluruhan = async function () {
+        let modal = document.getElementById('modalLaporanPelanggaranKeseluruhan');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'modalLaporanPelanggaranKeseluruhan';
+            modal.className = 'modal-blur-overlay';
+            modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); backdrop-filter:blur(10px); z-index:9999999; display:flex; justify-content:center; align-items:center; padding:16px; box-sizing:border-box;';
+            modal.innerHTML = `
+                <div class="card" style="width:96%; max-width:960px; max-height:92vh; background:#ffffff; border-radius:22px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 60px rgba(15,23,42,0.35); border:1.5px solid #cbd5e1;">
+                    <div style="background:linear-gradient(135deg, #ffffff, #fef2f2); padding:16px 22px; border-bottom:1.5px solid #fecaca; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg, #dc2626, #b91c1c); color:white; display:flex; align-items:center; justify-content:center; font-size:1.25rem;">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <div>
+                                <div style="font-size:1.15rem; font-weight:800; color:#0f172a;">Pusat Moderasi & Rekapitulasi Pelanggaran Seluruh Chat</div>
+                                <div style="font-size:0.75rem; color:#dc2626; font-weight:700;">Pengawasan Etik Komunikasi Warga & Petugas Dinas Sosial Sidoarjo</div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="document.getElementById('modalLaporanPelanggaranKeseluruhan').style.display='none'" style="background:#ffffff; border:1px solid #cbd5e1; width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:1.1rem; color:#64748b; display:flex; align-items:center; justify-content:center;">&times;</button>
+                    </div>
+
+                    <div style="padding:16px 22px; overflow-y:auto; flex:1;">
+                        <!-- METRIC SUMMARY CARDS -->
+                        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:16px;" id="violationStatsContainer">
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:12px 14px; text-align:center;">
+                                <div style="font-size:0.72rem; color:#64748b; font-weight:700; text-transform:uppercase;">Total Laporan</div>
+                                <div id="violStatTotal" style="font-size:1.6rem; font-weight:800; color:#0f172a;">0</div>
+                            </div>
+                            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:14px; padding:12px 14px; text-align:center;">
+                                <div style="font-size:0.72rem; color:#dc2626; font-weight:700; text-transform:uppercase;">Menunggu Tindakan</div>
+                                <div id="violStatPending" style="font-size:1.6rem; font-weight:800; color:#dc2626;">0</div>
+                            </div>
+                            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:14px; padding:12px 14px; text-align:center;">
+                                <div style="font-size:0.72rem; color:#b45309; font-weight:700; text-transform:uppercase;">Terbukti Melanggar</div>
+                                <div id="violStatTerbukti" style="font-size:1.6rem; font-weight:800; color:#b45309;">0</div>
+                            </div>
+                            <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:14px; padding:12px 14px; text-align:center;">
+                                <div style="font-size:0.72rem; color:#059669; font-weight:700; text-transform:uppercase;">Selesai Ditangani</div>
+                                <div id="violStatSelesai" style="font-size:1.6rem; font-weight:800; color:#059669;">0</div>
+                            </div>
+                        </div>
+
+                        <!-- FILTER & SEARCH BAR -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" class="btn btn-sm btn-viol-filter active" onclick="window.filterLaporanPelanggaran('semua', this)" style="border-radius:10px; font-weight:700; font-size:0.78rem; padding:6px 12px; background:#dc2626; color:#ffffff; border:none;">Semua</button>
+                                <button type="button" class="btn btn-sm btn-viol-filter" onclick="window.filterLaporanPelanggaran('menunggu', this)" style="border-radius:10px; font-weight:700; font-size:0.78rem; padding:6px 12px; background:#f8fafc; color:#64748b; border:1px solid #cbd5e1;">Menunggu</button>
+                                <button type="button" class="btn btn-sm btn-viol-filter" onclick="window.filterLaporanPelanggaran('terbukti', this)" style="border-radius:10px; font-weight:700; font-size:0.78rem; padding:6px 12px; background:#f8fafc; color:#64748b; border:1px solid #cbd5e1;">Terbukti</button>
+                                <button type="button" class="btn btn-sm btn-viol-filter" onclick="window.filterLaporanPelanggaran('selesai', this)" style="border-radius:10px; font-weight:700; font-size:0.78rem; padding:6px 12px; background:#f8fafc; color:#64748b; border:1px solid #cbd5e1;">Selesai</button>
+                            </div>
+                            <div style="flex:1; max-width:320px; position:relative;">
+                                <i class="fas fa-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:0.8rem;"></i>
+                                <input type="text" id="inputSearchViolations" placeholder="Cari nama, NIK, kode, atau alasan..." onkeyup="window.cariLaporanPelanggaran(this.value)" style="width:100%; border:1px solid #cbd5e1; border-radius:20px; padding:6px 12px 6px 32px; font-size:0.82rem; outline:none;">
+                            </div>
+                        </div>
+
+                        <!-- TABEL LAPORAN PELANGGARAN -->
+                        <div style="border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#ffffff;">
+                            <table class="modern-table" style="width:100%; margin:0; font-size:0.82rem;">
+                                <thead>
+                                    <tr style="background:#f8fafc;">
+                                        <th style="padding:10px 12px;">Kode & Waktu</th>
+                                        <th style="padding:10px 12px;">Pihak Terlapor</th>
+                                        <th style="padding:10px 12px;">Pelapor</th>
+                                        <th style="padding:10px 12px;">Kutipan Pesan Melanggar</th>
+                                        <th style="padding:10px 12px;">Kategori & Status</th>
+                                        <th style="padding:10px 12px; text-align:center;">Aksi Moderasi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBodyViolations">
+                                    <tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">Memuat berkas laporan pelanggaran...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div style="padding:12px 22px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:0.75rem; color:#64748b;">
+                            <i class="fas fa-info-circle"></i> Setiap tindakan moderasi tercatat dalam audit log sistem integritas Dinsos Sidoarjo.
+                        </span>
+                        <button type="button" onclick="document.getElementById('modalLaporanPelanggaranKeseluruhan').style.display='none'" class="btn btn-secondary" style="border-radius:10px; font-weight:700; font-size:0.82rem;">Tutup</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        modal.style.display = 'flex';
+
+        try {
+            const res = await apiCall('/api/chat/laporan-pelanggaran');
+            if (res && res.status === 'success') {
+                window.allViolationReportsCache = res.data || [];
+                const stats = res.stats || {};
+                const tEl = document.getElementById('violStatTotal');
+                const pEl = document.getElementById('violStatPending');
+                const tbEl = document.getElementById('violStatTerbukti');
+                const sEl = document.getElementById('violStatSelesai');
+                if (tEl) tEl.innerText = stats.total || 0;
+                if (pEl) pEl.innerText = stats.pending || 0;
+                if (tbEl) tbEl.innerText = stats.terbukti || 0;
+                if (sEl) sEl.innerText = stats.selesai || 0;
+
+                window.renderTabelPelanggaran(window.allViolationReportsCache);
+            }
+        } catch (e) {
+            const tbody = document.getElementById('tableBodyViolations');
+            if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:#ef4444;">Gagal mengambil daftar pelanggaran.</td></tr>';
+        }
+    };
+
+    window.renderTabelPelanggaran = function (list) {
+        const tbody = document.getElementById('tableBodyViolations');
+        if (!tbody) return;
+
+        if (!list || list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">Tidak ada data laporan pelanggaran yang sesuai filter.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = list.map(item => {
+            let statusBadge = '';
+            if (item.status === 'Menunggu Peninjauan') statusBadge = '<span class="badge bg-danger" style="font-size:0.7rem;">Menunggu</span>';
+            else if (item.status === 'Dalam Investigasi') statusBadge = '<span class="badge bg-warning text-dark" style="font-size:0.7rem;">Investigasi</span>';
+            else if (item.status === 'Terbukti Melanggar') statusBadge = '<span class="badge" style="background:#b91c1c; color:white; font-size:0.7rem;">Terbukti</span>';
+            else if (item.status === 'Ditolak/Bukan Pelanggaran') statusBadge = '<span class="badge bg-secondary" style="font-size:0.7rem;">Ditolak</span>';
+            else statusBadge = '<span class="badge bg-success" style="font-size:0.7rem;">Selesai</span>';
+
+            const terlaporRoleBadge = item.sender_terlapor === 'petugas' ? '<span style="color:#0284c7; font-size:0.68rem; font-weight:700;"><i class="fas fa-shield-alt"></i> Petugas</span>' : '<span style="color:#059669; font-size:0.68rem; font-weight:700;"><i class="fas fa-user"></i> Warga</span>';
+
+            return `
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px 12px;">
+                        <b style="color:#0f172a; font-family:monospace;">${item.kode_laporan}</b>
+                        <div style="font-size:0.7rem; color:#64748b;">${item.waktu || item.created_at || '-'}</div>
+                    </td>
+                    <td style="padding:10px 12px;">
+                        <div style="font-weight:700; color:#0f172a;">${window.safeHtml(item.nama_terlapor || '-')}</div>
+                        ${terlaporRoleBadge}
+                        ${item.nik ? `<div style="font-size:0.68rem; color:#64748b; font-family:monospace;">NIK: ${item.nik}</div>` : ''}
+                    </td>
+                    <td style="padding:10px 12px;">
+                        <div style="font-weight:600; color:#334155;">${window.safeHtml(item.pelapor_nama || '-')}</div>
+                        <small style="color:#64748b; text-transform:capitalize;">(${item.pelapor_role})</small>
+                    </td>
+                    <td style="padding:10px 12px; max-width:240px;">
+                        <div style="font-style:italic; color:#475569; line-height:1.35; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">
+                            "${window.safeHtml(item.pesan_kutipan || '-')}"
+                        </div>
+                        <div style="font-size:0.7rem; color:#dc2626; margin-top:2px;"><b>Alasan:</b> ${window.safeHtml(item.alasan || '-')}</div>
+                    </td>
+                    <td style="padding:10px 12px;">
+                        <div style="font-weight:700; font-size:0.75rem; color:#0f172a; margin-bottom:3px;">${item.kategori || '-'}</div>
+                        ${statusBadge}
+                        ${item.tindakan_petugas ? `<div style="font-size:0.68rem; color:#059669; margin-top:3px;"><i class="fas fa-check"></i> ${window.safeHtml(item.tindakan_petugas)}</div>` : ''}
+                    </td>
+                    <td style="padding:10px 12px; text-align:center; white-space:nowrap;">
+                        <button type="button" onclick="window.tindakLanjutiPelanggaran(${item.id}, '${item.kode_laporan}')" class="btn btn-sm" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700; border-radius:8px; padding:4px 8px; font-size:0.74rem; margin-right:4px;" title="Ambil Tindakan Moderasi">
+                            <i class="fas fa-gavel"></i> Tindak
+                        </button>
+                        ${item.nik ? `
+                        <button type="button" onclick="document.getElementById('modalLaporanPelanggaranKeseluruhan').style.display='none'; window.loadChatMessages('${item.nik}', '${window.escapeInlineJS(item.nama_terlapor || 'Warga')}')" class="btn btn-sm" style="background:#f0f9ff; color:#0284c7; border:1px solid #bae6fd; font-weight:700; border-radius:8px; padding:4px 8px; font-size:0.74rem;" title="Buka Ruang Obrolan">
+                            <i class="fas fa-comments"></i>
+                        </button>` : ''}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    };
+
+    window.filterLaporanPelanggaran = function (status, btn) {
+        window.activeViolationFilter = status;
+        document.querySelectorAll('.btn-viol-filter').forEach(b => {
+            b.style.background = '#f8fafc';
+            b.style.color = '#64748b';
+            b.style.border = '1px solid #cbd5e1';
+        });
+        if (btn) {
+            btn.style.background = '#dc2626';
+            btn.style.color = '#ffffff';
+            btn.style.border = 'none';
+        }
+
+        let list = window.allViolationReportsCache || [];
+        if (status === 'menunggu') {
+            list = list.filter(l => l.status === 'Menunggu Peninjauan' || l.status === 'Dalam Investigasi');
+        } else if (status === 'terbukti') {
+            list = list.filter(l => l.status === 'Terbukti Melanggar');
+        } else if (status === 'selesai') {
+            list = list.filter(l => l.status === 'Selesai Ditangani' || l.status === 'Ditolak/Bukan Pelanggaran');
+        }
+        window.renderTabelPelanggaran(list);
+    };
+
+    window.cariLaporanPelanggaran = function (q) {
+        const query = (q || '').toLowerCase().trim();
+        let list = window.allViolationReportsCache || [];
+        if (query) {
+            list = list.filter(l => 
+                String(l.kode_laporan || '').toLowerCase().includes(query) ||
+                String(l.nama_terlapor || '').toLowerCase().includes(query) ||
+                String(l.pelapor_nama || '').toLowerCase().includes(query) ||
+                String(l.nik || '').includes(query) ||
+                String(l.alasan || '').toLowerCase().includes(query) ||
+                String(l.pesan_kutipan || '').toLowerCase().includes(query)
+            );
+        }
+        window.renderTabelPelanggaran(list);
+    };
+
+    window.tindakLanjutiPelanggaran = async function (id, kode) {
+        const item = (window.allViolationReportsCache || []).find(l => l.id === id);
+        if (!item) return;
+
+        const { value: formVals } = await Swal.fire({
+            title: `<i class="fas fa-gavel text-danger"></i> Moderasi: ${kode}`,
+            html: `
+                <div style="text-align:left; font-size:0.86rem; color:#334155;">
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:12px;">
+                        <div><b>Terlapor:</b> ${window.safeHtml(item.nama_terlapor)} (${item.sender_terlapor})</div>
+                        <div style="font-size:0.75rem; color:#64748b; margin-top:2px;"><b>Alasan:</b> ${window.safeHtml(item.alasan)}</div>
+                        <div style="font-size:0.78rem; font-style:italic; color:#475569; margin-top:4px;">"${window.safeHtml(item.pesan_kutipan || '')}"</div>
+                    </div>
+
+                    <label style="font-weight:700; display:block; margin-bottom:6px;">Putusan & Status Tindak Lanjut:</label>
+                    <select id="swalTindakStatus" class="form-select" style="width:100%; border-radius:10px; padding:8px 12px; margin-bottom:12px; border:1px solid #cbd5e1; font-size:0.85rem;">
+                        <option value="Terbukti Melanggar" selected>Terbukti Melanggar - Berikan Teguran & Sanksi</option>
+                        <option value="Dalam Investigasi">Dalam Investigasi Lanjutan (Verifikasi Bukti)</option>
+                        <option value="Selesai Ditangani">Selesai Ditangani & Ditutup</option>
+                        <option value="Ditolak/Bukan Pelanggaran">Ditolak - Bukan Merupakan Pelanggaran</option>
+                    </select>
+
+                    <label style="font-weight:700; display:block; margin-bottom:6px;">Catatan Tindakan Resmi Petugas:</label>
+                    <textarea id="swalTindakCatatan" class="form-input" rows="3" placeholder="Tuliskan putusan, peringatan, atau tindakan pembinaan yang diambil..." style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:8px 12px; font-size:0.85rem; outline:none; resize:vertical;">Peringatan resmi diberikan kepada pihak terkait; catatan dimasukkan dalam berkas kepatuhan.</textarea>
+
+                    <div style="margin-top:12px; display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" id="swalHapusPesan" style="width:16px; height:16px; cursor:pointer;" checked>
+                        <label for="swalHapusPesan" style="font-size:0.82rem; font-weight:700; color:#dc2626; cursor:pointer;">
+                            Hapus & Sensor pesan melanggar ini dari riwayat percakapan obrolan
+                        </label>
+                    </div>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Simpan Putusan Moderasi',
+            confirmButtonColor: '#dc2626',
+            cancelButtonText: 'Batal',
+            cancelButtonColor: '#64748b',
+            preConfirm: () => {
+                const status = document.getElementById('swalTindakStatus')?.value || 'Terbukti Melanggar';
+                const tindakan = document.getElementById('swalTindakCatatan')?.value.trim() || 'Teguran resmi diberikan.';
+                const hapus_pesan = document.getElementById('swalHapusPesan')?.checked || false;
+                return { status, tindakan, hapus_pesan };
+            }
+        });
+
+        if (formVals) {
+            try {
+                const res = await apiCall(`/api/chat/laporan-pelanggaran/${id}/tindak`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        status: formVals.status,
+                        tindakan: formVals.tindakan,
+                        hapus_pesan: formVals.hapus_pesan,
+                        petugas: 'Administrator Utama (Super Admin)'
+                    })
+                });
+
+                if (res && res.status === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Tindakan Disimpan',
+                        text: `Status laporan ${kode} berhasil diperbarui menjadi "${formVals.status}".`,
+                        timer: 2500,
+                        showConfirmButton: false
+                    });
+                    await window.bukaModalLaporanPelanggaranKeseluruhan();
+                    window.updateViolationBadgeCount();
+                    if (window.activeChatNik && typeof window.loadChatMessages === 'function') {
+                        window.loadChatMessages(window.activeChatNik);
+                    }
+                } else {
+                    Swal.fire('Gagal', res?.message || 'Gagal menyimpan tindak lanjut.', 'error');
+                }
+            } catch (err) {
+                Swal.fire('Error', 'Terjadi kesalahan sistem saat memproses moderasi.', 'error');
+            }
+        }
+    };
+
+    // Panggil penghitungan badge pelanggaran saat startup
+    setTimeout(() => {
+        if (typeof window.updateViolationBadgeCount === 'function') {
+            window.updateViolationBadgeCount();
+        }
+    }, 1500);
 
 })(window);

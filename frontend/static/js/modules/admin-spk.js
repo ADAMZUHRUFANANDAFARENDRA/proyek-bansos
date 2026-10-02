@@ -432,6 +432,39 @@ window.rekonstruksiAuditMatematisSAW = function (dataWarga, spkData) {
 // =========================================================================
 // 4. MODAL AUDIT MATEMATIS LENGKAP (PEMBUKTIAN LANGKAH PERHITUNGAN SAW)
 // =========================================================================
+window.currentMatriksTab = 'bobot';
+
+window.switchMatriksTab = function (tabId) {
+    window.currentMatriksTab = tabId;
+    const tabPanels = ['tabMatriksBobot', 'tabMatriksX', 'tabMatriksR', 'tabMatriksV'];
+    const tabBtns = ['btnTabMatriksBobot', 'btnTabMatriksX', 'btnTabMatriksR', 'btnTabMatriksV'];
+
+    tabPanels.forEach(pId => {
+        const el = document.getElementById(pId);
+        if (el) el.style.display = pId === `tabMatriks${tabId.charAt(0).toUpperCase() + tabId.slice(1)}` ? 'block' : 'none';
+    });
+
+    tabBtns.forEach(bId => {
+        const btn = document.getElementById(bId);
+        if (btn) {
+            const isActive = bId === `btnTabMatriks${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`;
+            if (isActive) {
+                btn.classList.add('active');
+                btn.style.background = '#ffffff';
+                btn.style.color = '#009846';
+                btn.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+                btn.style.fontWeight = '800';
+            } else {
+                btn.classList.remove('active');
+                btn.style.background = 'transparent';
+                btn.style.color = '#64748b';
+                btn.style.boxShadow = 'none';
+                btn.style.fontWeight = '700';
+            }
+        }
+    });
+};
+
 window.bukaModalMatriksKerja = function () {
     if (!window.spkDetailedAudit && (!window.lastSPKResult || !window.lastSPKResult.matriks_normalisasi)) {
         return Swal.fire({ 
@@ -450,152 +483,303 @@ window.bukaModalMatriksKerja = function () {
     const N = audit.totalData;
     const W = audit.bobotW;
     const sampleTop = audit.detailV[0] || {};
+    const totalPrioritas = (audit.detailV || []).filter(v => v.desil <= 4).length;
 
     const htmlContent = `
-        <div style="text-align: left; font-family: 'Inter', sans-serif; color: #0f172a; max-height: 75vh; overflow-y: auto; padding-right: 6px;">
-            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px 18px; margin-bottom: 18px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div style="text-align: left; font-family: 'Inter', sans-serif; color: #0f172a;">
+            <!-- STRIP KPI METRIK ANALITIK TERPADU -->
+            <div class="matriks-kpi-grid">
+                <div class="matriks-kpi-card" style="border-left: 4px solid #009846;">
+                    <div class="matriks-kpi-icon" style="background:#dcfce7; color:#15803d;">
+                        <i class="fas fa-users"></i>
+                    </div>
                     <div>
-                        <h4 style="margin: 0; font-size: 1rem; color: #009846; font-weight: 800;">
-                            <i class="fas fa-square-root-variable"></i> Pembuktian Matematis Komputasi Simple Additive Weighting (SAW)
-                        </h4>
-                        <small style="color: #64748b;">Pengujian Multivariat Berbasis 10 Kriteria Dinas Sosial Kabupaten Sidoarjo</small>
+                        <div style="font-size:0.72rem; font-weight:700; color:#64748b; text-transform:uppercase;">Total Alternatif</div>
+                        <div style="font-size:1.25rem; font-weight:800; color:#0f172a;">${N} Warga</div>
+                        <div style="font-size:0.7rem; color:${N >= 100 ? '#15803d' : '#b45309'}; font-weight:700;">
+                            ${N >= 100 ? '✓ Lolos Uji Roscoe (&ge;100)' : '⚠ Evaluasi Sampel Parsial'}
+                        </div>
                     </div>
-                    <span style="background: ${N >= 100 ? '#dcfce7' : '#fef3c7'}; color: ${N >= 100 ? '#15803d' : '#b45309'}; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 800; border: 1px solid ${N >= 100 ? '#86efac' : '#fde68a'};">
-                        ${N >= 100 ? `<i class="fas fa-check-double"></i> Lolos Uji Roscoe (${N} Data &ge; 100)` : `<i class="fas fa-info-circle"></i> Evaluasi Parsial (${N} Data)`}
-                    </span>
                 </div>
-                <div style="margin-top: 10px; font-size: 0.8rem; color: #475569; line-height: 1.5; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
-                    <b>Kaidah Metodologi (Roscoe's Rule of Thumb):</b> Pembagian desil 1–10 secara adil dan bebas bias statistik 
-                    mensyaratkan rasio variabel multivariat 10 kriteria &times; 10 sampel = minimal 100 data alternatif terverifikasi.
-                </div>
-            </div>
 
-            <!-- TAHAP 1: Vektor Bobot BWM (W) -->
-            <div style="margin-bottom: 20px;">
-                <div style="font-weight: 800; font-size: 0.88rem; margin-bottom: 6px; color: #0f172a;">
-                    <i class="fas fa-sliders text-primary"></i> 1. Vektor Bobot Kriteria Hasil Best Worst Method ($W$)
-                </div>
-                <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem; text-align: center;">
-                        <tr style="background: #f1f5f9; color: #475569;">
-                            ${KRITERIA_SPK_CONFIG.map(k => `<th style="padding: 6px 8px; border: 1px solid #e2e8f0;">${k.code}<br><small>(${k.type})</small></th>`).join('')}
-                        </tr>
-                        <tr style="background: #ffffff; font-family: monospace; font-weight: 700;">
-                            ${W.map(w => `<td style="padding: 6px 8px; border: 1px solid #e2e8f0; color: #009846;">${parseFloat(w).toFixed(4)}</td>`).join('')}
-                        </tr>
-                    </table>
-                </div>
-            </div>
-
-            <!-- TAHAP 2: Nilai Ekstrem (Pembagi Normalisasi) -->
-            <div style="margin-bottom: 20px;">
-                <div style="font-weight: 800; font-size: 0.88rem; margin-bottom: 6px; color: #0f172a;">
-                    <i class="fas fa-arrows-split-up-and-left text-warning"></i> 2. Nilai Ekstrem Matriks Keputusan (Max Benefit & Min Cost)
-                </div>
-                <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem; text-align: center;">
-                        <tr style="background: #f1f5f9; color: #475569;">
-                            <th style="padding: 6px 10px; border: 1px solid #e2e8f0; text-align: left;">Fungsi Ekstrem</th>
-                            ${KRITERIA_SPK_CONFIG.map(k => `<th style="padding: 6px 8px; border: 1px solid #e2e8f0;">${k.code}</th>`).join('')}
-                        </tr>
-                        <tr style="background: #ffffff; font-family: monospace;">
-                            <td style="padding: 6px 10px; border: 1px solid #e2e8f0; text-align: left; font-weight: 700;">Max Kriteria ($X_j^+$)</td>
-                            ${KRITERIA_SPK_CONFIG.map(k => `<td style="padding: 6px 8px; border: 1px solid #e2e8f0;">${audit.minMax[`c${k.code.replace('C','')}`].max}</td>`).join('')}
-                        </tr>
-                        <tr style="background: #f8fafc; font-family: monospace;">
-                            <td style="padding: 6px 10px; border: 1px solid #e2e8f0; text-align: left; font-weight: 700;">Min Kriteria ($X_j^-$)</td>
-                            ${KRITERIA_SPK_CONFIG.map(k => `<td style="padding: 6px 8px; border: 1px solid #e2e8f0;">${audit.minMax[`c${k.code.replace('C','')}`].min}</td>`).join('')}
-                        </tr>
-                    </table>
-                </div>
-            </div>
-
-            <!-- TAHAP 3: Matriks Keputusan Mentah (X) -->
-            <div style="margin-bottom: 20px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
-                    <div style="font-weight: 800; font-size: 0.88rem; color: #0f172a;">
-                        <i class="fas fa-table text-info"></i> 3. Matriks Keputusan Mentah ($X$) &mdash; ${N} Alternatif Terverifikasi
+                <div class="matriks-kpi-card" style="border-left: 4px solid #0284c7;">
+                    <div class="matriks-kpi-icon" style="background:#e0f2fe; color:#0284c7;">
+                        <i class="fas fa-sliders"></i>
                     </div>
-                    <small style="color:#64748b;">(Tersampel 10 Baris Pertama)</small>
+                    <div>
+                        <div style="font-size:0.72rem; font-weight:700; color:#64748b; text-transform:uppercase;">Kriteria Multivariat</div>
+                        <div style="font-size:1.25rem; font-weight:800; color:#0f172a;">10 Indikator</div>
+                        <div style="font-size:0.7rem; color:#0284c7; font-weight:700;">Best Worst Method (BWM)</div>
+                    </div>
                 </div>
-                <div style="max-height: 190px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.76rem;">
-                        <thead style="background: #0f172a; color: #ffffff; position: sticky; top: 0; z-index: 2;">
-                            <tr>
-                                <th style="padding: 6px; text-align: center; border: 1px solid #334155;">NO</th>
-                                <th style="padding: 6px 8px; text-align: left; border: 1px solid #334155;">NAMA ALTERNATIF</th>
-                                ${KRITERIA_SPK_CONFIG.map(k => `<th style="padding: 6px; text-align: center; border: 1px solid #334155;">${k.code}</th>`).join('')}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${audit.matriksX.slice(0, 10).map((r, i) => `
-                                <tr style="background: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-                                    <td style="padding: 5px; text-align: center; border: 1px solid #e2e8f0; font-weight: 700;">${r.index}</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #e2e8f0;"><b>${window.safeHtml ? window.safeHtml(r.nama) : r.nama}</b></td>
-                                    <td style="padding: 5px; text-align: right; border: 1px solid #e2e8f0; font-family: monospace;">${r.c1.toLocaleString('id-ID')}</td>
-                                    <td style="padding: 5px; text-align: right; border: 1px solid #e2e8f0; font-family: monospace;">${r.c2.toLocaleString('id-ID')}</td>
-                                    <td style="padding: 5px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c3}</td>
-                                    <td style="padding: 5px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c4}</td>
-                                    <td style="padding: 5px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c5}</td>
-                                    <td style="padding: 5px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c6}</td>
-                                    <td style="padding: 5px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c7}</td>
-                                    <td style="padding: 5px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c8}</td>
-                                    <td style="padding: 5px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c9}</td>
-                                    <td style="padding: 5px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c10}</td>
+
+                <div class="matriks-kpi-card" style="border-left: 4px solid #e11d48;">
+                    <div class="matriks-kpi-icon" style="background:#ffe4e6; color:#e11d48;">
+                        <i class="fas fa-hand-holding-heart"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:0.72rem; font-weight:700; color:#64748b; text-transform:uppercase;">Prioritas Desil 1–4</div>
+                        <div style="font-size:1.25rem; font-weight:800; color:#e11d48;">${totalPrioritas} Penerima</div>
+                        <div style="font-size:0.7rem; color:#be123c; font-weight:700;">Alokasi Rp 600.000,- / KK</div>
+                    </div>
+                </div>
+
+                <div class="matriks-kpi-card" style="border-left: 4px solid #8b5cf6;">
+                    <div class="matriks-kpi-icon" style="background:#ede9fe; color:#7c3aed;">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:0.72rem; font-weight:700; color:#64748b; text-transform:uppercase;">Skor Preferensi Tertinggi</div>
+                        <div style="font-size:1.25rem; font-weight:800; color:#7c3aed;">${(sampleTop.skor || 0).toFixed(4)}</div>
+                        <div style="font-size:0.7rem; color:#64748b; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px;">
+                            ${sampleTop.nama || '-'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB NAVIGASI MATRIKS KERJA -->
+            <div style="margin-bottom: 16px;">
+                <div class="matriks-tabs-bar">
+                    <button type="button" id="btnTabMatriksBobot" class="matriks-tab-btn active" onclick="window.switchMatriksTab('bobot')">
+                        <i class="fas fa-sliders text-success"></i> 1. Bobot BWM & Ekstrem
+                    </button>
+                    <button type="button" id="btnTabMatriksX" class="matriks-tab-btn" onclick="window.switchMatriksTab('x')">
+                        <i class="fas fa-table text-primary"></i> 2. Matriks Keputusan ($X$)
+                    </button>
+                    <button type="button" id="btnTabMatriksR" class="matriks-tab-btn" onclick="window.switchMatriksTab('r')">
+                        <i class="fas fa-percentage text-warning"></i> 3. Matriks Normalisasi ($R$)
+                    </button>
+                    <button type="button" id="btnTabMatriksV" class="matriks-tab-btn" onclick="window.switchMatriksTab('v')">
+                        <i class="fas fa-calculator text-danger"></i> 4. Preferensi ($V$) & Desil
+                    </button>
+                </div>
+            </div>
+
+            <!-- ==================== TAB 1: VEKTOR BOBOT BWM & NILAI EKSTREM ==================== -->
+            <div id="tabMatriksBobot" style="display: block;">
+                <!-- Bobot BWM Bar Modern -->
+                <div class="card" style="border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px 20px; background: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.02); margin-bottom: 16px;">
+                    <div style="font-weight: 800; font-size: 0.95rem; color: #0f172a; margin-bottom: 12px; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="display:flex; align-items:center; gap:8px;"><i class="fas fa-balance-scale text-success"></i> Vektor Bobot 10 Kriteria BWM ($W$)</span>
+                        <span style="font-size:0.75rem; color:#64748b; font-weight:600;">Jumlah Total Bobot: &sum; W = 1.0000</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                        ${KRITERIA_SPK_CONFIG.map((k, idx) => {
+                            const weightVal = parseFloat(W[idx] || 0.1);
+                            const pct = (weightVal * 100).toFixed(1);
+                            const isCost = k.type.toLowerCase() === 'cost';
+                            return `
+                                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                        <div style="font-weight:800; font-size:0.82rem; color:#0f172a;">${k.code}</div>
+                                        <span style="font-size:0.68rem; font-weight:800; padding:2px 7px; border-radius:6px; background:${isCost ? '#fee2e2' : '#dcfce7'}; color:${isCost ? '#dc2626' : '#15803d'};">
+                                            ${k.type}
+                                        </span>
+                                    </div>
+                                    <div style="font-size:0.72rem; color:#64748b; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${k.name}">
+                                        ${k.name}
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                        <span style="font-family:monospace; font-weight:800; font-size:0.85rem; color:#009846;">${weightVal.toFixed(4)}</span>
+                                        <span style="font-size:0.72rem; font-weight:700; color:#64748b;">${pct}%</span>
+                                    </div>
+                                    <div style="height:5px; background:#e2e8f0; border-radius:10px; overflow:hidden;">
+                                        <div style="width:${pct}%; height:100%; background:linear-gradient(90deg, #009846, #059669); border-radius:10px;"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+
+                <!-- Nilai Ekstrem (Pembagi Normalisasi) -->
+                <div class="card" style="border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px 20px; background: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                    <div style="font-weight: 800; font-size: 0.95rem; color: #0f172a; margin-bottom: 12px; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="display:flex; align-items:center; gap:8px;"><i class="fas fa-arrows-split-up-and-left text-warning"></i> Nilai Ekstrem Matriks Keputusan (Max Benefit & Min Cost)</span>
+                        <span style="font-size:0.75rem; color:#64748b; font-weight:600;">Basis Pembagi Normalisasi Rumus SAW</span>
+                    </div>
+                    <div style="overflow-x: auto; border: 1px solid #cbd5e1; border-radius: 10px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem; text-align: center;">
+                            <thead style="background: #0f172a; color: #ffffff;">
+                                <tr>
+                                    <th style="padding: 8px 12px; border: 1px solid #334155; text-align: left;">Fungsi Ekstrem</th>
+                                    ${KRITERIA_SPK_CONFIG.map(k => `<th style="padding: 8px; border: 1px solid #334155;">${k.code}</th>`).join('')}
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- TAHAP 4: Matriks Normalisasi (R) -->
-            <div style="margin-bottom: 20px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
-                    <div style="font-weight: 800; font-size: 0.88rem; color: #0f172a;">
-                        <i class="fas fa-percent text-success"></i> 4. Matriks Normalisasi Ternormalisasi ($R$)
-                    </div>
-                    <small style="color:#64748b;">(Benefit: $r_{ij} = x_{ij}/\\max(x_j)$ | Cost: $r_{ij} = \\min(x_j)/x_{ij}$)</small>
-                </div>
-                <div style="max-height: 190px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.76rem;">
-                        <thead style="background: #0f172a; color: #ffffff; position: sticky; top: 0; z-index: 2;">
-                            <tr>
-                                <th style="padding: 6px; text-align: center; border: 1px solid #334155;">NO</th>
-                                <th style="padding: 6px 8px; text-align: left; border: 1px solid #334155;">NAMA ALTERNATIF</th>
-                                ${KRITERIA_SPK_CONFIG.map(k => `<th style="padding: 6px; text-align: center; border: 1px solid #334155;">${k.code}</th>`).join('')}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${audit.matriksR.slice(0, 10).map((r, i) => `
-                                <tr style="background: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-                                    <td style="padding: 5px; text-align: center; border: 1px solid #e2e8f0; font-weight: 700;">${r.index}</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #e2e8f0;"><b>${window.safeHtml ? window.safeHtml(r.nama) : r.nama}</b></td>
-                                    ${KRITERIA_SPK_CONFIG.map(k => `<td style="padding: 5px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${(r[`c${k.code.replace('C','')}`] || 0).toFixed(4)}</td>`).join('')}
+                            </thead>
+                            <tbody>
+                                <tr style="background: #ffffff; font-family: monospace;">
+                                    <td style="padding: 8px 12px; border: 1px solid #e2e8f0; text-align: left; font-weight: 800; color:#15803d;">
+                                        <i class="fas fa-arrow-up text-success"></i> Nilai Maksimum ($X_j^+$)
+                                    </td>
+                                    ${KRITERIA_SPK_CONFIG.map(k => `<td style="padding: 8px; border: 1px solid #e2e8f0; font-weight:700;">${audit.minMax[`c${k.code.replace('C','')}`].max}</td>`).join('')}
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
+                                <tr style="background: #f8fafc; font-family: monospace;">
+                                    <td style="padding: 8px 12px; border: 1px solid #e2e8f0; text-align: left; font-weight: 800; color:#b91c1c;">
+                                        <i class="fas fa-arrow-down text-danger"></i> Nilai Minimum ($X_j^-$)
+                                    </td>
+                                    ${KRITERIA_SPK_CONFIG.map(k => `<td style="padding: 8px; border: 1px solid #e2e8f0; font-weight:700;">${audit.minMax[`c${k.code.replace('C','')}`].min}</td>`).join('')}
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
-            <!-- TAHAP 5: Contoh Pembuktian Formula V1 -->
-            ${sampleTop.breakdown ? `
-                <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;">
-                    <div style="font-weight: 800; font-size: 0.88rem; color: #166534; margin-bottom: 6px;">
-                        <i class="fas fa-calculator"></i> 5. Contoh Rincian Kalkulasi Preferensi Akhir ($V_1$) &mdash; ${sampleTop.nama}
+            <!-- ==================== TAB 2: MATRIKS KEPUTUSAN MENTAH (X) ==================== -->
+            <div id="tabMatriksX" style="display: none;">
+                <div class="card" style="border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px 20px; background: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 12px;">
+                        <div>
+                            <div style="font-weight: 800; font-size: 0.95rem; color: #0f172a;">
+                                <i class="fas fa-table text-primary"></i> Matriks Keputusan Mentah ($X$)
+                            </div>
+                            <small style="color:#64748b;">Data asli dari ${N} alternatif terverifikasi sebelum dilakukan normalisasi skala</small>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="text" id="searchMatriksX" placeholder="Cari nama warga..." oninput="window.filterMatriksTable('searchMatriksX', 'tbodyMatriksX')" style="padding:6px 12px; border-radius:10px; border:1px solid #cbd5e1; font-size:0.78rem;">
+                        </div>
                     </div>
-                    <div style="font-family: monospace; font-size: 0.78rem; color: #1e293b; line-height: 1.7; word-break: break-all;">
-                        V<sub>1</sub> = &sum; (W<sub>j</sub> &times; R<sub>1j</sub>)<br>
-                        V<sub>1</sub> = ${sampleTop.breakdown.map(b => `(${b.w.toFixed(3)} &times; ${b.r.toFixed(4)})`).join(' + ')}<br>
-                        <b>V<sub>1</sub> = ${sampleTop.breakdown.map(b => b.partial.toFixed(4)).join(' + ')} = <span style="color: #15803d; font-size: 0.92rem; font-weight: 900;">${sampleTop.skor.toFixed(5)}</span></b>
-                    </div>
-                    <div style="margin-top: 6px; font-size: 0.78rem; font-weight: 700; color: #15803d;">
-                        Status: Masuk Klaster Desil ${sampleTop.desil} (Prioritas Kuota Bantuan Sosial Kabupaten Sidoarjo)
+                    <div style="max-height: 420px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 10px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.76rem;">
+                            <thead style="background: #0f172a; color: #ffffff; position: sticky; top: 0; z-index: 2;">
+                                <tr>
+                                    <th style="padding: 8px 6px; text-align: center; border: 1px solid #334155; width:45px;">NO</th>
+                                    <th style="padding: 8px 10px; text-align: left; border: 1px solid #334155; width:220px;">NAMA ALTERNATIF</th>
+                                    ${KRITERIA_SPK_CONFIG.map(k => `<th style="padding: 8px 6px; text-align: center; border: 1px solid #334155;">${k.code}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyMatriksX">
+                                ${audit.matriksX.map((r, i) => `
+                                    <tr style="background: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'};" data-nama="${(r.nama || '').toLowerCase()}">
+                                        <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-weight: 700;">${r.index}</td>
+                                        <td style="padding: 6px 10px; border: 1px solid #e2e8f0;"><b>${window.safeHtml ? window.safeHtml(r.nama) : r.nama}</b></td>
+                                        <td style="padding: 6px; text-align: right; border: 1px solid #e2e8f0; font-family: monospace;">${r.c1.toLocaleString('id-ID')}</td>
+                                        <td style="padding: 6px; text-align: right; border: 1px solid #e2e8f0; font-family: monospace;">${r.c2.toLocaleString('id-ID')}</td>
+                                        <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c3}</td>
+                                        <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c4}</td>
+                                        <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c5}</td>
+                                        <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c6}</td>
+                                        <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c7}</td>
+                                        <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c8}</td>
+                                        <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c9}</td>
+                                        <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace;">${r.c10}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-            ` : ''}
+            </div>
+
+            <!-- ==================== TAB 3: MATRIKS NORMALISASI (R) ==================== -->
+            <div id="tabMatriksR" style="display: none;">
+                <div class="card" style="border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px 20px; background: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 12px;">
+                        <div>
+                            <div style="font-weight: 800; font-size: 0.95rem; color: #0f172a;">
+                                <i class="fas fa-percentage text-warning"></i> Matriks Normalisasi Ternormalisasi ($R$)
+                            </div>
+                            <small style="color:#64748b;">(Benefit: $r_{ij} = x_{ij}/\\max(x_j)$ | Cost: $r_{ij} = \\min(x_j)/x_{ij}$) &mdash; Skala [0.0000, 1.0000]</small>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="text" id="searchMatriksR" placeholder="Cari nama warga..." oninput="window.filterMatriksTable('searchMatriksR', 'tbodyMatriksR')" style="padding:6px 12px; border-radius:10px; border:1px solid #cbd5e1; font-size:0.78rem;">
+                        </div>
+                    </div>
+                    <div style="max-height: 420px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 10px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.76rem;">
+                            <thead style="background: #0f172a; color: #ffffff; position: sticky; top: 0; z-index: 2;">
+                                <tr>
+                                    <th style="padding: 8px 6px; text-align: center; border: 1px solid #334155; width:45px;">NO</th>
+                                    <th style="padding: 8px 10px; text-align: left; border: 1px solid #334155; width:220px;">NAMA ALTERNATIF</th>
+                                    ${KRITERIA_SPK_CONFIG.map(k => `<th style="padding: 8px 6px; text-align: center; border: 1px solid #334155;">${k.code}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyMatriksR">
+                                ${audit.matriksR.map((r, i) => `
+                                    <tr style="background: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'};" data-nama="${(r.nama || '').toLowerCase()}">
+                                        <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-weight: 700;">${r.index}</td>
+                                        <td style="padding: 6px 10px; border: 1px solid #e2e8f0;"><b>${window.safeHtml ? window.safeHtml(r.nama) : r.nama}</b></td>
+                                        ${KRITERIA_SPK_CONFIG.map(k => {
+                                            const val = (r[`c${k.code.replace('C','')}`] || 0);
+                                            return `<td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace; color:${val >= 0.8 ? '#009846' : '#1e293b'}; font-weight:${val >= 0.8 ? '800' : '500'};">${val.toFixed(4)}</td>`;
+                                        }).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== TAB 4: PREFERENSI (V) & DESIL 1–4 ==================== -->
+            <div id="tabMatriksV" style="display: none;">
+                <!-- Rincian Formula Sample V1 -->
+                ${sampleTop.breakdown ? `
+                    <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 14px; padding: 14px 18px; margin-bottom: 16px;">
+                        <div style="font-weight: 800; font-size: 0.92rem; color: #166534; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center;">
+                            <span><i class="fas fa-calculator"></i> Contoh Pembuktian Kalkulasi Preferensi ($V_1$) &mdash; ${sampleTop.nama}</span>
+                            <span style="font-size:0.75rem; background:#dcfce7; color:#15803d; padding:3px 8px; border-radius:6px; font-weight:800;">Peringkat 1 Terbaik</span>
+                        </div>
+                        <div style="font-family: monospace; font-size: 0.8rem; color: #1e293b; line-height: 1.8; word-break: break-all; background:#ffffff; padding:12px; border-radius:10px; border:1px solid #bbf7d0;">
+                            <b>V<sub>1</sub> = &sum; (W<sub>j</sub> &times; R<sub>1j</sub>)</b><br>
+                            V<sub>1</sub> = ${sampleTop.breakdown.map(b => `(${b.w.toFixed(3)} &times; ${b.r.toFixed(4)})`).join(' + ')}<br>
+                            <b>V<sub>1</sub> = ${sampleTop.breakdown.map(b => b.partial.toFixed(4)).join(' + ')} = <span style="color: #15803d; font-size: 1rem; font-weight: 900;">${sampleTop.skor.toFixed(5)}</span></b>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 0.82rem; font-weight: 700; color: #15803d;">
+                            <i class="fas fa-check-circle"></i> Status Rekomendasi: Masuk Klaster Desil ${sampleTop.desil} (Prioritas Utama Kuota Bantuan Sosial Sidoarjo)
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Tabel Hasil Perangkingan Lengkap -->
+                <div class="card" style="border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px 20px; background: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 12px;">
+                        <div>
+                            <div style="font-weight: 800; font-size: 0.95rem; color: #0f172a;">
+                                <i class="fas fa-trophy text-warning"></i> Pemeringkatan Preferensi Akhir ($V_i$) & Alokasi Bansos
+                            </div>
+                            <small style="color:#64748b;">Hasil agregasi komputasi multivariat terurut dari preferensi tertinggi</small>
+                        </div>
+                    </div>
+                    <div style="max-height: 380px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 10px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
+                            <thead style="background: #0f172a; color: #ffffff; position: sticky; top: 0; z-index: 2;">
+                                <tr>
+                                    <th style="padding: 8px; text-align: center; border: 1px solid #334155; width:45px;">Rank</th>
+                                    <th style="padding: 8px 10px; text-align: left; border: 1px solid #334155;">Nama Penerima</th>
+                                    <th style="padding: 8px; text-align: center; border: 1px solid #334155; width:100px;">Skor SAW ($V_i$)</th>
+                                    <th style="padding: 8px; text-align: center; border: 1px solid #334155; width:80px;">Desil</th>
+                                    <th style="padding: 8px; text-align: center; border: 1px solid #334155; width:110px;">Alokasi</th>
+                                    <th style="padding: 8px; text-align: center; border: 1px solid #334155; width:140px;">Status Ketetapan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${(audit.detailV || []).map((v, i) => {
+                                    const isLayak = v.desil <= 4;
+                                    return `
+                                        <tr style="background: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                                            <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-weight: 800;">${i + 1}</td>
+                                            <td style="padding: 6px 10px; border: 1px solid #e2e8f0; font-weight: 700;">${window.safeHtml ? window.safeHtml(v.nama) : v.nama}</td>
+                                            <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 800; color: #009846;">${(v.skor || 0).toFixed(4)}</td>
+                                            <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-weight: 700;">Desil ${v.desil}</td>
+                                            <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0; font-weight: 700; color:${isLayak ? '#047857' : '#94a3b8'};">
+                                                ${isLayak ? 'Rp 600.000,-' : 'Rp 0,-'}
+                                            </td>
+                                            <td style="padding: 6px; text-align: center; border: 1px solid #e2e8f0;">
+                                                <span style="display:inline-block; padding:3px 8px; border-radius:6px; font-size:0.72rem; font-weight:800; background:${isLayak ? '#dcfce7' : '#f1f5f9'}; color:${isLayak ? '#15803d' : '#64748b'}; border:1px solid ${isLayak ? '#86efac' : '#cbd5e1'};">
+                                                    ${isLayak ? 'DITETAPKAN (PRIORITAS)' : 'NON-PRIORITAS'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
 
@@ -605,15 +789,27 @@ window.bukaModalMatriksKerja = function () {
         detailContent.innerHTML = htmlContent;
         if (typeof window.openModal === 'function') window.openModal('modalDetail');
         else modalDetail.style.display = 'flex';
+        window.switchMatriksTab(window.currentMatriksTab || 'bobot');
     } else {
         Swal.fire({
             html: htmlContent,
-            width: '1020px',
+            width: '1100px',
             showCloseButton: true,
             confirmButtonColor: '#009846',
             confirmButtonText: '<i class="fas fa-check"></i> Tutup Rincian Matriks'
         });
     }
+};
+
+window.filterMatriksTable = function (inputId, tbodyId) {
+    const query = (document.getElementById(inputId)?.value || '').toLowerCase().trim();
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach(r => {
+        const nama = r.getAttribute('data-nama') || '';
+        r.style.display = !query || nama.includes(query) ? '' : 'none';
+    });
 };
 
 // =========================================================================
@@ -1009,14 +1205,16 @@ window.toggleVoiceSearchKomparasi = function () {
 // PENGATURAN DOKUMEN, TEMPLAT KOP SURAT & TANDA TANGAN (SEBELUM DIUNDUH)
 // =========================================================================
 const DEFAULT_DOC_SETTINGS = {
-    namaPimpinan: 'DR. DRS. H. AHMAD MISBAHUL MUNIR, M.SI',
+    gelarDepan: 'Dr. Drs. H.',
+    namaPimpinan: 'AHMAD MISBAHUL MUNIR',
+    gelarBelakang: 'M.Si.',
     nipPimpinan: '19710815 199603 1 003',
     jabatanPimpinan: 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO',
     pangkatPimpinan: 'Pembina Utama Muda',
     nomorSurat: '460/084/BA-SPK/438.5.12/2026',
     kotaSurat: 'Sidoarjo',
     tanggalSurat: '28 September 2026',
-    tipeTtd: 'tte' // 'tte' atau 'manual'
+    tipeTtd: 'tte' // 'tte', 'scan', atau 'manual'
 };
 
 const DEFAULT_KOP_TEMPLATE = {
@@ -1043,6 +1241,14 @@ const DEFAULT_FORMAT_OPTIONS = {
 };
 
 const KOP_PRESETS = {
+    bupati: {
+        provinsi: 'Pemerintah Provinsi Jawa Timur',
+        kabupaten: 'Pemerintah Kabupaten Sidoarjo',
+        dinas: 'BUPATI SIDOARJO',
+        alamat: 'Jalan Gubernur Suryo Nomor 1 Sidoarjo, Jawa Timur 61211',
+        telp: '(031) 8921946',
+        email: 'bupati@sidoarjokab.go.id'
+    },
     dinsos: {
         provinsi: 'Pemerintah Provinsi Jawa Timur',
         kabupaten: 'Pemerintah Kabupaten Sidoarjo',
@@ -1067,6 +1273,22 @@ const KOP_PRESETS = {
         telp: '(031) 8941145',
         email: 'bappeda@sidoarjokab.go.id'
     }
+};
+
+window.getNamaLengkapPemimpin = function (settings) {
+    const s = settings || (typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : DEFAULT_DOC_SETTINGS);
+    const nama = (s.namaPimpinan || '').trim();
+    const gDepan = (s.gelarDepan || '').trim();
+    const gBelakang = (s.gelarBelakang || '').trim();
+    if (!nama) return 'Pj. BUPATI SIDOARJO';
+    let full = nama;
+    if (gDepan && !nama.toLowerCase().startsWith(gDepan.toLowerCase())) {
+        full = `${gDepan} ${full}`;
+    }
+    if (gBelakang && !nama.toLowerCase().endsWith(gBelakang.toLowerCase())) {
+        full = `${full}, ${gBelakang}`;
+    }
+    return full;
 };
 
 window.getDocumentSettings = function () {
@@ -1127,23 +1349,167 @@ window.switchTabDokumen = function (tab) {
     }
 };
 
+// =========================================================================
+// MESIN DIGITAL SIGNATURE PAD (TANDA TANGAN MANUAL DI WEB SECARA LANGSUNG)
+// =========================================================================
+window._sigCanvasState = {
+    canvas: null,
+    ctx: null,
+    isDrawing: false,
+    color: '#003366',
+    size: 2.6,
+    hasDrawn: false
+};
+
+window.initSignatureCanvas = function () {
+    const canvas = document.getElementById('canvasSignaturePad');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    window._sigCanvasState.canvas = canvas;
+    window._sigCanvasState.ctx = ctx;
+
+    if (canvas._initialized) return;
+    canvas._initialized = true;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = window._sigCanvasState.color;
+    ctx.lineWidth = window._sigCanvasState.size;
+
+    function getCoords(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        if (e.touches && e.touches.length > 0) {
+            return {
+                x: (e.touches[0].clientX - rect.left) * scaleX,
+                y: (e.touches[0].clientY - rect.top) * scaleY
+            };
+        }
+        return {
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY
+        };
+    }
+
+    function startDraw(e) {
+        e.preventDefault();
+        window._sigCanvasState.isDrawing = true;
+        const coords = getCoords(e);
+        ctx.beginPath();
+        ctx.moveTo(coords.x, coords.y);
+    }
+
+    function draw(e) {
+        if (!window._sigCanvasState.isDrawing) return;
+        e.preventDefault();
+        const coords = getCoords(e);
+        ctx.lineTo(coords.x, coords.y);
+        ctx.stroke();
+        window._sigCanvasState.hasDrawn = true;
+    }
+
+    function stopDraw(e) {
+        if (!window._sigCanvasState.isDrawing) return;
+        window._sigCanvasState.isDrawing = false;
+        ctx.closePath();
+    }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    window.addEventListener('mouseup', stopDraw);
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', stopDraw, { passive: false });
+};
+
+window.clearSignatureCanvas = function () {
+    const canvas = window._sigCanvasState.canvas || document.getElementById('canvasSignaturePad');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    window._sigCanvasState.hasDrawn = false;
+};
+
+window.setSignatureColor = function (color, btn) {
+    window._sigCanvasState.color = color;
+    if (window._sigCanvasState.ctx) {
+        window._sigCanvasState.ctx.strokeStyle = color;
+    }
+    document.querySelectorAll('.pen-color-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+};
+
+window.setSignatureSize = function (size, btn) {
+    window._sigCanvasState.size = size;
+    if (window._sigCanvasState.ctx) {
+        window._sigCanvasState.ctx.lineWidth = size;
+    }
+    document.querySelectorAll('.pen-size-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+};
+
+window.simpanSignatureCanvas = function () {
+    const canvas = window._sigCanvasState.canvas || document.getElementById('canvasSignaturePad');
+    if (!canvas || !window._sigCanvasState.hasDrawn) {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Tanda Tangan Masih Kosong',
+            text: 'Silakan bubuhkan goresan tanda tangan Anda di area canvas sebelum menerapkan.',
+            confirmButtonColor: '#009846'
+        });
+    }
+
+    const dataUrl = canvas.toDataURL('image/png');
+    localStorage.setItem('spk_custom_signature', dataUrl);
+    window.updateLiveTtdPreview();
+
+    Swal.fire({
+        icon: 'success',
+        title: 'Tanda Tangan Manual Diterapkan!',
+        text: 'Tanda tangan manual Anda berhasil disimpan dan siap disematkan pada dokumen PDF, Word, dan Excel.',
+        timer: 1800,
+        showConfirmButton: false
+    });
+};
+
 window.updateTtdLabelStyle = function () {
-    const optTte = document.getElementById('ttdOptTte');
+    const ttdVal = document.querySelector('input[name="settingTipeTtd"]:checked')?.value || 'tte';
     const labelTte = document.getElementById('labelTtdTte');
+    const labelScan = document.getElementById('labelTtdScan');
     const labelManual = document.getElementById('labelTtdManual');
-    if (optTte && optTte.checked) {
+    const panelCanvas = document.getElementById('panelSignatureCanvas');
+    const ctrlUpload = document.getElementById('ctrlUploadSignature');
+
+    // Reset styles
+    [labelTte, labelScan, labelManual].forEach(lbl => {
+        if (lbl) {
+            lbl.style.borderColor = '#cbd5e1';
+            lbl.style.background = '#ffffff';
+        }
+    });
+
+    if (ttdVal === 'tte') {
         if (labelTte) { labelTte.style.borderColor = '#16a34a'; labelTte.style.background = '#f0fdf4'; }
-        if (labelManual) { labelManual.style.borderColor = '#cbd5e1'; labelManual.style.background = '#ffffff'; }
-    } else {
-        if (labelTte) { labelTte.style.borderColor = '#cbd5e1'; labelTte.style.background = '#ffffff'; }
+        if (panelCanvas) panelCanvas.style.display = 'none';
+        if (ctrlUpload) ctrlUpload.style.display = 'none';
+    } else if (ttdVal === 'scan') {
+        if (labelScan) { labelScan.style.borderColor = '#d97706'; labelScan.style.background = '#fffbeb'; }
+        if (panelCanvas) panelCanvas.style.display = 'none';
+        if (ctrlUpload) ctrlUpload.style.display = 'flex';
+    } else if (ttdVal === 'manual') {
         if (labelManual) { labelManual.style.borderColor = '#0284c7'; labelManual.style.background = '#f0f9ff'; }
+        if (panelCanvas) {
+            panelCanvas.style.display = 'block';
+            setTimeout(() => window.initSignatureCanvas(), 50);
+        }
+        if (ctrlUpload) ctrlUpload.style.display = 'none';
     }
     window.updateLiveTtdPreview();
 };
 
 window.toggleTargetFormatOptions = function () {
     const isCustom = document.getElementById('targetFormatCustom')?.checked;
-    // Opsi target dapat disesuaikan pengguna
 };
 
 window.applyKopPreset = function (key) {
@@ -1197,28 +1563,52 @@ window.updateLiveKopPreview = function () {
 };
 
 window.updateLiveTtdPreview = function () {
-    const optTte = document.getElementById('ttdOptTte');
-    const isTte = optTte ? optTte.checked : true;
+    const ttdVal = document.querySelector('input[name="settingTipeTtd"]:checked')?.value || 'tte';
+    const isTte = ttdVal === 'tte';
     const imgTtd = document.getElementById('imgPreviewTtd');
     const descTtd = document.getElementById('descPreviewTtd');
     const subDescTtd = document.getElementById('subDescPreviewTtd');
-    const ctrlUpload = document.getElementById('ctrlUploadSignature');
     const nomor = document.getElementById('settingNomorSurat')?.value || '460/084/BA-SPK/438.5.12/2026';
-    const nama = document.getElementById('settingNamaPimpinan')?.value || 'DR. DRS. H. AHMAD MISBAHUL MUNIR, M.SI';
+    
+    // Live update preview nama lengkap & gelar
+    const gDepan = document.getElementById('settingGelarDepan')?.value.trim() || '';
+    const namaInti = document.getElementById('settingNamaPimpinan')?.value.trim() || 'AHMAD MISBAHUL MUNIR';
+    const gBelakang = document.getElementById('settingGelarBelakang')?.value.trim() || '';
+    
+    const namaLengkap = window.getNamaLengkapPemimpin({
+        gelarDepan: gDepan,
+        namaPimpinan: namaInti,
+        gelarBelakang: gBelakang
+    });
+
+    const elPreviewNama = document.getElementById('previewNamaLengkapGelar');
+    if (elPreviewNama) {
+        elPreviewNama.textContent = `Nama Resmi Lengkap: ${namaLengkap.toUpperCase()}`;
+    }
 
     if (isTte) {
         if (descTtd) descTtd.textContent = 'Tanda Tangan Elektronik Tersertifikasi BSrE BSSN';
         if (subDescTtd) subDescTtd.textContent = 'Format QR Code terenkripsi valid otomatis tercetak pada dokumen PDF, Word, dan disematkan langsung di bawah tabel Sheet 1 Excel.';
-        if (ctrlUpload) ctrlUpload.style.display = 'none';
         if (imgTtd && window.PrintHelper && typeof window.PrintHelper.getQrBadgeBase64 === 'function') {
             imgTtd.src = window.PrintHelper.getQrBadgeBase64(nomor);
         }
+    } else if (ttdVal === 'scan') {
+        if (descTtd) descTtd.textContent = 'Scan Tanda Tangan & Cap Stempel Resmi Kedinasan';
+        if (subDescTtd) subDescTtd.textContent = 'Gambar tanda tangan hasil scan/foto akan dicantumkan secara presisi pada PDF, Word, dan Excel.';
+        const custom = localStorage.getItem('spk_custom_signature');
+        if (imgTtd && custom) {
+            imgTtd.src = custom;
+        } else if (imgTtd && window.PrintHelper && typeof window.PrintHelper.getManualSignatureBase64 === 'function') {
+            imgTtd.src = window.PrintHelper.getManualSignatureBase64(namaLengkap);
+        }
     } else {
-        if (descTtd) descTtd.textContent = 'Tanda Tangan Basah & Stempel Resmi Kedinasan';
-        if (subDescTtd) subDescTtd.textContent = 'Stempel dinas dan tanda tangan basah resmi akan disematkan di dokumen PDF, Word, dan di bawah tabel Sheet 1 Excel.';
-        if (ctrlUpload) ctrlUpload.style.display = 'flex';
-        if (imgTtd && window.PrintHelper && typeof window.PrintHelper.getManualSignatureBase64 === 'function') {
-            imgTtd.src = window.PrintHelper.getManualSignatureBase64(nama);
+        if (descTtd) descTtd.textContent = 'Tanda Tangan Manual Digital Pad (Digambar di Web)';
+        if (subDescTtd) subDescTtd.textContent = 'Goresan tanda tangan manual yang Anda buat di canvas web akan disematkan rapi pada dokumen PDF, Word, dan Excel.';
+        const custom = localStorage.getItem('spk_custom_signature');
+        if (imgTtd && custom) {
+            imgTtd.src = custom;
+        } else if (imgTtd && window.PrintHelper && typeof window.PrintHelper.getManualSignatureBase64 === 'function') {
+            imgTtd.src = window.PrintHelper.getManualSignatureBase64(namaLengkap);
         }
     }
 };
@@ -1308,7 +1698,9 @@ window.bukaModalSettingDokumen = function (targetTab = 'ttd') {
     const fmt = window.getFormatOptions();
 
     // Tab 1: Pimpinan & TTD
+    const elGelarD = document.getElementById('settingGelarDepan');
     const elNama = document.getElementById('settingNamaPimpinan');
+    const elGelarB = document.getElementById('settingGelarBelakang');
     const elNip = document.getElementById('settingNipPimpinan');
     const elJabatan = document.getElementById('settingJabatanPimpinan');
     const elPangkat = document.getElementById('settingPangkatPimpinan');
@@ -1316,9 +1708,12 @@ window.bukaModalSettingDokumen = function (targetTab = 'ttd') {
     const elKota = document.getElementById('settingKotaSurat');
     const elTanggal = document.getElementById('settingTanggalSurat');
     const optTte = document.getElementById('ttdOptTte');
+    const optScan = document.getElementById('ttdOptScan');
     const optManual = document.getElementById('ttdOptManual');
 
+    if (elGelarD) elGelarD.value = s.gelarDepan !== undefined ? s.gelarDepan : DEFAULT_DOC_SETTINGS.gelarDepan;
     if (elNama) elNama.value = s.namaPimpinan || DEFAULT_DOC_SETTINGS.namaPimpinan;
+    if (elGelarB) elGelarB.value = s.gelarBelakang !== undefined ? s.gelarBelakang : DEFAULT_DOC_SETTINGS.gelarBelakang;
     if (elNip) elNip.value = s.nipPimpinan || DEFAULT_DOC_SETTINGS.nipPimpinan;
     if (elJabatan) elJabatan.value = s.jabatanPimpinan || DEFAULT_DOC_SETTINGS.jabatanPimpinan;
     if (elPangkat) elPangkat.value = s.pangkatPimpinan || DEFAULT_DOC_SETTINGS.pangkatPimpinan;
@@ -1328,6 +1723,8 @@ window.bukaModalSettingDokumen = function (targetTab = 'ttd') {
 
     if (s.tipeTtd === 'manual') {
         if (optManual) optManual.checked = true;
+    } else if (s.tipeTtd === 'scan') {
+        if (optScan) optScan.checked = true;
     } else {
         if (optTte) optTte.checked = true;
     }
@@ -1416,7 +1813,9 @@ window.simpanSettingDokumen = function (e) {
     const targetFmt = document.querySelector('input[name="settingTargetFormat"]:checked')?.value || 'all';
 
     const newSettings = {
+        gelarDepan: document.getElementById('settingGelarDepan')?.value.trim() || '',
         namaPimpinan: document.getElementById('settingNamaPimpinan')?.value.trim() || DEFAULT_DOC_SETTINGS.namaPimpinan,
+        gelarBelakang: document.getElementById('settingGelarBelakang')?.value.trim() || '',
         nipPimpinan: document.getElementById('settingNipPimpinan')?.value.trim() || DEFAULT_DOC_SETTINGS.nipPimpinan,
         jabatanPimpinan: document.getElementById('settingJabatanPimpinan')?.value.trim() || DEFAULT_DOC_SETTINGS.jabatanPimpinan,
         pangkatPimpinan: document.getElementById('settingPangkatPimpinan')?.value.trim() || DEFAULT_DOC_SETTINGS.pangkatPimpinan,
@@ -1463,14 +1862,283 @@ window.simpanSettingDokumen = function (e) {
 
     if (typeof window.closeModal === 'function') window.closeModal('modalSettingDokumen');
 
+    // Jika modal SK Bupati sedang terbuka, perbarui pratinjaunya
+    if (document.getElementById('modalSKBupati')?.style.display === 'flex' && typeof window.renderSKBupatiPreview === 'function') {
+        window.renderSKBupatiPreview();
+    }
+
     Swal.fire({
         icon: 'success',
         title: 'Templat Dokumen Berhasil Disimpan!',
-        text: 'Ukuran kertas, Kop Surat, identitas pimpinan, dan opsi berkas telah diperbarui untuk PDF, Word, dan Excel.',
+        text: 'Identitas pimpinan, gelar, tanda tangan, templat Kop Surat, dan opsi berkas telah diperbarui untuk PDF, Word, dan Excel.',
         timer: 2000,
         showConfirmButton: false
     });
 };
+
+// =========================================================================
+// HANDLER DROPDOWN & EKSPOR MATRIKS KERJA (PDF, WORD, EXCEL)
+// =========================================================================
+window.toggleDropdownUnduhMatriks = function (e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    const menu = document.getElementById('dropdownMenuUnduhMatriks');
+    const arrow = document.getElementById('arrowUnduhMatriks');
+    if (!menu) return;
+
+    const isOpen = menu.classList.contains('show');
+    if (isOpen) {
+        menu.classList.remove('show');
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+    } else {
+        menu.classList.add('show');
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
+    }
+};
+
+window.closeDropdownUnduhMatriks = function () {
+    const menu = document.getElementById('dropdownMenuUnduhMatriks');
+    const arrow = document.getElementById('arrowUnduhMatriks');
+    if (menu) menu.classList.remove('show');
+    if (arrow) arrow.style.transform = 'rotate(0deg)';
+};
+
+window.unduhMatriksKerjaFormat = function (format) {
+    window.closeDropdownUnduhMatriks();
+    
+    if (format === 'excel') {
+        if (window.AdminPrint && typeof window.AdminPrint.exportMatriksKerjaExcel === 'function') {
+            window.AdminPrint.exportMatriksKerjaExcel();
+        } else {
+            Swal.fire('Info', 'Fungsi ekspor Excel matriks kerja sedang disiapkan.', 'info');
+        }
+    } else if (format === 'pdf') {
+        if (window.AdminPrint && typeof window.AdminPrint.cetakMatriksKerjaPDF === 'function') {
+            window.AdminPrint.cetakMatriksKerjaPDF();
+        } else {
+            Swal.fire('Info', 'Fungsi cetak PDF matriks kerja sedang disiapkan.', 'info');
+        }
+    } else if (format === 'word') {
+        if (window.AdminPrint && typeof window.AdminPrint.exportMatriksKerjaWord === 'function') {
+            window.AdminPrint.exportMatriksKerjaWord();
+        } else {
+            Swal.fire('Info', 'Fungsi ekspor Word matriks kerja sedang disiapkan.', 'info');
+        }
+    }
+};
+
+// =========================================================================
+// FITUR MODAL PRATINJAU & AKSI RESMI CETAK SK BUPATI
+// =========================================================================
+window.bukaModalSKBupati = async function () {
+    const modal = document.getElementById('modalSKBupati');
+    if (!modal) {
+        if (window.AdminPrint && typeof window.AdminPrint.cetakSKBupatiPDF === 'function') {
+            return window.AdminPrint.cetakSKBupatiPDF();
+        }
+        return;
+    }
+
+    modal.style.display = 'flex';
+    window.renderSKBupatiPreview();
+};
+
+window.renderSKBupatiPreview = async function () {
+    const previewArea = document.getElementById('skBupatiPreviewContent');
+    if (!previewArea) return;
+
+    previewArea.innerHTML = '<div style="text-align:center; padding:40px; color:#64748b;"><i class="fas fa-spinner fa-spin fa-2x text-danger" style="margin-bottom:12px;"></i><div>Memuat naskah keputusan resmi Bupati Sidoarjo...</div></div>';
+
+    let rawList = (window.globalDataWarga || []).filter(w => w.is_verified);
+    if (!rawList.length && typeof window.fetchData === 'function') {
+        try {
+            const res = await window.fetchData('/warga?verified=true');
+            if (res && res.data) rawList = res.data;
+        } catch (e) {}
+    }
+
+    const sortedList = [...rawList].sort((a, b) => {
+        const sA = parseFloat(a.skor_saw || a.skor || 0);
+        const sB = parseFloat(b.skor_saw || b.skor || 0);
+        return sB - sA;
+    });
+
+    const docSettings = window.getDocumentSettings();
+    const kop = window.getKopTemplate();
+    const namaLengkapBupati = window.getNamaLengkapPemimpin(docSettings);
+    const tahunAnggaran = '2026';
+    const nomorSK = docSettings.nomorSurat || '188 / 460 / 438.5.12 / 2026';
+    const tanggalSK = docSettings.tanggalSurat || '28 September 2026';
+    const kotaSK = docSettings.kotaSurat || 'Sidoarjo';
+    const jabatanBupati = docSettings.jabatanPimpinan || 'BUPATI SIDOARJO';
+    const logoSrc = kop.logoBase64 || window.LOGO_SIDOARJO_BASE64 || "static/img/logo-sidoarjo.png";
+
+    // Format TTD Preview
+    let ttdPreviewHtml = '';
+    if (docSettings.tipeTtd === 'tte') {
+        const qrSrc = window.PrintHelper ? window.PrintHelper.getQrBadgeBase64(nomorSK) : `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=SK-BUPATI-SIDOARJO-${encodeURIComponent(nomorSK)}`;
+        ttdPreviewHtml = `
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:20px; flex-wrap:wrap; margin-top:24px; padding-top:14px; border-top:1px dashed #cbd5e1;">
+                <div style="display:flex; align-items:center; gap:12px; background:#f0fdf4; border:1px solid #bbf7d0; padding:10px 14px; border-radius:12px; max-width:380px;">
+                    <img src="${qrSrc}" style="width:70px; height:70px; object-fit:contain; border-radius:6px; background:#ffffff; padding:2px; border:1px solid #e2e8f0;" alt="QR BSrE">
+                    <div style="font-size:0.75rem; color:#166534; line-height:1.4;">
+                        <b>Ditandatangani secara Elektronik oleh:</b><br>
+                        ${jabatanBupati}<br>
+                        <small style="color:#15803d; font-size:0.7rem;">Sertifikasi BSrE Badan Siber dan Sandi Negara (BSSN)</small>
+                    </div>
+                </div>
+                <div style="text-align:center; min-width:240px;">
+                    <div style="font-size:0.8rem; color:#475569;">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
+                    <div style="font-size:0.88rem; font-weight:800; color:#0f172a; margin-top:4px;">${jabatanBupati}</div>
+                    <div style="font-size:0.88rem; font-weight:800; color:#be123c; margin-top:45px; text-decoration:underline;">${namaLengkapBupati}</div>
+                </div>
+            </div>
+        `;
+    } else {
+        const manualSigSrc = window.PrintHelper ? window.PrintHelper.getManualSignatureBase64(namaLengkapBupati) : '';
+        ttdPreviewHtml = `
+            <div style="display:flex; justify-content:flex-end; margin-top:24px; padding-top:14px; border-top:1px dashed #cbd5e1;">
+                <div style="text-align:center; min-width:250px;">
+                    <div style="font-size:0.8rem; color:#475569;">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
+                    <div style="font-size:0.88rem; font-weight:800; color:#0f172a; margin-top:4px;">${jabatanBupati}</div>
+                    <div style="height:60px; display:flex; align-items:center; justify-content:center; margin:6px 0;">
+                        <img src="${manualSigSrc}" style="max-height:56px; max-width:150px; object-fit:contain;" alt="TTD & Stempel">
+                    </div>
+                    <div style="font-size:0.88rem; font-weight:800; color:#0f172a; text-decoration:underline;">${namaLengkapBupati}</div>
+                    ${docSettings.nipPimpinan ? `<div style="font-size:0.75rem; color:#475569;">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    const html = `
+        <div style="background:#ffffff; border-radius:18px; border:1px solid #cbd5e1; box-shadow:0 6px 25px rgba(0,0,0,0.04); padding:2rem 2.5rem; max-width:980px; margin:0 auto; font-family:'Inter', sans-serif;">
+            <!-- KOP SURAT BUPATI RESMI -->
+            <div style="display:flex; align-items:center; border-bottom:3px double #0f172a; padding-bottom:12px; margin-bottom:18px; gap:16px;">
+                <img src="${logoSrc}" style="width:68px; height:80px; object-fit:contain;" alt="Logo Pemkab">
+                <div style="flex:1; text-align:center;">
+                    <div style="font-size:1.15rem; font-weight:900; letter-spacing:1px; color:#0f172a;">${(kop.dinas || 'BUPATI SIDOARJO').toUpperCase()}</div>
+                    <div style="font-size:0.78rem; color:#475569; margin-top:3px;">${kop.alamat || 'Jalan Gubernur Suryo Nomor 1 Sidoarjo, Jawa Timur 61211 | Telepon (031) 8921946'}</div>
+                </div>
+                <div style="width:68px;"></div>
+            </div>
+
+            <!-- JUDUL KEPUTUSAN BUPATI -->
+            <div style="text-align:center; margin-bottom:18px;">
+                <div style="font-size:0.95rem; font-weight:800; color:#0f172a; letter-spacing:0.5px;">KEPUTUSAN ${(kop.dinas || 'BUPATI SIDOARJO').toUpperCase()}</div>
+                <div style="font-size:0.86rem; font-weight:700; color:#be123c; margin:4px 0;">NOMOR: ${nomorSK}</div>
+                <div style="font-size:0.88rem; font-weight:800; color:#0f172a; text-transform:uppercase; margin-top:6px; line-height:1.4;">
+                    TENTANG<br>PENETAPAN PENERIMA BANTUAN SOSIAL TERPADU KABUPATEN SIDOARJO<br>BERDASARKAN SISTEM PENDUKUNG KEPUTUSAN (BWM - SAW) TAHUN ANGGARAN ${tahunAnggaran}
+                </div>
+            </div>
+
+            <!-- KONSIDERANS NASKAH SK -->
+            <div style="font-size:0.82rem; color:#1e293b; line-height:1.65; text-align:justify; margin-bottom:16px;">
+                <table style="width:100%; border:none; font-size:0.82rem;">
+                    <tr>
+                        <td style="width:110px; vertical-align:top; font-weight:800;">Menimbang</td>
+                        <td style="width:12px; vertical-align:top;">:</td>
+                        <td style="vertical-align:top;">
+                            bahwa dalam rangka perlindungan sosial serta penanggulangan kemiskinan ekstrem di wilayah Kabupaten Sidoarjo, diperlukan basis penetapan penerima bantuan yang objektif, akurat, dan dapat dipertanggungjawabkan berdasarkan integrasi algoritma <i>Best Worst Method</i> (BWM) dan <i>Simple Additive Weighting</i> (SAW).
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="vertical-align:top; font-weight:800; padding-top:6px;">Mengingat</td>
+                        <td style="vertical-align:top; padding-top:6px;">:</td>
+                        <td style="vertical-align:top; padding-top:6px;">
+                            1. Undang-Undang Nomor 11 Tahun 2009 tentang Kesejahteraan Sosial;<br>
+                            2. Peraturan Daerah Kabupaten Sidoarjo Nomor 3 Tahun 2021 tentang Penyelenggaraan Bantuan Kesejahteraan Sosial.
+                        </td>
+                    </tr>
+                </table>
+
+                <div style="text-align:center; font-weight:800; font-size:0.88rem; margin:14px 0 10px 0; letter-spacing:0.5px;">MEMUTUSKAN:</div>
+
+                <table style="width:100%; border:none; font-size:0.82rem;">
+                    <tr>
+                        <td style="width:110px; vertical-align:top; font-weight:800;">KESATU</td>
+                        <td style="width:12px; vertical-align:top;">:</td>
+                        <td style="vertical-align:top;">
+                            Menetapkan warga masyarakat sebagaimana tercantum dalam Lampiran Keputusan ini sebagai Penerima Manfaat Bantuan Sosial Terpadu Kabupaten Sidoarjo Tahun Anggaran ${tahunAnggaran}.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="vertical-align:top; font-weight:800; padding-top:6px;">KEDUA</td>
+                        <td style="vertical-align:top; padding-top:6px;">:</td>
+                        <td style="vertical-align:top; padding-top:6px;">
+                            Alokasi bantuan disalurkan senilai Rp 600.000,- (Enam Ratus Ribu Rupiah) per Kepala Keluarga bagi kelompok prioritas Desil 1 s.d. Desil 4 melalui verifikasi fisik lapangan.
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- TTD PENGESAHAN -->
+            ${ttdPreviewHtml}
+
+            <!-- LAMPIRAN NOMINATIF SAMPEL -->
+            <div style="margin-top:35px; padding-top:18px; border-top:2px solid #0f172a;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <div>
+                        <div style="font-weight:800; font-size:0.86rem; color:#0f172a;">LAMPIRAN KEPUTUSAN ${(kop.dinas || 'BUPATI SIDOARJO').toUpperCase()}</div>
+                        <div style="font-size:0.75rem; color:#64748b;">DAFTAR NOMINATIF PENERIMA BANTUAN SOSIAL KLIK PRIORITAS DESIL 1–4</div>
+                    </div>
+                    <span style="background:#fff1f2; color:#be123c; border:1px solid #fecdd3; padding:3px 10px; border-radius:12px; font-size:0.72rem; font-weight:800;">
+                        ${sortedList.length} Warga Terdaftar
+                    </span>
+                </div>
+                <div style="max-height:280px; overflow-y:auto; border:1px solid #cbd5e1; border-radius:10px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.76rem;">
+                        <thead style="background:#0f172a; color:#ffffff; position:sticky; top:0;">
+                            <tr>
+                                <th style="padding:6px; text-align:center; width:40px;">No</th>
+                                <th style="padding:6px 8px; text-align:left;">Nama Warga</th>
+                                <th style="padding:6px; text-align:center; width:75px;">Skor SAW</th>
+                                <th style="padding:6px; text-align:center; width:70px;">Desil</th>
+                                <th style="padding:6px; text-align:center; width:100px;">Alokasi</th>
+                                <th style="padding:6px; text-align:center; width:130px;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sortedList.slice(0, 15).map((w, idx) => {
+                                const desil = idx < 10 ? 1 : (idx < 20 ? 2 : (idx < 30 ? 3 : (idx < 43 ? 4 : 5)));
+                                const isLayak = desil <= 4;
+                                return `
+                                    <tr style="background:${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                                        <td style="padding:5px; text-align:center; border:1px solid #e2e8f0; font-weight:700;">${idx + 1}</td>
+                                        <td style="padding:5px 8px; border:1px solid #e2e8f0; font-weight:700;">${window.safeHtml ? window.safeHtml(w.nama_lengkap || w.nama) : (w.nama_lengkap || w.nama)}</td>
+                                        <td style="padding:5px; text-align:center; border:1px solid #e2e8f0; font-family:monospace; color:#047857; font-weight:800;">${parseFloat(w.skor_saw || w.skor || 0.71).toFixed(4)}</td>
+                                        <td style="padding:5px; text-align:center; border:1px solid #e2e8f0; font-weight:700;">Desil ${desil}</td>
+                                        <td style="padding:5px; text-align:center; border:1px solid #e2e8f0; font-weight:700; color:${isLayak ? '#047857' : '#94a3b8'};">
+                                            ${isLayak ? 'Rp 600.000,-' : 'Rp 0,-'}
+                                        </td>
+                                        <td style="padding:5px; text-align:center; border:1px solid #e2e8f0;">
+                                            <span style="background:${isLayak ? '#dcfce7' : '#f1f5f9'}; color:${isLayak ? '#15803d' : '#64748b'}; padding:2px 7px; border-radius:6px; font-size:0.68rem; font-weight:800;">
+                                                ${isLayak ? 'DITETAPKAN' : 'NON-PRIORITAS'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ${sortedList.length > 15 ? `<div style="font-size:0.72rem; color:#64748b; margin-top:6px; text-align:right;">* Menampilkan 15 penerima pertama pada pratinjau. Seluruh ${sortedList.length} warga dicetak lengkap pada berkas PDF & Word.</div>` : ''}
+            </div>
+        </div>
+    `;
+
+    previewArea.innerHTML = html;
+};
+
+// Listener klik di luar dropdown unduh matriks kerja
+document.addEventListener('click', function (e) {
+    const wrapper = document.getElementById('wrapperDropdownUnduhMatriks');
+    if (wrapper && !wrapper.contains(e.target)) {
+        window.closeDropdownUnduhMatriks();
+    }
+});
 
 // =========================================================================
 // HANDLER DROPDOWN & EKSPOR KOMPARASI SAW VS WP (PDF, WORD, EXCEL)

@@ -428,7 +428,7 @@ window.showModernLoadingAlert = function (options = {}) {
                     <span id="swalBulkStageText">${safeHtml(initialStage)}</span>
                 </div>
                 <div class="modern-bulk-cancel-note">
-                    <i class="fas fa-info-circle mr-1"></i> Klik <b>Batalkan Proses</b> atau tombol <b>(X)</b> untuk menghentikan penginputan kapan saja.
+                    <i class="fas fa-info-circle mr-1"></i> Klik <b>Batalkan Proses</b> di bawah jika ingin menghentikan penginputan kapan saja.
                 </div>
             </div>
         `;
@@ -436,21 +436,15 @@ window.showModernLoadingAlert = function (options = {}) {
         htmlContent = `
             <div class="modern-single-container" id="swalModernLoadingContent">
                 <div class="modern-single-loader">
-                    <div class="loader-glow"></div>
-                    <div class="loader-track"></div>
-                    <div class="loader-ring"></div>
-                    <div class="loader-ring-inner"></div>
-                    <div class="loader-core">
-                        <i class="fas fa-sync-alt fa-spin"></i>
-                    </div>
+                    <div class="single-clean-spinner"></div>
                 </div>
                 ${subtitle ? `<div class="modern-single-subtext">${safeHtml(subtitle)}</div>` : ''}
                 <div class="modern-single-stage-pill" id="swalSingleStage">
-                    <i class="fas fa-shield-alt"></i>
+                    <i class="fas fa-shield-alt text-emerald-600"></i>
                     <span id="swalSingleStageText">${safeHtml(initialStage)}</span>
                 </div>
                 <div class="modern-bulk-cancel-note" style="margin-top:10px;">
-                    <i class="fas fa-info-circle mr-1"></i> Tekan <b>Batalkan</b> atau <b>(X)</b> jika ingin membatalkan aktivitas ini.
+                    <i class="fas fa-info-circle mr-1"></i> Klik tombol <b>Batalkan</b> di bawah untuk membatalkan proses kapan saja.
                 </div>
             </div>
         `;
@@ -461,22 +455,69 @@ window.showModernLoadingAlert = function (options = {}) {
         html: htmlContent,
         showConfirmButton: false, // MUTLAK HILANGKAN TOMBOL OKE!
         showCancelButton: options.canCancel !== false,
-        cancelButtonText: `<i class="fas fa-times mr-1"></i> ${cancelLabel}`,
-        showCloseButton: options.canCancel !== false,
+        cancelButtonText: `<i class="fas fa-times-circle" style="margin-right:6px;"></i> ${cancelLabel}`,
+        showCloseButton: false, // MUTLAK HILANGKAN TOMBOL SILANG (X) DI KANAN ATAS!
         allowOutsideClick: false,
         allowEscapeKey: options.canCancel !== false,
         focusCancel: true,
         customClass: {
             popup: 'swal-modern-rounded swal-modern-loading-card',
             cancelButton: 'swal-btn-pill-cancel',
-            closeButton: 'swal-close-btn'
+            closeButton: 'swal-close-btn-hidden'
         },
         didOpen: (popup) => {
-            const nativeLoader = popup.querySelector('.swal2-loader');
-            if (nativeLoader) nativeLoader.style.display = 'none';
+            const suppressNativeLoader = () => {
+                const nativeLoader = popup.querySelector('.swal2-loader');
+                if (nativeLoader) {
+                    nativeLoader.style.setProperty('display', 'none', 'important');
+                    nativeLoader.style.setProperty('visibility', 'hidden', 'important');
+                    nativeLoader.style.setProperty('width', '0', 'important');
+                    nativeLoader.style.setProperty('height', '0', 'important');
+                    nativeLoader.style.setProperty('margin', '0', 'important');
+                    nativeLoader.style.setProperty('padding', '0', 'important');
+                }
+                const closeBtn = popup.querySelector('.swal2-close');
+                if (closeBtn) {
+                    closeBtn.style.setProperty('display', 'none', 'important');
+                    closeBtn.style.setProperty('visibility', 'hidden', 'important');
+                    try { closeBtn.remove(); } catch (e) {}
+                }
+                const actions = popup.querySelector('.swal2-actions');
+                if (actions) {
+                    actions.style.setProperty('display', 'flex', 'important');
+                    actions.style.setProperty('justify-content', 'center', 'important');
+                    actions.style.setProperty('width', '100%', 'important');
+                    actions.style.setProperty('margin-top', '14px', 'important');
+                }
+                const cancelBtn = popup.querySelector('.swal2-cancel');
+                if (cancelBtn) {
+                    cancelBtn.removeAttribute('disabled');
+                    cancelBtn.style.setProperty('display', 'inline-flex', 'important');
+                    cancelBtn.style.setProperty('align-items', 'center', 'important');
+                    cancelBtn.style.setProperty('justify-content', 'center', 'important');
+                    cancelBtn.style.setProperty('padding', '9px 24px', 'important');
+                    cancelBtn.style.setProperty('border-radius', '12px', 'important');
+                    cancelBtn.style.setProperty('background', '#f1f5f9', 'important');
+                    cancelBtn.style.setProperty('color', '#475569', 'important');
+                    cancelBtn.style.setProperty('border', '1.5px solid #cbd5e1', 'important');
+                    cancelBtn.style.setProperty('font-weight', '700', 'important');
+                    cancelBtn.style.setProperty('cursor', 'pointer', 'important');
+                }
+            };
+
+            suppressNativeLoader();
+
             if (typeof options.didOpen === 'function') {
-                try { options.didOpen(popup); } catch (e) {}
+                try {
+                    options.didOpen(popup);
+                } catch (e) {}
             }
+
+            suppressNativeLoader();
+            requestAnimationFrame(suppressNativeLoader);
+            setTimeout(suppressNativeLoader, 20);
+            setTimeout(suppressNativeLoader, 80);
+            setTimeout(suppressNativeLoader, 200);
         }
     }).then((result) => {
         if (result.dismiss === Swal.DismissReason.cancel || 

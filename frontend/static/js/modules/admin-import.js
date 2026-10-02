@@ -1264,8 +1264,36 @@ window.switchCustomImportView = function (mode) {
     window.currentImportView = mode;
     const btnTable = document.getElementById('btnImportViewTable');
     const btnCards = document.getElementById('btnImportViewCards');
-    if (btnTable) btnTable.className = mode === 'table' ? 'btn-import-view active' : 'btn-import-view';
-    if (btnCards) btnCards.className = mode === 'cards' ? 'btn-import-view active' : 'btn-import-view';
+    if (btnTable) {
+        if (mode === 'table') {
+            btnTable.className = 'btn-import-view active';
+            btnTable.style.setProperty('background', '#009846', 'important');
+            btnTable.style.setProperty('color', '#ffffff', 'important');
+            btnTable.style.setProperty('border-color', '#009846', 'important');
+            btnTable.style.setProperty('box-shadow', '0 2px 8px rgba(0, 152, 70, 0.35)', 'important');
+        } else {
+            btnTable.className = 'btn-import-view';
+            btnTable.style.setProperty('background', 'transparent', 'important');
+            btnTable.style.setProperty('color', '#64748b', 'important');
+            btnTable.style.setProperty('border-color', '#cbd5e1', 'important');
+            btnTable.style.setProperty('box-shadow', 'none', 'important');
+        }
+    }
+    if (btnCards) {
+        if (mode === 'cards') {
+            btnCards.className = 'btn-import-view active';
+            btnCards.style.setProperty('background', '#009846', 'important');
+            btnCards.style.setProperty('color', '#ffffff', 'important');
+            btnCards.style.setProperty('border-color', '#009846', 'important');
+            btnCards.style.setProperty('box-shadow', '0 2px 8px rgba(0, 152, 70, 0.35)', 'important');
+        } else {
+            btnCards.className = 'btn-import-view';
+            btnCards.style.setProperty('background', 'transparent', 'important');
+            btnCards.style.setProperty('color', '#64748b', 'important');
+            btnCards.style.setProperty('border-color', '#cbd5e1', 'important');
+            btnCards.style.setProperty('box-shadow', 'none', 'important');
+        }
+    }
     window.renderCustomImportData();
 };
 

@@ -8,6 +8,7 @@ import type {
   NotifikasiItem,
   PengaduanItem,
   ChatItem,
+  LaporanPelanggaranItem,
   MasterSeedTuple
 } from './types.js';
 
@@ -179,6 +180,51 @@ export const chatStore: ChatItem[] = [
     deleted_for: null,
     waktu: '08:35',
     created_at: '2026-09-27 08:35'
+  }
+];
+
+export const laporanPelanggaranStore: LaporanPelanggaranItem[] = [
+  {
+    id: 1,
+    kode_laporan: 'VIO-2026-001',
+    msg_id: 101,
+    nik: '3515101408890010',
+    nama_terlapor: 'Oknum Penyalur Lapangan',
+    sender_terlapor: 'petugas',
+    pesan_kutipan: 'Kalau mau proses bantuan sembako Anda cepat keluar, ada biaya administrasi lapangan Rp 50.000.',
+    alasan: 'Pungutan Liar / Indikasi Gratifikasi',
+    kategori: 'Pungutan Liar (Pungli)',
+    deskripsi: 'Warga dimintai biaya administrasi ilegal untuk pencairan bansos sembako.',
+    pelapor_role: 'warga',
+    pelapor_nama: 'NURUL HIDAYATI',
+    pelapor_nik: '3515101408890010',
+    status: 'Dalam Investigasi',
+    tindakan_petugas: 'Pemanggilan petugas lapangan terkait oleh tim pengawas Dinsos Kab. Sidoarjo.',
+    petugas_penindak: 'Administrator Utama (Super Admin)',
+    waktu_tindakan: '28/09/2026 10:15',
+    waktu: '28/09/2026 09:40',
+    created_at: '2026-09-28 09:40'
+  },
+  {
+    id: 2,
+    kode_laporan: 'VIO-2026-002',
+    msg_id: 102,
+    nik: '3515081111810008',
+    nama_terlapor: 'JOKO PRASETYO',
+    sender_terlapor: 'warga',
+    pesan_kutipan: 'Dasar petugas tidak becus, saya tahu kantor kalian di mana awas saja kalau tidak cair hari ini!',
+    alasan: 'Kata-kata Kasar & Ancaman Intimidasi',
+    kategori: 'Kata-kata Kasar / Pelecehan',
+    deskripsi: 'Pesan bernada intimidasi dan ancaman terhadap petugas piket verifikasi.',
+    pelapor_role: 'petugas',
+    pelapor_nama: 'Petugas Lapangan Dinsos',
+    pelapor_nik: 'PETUGAS-02',
+    status: 'Terbukti Melanggar',
+    tindakan_petugas: 'Peringatan tingkat 1 disampaikan ke akun warga; pesan dinonaktifkan dari ruang obrolan.',
+    petugas_penindak: 'Administrator Utama (Super Admin)',
+    waktu_tindakan: '29/09/2026 14:20',
+    waktu: '29/09/2026 13:50',
+    created_at: '2026-09-29 13:50'
   }
 ];
 

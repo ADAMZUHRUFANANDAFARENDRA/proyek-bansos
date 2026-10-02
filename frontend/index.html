@@ -412,11 +412,11 @@
                             <div class="filter-divider"></div>
                             
                             <!-- Toggle Mode Tampilan: Tabel vs Layout Card -->
-                            <div style="display:inline-flex; background:#e2e8f0; padding:3px; border-radius:12px; gap:2px;">
-                                <button type="button" id="btnViewModeTable" onclick="window.toggleWargaViewMode('table')" class="filter-btn active" style="margin:0; border-radius:10px; padding:5px 12px; font-weight:700; font-size:0.8rem; background:white; color:#0f172a; box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="Tampilan Tabel">
+                            <div style="display:inline-flex; background:#e2e8f0; padding:3px; border-radius:12px; gap:3px;">
+                                <button type="button" id="btnViewModeTable" onclick="window.toggleWargaViewMode('table')" class="filter-btn active" style="margin:0; border-radius:10px; padding:6px 14px; font-weight:700; font-size:0.8rem; background:#009846; color:#ffffff; box-shadow:0 2px 6px rgba(0,152,70,0.35); border:none; transition:all 0.2s;" title="Tampilan Tabel">
                                     <i class="fas fa-table"></i> Tabel
                                 </button>
-                                <button type="button" id="btnViewModeCard" onclick="window.toggleWargaViewMode('card')" class="filter-btn" style="margin:0; border-radius:10px; padding:5px 12px; font-weight:700; font-size:0.8rem; background:transparent; color:#64748b;" title="Tampilan Layout Card Warga">
+                                <button type="button" id="btnViewModeCard" onclick="window.toggleWargaViewMode('card')" class="filter-btn" style="margin:0; border-radius:10px; padding:6px 14px; font-weight:700; font-size:0.8rem; background:transparent; color:#64748b; border:none; transition:all 0.2s;" title="Tampilan Layout Card Warga">
                                     <i class="fas fa-th-large"></i> Layout Card
                                 </button>
                             </div>
@@ -473,9 +473,9 @@
                         <div class="card-title" style="color: var(--primary-dark); font-size: 1.25rem;">
                             <i class="fas fa-trophy" style="color:var(--accent);"></i> Hasil Rekomendasi SAW & BWM (Prioritas Desil 1–4)
                         </div>
-                        <div style="display:flex; gap:8px;">
+                        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
                             <button type="button" onclick="window.bukaModalMatriksKerja()" class="btn btn-secondary" style="color:var(--admin-color); border-color: #c7d2fe; background: white;"><i class="fas fa-table"></i> Lihat Matriks Kerja</button>
-                            <button type="button" id="btnCetakSKBupati" onclick="window.AdminPrint ? window.AdminPrint.cetakSKBupati() : (window.cetakSKBupati ? window.cetakSKBupati() : null)" class="btn btn-primary" style="background: linear-gradient(135deg, var(--danger), #be123c);"><i class="fas fa-file-contract"></i> Cetak SK Bupati</button>
+                            <button type="button" id="btnCetakSKBupati" onclick="window.bukaModalSKBupati ? window.bukaModalSKBupati() : (window.AdminPrint ? window.AdminPrint.cetakSKBupati() : null)" class="btn btn-primary" style="background: linear-gradient(135deg, var(--danger), #be123c);"><i class="fas fa-file-contract"></i> Cetak SK Bupati</button>
                         </div>
                     </div>
                     <div class="table-container" style="max-height: 600px; overflow-y:auto; padding: 0;">
@@ -561,25 +561,58 @@
         </div>
     </div>
 
-    <div id="activeCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.9); backdrop-filter:blur(10px); z-index:9999999; justify-content:center; align-items:center;">
-        <div class="call-card-modern">
-            <div class="call-header-modern">
-                <h3 id="activeCallName">Nama Kontak</h3>
-                <p id="callStatusText" style="margin:2px 0;">Terhubung</p>
-                <div id="callDuration">00:00</div>
-                <div class="call-status-badges-container">
-                    <span id="callMicStatus" class="call-live-badge badge-mic-on"><i class="fas fa-microphone"></i> Mikrofon Aktif</span>
-                    <span id="callCamStatus" class="call-live-badge badge-cam-off"><i class="fas fa-video-slash"></i> Kamera Mati</span>
+    <div id="activeCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.92); backdrop-filter:blur(12px); z-index:9999999; justify-content:center; align-items:center;">
+        <div class="call-card-modern" style="position:relative; width:440px; max-width:96vw; background:#0f172a; border-radius:24px; overflow:hidden; border:1px solid #334155; box-shadow:0 25px 60px rgba(0,0,0,0.5);">
+            <div class="call-header-modern" style="padding:18px 20px 10px 20px; text-align:center; color:white;">
+                <h3 id="activeCallName" style="margin:0; font-size:1.25rem; font-weight:800; color:#f8fafc;">Nama Kontak</h3>
+                <p id="callStatusText" style="margin:3px 0; font-size:0.85rem; color:#94a3b8;"><i class="fas fa-circle text-success" style="font-size:0.55rem;"></i> Panggilan Langsung Terhubung</p>
+                <div id="callDuration" style="font-family:monospace; font-size:1.1rem; font-weight:800; color:#38bdf8; margin:4px 0;">00:00</div>
+                <div class="call-status-badges-container" style="display:flex; justify-content:center; gap:8px; margin-top:6px;">
+                    <span id="callMicStatus" class="call-live-badge badge-mic-on" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:12px;"><i class="fas fa-microphone"></i> Mikrofon Aktif</span>
+                    <span id="callCamStatus" class="call-live-badge badge-cam-off" style="background:rgba(148,163,184,0.15); color:#94a3b8; border:1px solid rgba(148,163,184,0.3); font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:12px;"><i class="fas fa-video-slash"></i> Kamera Mati</span>
                 </div>
             </div>
-            <div id="videoCallArea" class="video-area-modern" style="display:none;"><video id="remoteVideo" autoplay playsinline></video><video id="localVideo" autoplay muted playsinline></video></div>
-            <div id="audioCallArea" class="audio-area-modern" style="display:flex;"><div class="audio-avatar"><i class="fas fa-user"></i></div></div>
-            <div class="call-controls-modern">
-                <button id="btnMute" onclick="window.toggleMuteCall ? window.toggleMuteCall() : null" class="ctrl-btn"><i class="fas fa-microphone"></i></button>
-                <button id="btnVideo" onclick="window.toggleVideoCall ? window.toggleVideoCall() : null" class="ctrl-btn"><i class="fas fa-video"></i></button>
-                <button id="btnBlur" onclick="window.toggleBlur ? window.toggleBlur() : null" class="ctrl-btn"><i class="fas fa-magic"></i></button>
-                <button onclick="window.endCall ? window.endCall() : null" class="ctrl-btn btn-end"><i class="fas fa-phone-slash"></i></button>
+            
+            <div id="videoCallArea" class="video-area-modern" style="display:none; width:100%; height:260px; background:#000000; position:relative;">
+                <video id="remoteVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
+                <video id="localVideo" autoplay muted playsinline style="position:absolute; bottom:12px; right:12px; width:90px; height:120px; border-radius:12px; border:2px solid #009846; object-fit:cover; box-shadow:0 4px 12px rgba(0,0,0,0.5);"></video>
             </div>
+            
+            <div id="audioCallArea" class="audio-area-modern" style="display:flex; height:170px; justify-content:center; align-items:center; background:radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);">
+                <div class="audio-avatar" style="width:84px; height:84px; border-radius:50%; background:linear-gradient(135deg, #009846, #047857); color:white; font-size:2.4rem; display:flex; align-items:center; justify-content:center; box-shadow:0 0 25px rgba(0,152,70,0.4); animation: pulseAvatar 2s infinite ease-in-out;">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+
+            <!-- DOCK REAKSI EMOJI DALAM PANGGILAN (LENGKAP & MODERN) -->
+            <div style="padding:4px 16px 12px 16px; background:#1e293b; display:flex; flex-direction:column; align-items:center; border-top:1px solid rgba(255,255,255,0.06);">
+                <div style="font-size:0.68rem; color:#94a3b8; font-weight:800; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.4px;">
+                    <i class="far fa-smile text-accent"></i> Kirim Reaksi Emoji ke Warga:
+                </div>
+                <div class="call-emoji-dock">
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('👍')" title="Jempol">👍</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('❤️')" title="Hati">❤️</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('😂')" title="Tertawa">😂</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('😮')" title="Kaget">😮</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('🙏')" title="Terima Kasih">🙏</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('🔥')" title="Semangat">🔥</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('👏')" title="Tepuk Tangan">👏</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('🚨')" title="Darurat">🚨</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('✅')" title="Setuju">✅</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('💯')" title="Mantap">💯</button>
+                </div>
+            </div>
+
+            <!-- TOMBOL KONTROL UTAMA PANGGILAN -->
+            <div class="call-controls-modern" style="padding:14px; background:#0f172a; display:flex; justify-content:center; gap:14px; border-top:1px solid rgba(255,255,255,0.06);">
+                <button type="button" id="btnMute" onclick="window.toggleMuteCall ? window.toggleMuteCall() : null" class="ctrl-btn" style="width:48px; height:48px; border-radius:50%; background:#334155; color:white; border:none; cursor:pointer;" title="Bisukan Mikrofon"><i class="fas fa-microphone"></i></button>
+                <button type="button" id="btnVideo" onclick="window.toggleVideoCall ? window.toggleVideoCall() : null" class="ctrl-btn" style="width:48px; height:48px; border-radius:50%; background:#334155; color:white; border:none; cursor:pointer;" title="Kamera Video"><i class="fas fa-video"></i></button>
+                <button type="button" id="btnBlur" onclick="window.toggleBlur ? window.toggleBlur() : null" class="ctrl-btn" style="width:48px; height:48px; border-radius:50%; background:#334155; color:white; border:none; cursor:pointer;" title="Efek Filter Buram"><i class="fas fa-magic"></i></button>
+                <button type="button" onclick="window.endCall ? window.endCall() : null" class="ctrl-btn btn-end" style="width:48px; height:48px; border-radius:50%; background:#dc2626; color:white; border:none; cursor:pointer;" title="Akhiri Panggilan"><i class="fas fa-phone-slash"></i></button>
+            </div>
+
+            <!-- LAYER ANIMASI FLOATING EMOJI -->
+            <div id="callReactionAnimationArea" style="position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:1000000;"></div>
         </div>
     </div>
 
@@ -919,14 +952,103 @@
         </div>
     </div>
 
-    <!-- MODAL MATRIKS KERJA -->
-    <div id="modalDetail" class="modal-blur-overlay" style="display:none; align-items:center; justify-content:center; box-sizing:border-box; overflow-y:auto; padding:16px;">
-        <div class="modal-card-premium card" style="width:95%; max-width:1100px; height:88vh; max-height:calc(100vh - 32px); min-height:0; display: flex; flex-direction: column; overflow:hidden; margin:auto;">
-            <div class="card-header" style="flex-shrink:0; background: linear-gradient(135deg, #1e293b, #0f172a); color: white;">
-                <div class="card-title" style="color: white;"><i class="fas fa-cogs" style="color:var(--info);"></i> Matriks Normalisasi Algoritma</div>
-                <button onclick="window.closeModal('modalDetail')" style="background:none;border:none;font-size:1.5rem; color:white; cursor:pointer;">×</button>
+    <!-- MODAL MATRIKS KERJA MODERN DENGAN UNDUH (EXCEL, PDF, WORD) & PENGATURAN TERPADU -->
+    <div id="modalDetail" class="modal-blur-overlay" style="display:none; align-items:center; justify-content:center; box-sizing:border-box; overflow-y:auto; padding:16px; z-index:99999;">
+        <div class="modal-card-premium card" style="width:96%; max-width:1250px; height:90vh; max-height:calc(100vh - 32px); min-height:0; display: flex; flex-direction: column; border-radius:24px; overflow:hidden; box-shadow:0 25px 60px rgba(15,23,42,0.28); border:1px solid #e2e8f0; background:#f8fafc; margin:auto;">
+            <!-- HEADER MODAL MATRIKS KERJA ELEGAN & MODERN -->
+            <div class="card-header" style="flex-shrink:0; background: linear-gradient(135deg, #ffffff, #f0fdf4); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding: 1.15rem 1.75rem; border-bottom: 1.5px solid #dcfce7;">
+                <div class="card-title" style="margin:0; display:flex; align-items:center; gap:12px;">
+                    <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg, #009846, #047857); color:#ffffff; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,152,70,0.3);">
+                        <i class="fas fa-calculator" style="font-size:1.15rem;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1.18rem; font-weight:800; color:#0f172a; line-height:1.2; letter-spacing:-0.3px;">Matriks Kerja & Audit Matematis SAW-BWM</div>
+                        <div style="font-size:0.75rem; font-weight:600; color:#009846;">Transparansi Komputasi 10 Kriteria, Vektor Bobot, Matriks Keputusan X, Matriks Ternormalisasi R, dan Klaster Desil 1–4</div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <!-- TOMBOL PENGATURAN TERPADU: DOKUMEN, KOP TEMPLAT & TTD -->
+                    <button type="button" onclick="window.bukaModalSettingDokumen('ttd')" class="btn" style="border: 1.5px solid #cbd5e1; background:#ffffff; color:#1e293b; font-weight:700; display:inline-flex; align-items:center; gap:8px; padding:9px 16px; border-radius:12px; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.04); font-size:0.86rem; transition:all 0.2s;" title="Atur Nama Pemimpin, Gelar, Tanda Tangan (QR/Scan/Manual), Kop Surat & Ukuran Kertas">
+                        <i class="fas fa-sliders-h text-success"></i> Atur Dokumen & TTD
+                    </button>
+
+                    <!-- DROPDOWN UNDUH MATRIKS KERJA (EXCEL, PDF, WORD) -->
+                    <div class="dropdown-export-wrapper" id="wrapperDropdownUnduhMatriks">
+                        <button type="button" id="btnDropdownUnduhMatriks" class="btn btn-primary" onclick="window.toggleDropdownUnduhMatriks(event)" style="background: linear-gradient(135deg, #009846, #047857); border: 1px solid #009846; font-weight:700; display:inline-flex; align-items:center; gap:8px; padding: 9px 18px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 152, 70, 0.25); cursor:pointer; font-size:0.86rem;">
+                            <i class="fas fa-download"></i> Unduh Matriks <i class="fas fa-chevron-down" id="arrowUnduhMatriks" style="font-size:0.75rem; transition: transform 0.2s;"></i>
+                        </button>
+                        <div id="dropdownMenuUnduhMatriks" class="dropdown-export-menu" role="menu">
+                            <div style="padding: 8px 12px; font-size:0.7rem; font-weight:800; text-transform:uppercase; color:#94a3b8; letter-spacing:0.5px; border-bottom:1px solid #f1f5f9;">Pilih Format Berkas</div>
+                            <button type="button" class="dropdown-export-item" onclick="window.unduhMatriksKerjaFormat('excel')">
+                                <div class="export-icon-box" style="background:#dcfce7; color:#16a34a;"><i class="fas fa-file-excel"></i></div>
+                                <div>
+                                    <div class="export-item-title">Format Excel (.xlsx)</div>
+                                    <div class="export-item-sub">Matriks Lengkap X, R, Bobot W & Sheet Multi-Tab</div>
+                                </div>
+                            </button>
+                            <button type="button" class="dropdown-export-item" onclick="window.unduhMatriksKerjaFormat('pdf')">
+                                <div class="export-icon-box" style="background:#fee2e2; color:#dc2626;"><i class="fas fa-file-pdf"></i></div>
+                                <div>
+                                    <div class="export-item-title">Format PDF (.pdf)</div>
+                                    <div class="export-item-sub">Laporan Resmi A4/F4 dengan Kop & Pengesahan TTD</div>
+                                </div>
+                            </button>
+                            <button type="button" class="dropdown-export-item" onclick="window.unduhMatriksKerjaFormat('word')">
+                                <div class="export-icon-box" style="background:#dbeafe; color:#2563eb;"><i class="fas fa-file-word"></i></div>
+                                <div>
+                                    <div class="export-item-title">Format Word (.doc / .docx)</div>
+                                    <div class="export-item-sub">Naskah Audit Matematis dengan Rumus & Format Rapi</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                    <button onclick="window.closeModal('modalDetail')" style="background:#ffffff; border:1px solid #cbd5e1; font-size:1.3rem; cursor:pointer; color:#64748b; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all 0.2s;" title="Tutup">&times;</button>
+                </div>
             </div>
-            <div id="detailContent" style="padding: 1.5rem 2rem; overflow-y: auto; flex: 1 1 0%; min-height: 0; background: var(--bg-body);"></div>
+            <div id="detailContent" style="padding: 1.5rem 1.75rem; overflow-y: auto; flex: 1 1 0%; min-height: 0; background: var(--bg-body);"></div>
+        </div>
+    </div>
+
+    <!-- MODAL CETAK & PRATINJAU SK BUPATI DENGAN UNDUH (PDF & WORD) DAN PENGATURAN TERPADU -->
+    <div id="modalSKBupati" class="modal-blur-overlay" style="display:none; align-items:center; justify-content:center; box-sizing:border-box; overflow-y:auto; padding:16px; z-index:99999;">
+        <div class="modal-card-premium card" style="width:96%; max-width:1250px; height:90vh; max-height:calc(100vh - 32px); min-height:0; display: flex; flex-direction: column; border-radius:24px; overflow:hidden; box-shadow:0 25px 60px rgba(15,23,42,0.28); border:1px solid #e2e8f0; background:#f8fafc; margin:auto;">
+            <!-- HEADER MODAL SK BUPATI -->
+            <div class="card-header" style="flex-shrink:0; background: linear-gradient(135deg, #ffffff, #fff1f2); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding: 1.15rem 1.75rem; border-bottom: 1.5px solid #fecdd3;">
+                <div class="card-title" style="margin:0; display:flex; align-items:center; gap:12px;">
+                    <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg, #e11d48, #be123c); color:#ffffff; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(225,29,72,0.3);">
+                        <i class="fas fa-file-contract" style="font-size:1.15rem;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1.18rem; font-weight:800; color:#0f172a; line-height:1.2; letter-spacing:-0.3px;">Dokumen Resmi Keputusan Bupati Sidoarjo</div>
+                        <div style="font-size:0.75rem; font-weight:600; color:#be123c;">Penetapan Penerima Bantuan Sosial Terpadu Berdasarkan SPK BWM - SAW Tahun Anggaran 2026</div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <!-- TOMBOL ATUR NASKAH & TTD BUPATI -->
+                    <button type="button" onclick="window.bukaModalSettingDokumen('ttd')" class="btn" style="border: 1.5px solid #cbd5e1; background:#ffffff; color:#1e293b; font-weight:700; display:inline-flex; align-items:center; gap:8px; padding:9px 16px; border-radius:12px; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.04); font-size:0.86rem; transition:all 0.2s;" title="Atur Nama Pemimpin, Gelar, Tanda Tangan (QR/Scan/Manual), Kop SK Bupati">
+                        <i class="fas fa-sliders-h text-danger"></i> Atur Kop & TTD Pemimpin
+                    </button>
+
+                    <!-- TOMBOL UNDUH WORD (.DOC) -->
+                    <button type="button" onclick="window.AdminPrint ? window.AdminPrint.exportSKBupatiWord() : (window.exportSKBupatiWord ? window.exportSKBupatiWord() : null)" class="btn" style="background:#2563eb; color:#ffffff; border:1px solid #2563eb; font-weight:700; display:inline-flex; align-items:center; gap:8px; padding:9px 16px; border-radius:12px; box-shadow:0 4px 12px rgba(37,99,235,0.25); cursor:pointer; font-size:0.86rem;">
+                        <i class="fas fa-file-word"></i> Unduh Word (.doc)
+                    </button>
+
+                    <!-- TOMBOL CETAK / UNDUH PDF -->
+                    <button type="button" onclick="window.AdminPrint ? window.AdminPrint.cetakSKBupatiPDF() : (window.cetakSKBupati ? window.cetakSKBupati() : null)" class="btn btn-primary" style="background: linear-gradient(135deg, #e11d48, #be123c); border:1px solid #be123c; font-weight:700; display:inline-flex; align-items:center; gap:8px; padding:9px 18px; border-radius:12px; box-shadow:0 4px 12px rgba(225,29,72,0.25); cursor:pointer; font-size:0.86rem;">
+                        <i class="fas fa-print"></i> Cetak / PDF
+                    </button>
+
+                    <button onclick="window.closeModal('modalSKBupati')" style="background:#ffffff; border:1px solid #cbd5e1; font-size:1.3rem; cursor:pointer; color:#64748b; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all 0.2s;" title="Tutup">&times;</button>
+                </div>
+            </div>
+
+            <!-- CONTAINER PRATINJAU SK BUPATI -->
+            <div id="skBupatiPreviewArea" style="flex:1 1 0%; min-height:0; overflow-y:auto; padding: 1.5rem 1.75rem; background: var(--bg-body);">
+                <div id="skBupatiPreviewContent">
+                    <!-- Konten live pratinjau SK Bupati di-generate secara dinamis -->
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1097,9 +1219,29 @@
                         Sesuaikan identitas pimpinan pengesah dan model tanda tangan dokumen. Anda dapat memilih TTE Digital (QR BSrE) atau Tanda Tangan Basah dengan stempel resmi atau unggahan gambar sendiri.
                     </div>
 
-                    <div class="form-group" style="margin-bottom:12px;">
-                        <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Nama Pimpinan / Pejabat Pengesah</label>
-                        <input type="text" id="settingNamaPimpinan" class="form-input" required placeholder="Contoh: DR. DRS. H. AHMAD MISBAHUL MUNIR, M.SI" oninput="window.updateLiveTtdPreview ? window.updateLiveTtdPreview() : null" style="border-radius:12px; padding:10px 14px; font-weight:700;">
+                    <!-- INPUT NAMA PEMIMPIN & GELAR (DEPAN & BELAKANG) -->
+                    <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:14px; padding:12px 14px; margin-bottom:12px;">
+                        <label class="form-label" style="font-weight:800; font-size:0.83rem; color:#0f172a; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <span>Identitas Pemimpin & Gelar Akademik / Kehormatan</span>
+                            <span style="font-size:0.72rem; color:#009846; font-weight:700;"><i class="fas fa-check-circle"></i> Otomatis Dirangkai Rapi</span>
+                        </label>
+                        <div style="display:grid; grid-template-columns: 140px 1fr 140px; gap:10px;">
+                            <div class="form-group" style="margin:0;">
+                                <label style="font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:3px; display:block;">Gelar Depan</label>
+                                <input type="text" id="settingGelarDepan" class="form-input" placeholder="Dr. Drs. H." oninput="window.updateLiveTtdPreview ? window.updateLiveTtdPreview() : null" style="border-radius:10px; padding:9px 12px; font-size:0.84rem;">
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label style="font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:3px; display:block;">Nama Pemimpin / Pejabat</label>
+                                <input type="text" id="settingNamaPimpinan" class="form-input" required placeholder="AHMAD MISBAHUL MUNIR" oninput="window.updateLiveTtdPreview ? window.updateLiveTtdPreview() : null" style="border-radius:10px; padding:9px 12px; font-weight:700; font-size:0.84rem;">
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label style="font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:3px; display:block;">Gelar Belakang</label>
+                                <input type="text" id="settingGelarBelakang" class="form-input" placeholder="M.Si." oninput="window.updateLiveTtdPreview ? window.updateLiveTtdPreview() : null" style="border-radius:10px; padding:9px 12px; font-size:0.84rem;">
+                            </div>
+                        </div>
+                        <div id="previewNamaLengkapGelar" style="margin-top:8px; font-size:0.76rem; color:#15803d; font-weight:700; background:#f0fdf4; padding:5px 10px; border-radius:8px; border:1px solid #bbf7d0;">
+                            Nama Resmi Lengkap: DR. DRS. H. AHMAD MISBAHUL MUNIR, M.SI
+                        </div>
                     </div>
 
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
@@ -1119,7 +1261,7 @@
                             <input type="text" id="settingPangkatPimpinan" class="form-input" placeholder="Pembina Utama Muda" style="border-radius:12px; padding:10px 14px;">
                         </div>
                         <div class="form-group">
-                            <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Nomor Sertifikasi / Laporan</label>
+                            <label class="form-label" style="font-weight:700; font-size:0.83rem; color:#1e293b;">Nomor Sertifikasi / Laporan / SK</label>
                             <input type="text" id="settingNomorSurat" class="form-input" placeholder="460/084/BA-SPK/438.5.12/2026" oninput="window.updateLiveTtdPreview ? window.updateLiveTtdPreview() : null" style="border-radius:12px; padding:10px 14px;">
                         </div>
                     </div>
@@ -1141,15 +1283,63 @@
                             <span>Model Pengesahan / Tanda Tangan Dokumen:</span>
                             <span style="font-size:0.75rem; color:#64748b; font-weight:600;">Disematkan ke PDF, Word & Excel</span>
                         </label>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
-                            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.84rem; font-weight:700; color:#1e293b; background:#ffffff; border:1.5px solid #cbd5e1; padding:10px 14px; border-radius:14px; transition: all 0.2s;" id="labelTtdTte">
+                        <!-- 3 PILIHAN MODEL TTD: QR CODE BSRE, SCAN TTD, ATAU TTD MANUAL DI WEB -->
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-bottom:12px;">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:#1e293b; background:#ffffff; border:1.5px solid #cbd5e1; padding:9px 12px; border-radius:12px; transition: all 0.2s;" id="labelTtdTte">
                                 <input type="radio" name="settingTipeTtd" value="tte" id="ttdOptTte" checked onchange="window.updateTtdLabelStyle()">
-                                <span><i class="fas fa-qrcode text-success"></i> TTE Digital (QR BSrE)</span>
+                                <span><i class="fas fa-qrcode text-success"></i> TTE Digital (QR Code)</span>
                             </label>
-                            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.84rem; font-weight:700; color:#1e293b; background:#ffffff; border:1.5px solid #cbd5e1; padding:10px 14px; border-radius:14px; transition: all 0.2s;" id="labelTtdManual">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:#1e293b; background:#ffffff; border:1.5px solid #cbd5e1; padding:9px 12px; border-radius:12px; transition: all 0.2s;" id="labelTtdScan">
+                                <input type="radio" name="settingTipeTtd" value="scan" id="ttdOptScan" onchange="window.updateTtdLabelStyle()">
+                                <span><i class="fas fa-file-image text-warning"></i> Scan Tanda Tangan</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:#1e293b; background:#ffffff; border:1.5px solid #cbd5e1; padding:9px 12px; border-radius:12px; transition: all 0.2s;" id="labelTtdManual">
                                 <input type="radio" name="settingTipeTtd" value="manual" id="ttdOptManual" onchange="window.updateTtdLabelStyle()">
-                                <span><i class="fas fa-pen-nib text-primary"></i> Tanda Tangan Basah</span>
+                                <span><i class="fas fa-signature text-primary"></i> TTD Manual di Web</span>
                             </label>
+                        </div>
+
+                        <!-- PANEL DIGITAL SIGNATURE PAD (TANDA TANGAN MANUAL DI WEB SECARA LANGSUNG) -->
+                        <div id="panelSignatureCanvas" style="display:none; margin-bottom:12px;">
+                            <div class="signature-pad-container">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                    <div style="font-weight:800; font-size:0.82rem; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                                        <i class="fas fa-pen-fancy text-primary"></i> Bubuhkan Tanda Tangan Manual (Mouse / Stylus / Layar Sentuh)
+                                    </div>
+                                    <div style="font-size:0.72rem; color:#64748b;">Goreskan tanda tangan di dalam kotak</div>
+                                </div>
+                                <div class="signature-canvas-wrapper" id="canvasWrapperSignature">
+                                    <canvas id="canvasSignaturePad" width="600" height="170"></canvas>
+                                    <div class="signature-canvas-guide">
+                                        <span>Garis Dasar Tanda Tangan</span>
+                                        <span>Kabupaten Sidoarjo</span>
+                                    </div>
+                                </div>
+                                <div class="signature-canvas-toolbar">
+                                    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                                        <div class="pen-color-selector">
+                                            <span style="font-size:0.74rem; font-weight:700; color:#64748b;">Warna:</span>
+                                            <button type="button" class="pen-color-btn active" style="background:#003366;" data-color="#003366" onclick="window.setSignatureColor('#003366', this)" title="Tinta Biru Dokumen"></button>
+                                            <button type="button" class="pen-color-btn" style="background:#1d4ed8;" data-color="#1d4ed8" onclick="window.setSignatureColor('#1d4ed8', this)" title="Biru Royal"></button>
+                                            <button type="button" class="pen-color-btn" style="background:#0f172a;" data-color="#0f172a" onclick="window.setSignatureColor('#0f172a', this)" title="Hitam"></button>
+                                        </div>
+                                        <div class="pen-size-selector">
+                                            <span style="font-size:0.74rem; font-weight:700; color:#64748b;">Garis:</span>
+                                            <button type="button" class="pen-size-btn" onclick="window.setSignatureSize(1.5, this)">Halus</button>
+                                            <button type="button" class="pen-size-btn active" onclick="window.setSignatureSize(2.6, this)">Standar</button>
+                                            <button type="button" class="pen-size-btn" onclick="window.setSignatureSize(3.8, this)">Tebal</button>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex; gap:8px;">
+                                        <button type="button" onclick="window.clearSignatureCanvas()" class="btn btn-secondary" style="padding:6px 12px; border-radius:8px; font-size:0.78rem; font-weight:700;">
+                                            <i class="fas fa-eraser"></i> Hapus / Ulang
+                                        </button>
+                                        <button type="button" onclick="window.simpanSignatureCanvas()" class="btn btn-primary" style="background:#009846; border-color:#009846; padding:6px 14px; border-radius:8px; font-size:0.78rem; font-weight:800;">
+                                            <i class="fas fa-check"></i> Terapkan TTD Ini
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- KOTAK PRATINJAU TANDA TANGAN & UNGGAH GAMBAR KHUSUS -->
@@ -1165,7 +1355,7 @@
                                 <div id="ctrlUploadSignature" style="display:none; gap:8px; align-items:center; flex-wrap:wrap;">
                                     <input type="file" id="inputUploadSignature" accept="image/*" style="display:none;" onchange="window.handleUploadCustomSignature(event)">
                                     <button type="button" onclick="document.getElementById('inputUploadSignature').click()" class="btn btn-primary" style="padding:6px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; display:inline-flex; align-items:center; gap:5px;">
-                                        <i class="fas fa-upload"></i> Unggah TTD / Gambar Sendiri
+                                        <i class="fas fa-upload"></i> Unggah Scan TTD / Gambar
                                     </button>
                                     <button type="button" onclick="window.resetCustomSignature()" class="btn btn-secondary" style="padding:6px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; display:inline-flex; align-items:center; gap:5px;">
                                         <i class="fas fa-undo"></i> Gunakan Stempel & Paraf Otomatis
@@ -1183,9 +1373,12 @@
                         Bangun dan edit templat Kop Surat instansi yang dapat diedit kapan saja. Tulisan instansi, alamat, dan logo ini akan tersimpan permanen dan otomatis tampil di berkas PDF, Word, serta Excel.
                     </div>
 
-                    <!-- PRESET TEMPLAT KOP CEPAT -->
+                    <!-- PRESET TEMPLAT KOP CEPAT (DINSOS, SK BUPATI, SETDA, BAPPEDA) -->
                     <div style="margin-bottom:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                         <span style="font-size:0.78rem; font-weight:800; color:#475569; text-transform:uppercase;">Preset Templat:</span>
+                        <button type="button" onclick="window.applyKopPreset('bupati')" class="btn btn-secondary" style="padding:5px 11px; border-radius:10px; font-size:0.77rem; font-weight:800; background:#fff1f2; color:#be123c; border:1px solid #fecdd3; cursor:pointer;">
+                            <i class="fas fa-file-contract"></i> Kop SK Bupati
+                        </button>
                         <button type="button" onclick="window.applyKopPreset('dinsos')" class="btn btn-secondary" style="padding:5px 11px; border-radius:10px; font-size:0.77rem; font-weight:700; background:#ffffff; border:1px solid #cbd5e1; cursor:pointer;">
                             <i class="fas fa-landmark text-success"></i> Dinsos Sidoarjo
                         </button>
@@ -1477,20 +1670,78 @@
         </div>
     </div>
 
-    <!-- PUSAT INVESTIGASI ADUAN -->
-    <div id="modalLaporanChat" class="modal-blur-overlay">
-        <div class="modal-card-premium card" style="width:95%; max-width:1050px; height:88%; display: flex; flex-direction: column; border-radius: 24px;">
-            <div class="card-header" style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border-bottom: 1px solid #fca5a5; padding: 1.25rem 1.75rem;">
-                <div class="card-title" style="color:var(--danger);"><i class="fas fa-shield-virus text-danger"></i> Pusat Investigasi Aduan & Sengketa Terpadu</div>
-                <button type="button" onclick="window.closeModal('modalLaporanChat')" style="background:none;border:none;font-size:1.5rem; cursor:pointer;">×</button>
+    <!-- PUSAT INVESTIGASI ADUAN & SENGKETA TERPADU (MODERN & TERPADU) -->
+    <div id="modalLaporanChat" class="modal-blur-overlay" style="display:none; align-items:center; justify-content:center; box-sizing:border-box; overflow-y:auto; padding:14px; z-index:999999;">
+        <div class="modal-card-premium card" style="width:96%; max-width:1150px; height:90vh; display:flex; flex-direction:column; border-radius:24px; box-shadow:0 25px 60px rgba(15,23,42,0.25); overflow:hidden;">
+            <!-- HEADER RESMI INVESTIGASI -->
+            <div class="card-header" style="background:linear-gradient(135deg, #fff1f2, #fee2e2); border-bottom:1.5px solid #fecdd3; padding:1.2rem 1.75rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:44px; height:44px; border-radius:14px; background:linear-gradient(135deg, #ef4444, #b91c1c); color:#ffffff; display:flex; align-items:center; justify-content:center; font-size:1.3rem; box-shadow:0 4px 12px rgba(239,68,68,0.3);">
+                        <i class="fas fa-shield-virus"></i>
+                    </div>
+                    <div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <h3 style="margin:0; font-size:1.25rem; font-weight:800; color:#991b1b;">Pusat Investigasi Aduan & Sengketa Terpadu</h3>
+                            <span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:12px;">PEMKAB SIDOARJO</span>
+                        </div>
+                        <small style="color:#64748b; font-size:0.8rem; font-weight:600;">Penyelesaian Sengketa Kelayakan Desil, Penyaluran Bansos, & Verifikasi Warga</small>
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button type="button" onclick="window.loadLaporanChatData()" class="btn btn-sm btn-secondary" style="border-radius:20px; font-weight:700; padding:6px 14px;" title="Muat Ulang Data Aduan"><i class="fas fa-sync-alt"></i> Segarkan</button>
+                    <button type="button" onclick="window.closeModal('modalLaporanChat')" style="background:none; border:none; font-size:1.6rem; color:#64748b; cursor:pointer; line-height:1;">&times;</button>
+                </div>
             </div>
-            <div style="padding:12px 24px; border-bottom:1px solid #e2e8f0; display:flex; gap:10px;">
-                <button onclick="window.filterInvestigasi('all', this)" class="btn btn-primary btn-sm" style="border-radius:20px;">Semua</button>
-                <button onclick="window.filterInvestigasi('urgent', this)" class="btn btn-secondary btn-sm" style="border-radius:20px; color:#dc2626;">Urgent</button>
-                <button onclick="window.filterInvestigasi('sengketa', this)" class="btn btn-secondary btn-sm" style="border-radius:20px;">Penyaluran</button>
-                <button onclick="window.filterInvestigasi('data', this)" class="btn btn-secondary btn-sm" style="border-radius:20px;">Data NIK</button>
+
+            <!-- RINGKASAN METRIK KPI INVESTIGASI -->
+            <div style="padding:14px 20px 10px 20px; background:#ffffff; border-bottom:1px solid #f1f5f9; display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:10px 14px; display:flex; align-items:center; gap:12px;">
+                    <div style="width:38px; height:38px; border-radius:10px; background:#e0f2fe; color:#0284c7; display:flex; align-items:center; justify-content:center; font-size:1.1rem;"><i class="fas fa-inbox"></i></div>
+                    <div>
+                        <div style="font-size:0.7rem; font-weight:800; color:#64748b; text-transform:uppercase;">Total Masuk</div>
+                        <div id="kpiInvestigasiTotal" style="font-size:1.25rem; font-weight:800; color:#0f172a;">-</div>
+                    </div>
+                </div>
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:10px 14px; display:flex; align-items:center; gap:12px;">
+                    <div style="width:38px; height:38px; border-radius:10px; background:#fef3c7; color:#d97706; display:flex; align-items:center; justify-content:center; font-size:1.1rem;"><i class="fas fa-hourglass-half"></i></div>
+                    <div>
+                        <div style="font-size:0.7rem; font-weight:800; color:#64748b; text-transform:uppercase;">Dalam Penanganan</div>
+                        <div id="kpiInvestigasiProses" style="font-size:1.25rem; font-weight:800; color:#d97706;">-</div>
+                    </div>
+                </div>
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:10px 14px; display:flex; align-items:center; gap:12px;">
+                    <div style="width:38px; height:38px; border-radius:10px; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:1.1rem;"><i class="fas fa-exclamation-circle"></i></div>
+                    <div>
+                        <div style="font-size:0.7rem; font-weight:800; color:#64748b; text-transform:uppercase;">Kasus Urgent</div>
+                        <div id="kpiInvestigasiUrgent" style="font-size:1.25rem; font-weight:800; color:#dc2626;">-</div>
+                    </div>
+                </div>
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:10px 14px; display:flex; align-items:center; gap:12px;">
+                    <div style="width:38px; height:38px; border-radius:10px; background:#dcfce7; color:#16a34a; display:flex; align-items:center; justify-content:center; font-size:1.1rem;"><i class="fas fa-check-circle"></i></div>
+                    <div>
+                        <div style="font-size:0.7rem; font-weight:800; color:#64748b; text-transform:uppercase;">Telah Selesai</div>
+                        <div id="kpiInvestigasiSelesai" style="font-size:1.25rem; font-weight:800; color:#16a34a;">-</div>
+                    </div>
+                </div>
             </div>
-            <div style="flex: 1; overflow-y: auto; padding: 1.5rem 2rem;" id="laporanChatList"></div>
+
+            <!-- BILAH PENCARIAN & FILTER KATEGORI -->
+            <div style="padding:10px 20px; background:#ffffff; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button onclick="window.filterInvestigasi('all', this)" class="btn btn-primary btn-sm" style="border-radius:20px; font-weight:700; font-size:0.75rem;">Semua Aduan</button>
+                    <button onclick="window.filterInvestigasi('proses', this)" class="btn btn-secondary btn-sm" style="border-radius:20px; font-weight:700; font-size:0.75rem; color:#d97706;">Dalam Penanganan</button>
+                    <button onclick="window.filterInvestigasi('urgent', this)" class="btn btn-secondary btn-sm" style="border-radius:20px; font-weight:700; font-size:0.75rem; color:#dc2626;">Urgent</button>
+                    <button onclick="window.filterInvestigasi('sengketa', this)" class="btn btn-secondary btn-sm" style="border-radius:20px; font-weight:700; font-size:0.75rem;">Penyaluran</button>
+                    <button onclick="window.filterInvestigasi('selesai', this)" class="btn btn-secondary btn-sm" style="border-radius:20px; font-weight:700; font-size:0.75rem; color:#16a34a;">Selesai</button>
+                </div>
+                <div style="position:relative; width:260px;">
+                    <i class="fas fa-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:0.8rem;"></i>
+                    <input type="text" id="searchInvestigasiInput" placeholder="Cari NIK, Nama, Kasus..." oninput="window.filterInvestigasiSearch(this.value)" style="width:100%; padding:6px 12px 6px 32px; border-radius:20px; border:1px solid #cbd5e1; font-size:0.8rem; outline:none;">
+                </div>
+            </div>
+
+            <!-- CONTAINER DAFTAR LAPORAN KASUS -->
+            <div style="flex:1; overflow-y:auto; padding:1.25rem 1.75rem; background:#f8fafc;" id="laporanChatList"></div>
         </div>
     </div>
 
@@ -1515,202 +1766,677 @@
         </div>
     </div>
 
-    <!-- MODAL CHAT ADMIN -->
-    <div id="modalAdminChat" class="modal-blur-overlay">
-        <div class="modal-card-premium card" style="width:95%; max-width:1200px; height:92vh; padding:0; display:flex; flex-direction:row;">
-            <div style="width: 380px; border-right: 1px solid var(--border-color); display:flex; flex-direction:column; background:var(--surface);">
-                <div style="padding: 20px; border-bottom: 1px solid var(--border-color); background: #f8fafc;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-                        <div style="font-weight:800; font-size:1.2rem;"><i class="fas fa-address-book text-primary"></i> Hubungi Warga</div>
-                        <button type="button" onclick="window.closeModal('modalAdminChat')" class="btn btn-secondary btn-sm text-danger"><i class="fas fa-times"></i> Tutup</button>
+    <!-- MODAL CHAT ADMIN (PUSAT MEDIASI & CHAT WARGA TERPADU) -->
+    <div id="modalAdminChat" class="modal-blur-overlay" style="display:none; align-items:center; justify-content:center; box-sizing:border-box; overflow-y:auto; padding:14px; z-index:99999;">
+        <div class="modal-card-premium card" style="width:96%; max-width:1250px; height:90vh; max-height:calc(100vh - 28px); min-height:0; display:flex; flex-direction:row; border-radius:24px; overflow:hidden; box-shadow:0 25px 65px rgba(15,23,42,0.28); border:1.5px solid #cbd5e1; background:#ffffff; margin:auto;">
+            <!-- KOLOM KIRI: DAFTAR KONTAK & PESAN MASUK -->
+            <div style="width: 390px; max-width:40%; border-right: 1px solid #e2e8f0; display:flex; flex-direction:column; background:#ffffff; flex-shrink:0;">
+                <!-- HEADER SIDEBAR CHAT -->
+                <div style="padding: 16px 18px; border-bottom: 1px solid #e2e8f0; background: linear-gradient(135deg, #ffffff, #f8fafc);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg, #009846, #047857); color:white; display:flex; align-items:center; justify-content:center; font-size:1.1rem; box-shadow:0 3px 8px rgba(0,152,70,0.25);">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <div>
+                                <div style="font-weight:800; font-size:1.05rem; color:#0f172a; line-height:1.2;">Hubungi Warga</div>
+                                <div style="font-size:0.72rem; color:#009846; font-weight:700;"><i class="fas fa-circle" style="font-size:0.45rem;"></i> Sinkronisasi Real-Time</div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="window.closeModal('modalAdminChat')" class="btn btn-secondary btn-sm" style="border-radius:10px; padding:6px 12px; font-weight:700; color:#dc2626; border:1px solid #fecdd3; background:#fff1f2;"><i class="fas fa-times"></i> Tutup</button>
                     </div>
-                    <div style="display:flex; gap:6px; margin-bottom:12px;">
-                        <button id="tabInboxBtn" type="button" onclick="window.switchChatTab ? window.switchChatTab('inbox') : null" class="chat-tab-btn active"><i class="fas fa-inbox"></i> Pesan Masuk</button>
-                        <button id="tabKontakBtn" type="button" onclick="window.switchChatTab ? window.switchChatTab('kontak') : null" class="chat-tab-btn"><i class="fas fa-users"></i> Buku Kontak</button>
+
+                    <!-- TABS: PESAN MASUK & BUKU KONTAK -->
+                    <div style="display:flex; gap:6px; margin-bottom:10px; background:#f1f5f9; padding:4px; border-radius:12px;">
+                        <button id="tabInboxBtn" type="button" onclick="window.switchChatTab ? window.switchChatTab('inbox') : null" class="chat-tab-btn active" style="flex:1; border:none; padding:7px 10px; border-radius:8px; font-size:0.8rem; font-weight:700; cursor:pointer;">
+                            <i class="fas fa-inbox"></i> Pesan Masuk
+                        </button>
+                        <button id="tabKontakBtn" type="button" onclick="window.switchChatTab ? window.switchChatTab('kontak') : null" class="chat-tab-btn" style="flex:1; border:none; padding:7px 10px; border-radius:8px; font-size:0.8rem; font-weight:700; cursor:pointer;">
+                            <i class="fas fa-users"></i> Buku Kontak
+                        </button>
                     </div>
-                    <input type="text" id="searchChatInput" placeholder="Ketik Nama / NIK..." oninput="window.filterChatList ? window.filterChatList() : null" style="width:100%; padding:9px 16px; border-radius:20px; border:1px solid #cbd5e1; outline:none;">
+
+                    <!-- FILTER CEPAT (SEMUA, DESIL 1-4, BELUM DIBACA) -->
+                    <div style="display:flex; gap:6px; margin-bottom:10px; overflow-x:auto; padding-bottom:2px;">
+                        <button type="button" class="chat-filter-chip active" id="chipFilterSemua" onclick="window.filterChatKategori('semua')">Semua</button>
+                        <button type="button" class="chat-filter-chip" id="chipFilterDesil" onclick="window.filterChatKategori('desil1-4')">Prioritas Desil 1–4</button>
+                        <button type="button" class="chat-filter-chip" id="chipFilterUnread" onclick="window.filterChatKategori('unread')">Pesan Baru</button>
+                    </div>
+
+                    <!-- PENCARIAN NAMA / NIK / ALAMAT -->
+                    <div style="position:relative; display:flex; align-items:center;">
+                        <i class="fas fa-search" style="position:absolute; left:14px; color:#94a3b8; font-size:0.85rem;"></i>
+                        <input type="text" id="searchChatInput" placeholder="Cari nama, NIK, atau desa..." oninput="window.filterChatList ? window.filterChatList() : null" style="width:100%; padding:8px 36px 8px 36px; border-radius:20px; border:1px solid #cbd5e1; outline:none; font-size:0.82rem; background:#ffffff;">
+                        <button type="button" id="btnVoiceSearchChat" onclick="window.startVoiceSearchChat ? window.startVoiceSearchChat() : null" style="position:absolute; right:10px; background:none; border:none; color:#64748b; cursor:pointer; font-size:0.9rem;" title="Pencarian Suara">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                    </div>
                 </div>
+
+                <!-- DAFTAR PESAN MASUK -->
                 <div id="chatContactList" style="flex:1; overflow-y:auto; background:#ffffff;"></div>
+                <!-- DAFTAR BUKU KONTAK WARGA -->
                 <div id="chatBukuKontakList" style="flex:1; overflow-y:auto; background:#ffffff; display:none;"></div>
             </div>
 
-            <div style="flex:1; display:flex; flex-direction:column; background:var(--bg-body);">
-                <div class="chat-header-panel" id="chatHeaderArea" style="padding:14px 20px; border-bottom:1px solid var(--border-color); background:#ffffff; display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <h3 id="chatActiveNameDisplay" style="margin:0; font-size:1.05rem; font-weight:800;">Pilih Warga di Kotak Masuk</h3>
-                        <span class="nik-badge" id="chatActiveInfoDisplay" style="display:none;"><i class="fas fa-id-card text-muted"></i> <span id="chatActiveNikDisplay">-</span></span>
+            <!-- KOLOM KANAN: RUANG PERCAKAPAN (EMPTY STATE / ACTIVE CONVERSATION) -->
+            <div style="flex:1; display:flex; flex-direction:column; background:var(--bg-body); min-width:0; position:relative;">
+                <!-- 1. EMPTY STATE PANEL (KONDISI AWAL KETIKA BELUM ADA WARGA DIPILIH) -->
+                <div id="chatEmptyStatePanel" class="chat-empty-dashboard">
+                    <div class="chat-empty-icon-box">
+                        <i class="fas fa-comments"></i>
                     </div>
-                    <div style="display:none; gap:10px; align-items:center;" id="chatHeaderActions">
-                        <button type="button" onclick="window.startCallWarga ? window.startCallWarga('audio') : null" class="btn btn-sm" style="background:#ecfdf5; color:#059669; border-radius:20px; font-weight:700;"><i class="fas fa-phone-alt"></i> Suara</button>
-                        <button type="button" onclick="window.startCallWarga ? window.startCallWarga('video') : null" class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border-radius:20px; font-weight:700;"><i class="fas fa-video"></i> Video</button>
-                        <div class="chat-action-menu">
-                            <button type="button" class="chat-action-btn" onclick="window.toggleChatActionDropdown(event)"><i class="fas fa-ellipsis-v"></i></button>
-                            <div class="chat-dropdown-content" id="chatActionDropdown" onclick="event.stopPropagation()">
-                                <button type="button" onclick="window.bukaModalLaporRiwayat()"><i class="fas fa-shield-virus text-danger"></i> Laporkan ke Investigasi</button>
-                                <button type="button" onclick="window.hapusRiwayatLokal ? window.hapusRiwayatLokal() : null" class="text-danger"><i class="fas fa-trash-alt"></i> Bersihkan Obrolan</button>
-                            </div>
+                    <h3 style="font-size:1.35rem; font-weight:800; color:#0f172a; margin:0 0 6px 0; letter-spacing:-0.3px;">Pusat Layanan Mediasi & Chat Warga</h3>
+                    <p style="font-size:0.86rem; color:#64748b; max-width:480px; margin:0 0 16px 0; line-height:1.5;">
+                        Pilih salah satu warga dari kotak masuk atau buku kontak di bilah kiri untuk membuka percakapan resmi, pengiriman berkas, atau panggilan koordinasi.
+                    </p>
+
+                    <div class="chat-empty-stats-grid">
+                        <div class="chat-empty-stat-card">
+                            <div style="font-size:0.7rem; font-weight:700; color:#64748b; text-transform:uppercase;">Warga Terdaftar</div>
+                            <div id="emptyStatTotalWarga" style="font-size:1.35rem; font-weight:800; color:#0f172a; margin:2px 0;">50+</div>
+                            <div style="font-size:0.68rem; color:#0284c7; font-weight:700;">Database Terverifikasi</div>
+                        </div>
+                        <div class="chat-empty-stat-card">
+                            <div style="font-size:0.7rem; font-weight:700; color:#64748b; text-transform:uppercase;">Prioritas Desil 1–4</div>
+                            <div id="emptyStatDesilPrioritas" style="font-size:1.35rem; font-weight:800; color:#009846; margin:2px 0;">43</div>
+                            <div style="font-size:0.68rem; color:#047857; font-weight:700;">Alokasi Rp 600rb / KK</div>
+                        </div>
+                        <div class="chat-empty-stat-card">
+                            <div style="font-size:0.7rem; font-weight:700; color:#64748b; text-transform:uppercase;">Status Layanan</div>
+                            <div style="font-size:1.35rem; font-weight:800; color:#10b981; margin:2px 0;">ONLINE</div>
+                            <div style="font-size:0.68rem; color:#059669; font-weight:700;">Dinsos Sidoarjo Aktif</div>
+                        </div>
+                    </div>
+
+                    <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:14px; padding:12px 18px; max-width:540px; width:100%; display:flex; align-items:center; gap:12px; text-align:left; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                        <i class="fas fa-lightbulb text-warning" style="font-size:1.3rem;"></i>
+                        <div style="font-size:0.78rem; color:#475569; line-height:1.45;">
+                            <b>Fitur Lengkap Tersedia:</b> Kirim pesan balasan cepat (template resmi), berkas foto & dokumen PDF/Excel, pesan suara (voice note), panggilan WebRTC, dan peninjauan langsung profil data warga.
                         </div>
                     </div>
                 </div>
 
-                <div id="adminChatMessages"></div>
+                <!-- 2. ACTIVE CONVERSATION PANEL (AKTIF SAAT WARGA DIPILIH) -->
+                <div id="chatActiveConversationPanel" style="display:none; flex:1; flex-direction:column; min-height:0; height:100%; position:relative;">
+                    <!-- HEADER RUANG OBROLAN WARGA -->
+                    <div class="chat-header-panel" id="chatHeaderArea" style="padding:12px 20px; border-bottom:1px solid #e2e8f0; background:#ffffff; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+                        <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+                            <div id="chatHeaderAvatar" style="width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg, #009846, #047857); color:#ffffff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.15rem; flex-shrink:0; position:relative; box-shadow:0 3px 8px rgba(0,152,70,0.25);">
+                                <span id="chatHeaderAvatarLetter">W</span>
+                                <span class="contact-online-badge"></span>
+                            </div>
+                            <div style="min-width:0;">
+                                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                    <h3 id="chatActiveNameDisplay" style="margin:0; font-size:1.02rem; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Pilih Warga</h3>
+                                    <span id="chatActiveDesilBadge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:2px 8px; border-radius:12px; font-size:0.7rem; font-weight:800;">Desil 1</span>
+                                    <span id="chatActiveStatusBadge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; padding:2px 8px; border-radius:12px; font-size:0.7rem; font-weight:800;">DITETAPKAN</span>
+                                </div>
+                                <div style="font-size:0.76rem; color:#64748b; margin-top:2px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                    <span><i class="fas fa-id-card text-muted"></i> <span id="chatActiveNikDisplay" style="font-family:monospace; font-weight:700; color:#0f172a;">-</span></span>
+                                    <span>&bull;</span>
+                                    <span id="chatActiveAlamatDisplay" style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Sidoarjo</span>
+                                    <span>&bull;</span>
+                                    <span style="color:#009846; font-weight:700;"><i class="fas fa-shield-alt"></i> Ditangani: <b id="chatActiveHandlerDisplay">PETUGAS</b></span>
+                                </div>
+                            </div>
+                        </div>
 
-                <div style="padding: 12px 20px; border-top: 1px solid var(--border-color); background:#ffffff; display:flex; align-items:center; gap:10px;">
-                    <input type="file" id="adminMediaFileInput" style="display:none;" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" onchange="window.handleAdminMediaSelection ? window.handleAdminMediaSelection(this) : null">
-                    <button type="button" onclick="document.getElementById('adminMediaFileInput').click()" style="background:none; border:none; font-size:1.3rem; color:#64748b; cursor:pointer;"><i class="fas fa-paperclip"></i></button>
-                    <input type="text" id="adminChatInput" placeholder="Ketik balasan Anda..." style="flex:1; border:1px solid #cbd5e1; background:#f8fafc; padding:10px 18px; border-radius:25px; outline:none;" onkeypress="if(event.key==='Enter') window.sendAdminChat ? window.sendAdminChat() : null">
-                    <button type="button" id="btnSendAdmin" onclick="window.sendAdminChat ? window.sendAdminChat() : null" style="background:#009846; color:white; border:none; width:42px; height:42px; border-radius:50%; cursor:pointer;"><i class="fas fa-paper-plane"></i></button>
+                        <!-- TOMBOL AKSI CEPAT DI HEADER CHAT -->
+                        <div style="display:flex; gap:8px; align-items:center;" id="chatHeaderActions">
+                            <!-- TOMBOL PUSAT LAPORAN PELANGGARAN KESELURUHAN -->
+                            <button type="button" onclick="window.bukaModalLaporanPelanggaranKeseluruhan()" class="btn btn-sm" style="background:#fef2f2; color:#dc2626; border:1px solid #fecaca; border-radius:12px; font-weight:800; padding:6px 12px; font-size:0.78rem; display:inline-flex; align-items:center; gap:6px;" title="Pusat Moderasi & Rekapitulasi Pelanggaran Seluruh Chat">
+                                <i class="fas fa-shield-alt text-danger"></i> <span class="d-none d-md-inline">Pelanggaran</span> <span id="headerViolationCountBadge" class="badge bg-danger" style="font-size:0.65rem; border-radius:10px; padding:2px 6px;">0</span>
+                            </button>
+
+                            <!-- TOMBOL SELESAIKAN LAPORAN PENGADUAN WARGA -->
+                            <button type="button" onclick="window.selesaikanAduanDariChat()" class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #6ee7b7; border-radius:12px; font-weight:800; padding:6px 12px; font-size:0.78rem; display:inline-flex; align-items:center; gap:6px;" title="Selesaikan Laporan Pengaduan Warga Ini">
+                                <i class="fas fa-check-circle text-success"></i> <span class="d-none d-md-inline">Selesaikan Laporan</span>
+                            </button>
+
+                            <!-- TOMBOL BUKA PROFIL LENGKAP WARGA -->
+                            <button type="button" onclick="window.bukaProfilWargaChat()" class="btn btn-sm" style="background:#f8fafc; color:#1e293b; border:1px solid #cbd5e1; border-radius:12px; font-weight:700; padding:6px 12px; font-size:0.78rem; display:inline-flex; align-items:center; gap:6px;" title="Lihat Profil Lengkap & Kriteria SPK Warga">
+                                <i class="fas fa-user-circle text-primary"></i> <span class="d-none d-md-inline">Profil Warga</span>
+                            </button>
+
+                            <!-- TOMBOL CARI DALAM CHAT -->
+                            <button type="button" onclick="window.toggleChatInlineSearch()" class="btn btn-sm" style="background:#f8fafc; color:#1e293b; border:1px solid #cbd5e1; border-radius:12px; font-weight:700; padding:6px 10px; font-size:0.78rem;" title="Cari Pesan">
+                                <i class="fas fa-search"></i>
+                            </button>
+
+                            <!-- PANGGILAN AUDIO & VIDEO WEBRTC -->
+                            <button type="button" onclick="window.startCallWarga ? window.startCallWarga('audio') : null" class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:12px; font-weight:700; padding:6px 12px; font-size:0.78rem; display:inline-flex; align-items:center; gap:6px;">
+                                <i class="fas fa-phone-alt"></i> <span class="d-none d-md-inline">Suara</span>
+                            </button>
+                            <button type="button" onclick="window.startCallWarga ? window.startCallWarga('video') : null" class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:12px; font-weight:700; padding:6px 12px; font-size:0.78rem; display:inline-flex; align-items:center; gap:6px;">
+                                <i class="fas fa-video"></i> <span class="d-none d-md-inline">Video</span>
+                            </button>
+
+                            <!-- MENU TITIK TIGA HEADER -->
+                            <div class="chat-action-menu">
+                                <button type="button" class="chat-action-btn" onclick="window.toggleChatActionDropdown(event)" title="Opsi Obrolan Lainnya">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <div class="chat-dropdown-content" id="chatActionDropdown" onclick="event.stopPropagation()">
+                                    <button type="button" onclick="window.tarikLokasiGeotagWarga()" style="color:#0284c7; font-weight:700;"><i class="fas fa-map-marked-alt text-primary"></i> Tarik Lokasi Arsip Geotagging</button>
+                                    <button type="button" onclick="window.bukaModalLaporanPelanggaranKeseluruhan()" style="color:#dc2626; font-weight:700;"><i class="fas fa-shield-alt text-danger"></i> Pusat Pelanggaran Seluruh Chat</button>
+                                    <button type="button" onclick="window.selesaikanAduanDariChat()" style="color:#059669; font-weight:700;"><i class="fas fa-check-circle text-success"></i> Selesaikan Laporan Warga</button>
+                                    <button type="button" onclick="window.quickSwitchPetugas()"><i class="fas fa-exchange-alt text-primary"></i> Alihkan Petugas Penangan</button>
+                                    <button type="button" onclick="window.bukaModalLaporRiwayat()"><i class="fas fa-shield-virus text-warning"></i> Teruskan ke Pusat Investigasi</button>
+                                    <button type="button" onclick="window.exportRiwayatChatTxt()"><i class="fas fa-file-download text-success"></i> Ekspor Riwayat Chat (.txt)</button>
+                                    <button type="button" onclick="window.hapusRiwayatLokal ? window.hapusRiwayatLokal() : null" class="text-danger"><i class="fas fa-trash-alt"></i> Bersihkan Obrolan</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BILAH PENCARIAN PESAN INLINE (TERSEMBUNYI SECARA DEFAULT) -->
+                    <div id="chatInlineSearchBar" class="chat-search-bar" style="display:none;">
+                        <i class="fas fa-search text-muted" style="font-size:0.8rem;"></i>
+                        <input type="text" id="chatSearchMessageInput" placeholder="Ketik kata kunci untuk mencari pesan..." oninput="window.filterInlineChatMessages()" style="flex:1; border:none; background:transparent; outline:none; font-size:0.82rem;">
+                        <span id="chatSearchCount" style="font-size:0.72rem; color:#64748b; font-weight:700;"></span>
+                        <button type="button" onclick="window.toggleChatInlineSearch()" style="background:none; border:none; color:#64748b; cursor:pointer; font-size:0.85rem;"><i class="fas fa-times"></i></button>
+                    </div>
+
+                    <!-- BILAH PESAN DISEMATKAN (PINNED BANNER) -->
+                    <div id="chatPinnedBanner" class="chat-pinned-banner" style="display:none;">
+                        <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                            <i class="fas fa-thumbtack"></i>
+                            <span id="pinnedBannerText" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Pesan disematkan</span>
+                        </div>
+                        <button type="button" onclick="window.unpinCurrentMessage()" style="background:none; border:none; color:#92400e; cursor:pointer; font-size:0.85rem;" title="Lepas Sematan"><i class="fas fa-times"></i></button>
+                    </div>
+
+                    <!-- AREA GELEMBUNG PESAN OBROLAN -->
+                    <div id="adminChatMessages" style="flex:1; min-height:0; overflow-y:auto; padding:18px 24px; display:flex; flex-direction:column; gap:10px; background:#f8fafc;"></div>
+
+                    <!-- BILAH TEMPLATE BALASAN CEPAT RESMI (QUICK REPLIES) -->
+                    <div id="chatQuickTemplatesBar" class="chat-quick-templates-bar">
+                        <span style="font-size:0.72rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-right:4px;"><i class="fas fa-bolt text-warning"></i> Balasan Cepat:</span>
+                        <button type="button" class="chat-template-chip" onclick="window.applyQuickReplyTemplate('verifikasi')">📋 Verifikasi Berkas KTP/KK</button>
+                        <button type="button" class="chat-template-chip" onclick="window.applyQuickReplyTemplate('jadwal')">💰 Jadwal Pencairan Bansos</button>
+                        <button type="button" class="chat-template-chip" onclick="window.applyQuickReplyTemplate('lokasi')">📍 Lokasi Penyaluran (Dinsos)</button>
+                        <button type="button" class="chat-template-chip" onclick="window.applyQuickReplyTemplate('proses')">⏳ Sedang Diverifikasi SPK</button>
+                        <button type="button" class="chat-template-chip" onclick="window.applyQuickReplyTemplate('foto')">📸 Kirim Foto Bukti Rumah</button>
+                        <button type="button" class="chat-template-chip" onclick="window.applyQuickReplyTemplate('terimakasih')">🤝 Pengajuan Dicatat Resmi</button>
+                    </div>
+
+                    <!-- BILAH PRATINJAU BALASAN PESAN (QUOTED REPLY) -->
+                    <div id="adminReplyPreviewBar" class="chat-reply-preview" style="display:none;">
+                        <div style="display:flex; align-items:center; gap:10px; overflow:hidden;">
+                            <i class="fas fa-reply text-success"></i>
+                            <div style="overflow:hidden;">
+                                <div style="font-weight:800; font-size:0.75rem; color:#009846;">Membalas <span id="adminReplySenderName">Warga</span>:</div>
+                                <div id="adminReplySnippetText" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:0.75rem; color:#64748b;">Cuplikan pesan...</div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="window.cancelAdminReply()" style="background:none; border:none; color:#64748b; cursor:pointer; font-size:0.85rem;"><i class="fas fa-times"></i></button>
+                    </div>
+
+                    <!-- BILAH PRATINJAU LAMPIRAN BERKAS -->
+                    <div id="adminAttachmentPreviewBar" class="chat-attachment-preview" style="display:none;">
+                        <i class="fas fa-paperclip text-success"></i>
+                        <span id="adminAttachmentFileName" style="flex:1; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">dokumen.pdf</span>
+                        <span id="adminAttachmentFileSize" style="font-size:0.72rem; color:#047857;">(1.2 MB)</span>
+                        <button type="button" onclick="window.clearAdminAttachment()" style="background:none; border:none; color:#065f46; cursor:pointer; font-size:0.85rem;"><i class="fas fa-times"></i></button>
+                    </div>
+
+                    <!-- BILAH PEREKAMAN SUARA (VOICE RECORDING BAR) -->
+                    <div id="adminVoiceRecordingBar" style="display:none; padding:10px 20px; background:#ffffff; border-top:1px solid #e2e8f0; align-items:center; gap:12px;">
+                        <div class="chat-recording-bar">
+                            <div class="chat-record-pulse-dot"></div>
+                            <span id="adminVoiceRecordTimer" style="font-weight:800; font-family:monospace; color:#e11d48; font-size:0.88rem;">00:00</span>
+                            <div style="flex:1; font-size:0.78rem; color:#9f1239; font-weight:600;">Merekam pesan suara petugas...</div>
+                            <button type="button" onclick="window.cancelAdminVoiceRecord()" style="background:none; border:none; color:#e11d48; cursor:pointer; font-size:0.95rem;" title="Batal Rekam"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                        <button type="button" onclick="window.sendAdminVoiceRecord()" style="background:linear-gradient(135deg, #e11d48, #be123c); color:white; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(225,29,72,0.3);" title="Kirim Pesan Suara"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+
+                    <!-- BILAH INPUT TEKS, MEDIA & EMOJI RESMI -->
+                    <div id="adminChatInputBar" style="padding:12px 20px; border-top:1px solid #e2e8f0; background:#ffffff; display:flex; align-items:center; gap:10px; position:relative; flex-shrink:0;">
+                        <!-- EMOJI PICKER TOGGLE -->
+                        <button type="button" onclick="window.toggleAdminEmojiPicker(event)" style="background:none; border:none; font-size:1.25rem; color:#64748b; cursor:pointer; transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" title="Sisipkan Emoji">
+                            <i class="far fa-smile"></i>
+                        </button>
+
+                        <!-- EMOJI PICKER POPOVER -->
+                        <div id="emojiPickerAdmin" class="emoji-picker-container" onclick="event.stopPropagation()">
+                            <div style="padding-bottom:8px; margin-bottom:8px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-size:0.75rem; font-weight:800; color:#64748b; text-transform:uppercase;">Pilih Emoji</span>
+                                <button type="button" onclick="document.getElementById('emojiPickerAdmin').style.display='none'" style="background:none; border:none; color:#94a3b8; cursor:pointer;"><i class="fas fa-times"></i></button>
+                            </div>
+                            <div class="emoji-grid-cells" id="emojiGridList"></div>
+                        </div>
+
+                        <!-- INPUT FILE TERSEMBUNYI -->
+                        <input type="file" id="adminMediaFileInput" style="display:none;" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onchange="window.handleAdminMediaSelection ? window.handleAdminMediaSelection(this) : null">
+                        <button type="button" onclick="document.getElementById('adminMediaFileInput').click()" style="background:none; border:none; font-size:1.25rem; color:#64748b; cursor:pointer; transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" title="Lampirkan Gambar, Dokumen PDF/Word/Excel, atau Video">
+                            <i class="fas fa-paperclip"></i>
+                        </button>
+
+                        <!-- TOMBOL TARIK LOKASI GEOTAGGING RESMI ARSIP -->
+                        <button type="button" onclick="window.tarikLokasiGeotagWarga()" style="background:none; border:none; font-size:1.25rem; color:#0284c7; cursor:pointer; transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" title="Tarik Lokasi Geotagging Resmi Arsip Warga">
+                            <i class="fas fa-map-marked-alt"></i>
+                        </button>
+
+                        <!-- INPUT TEKS OBROLAN -->
+                        <input type="text" id="adminChatInput" placeholder="Ketik balasan untuk warga... (Enter untuk kirim)" style="flex:1; border:1px solid #cbd5e1; background:#f8fafc; padding:10px 18px; border-radius:25px; outline:none; font-size:0.88rem; transition:border-color 0.2s;" onfocus="this.style.borderColor='#009846'; this.style.background='#ffffff';" onblur="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';" onkeypress="if(event.key==='Enter') window.sendAdminChat ? window.sendAdminChat() : null">
+
+                        <!-- TOMBOL REKAM VOICE NOTE -->
+                        <button type="button" id="btnRecordVoiceAdmin" onclick="window.toggleAdminVoiceRecord()" style="background:none; border:none; font-size:1.25rem; color:#64748b; cursor:pointer; transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" title="Rekam Pesan Suara (Voice Note)">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+
+                        <!-- TOMBOL KIRIM PESAN -->
+                        <button type="button" id="btnSendAdmin" onclick="window.sendAdminChat ? window.sendAdminChat() : null" style="background:linear-gradient(135deg, #009846, #047857); color:white; border:none; width:42px; height:42px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 10px rgba(0,152,70,0.3); transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="Kirim Pesan">
+                            <i class="fas fa-paper-plane" style="font-size:0.95rem; margin-left:-2px;"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL EKSPOR TERPADU ARSIP DATA WARGA (EXCEL, PDF, WORD) -->
+    <!-- MODAL DRAWER PROFIL LENGKAP WARGA (DETAIL INFORMASI KEPENDUDUKAN & KELAYAKAN SPK) -->
+    <div id="modalProfilWargaChat" class="modal-blur-overlay" style="display:none; align-items:center; justify-content:center; box-sizing:border-box; overflow-y:auto; padding:16px; z-index:999999;">
+        <div class="modal-card-premium card" style="width:95%; max-width:680px; max-height:90vh; border-radius:22px; overflow:hidden; box-shadow:0 25px 60px rgba(15,23,42,0.3); border:1.5px solid #cbd5e1; background:#ffffff; margin:auto; display:flex; flex-direction:column;">
+            <div class="card-header" style="background:linear-gradient(135deg, #ffffff, #f0fdf4); padding:1.15rem 1.5rem; border-bottom:1.5px solid #dcfce7; display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg, #009846, #047857); color:white; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">
+                        <i class="fas fa-id-badge"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1.1rem; font-weight:800; color:#0f172a;">Profil Data Warga Bansos</div>
+                        <div style="font-size:0.72rem; color:#009846; font-weight:600;">Sistem Terpadu Penyaluran Bantuan Sosial Kabupaten Sidoarjo</div>
+                    </div>
+                </div>
+                <button type="button" onclick="window.closeModal('modalProfilWargaChat')" style="background:#ffffff; border:1px solid #cbd5e1; font-size:1.2rem; cursor:pointer; color:#64748b; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;">&times;</button>
+            </div>
+
+            <div id="bodyProfilWargaChat" style="padding:1.5rem; overflow-y:auto; flex:1;">
+                <!-- Konten dinamis profil warga -->
+            </div>
+
+            <div style="padding:12px 1.5rem; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" onclick="window.salinProfilWargaTxt()" class="btn btn-secondary" style="border-radius:10px; font-weight:700; font-size:0.82rem;"><i class="fas fa-copy"></i> Salin Data</button>
+                <button type="button" onclick="window.closeModal('modalProfilWargaChat')" class="btn btn-primary" style="border-radius:10px; font-weight:700; font-size:0.82rem; background:#009846; border-color:#009846;">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EKSPOR TERPADU ARSIP DATA WARGA (EXCEL, PDF, WORD) DENGAN PENYESUAIAN LUAS -->
     <div id="modalExportExcel" class="modal-blur-overlay">
-        <div class="modal-card-premium card" style="width: 780px; max-width: 96%; max-height: 90vh; display: flex; flex-direction: column; border-radius: 26px; overflow: hidden; box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.3);">
-            <div class="card-header" style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border-bottom: 1.5px solid #a7f3d0; padding: 1.25rem 1.75rem; display:flex; justify-content:space-between; align-items:center;">
-                <div class="card-title" style="color: #065f46; font-size: 1.18rem; font-weight: 800; display:flex; align-items:center; gap:10px;">
-                    <div style="width:40px; height:40px; border-radius:12px; background:#dcfce7; color:#15803d; display:flex; align-items:center; justify-content:center; font-size:1.3rem;">
+        <div class="modal-card-premium card" style="width: 920px; max-width: 96%; max-height: 92vh; display: flex; flex-direction: column; border-radius: 26px; overflow: hidden; box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.35); border: 1.5px solid #a7f3d0;">
+            <!-- HEADER MODAL -->
+            <div class="card-header" style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border-bottom: 1.5px solid #a7f3d0; padding: 1.15rem 1.75rem; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+                <div class="card-title" style="color: #065f46; font-size: 1.18rem; font-weight: 800; display:flex; align-items:center; gap:12px;">
+                    <div style="width:42px; height:42px; border-radius:14px; background:#dcfce7; color:#15803d; display:flex; align-items:center; justify-content:center; font-size:1.35rem; box-shadow:0 3px 8px rgba(22,163,74,0.2);">
                         <i class="fas fa-file-export"></i>
                     </div>
                     <div>
-                        <div>Ekspor Seluruh Arsip Data Warga</div>
-                        <small style="color:#047857; font-size:0.75rem; font-weight:600;">Ekspor Dokumen Resmi Pemkab Sidoarjo dalam Format Excel, PDF & Word</small>
+                        <div style="line-height:1.25;">Ekspor & Cetak Arsip Data Warga</div>
+                        <small style="color:#047857; font-size:0.75rem; font-weight:600;">Penyesuaian Luas Multi-Format (Excel, PDF, Word), Tata Letak, Teks Dokumen, dan Seleksi Variabel Otomatis</small>
                     </div>
                 </div>
-                <button type="button" onclick="window.closeModal('modalExportExcel')" style="background:#ffffff; border:1px solid #cbd5e1; font-size:1.3rem; cursor:pointer; color:#64748b; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all 0.2s;">&times;</button>
+                <button type="button" onclick="window.closeModal('modalExportExcel')" style="background:#ffffff; border:1px solid #cbd5e1; font-size:1.2rem; cursor:pointer; color:#64748b; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all 0.2s;" title="Tutup">&times;</button>
             </div>
             
             <!-- PILIHAN 3 FORMAT DOKUMEN: EXCEL, PDF, WORD -->
-            <div style="padding: 14px 1.75rem 0 1.75rem; background:#ffffff;">
-                <div style="font-size:0.82rem; font-weight:800; color:#334155; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:10px;">
-                    1. Pilih Format Berkas Ekspor:
+            <div style="padding: 12px 1.75rem 0 1.75rem; background:#ffffff; flex-shrink:0;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-size:0.8rem; font-weight:800; color:#334155; text-transform:uppercase; letter-spacing:0.4px;">
+                        1. Pilih Format Berkas Ekspor:
+                    </span>
+                    <span id="exportFormatBadgeStatus" class="badge badge-green" style="font-size:0.72rem; padding:3px 8px;">Format Aktif: Excel (.xlsx)</span>
                 </div>
-                <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px;">
+                <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px;">
                     <!-- FORMAT 1: EXCEL -->
-                    <div id="cardChoiceExportExcel" onclick="window.pilihFormatEksporAktif('excel')" class="export-format-choice active" style="padding:12px 14px; border-radius:16px;">
-                        <div style="width:38px; height:38px; border-radius:10px; background:#dcfce7; color:#15803d; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">
+                    <div id="cardChoiceExportExcel" onclick="window.pilihFormatEksporAktif('excel')" class="export-format-choice active" style="padding:10px 14px; border-radius:14px; cursor:pointer; transition:all 0.2s; border:1.5px solid #10b981; background:#f0fdf4; display:flex; align-items:center; gap:10px;">
+                        <div style="width:38px; height:38px; border-radius:10px; background:#dcfce7; color:#15803d; display:flex; align-items:center; justify-content:center; font-size:1.35rem; flex-shrink:0;">
                             <i class="fas fa-file-excel"></i>
                         </div>
                         <div style="flex:1; min-width:0;">
-                            <div style="font-weight:800; font-size:0.9rem; color:#14532d;">Excel (.xlsx)</div>
-                            <div style="font-size:0.72rem; color:#15803d; margin-top:2px;">Tabel Data Lengkap</div>
+                            <div style="font-weight:800; font-size:0.88rem; color:#14532d;">Excel (.xlsx)</div>
+                            <div style="font-size:0.72rem; color:#15803d; margin-top:2px;">Tabel Data & Seluruh Variabel</div>
                         </div>
                     </div>
 
                     <!-- FORMAT 2: PDF -->
-                    <div id="cardChoiceExportPdf" onclick="window.pilihFormatEksporAktif('pdf')" class="export-format-choice" style="padding:12px 14px; border-radius:16px;">
-                        <div style="width:38px; height:38px; border-radius:10px; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">
+                    <div id="cardChoiceExportPdf" onclick="window.pilihFormatEksporAktif('pdf')" class="export-format-choice" style="padding:10px 14px; border-radius:14px; cursor:pointer; transition:all 0.2s; border:1.5px solid #e2e8f0; background:#ffffff; display:flex; align-items:center; gap:10px;">
+                        <div style="width:38px; height:38px; border-radius:10px; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:1.35rem; flex-shrink:0;">
                             <i class="fas fa-file-pdf"></i>
                         </div>
                         <div style="flex:1; min-width:0;">
-                            <div style="font-weight:800; font-size:0.9rem; color:#7f1d1d;">Dokumen PDF</div>
-                            <div style="font-size:0.72rem; color:#b91c1c; margin-top:2px;">Laporan Resmi Pemkab</div>
+                            <div style="font-weight:800; font-size:0.88rem; color:#7f1d1d;">Dokumen PDF</div>
+                            <div style="font-size:0.72rem; color:#b91c1c; margin-top:2px;">Laporan Cetak Resmi Dinas</div>
                         </div>
                     </div>
 
                     <!-- FORMAT 3: WORD -->
-                    <div id="cardChoiceExportWord" onclick="window.pilihFormatEksporAktif('word')" class="export-format-choice" style="padding:12px 14px; border-radius:16px;">
-                        <div style="width:38px; height:38px; border-radius:10px; background:#dbeafe; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">
+                    <div id="cardChoiceExportWord" onclick="window.pilihFormatEksporAktif('word')" class="export-format-choice" style="padding:10px 14px; border-radius:14px; cursor:pointer; transition:all 0.2s; border:1.5px solid #e2e8f0; background:#ffffff; display:flex; align-items:center; gap:10px;">
+                        <div style="width:38px; height:38px; border-radius:10px; background:#dbeafe; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:1.35rem; flex-shrink:0;">
                             <i class="fas fa-file-word"></i>
                         </div>
                         <div style="flex:1; min-width:0;">
-                            <div style="font-weight:800; font-size:0.9rem; color:#1e3a8a;">Word (.docx)</div>
-                            <div style="font-size:0.72rem; color:#1d4ed8; margin-top:2px;">Dokumen Terbuka</div>
+                            <div style="font-weight:800; font-size:0.88rem; color:#1e3a8a;">Word (.docx)</div>
+                            <div style="font-size:0.72rem; color:#1d4ed8; margin-top:2px;">Dokumen Terbuka & Kop</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- TAB NAVIGASI CAKUPAN: LENGKAP vs KUSTOM -->
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding: 12px 1.75rem; background:#ffffff; border-bottom:1px solid #e2e8f0; margin-top:10px;">
-                <div style="display:flex; gap:8px;">
-                    <button type="button" id="tabExportStandarBtn" onclick="window.switchExportTab('standar')" class="btn btn-sm btn-primary" style="border-radius: 20px; padding: 6px 18px; font-weight:700;">
-                        <i class="fas fa-database"></i> Seluruh Data Arsip
+            <!-- TAB NAVIGASI PENGATURAN EKSPOR LUAS -->
+            <div style="padding: 10px 1.75rem 0 1.75rem; background:#ffffff; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; flex-shrink:0;">
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button type="button" id="tabExportMainVariabelBtn" onclick="window.switchExportMainTab('variabel')" class="btn btn-sm btn-primary" style="border-radius: 12px; padding: 6px 14px; font-weight:700; font-size:0.8rem; background:#009846; border-color:#009846; color:#ffffff;">
+                        <i class="fas fa-database"></i> 1. Cakupan & Seleksi Variabel
                     </button>
-                    <button type="button" id="tabExportKustomBtn" onclick="window.switchExportTab('kustom')" class="btn btn-sm btn-secondary" style="border-radius: 20px; padding: 6px 18px; font-weight:700; background:#ffffff; color:#0f172a;">
-                        <i class="fas fa-sliders-h text-primary"></i> Pilih Variabel Tertentu
+                    <button type="button" id="tabExportMainTeksBtn" onclick="window.switchExportMainTab('teks')" class="btn btn-sm" style="border-radius: 12px; padding: 6px 14px; font-weight:700; font-size:0.8rem; background:#f8fafc; border:1px solid #cbd5e1; color:#475569;">
+                        <i class="fas fa-file-signature text-emerald-600"></i> 2. Kustomisasi Teks & Kop Dinas
+                    </button>
+                    <button type="button" id="tabExportMainLayoutBtn" onclick="window.switchExportMainTab('layout')" class="btn btn-sm" style="border-radius: 12px; padding: 6px 14px; font-weight:700; font-size:0.8rem; background:#f8fafc; border:1px solid #cbd5e1; color:#475569;">
+                        <i class="fas fa-sliders-h text-emerald-600"></i> 3. Tata Letak, Kertas & Tipografi
+                    </button>
+                    <button type="button" id="tabExportMainPreviewBtn" onclick="window.switchExportMainTab('preview')" class="btn btn-sm" style="border-radius: 12px; padding: 6px 14px; font-weight:700; font-size:0.8rem; background:#f8fafc; border:1px solid #cbd5e1; color:#475569;">
+                        <i class="fas fa-eye text-emerald-600"></i> 4. Pratinjau Dokumen
                     </button>
                 </div>
-                <div style="font-size:0.8rem; font-weight:700; color:#64748b;">
-                    Total: <span id="exportStandarTotalRows" style="color:#0f172a; font-weight:900;">0 Baris</span>
+                <div style="font-size:0.8rem; font-weight:700; color:#475569;">
+                    Arsip: <span id="exportStandarTotalRows" style="color:#0f172a; font-weight:900;">0 Baris</span>
                 </div>
             </div>
 
-            <div style="flex: 1; overflow-y: auto; padding: 1.5rem 1.75rem;" id="exportModalBody">
-                <!-- PANEL EKSPOR STANDAR / CEPAT -->
-                <div id="panelExportStandar">
-                    <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:18px; padding:16px 20px; margin-bottom:16px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                            <span style="font-weight:800; font-size:0.92rem; color:#0f172a;">Cakupan Ekspor Data Arsip:</span>
-                            <span class="badge-green" style="font-size:0.76rem; padding:3px 10px; border-radius:8px;">Semua Variabel Termasuk</span>
+            <!-- BODY MODAL -->
+            <div style="flex: 1; overflow-y: auto; padding: 1.25rem 1.75rem;" id="exportModalBody">
+                <!-- PANEL 1: CAKUPAN & SELEKSI VARIABEL -->
+                <div id="panelExportMainVariabel">
+                    <!-- BANNER ADAPTASI VARIABEL DINAMIS -->
+                    <div style="background:#f0fdf4; border:1.5px solid #a7f3d0; border-radius:16px; padding:12px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:36px; height:36px; border-radius:10px; background:#dcfce7; color:#15803d; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0;">
+                                <i class="fas fa-magic"></i>
+                            </div>
+                            <div>
+                                <div style="font-weight:800; font-size:0.88rem; color:#065f46;">
+                                    Penyesuaian Variabel Otomatis: <span id="exportDetectedTotalVars" style="background:#15803d; color:#ffffff; padding:2px 8px; border-radius:6px; font-size:0.78rem;">0 Variabel Terdeteksi</span>
+                                </div>
+                                <div style="font-size:0.75rem; color:#047857; margin-top:2px;">
+                                    Sistem memuat seluruh data yang disesuaikan dari arsip: baik terdapat 10 variabel, 50 variabel, ataupun lebih dari 50 variabel.
+                                </div>
+                            </div>
                         </div>
-                        <p style="font-size:0.82rem; color:#475569; margin:0 0 12px 0; line-height:1.45;">
-                            Mengekspor seluruh data warga yang saat ini dimuat atau disimpan di dalam sistem, mencakup data identitas, NIK, parameter kriteria SPK (C1–C10), desil, peringkat SAW, status validasi, dan setiap kolom dinamis.
-                        </p>
-
-                        <div style="margin-top:10px;">
-                            <label class="form-label" style="font-size:0.82rem; font-weight:800; color:#334155; margin-bottom:6px;">Filter Baris Berdasarkan Status:</label>
-                            <select id="exportFilterStatusStandar" class="form-select custom-rounded-select" style="width:100%; border-radius:12px; font-size:0.85rem;">
-                                <option value="all" selected>Seluruh Warga di Dalam Arsip (Semua Status)</option>
-                                <option value="layak">Hanya Warga Disetujui / Layak Bansos (Desil 1–4)</option>
-                                <option value="menerima">Hanya Warga Telah Menerima Bantuan</option>
-                                <option value="menunggu">Hanya Warga Status Menunggu Verifikasi</option>
-                                <option value="sengketa">Hanya Warga Dalam Penanganan Sengketa</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- PANEL EKSPOR KUSTOM -->
-                <div id="panelExportKustom" style="display:none;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-                        <div>
-                            <div style="font-weight:800; font-size:0.95rem; color:#0f172a;">Pilih Kolom / Variabel Arsip Warga</div>
-                            <small style="color:#64748b;">Mendukung 20, 39, 50, atau berapa pun variabel yang terdata</small>
-                        </div>
-                        <div style="display:flex; gap:6px;">
-                            <button type="button" onclick="window.toggleAllExportVars(true)" class="btn btn-sm" style="background:#f1f5f9; border:1px solid #cbd5e1; font-size:0.75rem; font-weight:700; border-radius:8px; padding:4px 10px;">
-                                <i class="fas fa-check-square text-primary"></i> Pilih Semua
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <button type="button" onclick="window.pilihPresetVariabelEkspor('semua')" class="btn btn-sm" style="background:#ffffff; border:1.5px solid #86efac; color:#15803d; font-size:0.75rem; font-weight:800; border-radius:8px; padding:4px 10px;">
+                                <i class="fas fa-check-double"></i> Pilih Semua
                             </button>
-                            <button type="button" onclick="window.toggleAllExportVars(false)" class="btn btn-sm" style="background:#f1f5f9; border:1px solid #cbd5e1; font-size:0.75rem; font-weight:700; border-radius:8px; padding:4px 10px;">
-                                <i class="far fa-square text-muted"></i> Kosongkan
+                            <button type="button" onclick="window.pilihPresetVariabelEkspor('inti')" class="btn btn-sm" style="background:#ffffff; border:1.5px solid #cbd5e1; color:#334155; font-size:0.75rem; font-weight:800; border-radius:8px; padding:4px 10px;">
+                                <i class="fas fa-star text-amber-500"></i> 10 Variabel Inti
+                            </button>
+                            <button type="button" onclick="window.pilihPresetVariabelEkspor('kustom')" class="btn btn-sm" style="background:#ffffff; border:1.5px solid #cbd5e1; color:#334155; font-size:0.75rem; font-weight:800; border-radius:8px; padding:4px 10px;">
+                                <i class="fas fa-layer-group text-primary"></i> Variabel Impor
+                            </button>
+                            <button type="button" onclick="window.pilihPresetVariabelEkspor('kosong')" class="btn btn-sm" style="background:#ffffff; border:1.5px solid #fca5a5; color:#dc2626; font-size:0.75rem; font-weight:800; border-radius:8px; padding:4px 10px;">
+                                <i class="far fa-square"></i> Kosongkan
                             </button>
                         </div>
                     </div>
 
-                    <!-- PENCARIAN VARIABEL -->
-                    <div style="position:relative; margin-bottom:12px;">
-                        <i class="fas fa-search" style="position:absolute; left:12px; top:11px; color:#94a3b8; font-size:0.85rem;"></i>
-                        <input type="text" id="searchExportVarInput" placeholder="Cari nama variabel/kolom data..." oninput="window.filterExportVarCheckboxes(this.value)" style="width:100%; padding:8px 12px 8px 34px; border:1.5px solid #cbd5e1; border-radius:12px; font-size:0.85rem; outline:none; background:#ffffff;">
+                    <!-- KONTROL PENCARIAN & KATEGORI VARIABEL -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+                        <div style="position:relative; flex:1; min-width:220px;">
+                            <i class="fas fa-search" style="position:absolute; left:12px; top:10px; color:#94a3b8; font-size:0.85rem;"></i>
+                            <input type="text" id="searchExportVarInput" placeholder="Cari nama variabel arsip (NIK, C1, Desil, atau variabel impor)..." oninput="window.filterExportVarCheckboxes(this.value)" style="width:100%; padding:7px 12px 7px 34px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.82rem; outline:none; background:#ffffff;">
+                        </div>
+                        <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                            <button type="button" onclick="window.filterExportVarCategory('all', this)" class="btn-export-cat-filter active" style="font-size:0.73rem; padding:4px 10px; border-radius:8px; border:1px solid #009846; background:#009846; color:#ffffff; font-weight:700; cursor:pointer;">Semua</button>
+                            <button type="button" onclick="window.filterExportVarCategory('identitas', this)" class="btn-export-cat-filter" style="font-size:0.73rem; padding:4px 10px; border-radius:8px; border:1px solid #cbd5e1; background:#ffffff; color:#475569; font-weight:700; cursor:pointer;">Identitas</button>
+                            <button type="button" onclick="window.filterExportVarCategory('kriteria', this)" class="btn-export-cat-filter" style="font-size:0.73rem; padding:4px 10px; border-radius:8px; border:1px solid #cbd5e1; background:#ffffff; color:#475569; font-weight:700; cursor:pointer;">Kriteria C1–C10</button>
+                            <button type="button" onclick="window.filterExportVarCategory('status', this)" class="btn-export-cat-filter" style="font-size:0.73rem; padding:4px 10px; border-radius:8px; border:1px solid #cbd5e1; background:#ffffff; color:#475569; font-weight:700; cursor:pointer;">Status & SPK</button>
+                            <button type="button" onclick="window.filterExportVarCategory('kustom', this)" class="btn-export-cat-filter" style="font-size:0.73rem; padding:4px 10px; border-radius:8px; border:1px solid #cbd5e1; background:#ffffff; color:#475569; font-weight:700; cursor:pointer;">Impor/Kustom</button>
+                        </div>
                     </div>
 
                     <!-- CONTAINER CHECKBOX VARIABEL DINAMIS -->
-                    <div id="exportVariableCheckboxesContainer" style="max-height:220px; overflow-y:auto; border:1.5px solid #e2e8f0; border-radius:14px; padding:12px; background:#ffffff; display:grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap:8px;">
+                    <div id="exportVariableCheckboxesContainer" style="max-height:240px; overflow-y:auto; border:1.5px solid #e2e8f0; border-radius:14px; padding:12px; background:#f8fafc; display:grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap:8px;">
                         <!-- Diisi otomatis oleh JavaScript sesuai isi data arsip warga -->
                     </div>
 
-                    <div style="margin-top:14px;">
-                        <label class="form-label" style="font-size:0.82rem; font-weight:800; color:#334155; margin-bottom:4px;">Filter Status Baris:</label>
-                        <select id="exportFilterStatusKustom" class="form-select custom-rounded-select" style="width:100%; border-radius:10px; font-size:0.85rem;">
-                            <option value="all">Semua Baris Data Warga</option>
-                            <option value="layak">Hanya Disetujui / Layak</option>
-                            <option value="menerima">Hanya Telah Menerima</option>
-                            <option value="menunggu">Hanya Menunggu</option>
+                    <!-- FILTER BARIS STATUS DATA WARGA -->
+                    <div style="margin-top:14px; background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                        <div>
+                            <label class="form-label" style="font-size:0.82rem; font-weight:800; color:#334155; margin-bottom:2px;">Filter Baris Warga yang Diekspor:</label>
+                            <small style="color:#64748b; font-size:0.72rem; display:block;">Pilih kelompok warga tertentu atau sertakan seluruh data di arsip</small>
+                        </div>
+                        <select id="exportFilterStatus" onchange="window.updateExportSelectedCount()" class="form-select custom-rounded-select" style="min-width:260px; border-radius:10px; font-size:0.83rem; font-weight:700;">
+                            <option value="all" selected>Seluruh Warga di Dalam Arsip (Semua Status)</option>
+                            <option value="layak">Hanya Warga Disetujui / Layak Bansos (Desil 1–4)</option>
+                            <option value="menerima">Hanya Warga Telah Menerima Bantuan</option>
+                            <option value="menunggu">Hanya Warga Status Menunggu Verifikasi</option>
+                            <option value="sengketa">Hanya Warga Dalam Penanganan Sengketa</option>
                         </select>
+                    </div>
+                </div>
+
+                <!-- PANEL 2: KUSTOMISASI TEKS & KOP DINAS -->
+                <div id="panelExportMainTeks" style="display:none;">
+                    <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:16px; padding:16px; margin-bottom:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
+                            <div style="font-weight:800; font-size:0.9rem; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-heading text-emerald-600"></i> Kop Surat Resmi & Judul Dokumen
+                            </div>
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.8rem; font-weight:700; color:#334155;">
+                                <input type="checkbox" id="exportIncludeKop" checked onchange="window.updateLivePreview()" style="width:16px; height:16px; accent-color:#009846;">
+                                Sertakan Kop Surat Dinas Resmi
+                            </label>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px;">
+                            <div>
+                                <label class="form-label" style="font-size:0.78rem; font-weight:800; color:#475569;">Instansi Induk:</label>
+                                <input type="text" id="exportTextInstansi" value="PEMERINTAH KABUPATEN SIDOARJO" oninput="window.updateLivePreview()" style="width:100%; padding:7px 12px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.82rem; font-weight:700;">
+                            </div>
+                            <div>
+                                <label class="form-label" style="font-size:0.78rem; font-weight:800; color:#475569;">Dinas / Unit Kerja:</label>
+                                <input type="text" id="exportTextDinas" value="DINAS SOSIAL" oninput="window.updateLivePreview()" style="width:100%; padding:7px 12px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.82rem; font-weight:700;">
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:12px;">
+                            <label class="form-label" style="font-size:0.78rem; font-weight:800; color:#475569;">Alamat & Kontak Instansi:</label>
+                            <input type="text" id="exportTextAlamat" value="Jl. Pahlawan No. 56, Sidoarjo - 61213 &bull; Telp. (031) 8921855 &bull; dinsos.sidoarjokab.go.id" oninput="window.updateLivePreview()" style="width:100%; padding:7px 12px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.82rem;">
+                        </div>
+
+                        <div style="margin-bottom:12px;">
+                            <label class="form-label" style="font-size:0.78rem; font-weight:800; color:#475569;">Judul Laporan Dokumen:</label>
+                            <input type="text" id="exportTextJudul" value="LAPORAN REKAPITULASI ARSIP DATA WARGA PENERIMA BANTUAN SOSIAL" oninput="window.updateLivePreview()" style="width:100%; padding:7px 12px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.85rem; font-weight:800; color:#0f172a;">
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 2fr 1fr 1fr; gap:12px;">
+                            <div>
+                                <label class="form-label" style="font-size:0.78rem; font-weight:800; color:#475569;">Sub-judul / Keterangan:</label>
+                                <input type="text" id="exportTextSubjudul" value="Tahun Anggaran 2026 - Basis Data Terpadu Penyaluran Bantuan Sosial" oninput="window.updateLivePreview()" style="width:100%; padding:7px 12px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.82rem;">
+                            </div>
+                            <div>
+                                <label class="form-label" style="font-size:0.78rem; font-weight:800; color:#475569;">Nomor Surat:</label>
+                                <input type="text" id="exportTextNomorSurat" value="460/094/DINSOS.SDA/2026" oninput="window.updateLivePreview()" style="width:100%; padding:7px 12px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.82rem; font-family:monospace;">
+                            </div>
+                            <div>
+                                <label class="form-label" style="font-size:0.78rem; font-weight:800; color:#475569;">Tanggal Dokumen:</label>
+                                <input type="text" id="exportTextTanggal" value="" placeholder="Contoh: 30 September 2026" oninput="window.updateLivePreview()" style="width:100%; padding:7px 12px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.82rem;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BLOK PENANDATANGAN DOKUMEN -->
+                    <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:16px; padding:16px;">
+                        <div style="font-weight:800; font-size:0.9rem; color:#0f172a; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-signature text-emerald-600"></i> Pengaturan Pejabat Penandatangan (Tanda Tangan Dinas)
+                        </div>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:10px;">
+                            <div>
+                                <label class="form-label" style="font-size:0.78rem; font-weight:800; color:#475569;">Kota Penandatanganan:</label>
+                                <input type="text" id="exportTextKota" value="Sidoarjo" oninput="window.updateLivePreview()" style="width:100%; padding:7px 12px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.82rem;">
+                            </div>
+                            <div>
+                                <label class="form-label" style="font-size:0.78rem; font-weight:800; color:#475569;">Jabatan:</label>
+                                <input type="text" id="exportTextJabatan" value="Kepala Dinas Sosial Kabupaten Sidoarjo" oninput="window.updateLivePreview()" style="width:100%; padding:7px 12px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.82rem;">
+                            </div>
+                            <div>
+                                <label class="form-label" style="font-size:0.78rem; font-weight:800; color:#475569;">Nama Pejabat:</label>
+                                <input type="text" id="exportTextPejabat" value="Dr. Drs. H. Ahmad Misbahul Munir, M.Si" oninput="window.updateLivePreview()" style="width:100%; padding:7px 12px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.82rem; font-weight:700;">
+                            </div>
+                            <div>
+                                <label class="form-label" style="font-size:0.78rem; font-weight:800; color:#475569;">NIP Pejabat:</label>
+                                <input type="text" id="exportTextNip" value="19710815 199603 1 003" oninput="window.updateLivePreview()" style="width:100%; padding:7px 12px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.82rem; font-family:monospace;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL 3: TATA LETAK, KERTAS & TIPOGRAFI -->
+                <div id="panelExportMainLayout" style="display:none;">
+                    <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:16px; padding:16px; margin-bottom:14px;">
+                        <div style="font-weight:800; font-size:0.9rem; color:#0f172a; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-columns text-emerald-600"></i> Orientasi Halaman & Dimensi Kertas
+                        </div>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:14px;">
+                            <div>
+                                <label class="form-label" style="font-size:0.82rem; font-weight:800; color:#334155; margin-bottom:6px;">Orientasi Kertas:</label>
+                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                                    <label class="export-orientation-card active" id="cardOrientLandscape" onclick="window.setExportOrientation('landscape')" style="border:1.5px solid #009846; background:#f0fdf4; padding:10px; border-radius:12px; display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                        <input type="radio" name="exportOrientation" value="landscape" checked style="accent-color:#009846;">
+                                        <div>
+                                            <div style="font-weight:800; font-size:0.85rem; color:#065f46;"><i class="fas fa-arrows-alt-h"></i> Landscape (Mendatar)</div>
+                                            <small style="font-size:0.7rem; color:#047857;">Sangat disarankan untuk >8 variabel</small>
+                                        </div>
+                                    </label>
+                                    <label class="export-orientation-card" id="cardOrientPortrait" onclick="window.setExportOrientation('portrait')" style="border:1.5px solid #cbd5e1; background:#ffffff; padding:10px; border-radius:12px; display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                        <input type="radio" name="exportOrientation" value="portrait" style="accent-color:#009846;">
+                                        <div>
+                                            <div style="font-weight:800; font-size:0.85rem; color:#334155;"><i class="fas fa-arrows-alt-v"></i> Portrait (Tegak)</div>
+                                            <small style="font-size:0.7rem; color:#64748b;">Optimal untuk variabel ringkas</small>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="form-label" style="font-size:0.82rem; font-weight:800; color:#334155; margin-bottom:6px;">Ukuran Standar Kertas:</label>
+                                <select id="exportLayoutPaper" onchange="window.updateLivePreview()" class="form-select custom-rounded-select" style="width:100%; border-radius:10px; font-size:0.85rem; font-weight:700;">
+                                    <option value="A4" selected>A4 (210 x 297 mm) - Standar Nasional</option>
+                                    <option value="Folio">F4 / Folio (215 x 330 mm) - Standar Surat Dinas</option>
+                                    <option value="Legal">Legal (216 x 356 mm) - Dokumen Panjang</option>
+                                    <option value="Letter">Letter (216 x 279 mm)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px;">
+                            <div>
+                                <label class="form-label" style="font-size:0.78rem; font-weight:800; color:#475569;">Ukuran Font Tabel:</label>
+                                <select id="exportLayoutFontSize" onchange="window.updateLivePreview()" class="form-select custom-rounded-select" style="width:100%; border-radius:10px; font-size:0.82rem;">
+                                    <option value="auto" selected>Auto-Fit (Otomatis sesuai jumlah variabel)</option>
+                                    <option value="7">Sangat Kecil (7pt) - Cocok untuk 40-50+ variabel</option>
+                                    <option value="8.5">Kompak (8.5pt) - Cocok untuk 20-40 variabel</option>
+                                    <option value="10">Sedang (10pt) - Cocok untuk 10-20 variabel</option>
+                                    <option value="11">Normal (11pt) - Cocok untuk &lt;10 variabel</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="form-label" style="font-size:0.78rem; font-weight:800; color:#475569;">Lebar Margin Kertas:</label>
+                                <select id="exportLayoutMargin" onchange="window.updateLivePreview()" class="form-select custom-rounded-select" style="width:100%; border-radius:10px; font-size:0.82rem;">
+                                    <option value="8mm" selected>Ramping (8 mm) - Muatan tabel maksimal</option>
+                                    <option value="14mm">Standar (14 mm) - Rapi & proporsional</option>
+                                    <option value="20mm">Lebar (20 mm)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="form-label" style="font-size:0.78rem; font-weight:800; color:#475569;">Gaya Garis & Tabel:</label>
+                                <select id="exportLayoutBorder" onchange="window.updateLivePreview()" class="form-select custom-rounded-select" style="width:100%; border-radius:10px; font-size:0.82rem;">
+                                    <option value="formal" selected>Garis Penuh Formal (Border hitam tegas)</option>
+                                    <option value="halus">Garis Halus Modern (Border abu-abu)</option>
+                                    <option value="striped">Belang Zebra (Striped rows)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:14px; padding-top:12px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:#334155;">
+                                <input type="checkbox" id="exportLayoutWatermark" checked onchange="window.updateLivePreview()" style="width:16px; height:16px; accent-color:#009846;">
+                                Tampilkan Watermark Resmi Latar Belakang ("PEMKAB SIDOARJO - ARSIP RESMI")
+                            </label>
+                            <small style="color:#64748b;">Mencegah penyalahgunaan dokumen</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL 4: PRATINJAU DOKUMEN LANGSUNG -->
+                <div id="panelExportMainPreview" style="display:none;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <div style="font-weight:800; font-size:0.88rem; color:#0f172a;">
+                            <i class="fas fa-file-alt text-emerald-600"></i> Pratinjau Tampilan Dokumen Real-Time
+                        </div>
+                        <div id="exportPreviewMetaTag" class="badge badge-green" style="font-size:0.72rem;">0 Kolom Terpilih</div>
+                    </div>
+                    <!-- WADAH PRATINJAU DOKUMEN -->
+                    <div id="exportLivePreviewContainer" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; box-shadow:0 4px 15px rgba(0,0,0,0.06); max-height:380px; overflow:auto; font-family:'Times New Roman', Times, serif;">
+                        <!-- Diisi secara dinamis oleh JavaScript -->
                     </div>
                 </div>
             </div>
 
             <!-- FOOTER MODAL EKSPOR -->
-            <div style="padding: 14px 1.75rem; background: #f8fafc; border-top: 1.5px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                <div style="font-size:0.85rem; color:#475569; font-weight:700;" id="exportSelectionSummary">
-                    <span id="exportSelectedVarsCount">Semua</span> variabel akan disertakan
+            <div style="padding: 12px 1.75rem; background: #f8fafc; border-top: 1.5px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; flex-shrink:0;">
+                <div style="font-size:0.84rem; color:#475569; font-weight:700;" id="exportSelectionSummary">
+                    <span id="exportSelectedVarsCount" style="color:#009846; font-weight:900;">0</span> variabel terpilih (<span id="exportSelectedRowsCount" style="color:#0f172a; font-weight:900;">0</span> baris warga)
                 </div>
                 <div style="display:flex; gap:10px;">
-                    <button type="button" onclick="window.closeModal('modalExportExcel')" class="btn btn-secondary" style="border-radius:12px; font-weight:700;">Batalkan</button>
-                    <button type="button" id="btnEksekusiUnduhDokumen" onclick="window.eksekusiUnduhDokumenArsip()" class="btn btn-primary" style="background:#059669; border-color:#059669; border-radius:12px; font-weight:800; padding:9px 24px; box-shadow:0 4px 12px rgba(5,150,105,0.25);">
-                        <i class="fas fa-file-download" id="iconBtnUnduhEkspor"></i> <span id="textBtnUnduhEkspor">Unduh Berkas Excel</span>
+                    <button type="button" onclick="window.closeModal('modalExportExcel')" class="btn btn-secondary" style="border-radius:12px; font-weight:700; padding:8px 18px;">Batalkan</button>
+                    <button type="button" id="btnEksekusiUnduhDokumen" onclick="window.eksekusiUnduhDokumenArsip()" class="btn btn-primary" style="background:#009846; border-color:#009846; border-radius:12px; font-weight:800; padding:9px 24px; box-shadow:0 4px 12px rgba(0,152,70,0.3); display:inline-flex; align-items:center; gap:8px;">
+                        <i class="fas fa-file-excel" id="iconBtnUnduhEkspor"></i> <span id="textBtnUnduhEkspor">Unduh Berkas Excel (.xlsx)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DETAIL SELURUH VARIABEL WARGA (MENAMPUNG 10, 50, ATAU LEBIH VARIABEL DENGAN PENCARIAN & AKSI EDIT LANGSUNG) -->
+    <div id="modalDetailSemuaVariabel" class="modal-blur-overlay">
+        <div class="modal-card-premium card" style="width: 680px; max-width: 95%; max-height: 88vh; display: flex; flex-direction: column; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.25); border: 1.5px solid #cbd5e1;">
+            <div class="card-header" style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border-bottom: 1.5px solid #a7f3d0; padding: 1rem 1.5rem; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="width:38px; height:38px; border-radius:10px; background:#dcfce7; color:#15803d; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">
+                        <i class="fas fa-layer-group"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight:900; font-size:1.05rem; color:#065f46;" id="detailVarWargaNama">Nama Warga</div>
+                        <div style="display:flex; gap:8px; align-items:center; margin-top:2px;">
+                            <span id="detailVarWargaNik" style="font-family:monospace; font-weight:700; font-size:0.78rem; color:#047857;">NIK: -</span>
+                            <span id="detailVarTotalCountBadge" class="badge badge-green" style="font-size:0.7rem; padding:2px 7px;">0 Variabel Tersimpan</span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" onclick="window.closeModal('modalDetailSemuaVariabel')" style="background:#ffffff; border:1px solid #cbd5e1; font-size:1.2rem; cursor:pointer; color:#64748b; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;">&times;</button>
+            </div>
+
+            <div style="padding: 10px 1.5rem; background:#ffffff; border-bottom:1px solid #f1f5f9; flex-shrink:0;">
+                <div style="position:relative;">
+                    <i class="fas fa-search" style="position:absolute; left:12px; top:10px; color:#94a3b8; font-size:0.85rem;"></i>
+                    <input type="text" placeholder="Cari nama variabel atau isi data warga..." oninput="window.filterDetailVarList(this.value)" style="width:100%; padding:7px 12px 7px 34px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.82rem; outline:none; background:#f8fafc;">
+                </div>
+            </div>
+
+            <div style="flex:1; overflow-y:auto; padding: 1rem 1.5rem; background:#f8fafc;" id="detailVarListWrapper">
+                <div id="detailVarListContainer" style="display:flex; flex-direction:column; gap:8px;">
+                    <!-- Diisi secara dinamis oleh JavaScript -->
+                </div>
+            </div>
+
+            <div style="padding: 10px 1.5rem; background:#ffffff; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+                <small style="color:#64748b; font-size:0.75rem;"><i class="fas fa-info-circle text-primary"></i> Seluruh variabel tersimpan di arsip dan dapat diubah secara bebas.</small>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" onclick="window.closeModal('modalDetailSemuaVariabel')" class="btn btn-secondary btn-sm" style="border-radius:10px; font-weight:700;">Tutup</button>
+                    <button type="button" id="btnEditFromDetailVarModal" class="btn btn-primary btn-sm" style="background:#009846; border-color:#009846; border-radius:10px; font-weight:800; padding:6px 16px; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-edit"></i> Edit Seluruh Variabel
                     </button>
                 </div>
             </div>
