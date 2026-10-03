@@ -104,24 +104,26 @@ portalStyle.innerHTML = `
         to { opacity: 1; transform: translate(-50%, 0); }
     }
     
-    /* Popover Menu Titik Tiga Melengkung & Elegan */
+    /* Popover Menu Titik Tiga Ramping & Elegan */
     .aduan-dropdown-menu {
         position: absolute;
-        top: 34px;
+        top: 26px;
         background: #ffffff;
-        border: 1.5px solid #e2e8f0;
-        border-radius: 20px;
-        box-shadow: 0 16px 35px rgba(15, 23, 42, 0.22);
-        padding: 8px;
-        min-width: 195px;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.16), 0 4px 6px -2px rgba(15, 23, 42, 0.06);
+        padding: 4px;
+        width: 145px;
+        min-width: 138px;
+        max-width: 155px;
         z-index: 999999 !important;
         display: flex;
         flex-direction: column;
-        gap: 3px;
-        animation: fadeInDownMenu 0.18s ease-out;
+        gap: 1px;
+        animation: fadeInDownMenu 0.15s cubic-bezier(0.16, 1, 0.3, 1);
     }
     @keyframes fadeInDownMenu {
-        from { opacity: 0; transform: translateY(-6px); }
+        from { opacity: 0; transform: translateY(-4px); }
         to { opacity: 1; transform: translateY(0); }
     }
     .aduan-dropdown-menu.menu-right {
@@ -135,20 +137,23 @@ portalStyle.innerHTML = `
     .aduan-dropdown-menu button {
         background: none;
         border: none;
-        padding: 9px 14px;
-        font-size: 0.82rem;
-        font-weight: 700;
+        padding: 5px 8px;
+        font-size: 0.74rem;
+        font-weight: 600;
+        color: #334155;
         text-align: left;
-        border-radius: 12px;
+        border-radius: 6px;
         cursor: pointer;
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         transition: all 0.15s ease;
+        line-height: 1.2;
     }
     .aduan-dropdown-menu button:hover {
         background: #f8fafc;
-        transform: translateX(2px);
+        color: #009846;
+        transform: none;
     }
     .btn-msg-dots {
         background: rgba(0,0,0,0.04);

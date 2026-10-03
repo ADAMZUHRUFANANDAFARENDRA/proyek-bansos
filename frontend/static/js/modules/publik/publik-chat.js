@@ -5,6 +5,60 @@
 
 // 9. CHAT MULTIMEDIA (TITIK TIGA POJOK KIRI/KANAN, EMOJI FLOAT, LAPORAN MEMBULAT)
 // =========================================================================
+window.downloadDocumentDirect = async function (url, fileName, event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    const safeName = fileName || (url ? url.split('/').pop() : 'dokumen') || 'dokumen_bansos';
+    const fileParam = url ? url.split('/').pop() : safeName;
+    const serverDlUrl = `${API_URL}/api/chat/download/${fileParam}?name=${encodeURIComponent(safeName)}`;
+
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'info',
+            title: `Menyiapkan unduhan: ${safeName}...`,
+            timer: 1800,
+            showConfirmButton: false
+        });
+    }
+
+    try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('Fetch failed ' + resp.status);
+        const blob = await resp.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = safeName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: `Berkas berhasil diunduh: ${safeName}`,
+                timer: 2500,
+                showConfirmButton: false
+            });
+        }
+    } catch (e) {
+        const a = document.createElement('a');
+        a.href = serverDlUrl;
+        a.download = safeName;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+};
+
 document.addEventListener('click', function (e) {
     if (!e.target.closest('.aduan-dropdown-menu') && !e.target.closest('.btn-msg-dots')) {
         document.querySelectorAll('.aduan-dropdown-menu').forEach(m => m.style.display = 'none');
@@ -554,20 +608,92 @@ window.muatPesanAduan = async function (forceScroll = false) {
                         </div>
                     `;
                 } else {
+                    // DOKUMEN: PDF, WORD, EXCEL, PPT DLL (MODERN, BERSIH, MEMUAT JUDUL DOKUMEN & MENDUKUNG UNDUH LANGSUNG)
+                    const rawFileName = c.file_name || (c.file_path || '').split('/').pop() || `Dokumen.${ext}`;
+                    let cleanFileName = rawFileName.replace(/^\d{10,14}[_-]/, '');
+                    if (!cleanFileName || /^\d+\.[a-zA-Z0-9]+$/.test(cleanFileName) || /^\d+$/.test(cleanFileName)) {
+                        const defaultExt = (rawFileName.split('.').pop() || ext || 'pdf').toLowerCase();
+                        cleanFileName = `Dokumen_Lampiran_${defaultExt.toUpperCase()}.${defaultExt}`;
+                    }
+
+                    const docExt = (cleanFileName.split('.').pop() || ext || 'pdf').toLowerCase();
+                    let rawTitle = cleanFileName.substring(0, cleanFileName.lastIndexOf('.')) || cleanFileName;
+                    let baseTitle = rawTitle.replace(/[-_]+/g, ' ').trim();
+                    baseTitle = baseTitle.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
+
+                    if (!baseTitle || /^\d+$/.test(baseTitle) || baseTitle.toLowerCase() === 'dokumen' || baseTitle.length < 3) {
+                        if (['pdf'].includes(docExt)) baseTitle = 'Surat Keputusan Verifikasi Penerima Bansos';
+                        else if (['doc', 'docx'].includes(docExt)) baseTitle = 'Panduan Persyaratan Administrasi Bansos';
+                        else if (['xls', 'xlsx', 'csv'].includes(docExt)) baseTitle = 'Rekapitulasi Data Penyaluran Bansos Sidoarjo';
+                        else if (['ppt', 'pptx'].includes(docExt)) baseTitle = 'Paparan Sosialisasi Penyaluran Bantuan Sosial';
+                        else baseTitle = 'Berkas Dokumen Lampiran';
+                    }
+
+                    let docTypeClass = 'chat-doc-other';
                     let iconClass = 'fa-file-alt';
-                    let iconColor = '#0284c7';
-                    if (['ppt', 'pptx'].includes(ext)) { iconClass = 'fa-file-powerpoint'; iconColor = '#ea580c'; }
-                    else if (['xls', 'xlsx', 'csv'].includes(ext)) { iconClass = 'fa-file-excel'; iconColor = '#16a34a'; }
-                    else if (['pdf'].includes(ext)) { iconClass = 'fa-file-pdf'; iconColor = '#dc2626'; }
+                    let badgeText = docExt.toUpperCase();
+                    let labelText = 'Berkas Dokumen';
+                    let accentColor = '#0284c7';
+
+                    if (['ppt', 'pptx'].includes(docExt)) {
+                        docTypeClass = 'chat-doc-ppt';
+                        iconClass = 'fa-file-powerpoint';
+                        badgeText = 'PPT';
+                        labelText = 'Presentasi PowerPoint';
+                        accentColor = '#ea580c';
+                    } else if (['xls', 'xlsx', 'csv'].includes(docExt)) {
+                        docTypeClass = 'chat-doc-excel';
+                        iconClass = 'fa-file-excel';
+                        badgeText = 'EXCEL';
+                        labelText = 'Spreadsheet Excel (.xlsx)';
+                        accentColor = '#16a34a';
+                    } else if (['doc', 'docx'].includes(docExt)) {
+                        docTypeClass = 'chat-doc-word';
+                        iconClass = 'fa-file-word';
+                        badgeText = 'WORD';
+                        labelText = 'Microsoft Word (.docx)';
+                        accentColor = '#2563eb';
+                    } else if (['pdf'].includes(docExt)) {
+                        docTypeClass = 'chat-doc-pdf';
+                        iconClass = 'fa-file-pdf';
+                        badgeText = 'PDF';
+                        labelText = 'Dokumen PDF Resmi';
+                        accentColor = '#dc2626';
+                    }
+
+                    const fileSizeText = c.file_size ? (typeof formatBytes === 'function' ? formatBytes(c.file_size) : `${Math.round(c.file_size / 1024)} KB`) : '';
 
                     mediaHtml = `
-                        <a href="${url}" target="_blank" style="display:flex; align-items:center; gap:8px; background:#ffffff; border:1px solid #e2e8f0; padding:6px 10px; border-radius:8px; text-decoration:none; margin:2px 0 4px 0; max-width:210px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
-                            <i class="fas ${iconClass}" style="color:${iconColor}; font-size:1.3rem;"></i>
-                            <div style="overflow:hidden;">
-                                <span style="font-weight:700; font-size:0.78rem; color:#0f172a; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Berkas .${ext.toUpperCase()}</span>
-                                <small style="color:#64748b; font-size:0.68rem;">Unduh</small>
+                        <div class="chat-doc-card ${docTypeClass}" title="${safeHtml(cleanFileName)}">
+                            <div class="chat-doc-accent-bar" style="background:${accentColor}; height:3.5px; width:100%;"></div>
+                            <div class="chat-doc-main-row" onclick="window.open('${url}', '_blank')">
+                                <div class="chat-doc-icon-box">
+                                    <i class="fas ${iconClass}"></i>
+                                </div>
+                                <div class="chat-doc-info">
+                                    <div class="chat-doc-title" title="${safeHtml(baseTitle)}">${safeHtml(baseTitle)}</div>
+                                    <div class="chat-doc-sub">
+                                        <span class="chat-doc-badge">${badgeText}</span>
+                                        <span class="chat-doc-label">${labelText}</span>
+                                        ${fileSizeText ? `<span class="chat-doc-dot">•</span><span class="chat-doc-size">${fileSizeText}</span>` : ''}
+                                    </div>
+                                    <div class="chat-doc-filename" title="${safeHtml(cleanFileName)}">
+                                        <i class="fas fa-paperclip"></i> ${safeHtml(cleanFileName)}
+                                    </div>
+                                </div>
+                                <button type="button" class="chat-doc-dl-btn" onclick="window.downloadDocumentDirect('${url}', '${cleanFileName}', event)" title="Unduh Berkas ${badgeText}">
+                                    <i class="fas fa-download"></i>
+                                </button>
                             </div>
-                        </a>
+                            <div class="chat-doc-actions-strip">
+                                <a href="${url}" target="_blank" onclick="event.stopPropagation()" class="chat-doc-action-link" title="Buka Dokumen di Tab Baru">
+                                    <i class="fas fa-external-link-alt"></i> Pratinjau
+                                </a>
+                                <button type="button" onclick="window.downloadDocumentDirect('${url}', '${cleanFileName}', event)" class="chat-doc-action-link btn-primary-doc" title="Unduh Berkas ke Perangkat">
+                                    <i class="fas fa-download"></i> Unduh ${badgeText}
+                                </button>
+                            </div>
+                        </div>
                     `;
                 }
             }
@@ -748,20 +874,92 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
                         </div>
                     `;
                 } else {
+                    // DOKUMEN: PDF, WORD, EXCEL, PPT DLL (MODERN, BERSIH, MEMUAT JUDUL DOKUMEN & MENDUKUNG UNDUH LANGSUNG)
+                    const rawFileName = c.file_name || (c.file_path || '').split('/').pop() || `Dokumen.${ext}`;
+                    let cleanFileName = rawFileName.replace(/^\d{10,14}[_-]/, '');
+                    if (!cleanFileName || /^\d+\.[a-zA-Z0-9]+$/.test(cleanFileName) || /^\d+$/.test(cleanFileName)) {
+                        const defaultExt = (rawFileName.split('.').pop() || ext || 'pdf').toLowerCase();
+                        cleanFileName = `Dokumen_Lampiran_${defaultExt.toUpperCase()}.${defaultExt}`;
+                    }
+
+                    const docExt = (cleanFileName.split('.').pop() || ext || 'pdf').toLowerCase();
+                    let rawTitle = cleanFileName.substring(0, cleanFileName.lastIndexOf('.')) || cleanFileName;
+                    let baseTitle = rawTitle.replace(/[-_]+/g, ' ').trim();
+                    baseTitle = baseTitle.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
+
+                    if (!baseTitle || /^\d+$/.test(baseTitle) || baseTitle.toLowerCase() === 'dokumen' || baseTitle.length < 3) {
+                        if (['pdf'].includes(docExt)) baseTitle = 'Surat Keputusan Verifikasi Penerima Bansos';
+                        else if (['doc', 'docx'].includes(docExt)) baseTitle = 'Panduan Persyaratan Administrasi Bansos';
+                        else if (['xls', 'xlsx', 'csv'].includes(docExt)) baseTitle = 'Rekapitulasi Data Penyaluran Bansos Sidoarjo';
+                        else if (['ppt', 'pptx'].includes(docExt)) baseTitle = 'Paparan Sosialisasi Penyaluran Bantuan Sosial';
+                        else baseTitle = 'Berkas Dokumen Lampiran';
+                    }
+
+                    let docTypeClass = 'chat-doc-other';
                     let iconClass = 'fa-file-alt';
-                    let iconColor = '#0284c7';
-                    if (['ppt', 'pptx'].includes(ext)) { iconClass = 'fa-file-powerpoint'; iconColor = '#ea580c'; }
-                    else if (['xls', 'xlsx', 'csv'].includes(ext)) { iconClass = 'fa-file-excel'; iconColor = '#16a34a'; }
-                    else if (['pdf'].includes(ext)) { iconClass = 'fa-file-pdf'; iconColor = '#dc2626'; }
+                    let badgeText = docExt.toUpperCase();
+                    let labelText = 'Berkas Dokumen';
+                    let accentColor = '#0284c7';
+
+                    if (['ppt', 'pptx'].includes(docExt)) {
+                        docTypeClass = 'chat-doc-ppt';
+                        iconClass = 'fa-file-powerpoint';
+                        badgeText = 'PPT';
+                        labelText = 'Presentasi PowerPoint';
+                        accentColor = '#ea580c';
+                    } else if (['xls', 'xlsx', 'csv'].includes(docExt)) {
+                        docTypeClass = 'chat-doc-excel';
+                        iconClass = 'fa-file-excel';
+                        badgeText = 'EXCEL';
+                        labelText = 'Spreadsheet Excel (.xlsx)';
+                        accentColor = '#16a34a';
+                    } else if (['doc', 'docx'].includes(docExt)) {
+                        docTypeClass = 'chat-doc-word';
+                        iconClass = 'fa-file-word';
+                        badgeText = 'WORD';
+                        labelText = 'Microsoft Word (.docx)';
+                        accentColor = '#2563eb';
+                    } else if (['pdf'].includes(docExt)) {
+                        docTypeClass = 'chat-doc-pdf';
+                        iconClass = 'fa-file-pdf';
+                        badgeText = 'PDF';
+                        labelText = 'Dokumen PDF Resmi';
+                        accentColor = '#dc2626';
+                    }
+
+                    const fileSizeText = c.file_size ? (typeof formatBytes === 'function' ? formatBytes(c.file_size) : `${Math.round(c.file_size / 1024)} KB`) : '';
 
                     mediaHtml = `
-                        <a href="${url}" target="_blank" style="display:flex; align-items:center; gap:8px; background:#ffffff; border:1px solid #e2e8f0; padding:6px 10px; border-radius:8px; text-decoration:none; margin:2px 0 4px 0; max-width:210px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
-                            <i class="fas ${iconClass}" style="color:${iconColor}; font-size:1.3rem;"></i>
-                            <div style="overflow:hidden;">
-                                <span style="font-weight:700; font-size:0.78rem; color:#0f172a; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Berkas .${ext.toUpperCase()}</span>
-                                <small style="color:#64748b; font-size:0.68rem;">Unduh</small>
+                        <div class="chat-doc-card ${docTypeClass}" title="${safeHtml(cleanFileName)}">
+                            <div class="chat-doc-accent-bar" style="background:${accentColor}; height:3.5px; width:100%;"></div>
+                            <div class="chat-doc-main-row" onclick="window.open('${url}', '_blank')">
+                                <div class="chat-doc-icon-box">
+                                    <i class="fas ${iconClass}"></i>
+                                </div>
+                                <div class="chat-doc-info">
+                                    <div class="chat-doc-title" title="${safeHtml(baseTitle)}">${safeHtml(baseTitle)}</div>
+                                    <div class="chat-doc-sub">
+                                        <span class="chat-doc-badge">${badgeText}</span>
+                                        <span class="chat-doc-label">${labelText}</span>
+                                        ${fileSizeText ? `<span class="chat-doc-dot">•</span><span class="chat-doc-size">${fileSizeText}</span>` : ''}
+                                    </div>
+                                    <div class="chat-doc-filename" title="${safeHtml(cleanFileName)}">
+                                        <i class="fas fa-paperclip"></i> ${safeHtml(cleanFileName)}
+                                    </div>
+                                </div>
+                                <button type="button" class="chat-doc-dl-btn" onclick="window.downloadDocumentDirect('${url}', '${cleanFileName}', event)" title="Unduh Berkas ${badgeText}">
+                                    <i class="fas fa-download"></i>
+                                </button>
                             </div>
-                        </a>
+                            <div class="chat-doc-actions-strip">
+                                <a href="${url}" target="_blank" onclick="event.stopPropagation()" class="chat-doc-action-link" title="Buka Dokumen di Tab Baru">
+                                    <i class="fas fa-external-link-alt"></i> Pratinjau
+                                </a>
+                                <button type="button" onclick="window.downloadDocumentDirect('${url}', '${cleanFileName}', event)" class="chat-doc-action-link btn-primary-doc" title="Unduh Berkas ke Perangkat">
+                                    <i class="fas fa-download"></i> Unduh ${badgeText}
+                                </button>
+                            </div>
+                        </div>
                     `;
                 }
             }
@@ -796,7 +994,12 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
                                         <span onclick="window.submitReactionWarga(${c.id}, '👍')">👍</span>
                                         <span onclick="window.submitReactionWarga(${c.id}, '😂')">😂</span>
                                         <span onclick="window.submitReactionWarga(${c.id}, '😮')">😮</span>
+                                        <span onclick="window.submitReactionWarga(${c.id}, '😢')">😢</span>
                                         <span onclick="window.submitReactionWarga(${c.id}, '🙏')">🙏</span>
+                                        <span onclick="window.submitReactionWarga(${c.id}, '🔥')">🔥</span>
+                                        <span onclick="window.submitReactionWarga(${c.id}, '👏')">👏</span>
+                                        <span onclick="window.submitReactionWarga(${c.id}, '🎉')">🎉</span>
+                                        <span onclick="window.submitReactionWarga(${c.id}, '💯')">💯</span>
                                     </div>
                                     <button type="button" onclick="window.setReplyWarga(${c.id}, '${safeHtml(handlerName)}', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'), '${c.file_type || ''}')" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
                                     <button type="button" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy"></i> Salin Teks</button>
@@ -816,7 +1019,12 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
                                     <span onclick="window.submitReactionWarga(${c.id}, '👍')">👍</span>
                                     <span onclick="window.submitReactionWarga(${c.id}, '😂')">😂</span>
                                     <span onclick="window.submitReactionWarga(${c.id}, '😮')">😮</span>
+                                    <span onclick="window.submitReactionWarga(${c.id}, '😢')">😢</span>
                                     <span onclick="window.submitReactionWarga(${c.id}, '🙏')">🙏</span>
+                                    <span onclick="window.submitReactionWarga(${c.id}, '🔥')">🔥</span>
+                                    <span onclick="window.submitReactionWarga(${c.id}, '👏')">👏</span>
+                                    <span onclick="window.submitReactionWarga(${c.id}, '🎉')">🎉</span>
+                                    <span onclick="window.submitReactionWarga(${c.id}, '💯')">💯</span>
                                 </div>
                                 <button type="button" onclick="window.setReplyWarga(${c.id}, 'Anda', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'), '${c.file_type || ''}')" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
                                 <button type="button" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy"></i> Salin Teks</button>

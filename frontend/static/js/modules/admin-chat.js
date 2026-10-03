@@ -457,19 +457,157 @@
     });
 
     window.toggleBubbleDropdown = function (btn, e) {
-        if (e) e.stopPropagation();
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         const parentBubble = btn.closest('.chat-msg-bubble');
         if (!parentBubble) return;
         const dropdown = parentBubble.querySelector('.bubble-action-dropdown');
         if (!dropdown) return;
 
         const isShown = dropdown.classList.contains('show');
-        document.querySelectorAll('.bubble-action-dropdown, .chat-dropdown-content').forEach(d => d.classList.remove('show'));
-        if (!isShown) dropdown.classList.add('show');
+        document.querySelectorAll('.bubble-action-dropdown, .chat-dropdown-content').forEach(d => {
+            d.classList.remove('show');
+            d.closest('.chat-msg-bubble')?.querySelector('.bubble-corner-btn')?.classList.remove('active');
+        });
+
+        if (!isShown) {
+            // Cek apakah posisi dekat dengan batas bawah container agar dropdown membuka ke atas
+            const bubbleRect = parentBubble.getBoundingClientRect();
+            const container = document.getElementById('adminChatMessages');
+            if (container) {
+                const contRect = container.getBoundingClientRect();
+                if (bubbleRect.bottom + 185 > contRect.bottom && bubbleRect.top - 185 > contRect.top) {
+                    dropdown.style.top = 'auto';
+                    dropdown.style.bottom = '26px';
+                } else {
+                    dropdown.style.top = '26px';
+                    dropdown.style.bottom = 'auto';
+                }
+            }
+            dropdown.classList.add('show');
+            btn.classList.add('active');
+        }
+    };
+
+    // =========================================================================
+    // =========================================================================
+    // HELPER DOWNLOAD LANGSUNG BERKAS DOKUMEN & UKURAN BERKAS
+    // =========================================================================
+    window.downloadDocumentDirect = async function (url, fileName, event) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+        const safeName = fileName || (url ? url.split('/').pop() : 'dokumen') || 'dokumen_bansos';
+        const fileParam = url ? url.split('/').pop() : safeName;
+        const serverDlUrl = `${BASE_API_URL}/api/chat/download/${fileParam}?name=${encodeURIComponent(safeName)}`;
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'info',
+                title: `Menyiapkan unduhan: ${safeName}...`,
+                timer: 1800,
+                showConfirmButton: false
+            });
+        }
+
+        try {
+            // Gunakan Blob fetch agar browser langsung mengunduh berkas (terutama PDF/Word/Excel) ke folder Downloads komputer/HP
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error('Fetch status ' + resp.status);
+            const blob = await resp.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = safeName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: `Berkas berhasil diunduh: ${safeName}`,
+                    timer: 2500,
+                    showConfirmButton: false
+                });
+            }
+        } catch (e) {
+            // Fallback via server download header attachment atau direct link
+            const a = document.createElement('a');
+            a.href = serverDlUrl;
+            a.download = safeName;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    };
+
+    window.formatBytes = function (bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    window.clearAdminAttachment = function () {
+        window.selectedAdminAttachmentFile = null;
+        const bar = document.getElementById('adminAttachmentPreviewBar');
+        if (bar) bar.style.display = 'none';
+    };
+
+    window.setAdminAttachmentFile = function (file) {
+        if (!file) return;
+        window.selectedAdminAttachmentFile = file;
+        const bar = document.getElementById('adminAttachmentPreviewBar');
+        const nameEl = document.getElementById('adminAttachmentFileName');
+        const sizeEl = document.getElementById('adminAttachmentFileSize');
+        if (nameEl) nameEl.innerText = file.name;
+        if (sizeEl) sizeEl.innerText = `(${window.formatBytes(file.size)})`;
+        if (bar) bar.style.display = 'flex';
     };
 
     window.formatModernBubbleHtml = function (pesan, isSenderAdmin) {
-        const rowClass = isSenderAdmin ? 'outgoing' : 'incoming';
+        const senderVal = String(pesan.sender || pesan.pengirim || '').toLowerCase().trim();
+        const namaVal = String(pesan.nama || '').toLowerCase().trim();
+
+        // Pesan yang dikirim oleh Admin / Petugas HARUS SELALU di sisi kanan (outgoing)
+        // Cek eksplisit identitas pengirim apakah Admin / Petugas
+        const hasOfficerClue = Boolean(
+            isSenderAdmin === true ||
+            pesan.is_admin === true ||
+            pesan.is_officer === true ||
+            senderVal === 'petugas' ||
+            senderVal === 'admin' ||
+            senderVal === 'operator' ||
+            senderVal === 'penyalur' ||
+            senderVal.includes('petugas') ||
+            senderVal.includes('admin') ||
+            senderVal.includes('dinsos') ||
+            namaVal.includes('petugas') ||
+            namaVal.includes('dinsos') ||
+            namaVal.includes('admin') ||
+            namaVal.includes('operator') ||
+            namaVal.includes('penyalur')
+        );
+
+        // Jika bukan dari warga aktif atau memiliki atribut admin/petugas, MAKA SELALU DI SISI KANAN (outgoing)
+        const isTrueWarga = !hasOfficerClue && (
+            senderVal === 'warga' || 
+            (window.activeChatNik && pesan.sender === window.activeChatNik && !hasOfficerClue)
+        );
+
+        const isOfficer = !isTrueWarga;
+        const rowClass = isOfficer ? 'outgoing' : 'incoming';
         const rawText = pesan.text || pesan.pesan || '';
         const waktu = pesan.waktu || pesan.time || 'Baru saja';
         const msgId = pesan.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -478,8 +616,29 @@
         const isDeletedAll = window.deletedForAllIds.includes(String(msgId)) || Boolean(pesan.is_deleted_all);
 
         let contentHtml = '';
+        let cleanText = (rawText || '')
+            .replace(/pesan\s*suara\s*(\(voice\s*note\))?/gi, '')
+            .replace(/^voice\s*note$/gi, '')
+            .replace(/foto\s*terlampir/gi, '')
+            .replace(/video\s*terlampir/gi, '')
+            .trim();
+
+        // Deteksi jika pesan HANYA berisi 1–3 emoji tanpa lampiran berkas
+        let isEmojiOnly = false;
+        try {
+            isEmojiOnly = Boolean(
+                cleanText && 
+                !pesan.file_path && 
+                !pesan.reply_text && 
+                /^(\p{Extended_Pictographic}|\p{Emoji_Presentation}|\s)+$/u.test(cleanText) && 
+                cleanText.trim().length <= 8
+            );
+        } catch (err) {
+            isEmojiOnly = false;
+        }
+
         if (isDeletedAll) {
-            contentHtml = `<span style="font-style:italic; opacity:0.65;"><i class="fas fa-ban"></i> Pesan ini telah ditarik.</span>`;
+            contentHtml = `<span style="font-style:italic; opacity:0.65; font-size:0.82rem;"><i class="fas fa-ban"></i> Pesan ini telah ditarik.</span>`;
         } else {
             if (pesan.reply_text) {
                 contentHtml += `<div style="border-left:3px solid #009846; padding:3px 8px; margin-bottom:6px; font-size:0.75rem; background:rgba(0,0,0,0.05); border-radius:4px;"><b>${window.safeHtml(pesan.reply_sender || 'Balasan')}</b>: ${window.safeHtml(pesan.reply_text)}</div>`;
@@ -487,9 +646,10 @@
 
             if (pesan.file_path) {
                 const url = pesan.file_path.startsWith('http') ? pesan.file_path : `${BASE_API_URL}${pesan.file_path}`;
+                const ext = (pesan.file_path.split('.').pop() || '').toLowerCase();
                 const isAudio = pesan.file_type === 'audio' ||
                                 (pesan.file_path && pesan.file_path.includes('voice_')) ||
-                                (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'weba'].some(ext => pesan.file_path.toLowerCase().endsWith('.' + ext))) ||
+                                (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'weba'].some(e => pesan.file_path.toLowerCase().endsWith('.' + e))) ||
                                 (pesan.file_path.toLowerCase().endsWith('.webm') && (rawText.toLowerCase().includes('suara') || rawText.toLowerCase().includes('voice')));
 
                 if (isAudio) {
@@ -508,35 +668,137 @@
                                 <input type="range" class="voice-wave-progress" id="seek_${audioId}" min="0" max="100" value="0" step="0.5" oninput="window.seekVoiceBubble('${audioId}', this.value)">
                             </div>
                         </div>`;
-                } else if (pesan.file_type === 'image') {
+                } else if (pesan.file_type === 'image' || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].includes(ext)) {
+                    const imgName = pesan.file_name || pesan.file_path.split('/').pop() || 'Foto_Terlampir.jpg';
                     contentHtml += `
-                        <div style="max-width:210px; border-radius:10px; overflow:hidden; margin:2px 0 4px 0; cursor:pointer;" onclick="window.openLightbox('${url}','image')">
-                            <img src="${url}" style="width:100%; max-height:160px; object-fit:cover; display:block; border-radius:10px;" />
+                        <div class="chat-media-img-wrap" onclick="window.openLightbox('${url}','image','${window.escapeInlineJS(imgName)}')" title="Klik untuk memperbesar foto">
+                            <img src="${url}" class="chat-media-img" alt="Foto Terlampir" loading="lazy" />
+                            <div class="chat-media-zoom-overlay">
+                                <span><i class="fas fa-search-plus"></i> Perbesar</span>
+                                <a href="${url}" download="${window.safeHtml(imgName)}" onclick="window.downloadDocumentDirect('${url}', '${window.escapeInlineJS(imgName)}', event)" style="color:white; text-decoration:none;" title="Unduh Foto">
+                                    <i class="fas fa-download"></i> Unduh
+                                </a>
+                            </div>
                         </div>`;
-                } else if (pesan.file_type === 'video') {
+                } else if (pesan.file_type === 'video' || ['mp4', 'mov', 'avi', 'mkv'].includes(ext)) {
+                    const vidName = pesan.file_name || pesan.file_path.split('/').pop() || 'Video_Terlampir.mp4';
+                    const videoId = `vid_${msgId}_${Date.now()}`;
                     contentHtml += `
-                        <div style="max-width:220px; border-radius:10px; overflow:hidden; margin:2px 0 4px 0; background:#000;">
-                            <video src="${url}" controls playsinline preload="metadata" style="width:100%; max-height:160px; display:block; border-radius:10px;"></video>
+                        <div class="chat-media-video-wrap">
+                            <video id="${videoId}" src="${url}" playsinline preload="metadata" class="chat-media-video" onclick="window.openLightbox('${url}','video','${window.escapeInlineJS(vidName)}')"></video>
+                            <div class="video-bubble-bar">
+                                <button type="button" class="btn-video-ctrl" onclick="window.toggleVideoBubblePlay('${videoId}', this)" title="Putar / Jeda">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <div class="video-bubble-bar-btns">
+                                    <button type="button" class="btn-video-ctrl" onclick="window.toggleVideoBubbleMute('${videoId}', this)" title="Bisukan / Nyalakan Suara">
+                                        <i class="fas fa-volume-up"></i>
+                                    </button>
+                                    <button type="button" class="btn-video-ctrl" onclick="window.openLightbox('${url}','video','${window.escapeInlineJS(vidName)}')" title="Layar Penuh">
+                                        <i class="fas fa-expand"></i>
+                                    </button>
+                                    <a href="${url}" download="${window.safeHtml(vidName)}" onclick="window.downloadDocumentDirect('${url}', '${window.escapeInlineJS(vidName)}', event)" class="btn-video-ctrl" title="Unduh Video" style="color:white; text-decoration:none;">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                </div>
+                            </div>
                         </div>`;
-                } else if (pesan.file_type === 'document') {
-                    const fileName = pesan.file_path.split('/').pop();
+                } else {
+                    // DOKUMEN: PDF, WORD, EXCEL, PPT, DLL (MODERN, BERSIH, MEMUAT JUDUL DOKUMEN & MENDUKUNG UNDUH LANGSUNG)
+                    const rawFileName = pesan.file_name || (pesan.file_path || '').split('/').pop() || 'Dokumen';
+                    // Bersihkan prefix timestamp angka unik server (misal: 1775178239123_surat_bansos.pdf -> surat_bansos.pdf)
+                    let cleanFileName = rawFileName.replace(/^\d{10,14}[_-]/, '');
+                    if (!cleanFileName || /^\d+\.[a-zA-Z0-9]+$/.test(cleanFileName) || /^\d+$/.test(cleanFileName)) {
+                        const defaultExt = (rawFileName.split('.').pop() || ext || 'pdf').toLowerCase();
+                        cleanFileName = `Dokumen_Lampiran_${defaultExt.toUpperCase()}.${defaultExt}`;
+                    }
+
+                    const docExt = (cleanFileName.split('.').pop() || ext || 'pdf').toLowerCase();
+                    // Judul dokumen utama (tanpa ekstensi, rapi berhuruf kapital cantik dan bermakna)
+                    let rawTitle = cleanFileName.substring(0, cleanFileName.lastIndexOf('.')) || cleanFileName;
+                    let baseTitle = rawTitle.replace(/[-_]+/g, ' ').trim();
+                    baseTitle = baseTitle.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
+
+                    if (!baseTitle || /^\d+$/.test(baseTitle) || baseTitle.toLowerCase() === 'dokumen' || baseTitle.length < 3) {
+                        if (['pdf'].includes(docExt)) baseTitle = 'Surat Keputusan Verifikasi Penerima Bansos';
+                        else if (['doc', 'docx'].includes(docExt)) baseTitle = 'Panduan Persyaratan Administrasi Bansos';
+                        else if (['xls', 'xlsx', 'csv'].includes(docExt)) baseTitle = 'Rekapitulasi Data Penyaluran Bansos Sidoarjo';
+                        else if (['ppt', 'pptx'].includes(docExt)) baseTitle = 'Paparan Sosialisasi Penyaluran Bantuan Sosial';
+                        else baseTitle = 'Berkas Dokumen Resmi Lampiran';
+                    }
+
+                    let docTypeClass = 'chat-doc-other';
+                    let iconClass = 'fas fa-file-alt';
+                    let badgeText = docExt.toUpperCase();
+                    let labelText = 'Berkas Dokumen';
+                    let accentColor = '#0284c7';
+                    let typeSubhead = 'Dokumen Lampiran';
+
+                    if (['pdf'].includes(docExt)) {
+                        docTypeClass = 'chat-doc-pdf';
+                        iconClass = 'fas fa-file-pdf';
+                        badgeText = 'PDF';
+                        labelText = 'Dokumen PDF Resmi';
+                        typeSubhead = 'Berkas Portabel PDF';
+                        accentColor = '#dc2626';
+                    } else if (['doc', 'docx'].includes(docExt)) {
+                        docTypeClass = 'chat-doc-word';
+                        iconClass = 'fas fa-file-word';
+                        badgeText = 'WORD';
+                        labelText = 'Microsoft Word (.docx)';
+                        typeSubhead = 'Dokumen Teks Word';
+                        accentColor = '#2563eb';
+                    } else if (['xls', 'xlsx', 'csv'].includes(docExt)) {
+                        docTypeClass = 'chat-doc-excel';
+                        iconClass = 'fas fa-file-excel';
+                        badgeText = 'EXCEL';
+                        labelText = 'Spreadsheet Excel (.xlsx)';
+                        typeSubhead = 'Lembar Kerja Excel';
+                        accentColor = '#16a34a';
+                    } else if (['ppt', 'pptx'].includes(docExt)) {
+                        docTypeClass = 'chat-doc-ppt';
+                        iconClass = 'fas fa-file-powerpoint';
+                        badgeText = 'PPT';
+                        labelText = 'Presentasi PowerPoint';
+                        typeSubhead = 'Bahan Tayang Presentasi';
+                        accentColor = '#ea580c';
+                    }
+
+                    const fileSizeText = pesan.file_size ? window.formatBytes(pesan.file_size) : '';
+
                     contentHtml += `
-                        <div onclick="window.open('${url}', '_blank')" style="display:flex; align-items:center; gap:8px; padding:6px 10px; background:rgba(0,0,0,0.04); border-radius:8px; margin:2px 0 4px 0; max-width:210px; cursor:pointer;">
-                            <i class="fas fa-file-alt text-primary" style="font-size:1.3rem;"></i>
-                            <div style="flex:1; overflow:hidden;">
-                                <div style="font-weight:700; font-size:0.78rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${fileName}</div>
-                                <small style="opacity:0.75; font-size:0.68rem;">Unduh Dokumen</small>
+                        <div class="chat-doc-card ${docTypeClass}" title="${window.safeHtml(cleanFileName)}">
+                            <div class="chat-doc-accent-bar" style="background:${accentColor}; height:3.5px; width:100%;"></div>
+                            <div class="chat-doc-main-row" onclick="window.open('${url}', '_blank')">
+                                <div class="chat-doc-icon-box">
+                                    <i class="${iconClass}"></i>
+                                </div>
+                                <div class="chat-doc-info">
+                                    <div class="chat-doc-title" title="${window.safeHtml(baseTitle)}">${window.safeHtml(baseTitle)}</div>
+                                    <div class="chat-doc-sub">
+                                        <span class="chat-doc-badge">${badgeText}</span>
+                                        <span class="chat-doc-label">${labelText}</span>
+                                        ${fileSizeText ? `<span class="chat-doc-dot">•</span><span class="chat-doc-size">${fileSizeText}</span>` : ''}
+                                    </div>
+                                    <div class="chat-doc-filename" title="${window.safeHtml(cleanFileName)}">
+                                        <i class="fas fa-paperclip"></i> ${window.safeHtml(cleanFileName)}
+                                    </div>
+                                </div>
+                                <button type="button" class="chat-doc-dl-btn" onclick="window.downloadDocumentDirect('${url}', '${window.escapeInlineJS(cleanFileName)}', event)" title="Unduh Berkas ${badgeText}">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                            <div class="chat-doc-actions-strip">
+                                <a href="${url}" target="_blank" onclick="event.stopPropagation()" class="chat-doc-action-link" title="Buka dan Pratinjau Dokumen di Tab Baru">
+                                    <i class="fas fa-external-link-alt"></i> Pratinjau
+                                </a>
+                                <button type="button" onclick="window.downloadDocumentDirect('${url}', '${window.escapeInlineJS(cleanFileName)}', event)" class="chat-doc-action-link btn-primary-doc" title="Unduh Berkas ke Komputer / Perangkat">
+                                    <i class="fas fa-download"></i> Unduh ${badgeText}
+                                </button>
                             </div>
                         </div>`;
                 }
             }
-
-            let cleanText = (rawText || '')
-                .replace(/pesan\s*suara\s*(\(voice\s*note\))?/gi, '')
-                .replace(/^voice\s*note$/gi, '')
-                .replace(/foto\s*terlampir/gi, '')
-                .replace(/video\s*terlampir/gi, '')
-                .trim();
 
             if (cleanText) {
                 if (cleanText.startsWith('[GEOTAG_LOKASI]')) {
@@ -580,17 +842,18 @@
                         contentHtml += `<div class="chat-msg-text" style="font-size:0.88rem; line-height:1.45;">📍 ${window.safeHtml(cleanText)}</div>`;
                     }
                 } else {
-                    contentHtml += `<div class="chat-msg-text" style="font-size:0.88rem; line-height:1.45;">${window.safeHtml(cleanText)}</div>`;
+                    contentHtml += `<div class="chat-msg-text" style="${isEmojiOnly ? '' : 'font-size:0.88rem; line-height:1.45;'}">${window.safeHtml(cleanText)}</div>`;
                 }
             }
         }
 
         const reactionHtml = pesan.reaction ? `<div class="msg-reaction-display">${pesan.reaction}</div>` : '';
-        const senderName = pesan.nama || (isSenderAdmin ? 'Petugas Dinsos' : window.activeChatName);
+        const senderName = pesan.nama || (isOfficer ? 'Petugas Dinsos' : window.activeChatName);
+        const snippetSummary = cleanText || (pesan.file_path ? pesan.file_path.split('/').pop() : 'Media Terlampir');
 
         return `
-            <div class="chat-msg-row ${rowClass}" id="bubble_wrap_${msgId}" data-id="${msgId}">
-                <div class="chat-msg-bubble">
+            <div class="chat-msg-row ${rowClass}" id="bubble_wrap_${msgId}" data-id="${msgId}" style="width:100% !important; display:flex !important; flex-direction:row !important; justify-content:${isOfficer ? 'flex-end' : 'flex-start'} !important; align-items:${isOfficer ? 'flex-end' : 'flex-start'} !important; margin-left:${isOfficer ? 'auto' : '0'} !important; margin-right:${isOfficer ? '0' : 'auto'} !important; padding:2px 0 !important; box-sizing:border-box !important;">
+                <div class="chat-msg-bubble ${isOfficer ? 'outgoing-bubble' : 'incoming-bubble'} ${isEmojiOnly ? 'is-emoji-only' : ''}" style="${isOfficer ? 'margin-left:auto !important; margin-right:0 !important; align-self:flex-end !important; text-align:left !important;' : 'margin-right:auto !important; margin-left:0 !important; align-self:flex-start !important; text-align:left !important;'}">
                     ${!isDeletedAll ? `
                     <button type="button" class="bubble-corner-btn" onclick="window.toggleBubbleDropdown(this, event)" title="Opsi Pesan">
                         <i class="fas fa-ellipsis-v"></i>
@@ -598,31 +861,36 @@
 
                     <div class="bubble-action-dropdown" onclick="event.stopPropagation()">
                         <div class="emoji-react-row">
-                            <span onclick="window.addReactionToMessage('${msgId}', '❤️')">❤️</span>
-                            <span onclick="window.addReactionToMessage('${msgId}', '👍')">👍</span>
-                            <span onclick="window.addReactionToMessage('${msgId}', '😂')">😂</span>
-                            <span onclick="window.addReactionToMessage('${msgId}', '😮')">😮</span>
-                            <span onclick="window.addReactionToMessage('${msgId}', '🙏')">🙏</span>
+                            <span onclick="window.addReactionToMessage('${msgId}', '❤️')" title="Suka">❤️</span>
+                            <span onclick="window.addReactionToMessage('${msgId}', '👍')" title="Setuju">👍</span>
+                            <span onclick="window.addReactionToMessage('${msgId}', '😂')" title="Tertawa">😂</span>
+                            <span onclick="window.addReactionToMessage('${msgId}', '😮')" title="Kaget">😮</span>
+                            <span onclick="window.addReactionToMessage('${msgId}', '😢')" title="Sedih">😢</span>
+                            <span onclick="window.addReactionToMessage('${msgId}', '🙏')" title="Terima Kasih">🙏</span>
+                            <span onclick="window.addReactionToMessage('${msgId}', '🔥')" title="Semangat">🔥</span>
+                            <span onclick="window.addReactionToMessage('${msgId}', '👏')" title="Tepuk Tangan">👏</span>
+                            <span onclick="window.addReactionToMessage('${msgId}', '🎉')" title="Hebat">🎉</span>
+                            <span onclick="window.addReactionToMessage('${msgId}', '💯')" title="Sempurna">💯</span>
                         </div>
-                        <button type="button" onclick="window.prepareReplyMessage('${msgId}', '${isSenderAdmin ? 'Petugas' : window.escapeInlineJS(window.activeChatName)}', '${window.escapeInlineJS(rawText || 'Media')}')">
+                        <button type="button" onclick="window.prepareReplyMessage('${msgId}', '${isOfficer ? 'Petugas Dinsos' : window.escapeInlineJS(window.activeChatName)}', '${window.escapeInlineJS(snippetSummary)}', '${pesan.file_type || ''}')">
                             <i class="fas fa-reply text-primary"></i> Balas
                         </button>
-                        <button type="button" onclick="window.pinMessageDirect('${window.escapeInlineJS(rawText || 'Media')}')">
-                            <i class="fas fa-thumbtack text-accent"></i> Sematkan
+                        <button type="button" onclick="window.pinMessageDirect('${msgId}', '${window.escapeInlineJS(snippetSummary)}')">
+                            <i class="fas fa-thumbtack text-warning"></i> Sematkan
                         </button>
-                        <button type="button" onclick="window.salinTeksPesan('${window.escapeInlineJS(rawText || '')}')">
-                            <i class="fas fa-copy text-info"></i> Salin
+                        <button type="button" onclick="window.salinTeksPesan('${window.escapeInlineJS(snippetSummary)}')">
+                            <i class="fas fa-copy text-info"></i> Salin Teks
                         </button>
-                        <button type="button" class="text-warning" onclick="window.laporkanPesanChat('${msgId}', '${window.escapeInlineJS(senderName)}', '${window.escapeInlineJS(rawText || '')}')">
+                        <button type="button" class="text-warning" onclick="window.laporkanPesanChat('${msgId}', '${window.escapeInlineJS(senderName)}', '${window.escapeInlineJS(snippetSummary)}')">
                             <i class="fas fa-flag text-danger"></i> Laporkan
                         </button>
-                        <button type="button" class="text-danger" onclick="window.deleteMessageAction('${msgId}', ${isSenderAdmin})">
-                            <i class="fas fa-trash-alt text-danger"></i> Hapus
+                        <button type="button" class="text-danger" onclick="window.deleteMessageAction('${msgId}', ${isOfficer})">
+                            <i class="fas fa-trash-alt text-danger"></i> Hapus Pesan
                         </button>
                     </div>
                     ` : ''}
 
-                    ${!isSenderAdmin ? `
+                    ${!isOfficer && !isEmojiOnly ? `
                     <div style="font-size:0.68rem; font-weight:800; margin-bottom:3px; opacity:0.85; display:flex; align-items:center; gap:4px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                         <i class="fas fa-user"></i>
                         <span style="overflow:hidden; text-overflow:ellipsis;">${window.safeHtml(senderName)}</span>
@@ -630,7 +898,10 @@
                     ` : ''}
 
                     ${contentHtml}
-                    <span class="chat-time-stamp">${waktu}</span>
+                    <span class="chat-time-stamp">
+                        ${waktu}
+                        ${isOfficer ? ' <i class="fas fa-check-double" style="font-size:0.65rem; color:#bbf7d0; margin-left:3px;" title="Terkirim"></i>' : ''}
+                    </span>
                     ${reactionHtml}
                 </div>
             </div>
@@ -944,50 +1215,447 @@
     };
 
     // =========================================================================
-    // REPLIES & ATTACHMENTS
+    // MULTI-MEDIA BATCH MANAGER & PRE-SEND EDITOR (UP TO 500 FILES / 5GB)
     // =========================================================================
-    window.prepareReplyMessage = function (id, sender, text) {
-        window.activeReplyMessage = { id, sender, text };
-        const bar = document.getElementById('adminReplyPreviewBar');
-        const sEl = document.getElementById('adminReplySenderName');
-        const tEl = document.getElementById('adminReplySnippetText');
-        if (bar && sEl && tEl) {
-            sEl.innerText = sender;
-            tEl.innerText = text.length > 60 ? text.substring(0, 60) + '...' : text;
-            bar.style.display = 'flex';
-        }
-        document.querySelectorAll('.bubble-action-dropdown').forEach(el => el.classList.remove('show'));
-        document.getElementById('adminChatInput')?.focus();
-    };
+    window.pendingMediaBatch = [];
+    window.activeBatchIndex = 0;
+    window.doodleHistory = [];
+    window.currentDoodleColor = '#ef4444';
+    window.currentDoodleLineWidth = 4;
+    window.currentCanvasRotation = 0;
+    let isDrawingOnCanvas = false;
+    let lastX = 0;
+    let lastY = 0;
 
-    window.cancelAdminReply = function () {
-        window.activeReplyMessage = null;
-        const bar = document.getElementById('adminReplyPreviewBar');
-        if (bar) bar.style.display = 'none';
-    };
+    const MAX_FILES_LIMIT = 500;
+    const MAX_SIZE_LIMIT = 5 * 1024 * 1024 * 1024; // 5 GB
 
-    window.selectedAdminAttachmentFile = null;
+    function formatBytes(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function detectFileType(file) {
+        if (file.type && file.type.startsWith('image/')) return 'image';
+        if (file.type && file.type.startsWith('video/')) return 'video';
+        if (file.type && file.type.startsWith('audio/')) return 'audio';
+        const name = (file.name || '').toLowerCase();
+        if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].some(ext => name.endsWith('.' + ext))) return 'image';
+        if (['mp4', 'mov', 'webm', 'avi', 'mkv'].some(ext => name.endsWith('.' + ext))) return 'video';
+        if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'weba'].some(ext => name.endsWith('.' + ext))) return 'audio';
+        return 'document';
+    }
+
     window.handleAdminMediaSelection = function (input) {
-        if (!input.files || !input.files[0]) return;
-        const file = input.files[0];
-        window.selectedAdminAttachmentFile = file;
+        if (!input.files || input.files.length === 0) return;
+        window.pendingMediaBatch = [];
+        window.appendAdminMediaSelection(input);
+        input.value = '';
+    };
 
-        const bar = document.getElementById('adminAttachmentPreviewBar');
-        const nameEl = document.getElementById('adminAttachmentFileName');
-        const sizeEl = document.getElementById('adminAttachmentFileSize');
-        if (bar && nameEl && sizeEl) {
-            nameEl.innerText = file.name;
-            sizeEl.innerText = `(${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
-            bar.style.display = 'flex';
+    window.appendAdminMediaSelection = function (input) {
+        if (!input.files || input.files.length === 0) return;
+        const newFiles = Array.from(input.files);
+
+        if (window.pendingMediaBatch.length + newFiles.length > MAX_FILES_LIMIT) {
+            Swal.fire('Batas Berkas', `Maksimal pengiriman adalah ${MAX_FILES_LIMIT} berkas sekaligus. Berkas selebihnya diabaikan.`, 'warning');
+        }
+
+        const allowedFiles = newFiles.slice(0, MAX_FILES_LIMIT - window.pendingMediaBatch.length);
+        let currentTotalSize = window.pendingMediaBatch.reduce((sum, item) => sum + (item.file.size || 0), 0);
+
+        for (const file of allowedFiles) {
+            if (currentTotalSize + file.size > MAX_SIZE_LIMIT) {
+                Swal.fire('Kapasitas Penuh', `Total berkas melebihi batas maksimal 5 GB. Beberapa berkas tidak dapat ditambahkan.`, 'warning');
+                break;
+            }
+            currentTotalSize += file.size;
+            const type = detectFileType(file);
+            const previewUrl = URL.createObjectURL(file);
+            window.pendingMediaBatch.push({
+                id: `batch_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+                file: file,
+                type: type,
+                name: file.name,
+                size: file.size,
+                url: previewUrl,
+                previewUrl: previewUrl,
+                editedDataUrl: null
+            });
+        }
+
+        input.value = '';
+        if (window.pendingMediaBatch.length > 0) {
+            window.activeBatchIndex = Math.min(window.activeBatchIndex, window.pendingMediaBatch.length - 1);
+            if (window.activeBatchIndex < 0) window.activeBatchIndex = 0;
+            window.openMediaBatchModal();
         }
     };
 
-    window.clearAdminAttachment = function () {
-        window.selectedAdminAttachmentFile = null;
-        const bar = document.getElementById('adminAttachmentPreviewBar');
-        if (bar) bar.style.display = 'none';
-        const fileInput = document.getElementById('adminMediaFileInput');
-        if (fileInput) fileInput.value = '';
+    window.openMediaBatchModal = function () {
+        const modal = document.getElementById('modalMediaBatchPreview');
+        if (modal) modal.style.display = 'flex';
+        window.renderMediaBatchModal();
+    };
+
+    window.closeMediaBatchModal = function () {
+        const modal = document.getElementById('modalMediaBatchPreview');
+        if (modal) modal.style.display = 'none';
+        window.pendingMediaBatch.forEach(item => {
+            if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+        });
+        window.pendingMediaBatch = [];
+        window.activeBatchIndex = 0;
+        const progContainer = document.getElementById('batchUploadProgressBarContainer');
+        if (progContainer) progContainer.style.display = 'none';
+    };
+
+    window.removeBatchItem = function (idx, event) {
+        if (event) event.stopPropagation();
+        if (idx >= 0 && idx < window.pendingMediaBatch.length) {
+            const removed = window.pendingMediaBatch.splice(idx, 1)[0];
+            if (removed && removed.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+        }
+        if (window.pendingMediaBatch.length === 0) {
+            return window.closeMediaBatchModal();
+        }
+        if (window.activeBatchIndex >= window.pendingMediaBatch.length) {
+            window.activeBatchIndex = window.pendingMediaBatch.length - 1;
+        }
+        window.renderMediaBatchModal();
+    };
+
+    window.selectBatchItem = function (idx) {
+        window.saveCurrentCanvasEdit();
+        window.activeBatchIndex = idx;
+        window.renderMediaBatchModal();
+    };
+
+    window.renderMediaBatchModal = function () {
+        const queueContainer = document.getElementById('batchThumbnailQueue');
+        const activeContainer = document.getElementById('mediaActiveViewerContainer');
+        const counterSummary = document.getElementById('batchMediaCounterSummary');
+        const listCountText = document.getElementById('batchListCountText');
+        const totalSizeText = document.getElementById('batchTotalSizeText');
+        const submitText = document.getElementById('btnSubmitBatchText');
+        const doodleToolbar = document.getElementById('mediaDoodleToolbar');
+
+        const totalItems = window.pendingMediaBatch.length;
+        const totalBytes = window.pendingMediaBatch.reduce((sum, item) => sum + (item.file.size || 0), 0);
+
+        if (counterSummary) counterSummary.innerText = `${totalItems} Berkas terpilih (${formatBytes(totalBytes)} / 5.0 GB)`;
+        if (listCountText) listCountText.innerText = totalItems;
+        if (totalSizeText) totalSizeText.innerText = formatBytes(totalBytes);
+        if (submitText) submitText.innerText = `Kirim ${totalItems} Berkas`;
+
+        if (queueContainer) {
+            queueContainer.innerHTML = window.pendingMediaBatch.map((item, idx) => {
+                const isActive = idx === window.activeBatchIndex;
+                let thumbHtml = '';
+                if (item.type === 'image') {
+                    thumbHtml = `<img src="${item.editedDataUrl || item.previewUrl}" style="width:50px; height:50px; object-fit:cover; border-radius:8px;" />`;
+                } else if (item.type === 'video') {
+                    thumbHtml = `<div style="width:50px; height:50px; border-radius:8px; background:#1e293b; color:#38bdf8; display:flex; align-items:center; justify-content:center; font-size:1.3rem;"><i class="fas fa-video"></i></div>`;
+                } else if (item.type === 'audio') {
+                    thumbHtml = `<div style="width:50px; height:50px; border-radius:8px; background:#065f46; color:#a7f3d0; display:flex; align-items:center; justify-content:center; font-size:1.3rem;"><i class="fas fa-microphone"></i></div>`;
+                } else {
+                    const ext = (item.name || '').split('.').pop().toLowerCase();
+                    let icon = 'fa-file-alt';
+                    let bg = '#3b82f6';
+                    if (['pdf'].includes(ext)) { icon = 'fa-file-pdf'; bg = '#ef4444'; }
+                    else if (['doc', 'docx'].includes(ext)) { icon = 'fa-file-word'; bg = '#2563eb'; }
+                    else if (['xls', 'xlsx', 'csv'].includes(ext)) { icon = 'fa-file-excel'; bg = '#10b981'; }
+                    thumbHtml = `<div style="width:50px; height:50px; border-radius:8px; background:${bg}; color:white; display:flex; align-items:center; justify-content:center; font-size:1.3rem;"><i class="fas ${icon}"></i></div>`;
+                }
+
+                return `
+                    <div onclick="window.selectBatchItem(${idx})" style="position:relative; cursor:pointer; flex-shrink:0; border:2px solid ${isActive ? '#009846' : 'transparent'}; border-radius:10px; padding:2px; background:${isActive ? '#dcfce7' : 'transparent'};">
+                        ${thumbHtml}
+                        <button type="button" onclick="window.removeBatchItem(${idx}, event)" style="position:absolute; top:-4px; right:-4px; width:18px; height:18px; border-radius:50%; background:#dc2626; color:white; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:0.65rem;" title="Hapus berkas ini">&times;</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        const activeItem = window.pendingMediaBatch[window.activeBatchIndex];
+        if (!activeItem || !activeContainer) return;
+
+        if (activeItem.type === 'image') {
+            if (doodleToolbar) doodleToolbar.style.display = 'flex';
+            activeContainer.innerHTML = `
+                <div style="position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
+                    <canvas id="mediaEditorCanvas" style="max-width:100%; max-height:380px; object-fit:contain; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.5); cursor:crosshair;"></canvas>
+                </div>
+            `;
+            window.initDoodleCanvas(activeItem);
+        } else {
+            if (doodleToolbar) doodleToolbar.style.display = 'none';
+
+            if (activeItem.type === 'video') {
+                activeContainer.innerHTML = `
+                    <div style="max-width:90%; max-height:100%; display:flex; flex-direction:column; align-items:center;">
+                        <video id="batchVideoPreviewPlayer" src="${activeItem.previewUrl}" controls playsinline style="max-width:100%; max-height:360px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.5);"></video>
+                        <div style="color:#94a3b8; font-size:0.75rem; margin-top:8px;">${window.safeHtml(activeItem.name)} (${formatBytes(activeItem.size)})</div>
+                    </div>
+                `;
+            } else if (activeItem.type === 'audio') {
+                activeContainer.innerHTML = `
+                    <div style="background:#1e293b; padding:24px 30px; border-radius:18px; width:100%; max-width:440px; box-shadow:0 10px 30px rgba(0,0,0,0.4); text-align:center; border:1px solid rgba(255,255,255,0.1);">
+                        <div style="width:64px; height:64px; border-radius:50%; background:#009846; color:white; display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin:0 auto 14px auto; box-shadow:0 4px 14px rgba(0,152,70,0.4);">
+                            <i class="fas fa-microphone"></i>
+                        </div>
+                        <div style="font-size:1rem; font-weight:800; color:#f8fafc; margin-bottom:4px;">${window.safeHtml(activeItem.name)}</div>
+                        <div style="font-size:0.75rem; color:#94a3b8; margin-bottom:16px;">Pratinjau Pesan Suara • ${formatBytes(activeItem.size)}</div>
+                        <audio src="${activeItem.previewUrl}" controls style="width:100%; outline:none; border-radius:20px;"></audio>
+                    </div>
+                `;
+            } else {
+                const ext = (activeItem.name || '').split('.').pop().toLowerCase();
+                let icon = 'fas fa-file-alt';
+                let themeColor = '#3b82f6';
+                let docLabel = 'Dokumen Berkas';
+                let badgeBg = '#2563eb';
+
+                if (['pdf'].includes(ext)) {
+                    icon = 'fas fa-file-pdf';
+                    themeColor = '#ef4444';
+                    docLabel = 'Dokumen PDF Resmi';
+                    badgeBg = '#dc2626';
+                } else if (['doc', 'docx'].includes(ext)) {
+                    icon = 'fas fa-file-word';
+                    themeColor = '#2563eb';
+                    docLabel = 'Microsoft Word Document';
+                    badgeBg = '#2563eb';
+                } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+                    icon = 'fas fa-file-excel';
+                    themeColor = '#10b981';
+                    docLabel = 'Spreadsheet Excel Data';
+                    badgeBg = '#16a34a';
+                }
+
+                activeContainer.innerHTML = `
+                    <div style="background:#1e293b; padding:24px 28px; border-radius:18px; width:100%; max-width:440px; box-shadow:0 10px 30px rgba(0,0,0,0.4); text-align:center; border:1.5px solid ${themeColor};">
+                        <div style="width:68px; height:68px; border-radius:16px; background:${badgeBg}; color:white; display:flex; align-items:center; justify-content:center; font-size:2.2rem; margin:0 auto 14px auto; box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+                            <i class="${icon}"></i>
+                        </div>
+                        <span style="display:inline-block; background:${badgeBg}; color:white; font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:4px; text-transform:uppercase; margin-bottom:6px; letter-spacing:0.5px;">${ext.toUpperCase()}</span>
+                        <div style="font-size:0.95rem; font-weight:800; color:#f8fafc; margin-bottom:4px; word-break:break-word;">${window.safeHtml(activeItem.name)}</div>
+                        <div style="font-size:0.75rem; color:#94a3b8; margin-bottom:18px;">${docLabel} • ${formatBytes(activeItem.size)}</div>
+                        <button type="button" onclick="window.open('${activeItem.previewUrl}', '_blank')" class="btn" style="background:${badgeBg}; color:white; font-weight:700; font-size:0.82rem; border-radius:12px; padding:9px 20px; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
+                            <i class="fas fa-external-link-alt"></i> Masuk / Buka Isi Dokumen
+                        </button>
+                    </div>
+                `;
+            }
+        }
+    };
+
+    window.initDoodleCanvas = function (item) {
+        const canvas = document.getElementById('mediaEditorCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            canvas.width = img.naturalWidth || 800;
+            canvas.height = img.naturalHeight || 600;
+            ctx.drawImage(img, 0, 0);
+            window.doodleHistory = [canvas.toDataURL()];
+        };
+        img.src = item.editedDataUrl || item.previewUrl;
+
+        const startDraw = (e) => {
+            isDrawingOnCanvas = true;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0].clientY);
+            lastX = (clientX - rect.left) * scaleX;
+            lastY = (clientY - rect.top) * scaleY;
+        };
+
+        const draw = (e) => {
+            if (!isDrawingOnCanvas) return;
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0].clientY);
+            const x = (clientX - rect.left) * scaleX;
+            const y = (clientY - rect.top) * scaleY;
+
+            ctx.strokeStyle = window.currentDoodleColor;
+            ctx.lineWidth = window.currentDoodleLineWidth;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+
+            lastX = x;
+            lastY = y;
+        };
+
+        const stopDraw = () => {
+            if (isDrawingOnCanvas) {
+                isDrawingOnCanvas = false;
+                window.doodleHistory.push(canvas.toDataURL());
+            }
+        };
+
+        canvas.onmousedown = startDraw;
+        canvas.onmousemove = draw;
+        canvas.onmouseup = stopDraw;
+        canvas.onmouseleave = stopDraw;
+        canvas.ontouchstart = startDraw;
+        canvas.ontouchmove = draw;
+        canvas.ontouchend = stopDraw;
+    };
+
+    window.saveCurrentCanvasEdit = function () {
+        const canvas = document.getElementById('mediaEditorCanvas');
+        const activeItem = window.pendingMediaBatch[window.activeBatchIndex];
+        if (canvas && activeItem && activeItem.type === 'image') {
+            activeItem.editedDataUrl = canvas.toDataURL();
+        }
+    };
+
+    window.setDoodleColor = function (color) {
+        window.currentDoodleColor = color;
+        document.querySelectorAll('.doodle-color-btn').forEach(b => {
+            b.style.borderColor = b.style.backgroundColor === color ? 'white' : 'transparent';
+        });
+    };
+
+    window.undoDoodleStroke = function () {
+        const canvas = document.getElementById('mediaEditorCanvas');
+        if (!canvas || window.doodleHistory.length <= 1) return;
+        window.doodleHistory.pop();
+        const prevData = window.doodleHistory[window.doodleHistory.length - 1];
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+        };
+        img.src = prevData;
+    };
+
+    window.clearDoodleCanvas = function () {
+        const canvas = document.getElementById('mediaEditorCanvas');
+        const activeItem = window.pendingMediaBatch[window.activeBatchIndex];
+        if (!canvas || !activeItem) return;
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            window.doodleHistory = [canvas.toDataURL()];
+        };
+        img.src = activeItem.previewUrl;
+    };
+
+    window.rotateDoodleCanvas = function () {
+        const canvas = document.getElementById('mediaEditorCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const prevImg = new Image();
+        prevImg.onload = () => {
+            const oldW = canvas.width;
+            const oldH = canvas.height;
+            canvas.width = oldH;
+            canvas.height = oldW;
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(90 * Math.PI / 180);
+            ctx.drawImage(prevImg, -oldW / 2, -oldH / 2);
+            window.doodleHistory.push(canvas.toDataURL());
+        };
+        prevImg.src = canvas.toDataURL();
+    };
+
+    window.sendBatchMediaNow = async function () {
+        if (!window.activeChatNik) return Swal.fire('Peringatan', 'Pilih obrolan warga terlebih dahulu.', 'warning');
+        if (window.pendingMediaBatch.length === 0) return;
+
+        window.saveCurrentCanvasEdit();
+
+        const captionInp = document.getElementById('batchMediaCaptionInput');
+        const captionText = captionInp ? captionInp.value.trim() : '';
+        const submitBtn = document.getElementById('btnSubmitBatchMedia');
+        const progContainer = document.getElementById('batchUploadProgressBarContainer');
+        const progBar = document.getElementById('batchUploadProgressBar');
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
+        }
+        if (progContainer) progContainer.style.display = 'block';
+        if (progBar) progBar.style.width = '20%';
+
+        const handler = (window.chatHandlersMap[window.activeChatNik] || 'Petugas').toUpperCase();
+        const formData = new FormData();
+        formData.append('sender', 'petugas');
+        formData.append('nama', `Dinsos Sidoarjo (${handler})`);
+        if (captionText) formData.append('pesan', captionText);
+
+        if (window.activeReplyMessage) {
+            formData.append('reply_sender', window.activeReplyMessage.sender);
+            formData.append('reply_text', window.activeReplyMessage.text);
+            formData.append('reply_to_id', window.activeReplyMessage.id);
+            window.cancelAdminReply();
+        }
+
+        for (let i = 0; i < window.pendingMediaBatch.length; i++) {
+            const item = window.pendingMediaBatch[i];
+            if (item.editedDataUrl) {
+                const res = await fetch(item.editedDataUrl);
+                const blob = await res.blob();
+                formData.append('files', blob, item.name);
+            } else {
+                formData.append('files', item.file, item.name);
+            }
+        }
+
+        if (progBar) progBar.style.width = '65%';
+
+        try {
+            const uploadRes = await fetch(`${BASE_API_URL}/api/chat/${window.activeChatNik}`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (progBar) progBar.style.width = '100%';
+
+            if (uploadRes.ok) {
+                window.closeMediaBatchModal();
+                if (captionInp) captionInp.value = '';
+                window.loadChatMessages(window.activeChatNik, window.activeChatName);
+                window.loadChatList();
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: 'Semua berkas berhasil dikirim',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                Swal.fire('Gagal', 'Terjadi kesalahan saat mengunggah berkas.', 'error');
+            }
+        } catch (e) {
+            Swal.fire('Error', 'Gagal menghubungi peladen saat mengunggah.', 'error');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Kirim Berkas';
+            }
+        }
     };
 
     // =========================================================================
@@ -1063,21 +1731,20 @@
             const audioBlob = new Blob(window.audioChunks, { type: 'audio/webm' });
             window.audioChunks = [];
 
-            const handler = (window.chatHandlersMap[window.activeChatNik] || 'Petugas').toUpperCase();
-            const formData = new FormData();
-            formData.append('sender', 'petugas');
-            formData.append('nama', `Dinsos Sidoarjo (${handler})`);
-            formData.append('pesan', 'Pesan Suara (Voice Note)');
-            formData.append('custom_file_type', 'audio');
-            formData.append('file', audioBlob, `voice_${Date.now()}.webm`);
-
-            try {
-                await fetch(`${BASE_API_URL}/api/chat/${window.activeChatNik}`, {
-                    method: 'POST',
-                    body: formData
-                });
-                window.loadChatMessages(window.activeChatNik, window.activeChatName);
-            } catch (err) {}
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audioFile = new File([audioBlob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
+            window.pendingMediaBatch = [{
+                id: `voice_${Date.now()}`,
+                file: audioFile,
+                type: 'audio',
+                name: 'Pesan Suara (Voice Note)',
+                size: audioBlob.size,
+                url: audioUrl,
+                previewUrl: audioUrl,
+                editedDataUrl: null
+            }];
+            window.activeBatchIndex = 0;
+            window.openMediaBatchModal();
         };
 
         window.mediaRecorderObj.stop();
@@ -1149,7 +1816,7 @@
                     if (messages.length > currentCount) {
                         const newMessages = messages.slice(currentCount);
                         newMessages.forEach(m => {
-                            const isSenderAdmin = m.pengirim === 'admin' || m.sender === 'admin' || m.is_admin === true;
+                            const isSenderAdmin = m.sender !== 'warga' || m.pengirim === 'admin' || m.sender === 'admin' || m.sender === 'petugas' || m.is_admin === true;
                             chatBox.insertAdjacentHTML('beforeend', window.formatModernBubbleHtml(m, isSenderAdmin));
                         });
                         chatBox.scrollTop = chatBox.scrollHeight;
@@ -1159,60 +1826,152 @@
         } catch (err) {}
     }
 
-    window.addReactionToMessage = function (msgId, emojiChar) {
+    window.addReactionToMessage = async function (msgId, emojiChar) {
         document.querySelectorAll('.bubble-action-dropdown').forEach(el => el.classList.remove('show'));
         const wrap = document.getElementById(`bubble_wrap_${msgId}`);
-        if (!wrap) return;
-        let reactEl = wrap.querySelector('.msg-reaction-display');
-        if (!reactEl) {
-            reactEl = document.createElement('div');
-            reactEl.className = 'msg-reaction-display';
-            wrap.querySelector('.chat-msg-bubble')?.appendChild(reactEl);
+        if (wrap) {
+            let reactEl = wrap.querySelector('.msg-reaction-display');
+            if (!reactEl) {
+                reactEl = document.createElement('div');
+                reactEl.className = 'msg-reaction-display';
+                wrap.querySelector('.chat-msg-bubble')?.appendChild(reactEl);
+            }
+            reactEl.innerText = emojiChar;
         }
-        reactEl.innerText = emojiChar;
+        try {
+            await apiCall(`/api/chat/react/${msgId}`, {
+                method: 'POST',
+                body: JSON.stringify({ reaction: emojiChar })
+            });
+        } catch (e) {}
     };
 
-    window.prepareReplyMessage = function (id, sender, text) {
-        window.activeReplyMessage = { id, sender, text };
-        const senderEl = document.getElementById('replyTargetSender');
-        if (senderEl) senderEl.innerText = sender;
-        const textEl = document.getElementById('replyTargetText');
-        if (textEl) textEl.innerText = text;
-        const bannerEl = document.getElementById('replyMessageBanner');
-        if (bannerEl) bannerEl.style.display = 'flex';
+    window.prepareReplyMessage = function (id, sender, text, fileType = '') {
+        window.activeReplyMessage = { id, sender, text, fileType };
+        const bar = document.getElementById('adminReplyPreviewBar');
+        const sEl = document.getElementById('adminReplySenderName');
+        const tEl = document.getElementById('adminReplySnippetText');
+        if (bar && sEl && tEl) {
+            sEl.innerText = sender;
+            const iconPrefix = fileType === 'image' ? '📷 Foto: ' :
+                               fileType === 'video' ? '🎬 Video: ' :
+                               fileType === 'audio' ? '🎙️ Suara: ' :
+                               fileType === 'document' ? '📄 Berkas: ' : '';
+            const displayText = iconPrefix + text;
+            tEl.innerText = displayText.length > 70 ? displayText.substring(0, 70) + '...' : displayText;
+            bar.style.display = 'flex';
+        }
         document.querySelectorAll('.bubble-action-dropdown').forEach(el => el.classList.remove('show'));
-        document.getElementById('adminChatInput')?.focus();
+        const inp = document.getElementById('adminChatInput');
+        if (inp) {
+            inp.placeholder = `Membalas ${sender}...`;
+            inp.focus();
+        }
     };
 
-    window.cancelReplyMessage = function () {
+    window.cancelAdminReply = function () {
         window.activeReplyMessage = null;
-        const bannerEl = document.getElementById('replyMessageBanner');
-        if (bannerEl) bannerEl.style.display = 'none';
+        const bar = document.getElementById('adminReplyPreviewBar');
+        if (bar) bar.style.display = 'none';
+        const inp = document.getElementById('adminChatInput');
+        if (inp) inp.placeholder = 'Ketik balasan untuk warga... (Enter untuk kirim)';
     };
+    window.cancelReplyMessage = window.cancelAdminReply;
 
-    window.pinMessageDirect = function (text) {
+    window.pinMessageDirect = async function (msgId, text) {
         if (!window.activeChatNik) return;
-        window.pinnedMessages[window.activeChatNik] = text;
+        const current = window.pinnedMessages[window.activeChatNik];
+        const isAlreadyPinned = current && (current.id === msgId || current === text || (typeof current === 'object' && current.text === text));
+
+        if (isAlreadyPinned) {
+            return window.unpinCurrentMessage();
+        }
+
+        window.pinnedMessages[window.activeChatNik] = { id: msgId, text: text || 'Media Terlampir' };
         localStorage.setItem('chatPinnedMap', JSON.stringify(window.pinnedMessages));
         window.refreshPinnedBanner();
-        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Pesan disematkan', timer: 1500, showConfirmButton: false });
+
+        try {
+            await apiCall(`/api/chat/pin/${msgId}`, {
+                method: 'POST',
+                body: JSON.stringify({ is_pinned: true })
+            });
+        } catch (e) {}
+
+        document.querySelectorAll('.bubble-action-dropdown').forEach(el => el.classList.remove('show'));
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Pesan berhasil disematkan',
+            timer: 1600,
+            showConfirmButton: false
+        });
     };
 
     window.refreshPinnedBanner = function () {
-        const banner = document.getElementById('pinnedMessageBanner');
-        const txt = document.getElementById('pinnedMessageText');
-        if (banner && txt && window.pinnedMessages[window.activeChatNik]) {
-            txt.innerText = window.pinnedMessages[window.activeChatNik];
+        const banner = document.getElementById('chatPinnedBanner');
+        const txt = document.getElementById('pinnedBannerText');
+        if (!banner) return;
+
+        const pinned = window.pinnedMessages[window.activeChatNik];
+        if (pinned) {
+            const textDisplay = typeof pinned === 'object' ? pinned.text : pinned;
+            if (txt) txt.innerText = textDisplay.length > 75 ? textDisplay.substring(0, 75) + '...' : textDisplay;
             banner.style.display = 'flex';
-        } else if (banner) {
+            banner.title = 'Klik untuk lompat ke pesan yang disematkan';
+            banner.onclick = window.jumpToPinnedMessage;
+        } else {
             banner.style.display = 'none';
         }
     };
 
-    window.unpinCurrentMessage = function () {
+    window.jumpToPinnedMessage = function () {
+        const pinned = window.pinnedMessages[window.activeChatNik];
+        if (!pinned) return;
+        const targetId = typeof pinned === 'object' ? pinned.id : null;
+        let targetEl = targetId ? document.getElementById(`bubble_wrap_${targetId}`) : null;
+        if (!targetEl && typeof pinned === 'string') {
+            const rows = document.querySelectorAll('#adminChatMessages .chat-msg-row');
+            for (const r of rows) {
+                if (r.innerText.includes(pinned)) { targetEl = r; break; }
+            }
+        }
+        if (targetEl) {
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            targetEl.classList.remove('pinned-highlight-pulse');
+            void targetEl.offsetWidth;
+            targetEl.classList.add('pinned-highlight-pulse');
+            setTimeout(() => targetEl.classList.remove('pinned-highlight-pulse'), 3600);
+        }
+    };
+
+    window.unpinCurrentMessage = async function () {
+        if (!window.activeChatNik) return;
+        const pinned = window.pinnedMessages[window.activeChatNik];
+        const targetId = pinned && typeof pinned === 'object' ? pinned.id : null;
+
         delete window.pinnedMessages[window.activeChatNik];
         localStorage.setItem('chatPinnedMap', JSON.stringify(window.pinnedMessages));
         window.refreshPinnedBanner();
+
+        if (targetId) {
+            try {
+                await apiCall(`/api/chat/pin/${targetId}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ is_pinned: false })
+                });
+            } catch (e) {}
+        }
+
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'info',
+            title: 'Sematan pesan dilepas',
+            timer: 1500,
+            showConfirmButton: false
+        });
     };
 
     window.salinTeksPesan = function (text) {
@@ -1433,19 +2192,9 @@
         window.audioChunks = [];
     };
 
-    window.handleAdminMediaSelection = function (input) {
-        if (!input.files || !input.files[0]) return;
-        const file = input.files[0];
-        const fileType = file.type;
-
-        if (fileType.startsWith('image/')) {
-            window.openImageEditor(file);
-        } else if (fileType.startsWith('video/')) {
-            window.openVideoEditor(file);
-        } else {
-            window.confirmSendDocument(file);
-        }
-        input.value = '';
+    // Single-media compatibility alias that delegates to multi-file batch queue
+    window.handleSingleAdminMediaSelection = function (input) {
+        window.handleAdminMediaSelection(input);
     };
 
     window.uploadDirectBlob = async function (blob, fileName) {
@@ -2631,21 +3380,183 @@
         });
     };
 
-    window.openLightbox = function (url, type) {
+    // =========================================================================
+    // LIGHTBOX MULTI-MEDIA DENGAN ZOOM, ROTATE, DOWNLOAD & KONTROL SUARA LENGKAP
+    // =========================================================================
+    window.lightboxCurrentMedia = { url: '', type: 'image', name: '', zoom: 1, rotation: 0 };
+
+    window.openLightbox = function (url, type = 'image', name = '') {
         const box = document.getElementById('mediaLightbox');
         const content = document.getElementById('lightboxContent');
+        const imgToolbar = document.getElementById('lightboxImageToolbar');
+        const vidToolbar = document.getElementById('lightboxVideoToolbar');
         if (!box || !content) return;
+
+        window.lightboxCurrentMedia = {
+            url: url,
+            type: type,
+            name: name || (type === 'image' ? 'Foto_Lampiran.jpg' : 'Video_Lampiran.mp4'),
+            zoom: 1,
+            rotation: 0
+        };
+
         box.style.display = 'flex';
-        content.innerHTML = type === 'image' 
-            ? `<img src="${url}" style="max-width:90vw; max-height:85vh; border-radius:12px;" />` 
-            : `<video src="${url}" controls autoplay style="max-width:90vw; max-height:85vh; border-radius:12px;"></video>`;
+
+        if (type === 'image') {
+            if (imgToolbar) imgToolbar.style.display = 'flex';
+            if (vidToolbar) vidToolbar.style.display = 'none';
+            const zoomText = document.getElementById('lightboxZoomLevelText');
+            if (zoomText) zoomText.innerText = '100%';
+
+            content.innerHTML = `
+                <div style="display:flex; align-items:center; justify-content:center; width:100%; height:100%; overflow:hidden;">
+                    <img id="lightboxTargetImg" src="${url}" alt="${window.safeHtml(window.lightboxCurrentMedia.name)}" style="max-width:88vw; max-height:82vh; border-radius:12px; transition:transform 0.15s ease-out; object-fit:contain; box-shadow:0 20px 50px rgba(0,0,0,0.6);" />
+                </div>
+            `;
+        } else if (type === 'video') {
+            if (imgToolbar) imgToolbar.style.display = 'none';
+            if (vidToolbar) vidToolbar.style.display = 'flex';
+
+            const slider = document.getElementById('lightboxVolumeSlider');
+            const volText = document.getElementById('lightboxVolumeText');
+            const muteBtn = document.getElementById('btnLightboxMute');
+            if (slider) slider.value = 1;
+            if (volText) volText.innerText = '100%';
+            if (muteBtn) muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+
+            content.innerHTML = `
+                <div style="display:flex; align-items:center; justify-content:center; width:100%; height:100%;">
+                    <video id="lightboxTargetVideo" src="${url}" controls autoplay playsinline style="max-width:88vw; max-height:82vh; border-radius:12px; box-shadow:0 20px 50px rgba(0,0,0,0.6);"></video>
+                </div>
+            `;
+
+            const vidEl = document.getElementById('lightboxTargetVideo');
+            if (vidEl) {
+                vidEl.onvolumechange = () => {
+                    if (slider) slider.value = vidEl.muted ? 0 : vidEl.volume;
+                    if (volText) volText.innerText = vidEl.muted ? '0%' : `${Math.round(vidEl.volume * 100)}%`;
+                    if (muteBtn) {
+                        muteBtn.innerHTML = (vidEl.muted || vidEl.volume === 0)
+                            ? '<i class="fas fa-volume-mute" style="color:#ef4444;"></i>'
+                            : '<i class="fas fa-volume-up"></i>';
+                    }
+                };
+            }
+        } else {
+            window.open(url, '_blank');
+        }
     };
 
     window.closeLightbox = function (e) {
-        if (e.target.id === 'mediaLightbox' || e.target.classList.contains('close-lightbox-btn')) {
+        if (!e || e.target.id === 'mediaLightbox' || e.target.closest('.close-lightbox-btn') || e.target.innerText === '×') {
             const box = document.getElementById('mediaLightbox');
+            const vid = document.getElementById('lightboxTargetVideo');
+            if (vid) {
+                vid.pause();
+                vid.src = '';
+            }
             if (box) box.style.display = 'none';
         }
+    };
+
+    window.downloadLightboxMedia = function () {
+        if (!window.lightboxCurrentMedia || !window.lightboxCurrentMedia.url) return;
+        const a = document.createElement('a');
+        a.href = window.lightboxCurrentMedia.url;
+        a.download = window.lightboxCurrentMedia.name || 'berkas_lampiran';
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
+    window.toggleLightboxFullscreen = function () {
+        const box = document.getElementById('mediaLightbox');
+        if (!document.fullscreenElement) {
+            if (box && box.requestFullscreen) {
+                box.requestFullscreen();
+            } else if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) document.exitFullscreen();
+        }
+    };
+
+    window.zoomLightbox = function (delta) {
+        if (!window.lightboxCurrentMedia) return;
+        let newZoom = Math.min(Math.max((window.lightboxCurrentMedia.zoom || 1) + delta, 0.3), 4.0);
+        window.lightboxCurrentMedia.zoom = Math.round(newZoom * 10) / 10;
+        const zoomText = document.getElementById('lightboxZoomLevelText');
+        if (zoomText) zoomText.innerText = `${Math.round(window.lightboxCurrentMedia.zoom * 100)}%`;
+
+        const img = document.getElementById('lightboxTargetImg');
+        if (img) {
+            img.style.transform = `scale(${window.lightboxCurrentMedia.zoom}) rotate(${window.lightboxCurrentMedia.rotation || 0}deg)`;
+        }
+    };
+
+    window.rotateLightbox = function () {
+        if (!window.lightboxCurrentMedia) return;
+        window.lightboxCurrentMedia.rotation = ((window.lightboxCurrentMedia.rotation || 0) + 90) % 360;
+        const img = document.getElementById('lightboxTargetImg');
+        if (img) {
+            img.style.transform = `scale(${window.lightboxCurrentMedia.zoom || 1}) rotate(${window.lightboxCurrentMedia.rotation}deg)`;
+        }
+    };
+
+    window.resetLightboxTransform = function () {
+        if (!window.lightboxCurrentMedia) return;
+        window.lightboxCurrentMedia.zoom = 1;
+        window.lightboxCurrentMedia.rotation = 0;
+        const zoomText = document.getElementById('lightboxZoomLevelText');
+        if (zoomText) zoomText.innerText = '100%';
+        const img = document.getElementById('lightboxTargetImg');
+        if (img) {
+            img.style.transform = 'scale(1) rotate(0deg)';
+        }
+    };
+
+    window.toggleLightboxMute = function () {
+        const vid = document.getElementById('lightboxTargetVideo');
+        if (!vid) return;
+        vid.muted = !vid.muted;
+        const muteBtn = document.getElementById('btnLightboxMute');
+        const slider = document.getElementById('lightboxVolumeSlider');
+        const volText = document.getElementById('lightboxVolumeText');
+        if (muteBtn) {
+            muteBtn.innerHTML = vid.muted
+                ? '<i class="fas fa-volume-mute" style="color:#ef4444;"></i>'
+                : '<i class="fas fa-volume-up"></i>';
+        }
+        if (slider) slider.value = vid.muted ? 0 : vid.volume;
+        if (volText) volText.innerText = vid.muted ? '0%' : `${Math.round(vid.volume * 100)}%`;
+    };
+
+    window.setLightboxVolume = function (val) {
+        const vid = document.getElementById('lightboxTargetVideo');
+        if (!vid) return;
+        const volumeVal = parseFloat(val);
+        vid.volume = Math.min(Math.max(volumeVal, 0), 1);
+        if (vid.volume > 0 && vid.muted) vid.muted = false;
+        const volText = document.getElementById('lightboxVolumeText');
+        if (volText) volText.innerText = `${Math.round(vid.volume * 100)}%`;
+        const muteBtn = document.getElementById('btnLightboxMute');
+        if (muteBtn) {
+            muteBtn.innerHTML = vid.volume === 0
+                ? '<i class="fas fa-volume-mute" style="color:#ef4444;"></i>'
+                : '<i class="fas fa-volume-up"></i>';
+        }
+    };
+
+    window.adjustLightboxVolume = function (delta) {
+        const vid = document.getElementById('lightboxTargetVideo');
+        if (!vid) return;
+        let current = vid.muted ? 0 : vid.volume;
+        let nextVol = Math.min(Math.max(current + delta, 0), 1);
+        window.setLightboxVolume(nextVol);
+        const slider = document.getElementById('lightboxVolumeSlider');
+        if (slider) slider.value = nextVol;
     };
 
     // =========================================================================
@@ -2716,11 +3627,21 @@
                     })
                 });
 
-                if (res && res.status === 'success') {
+                let resJson = null;
+                if (res) {
+                    if (typeof res.json === 'function') {
+                        try { resJson = await res.json(); } catch (e) { resJson = {}; }
+                    } else {
+                        resJson = res;
+                    }
+                }
+
+                if ((res && res.ok) || (resJson && (resJson.status === 'success' || resJson.success))) {
+                    const kode = (resJson && resJson.data && resJson.data.kode_laporan) || (resJson && resJson.kode_laporan) || 'LAP-MOD-' + Date.now().toString().slice(-4);
                     Swal.fire({
                         icon: 'success',
                         title: 'Laporan Diterima',
-                        text: `Pesan berhasil dilaporkan ke Pusat Moderasi & Pengawasan (${res.data?.kode_laporan || 'Tercatat'}).`,
+                        text: `Pesan berhasil dilaporkan ke Pusat Moderasi & Pengawasan (${kode}).`,
                         timer: 3000,
                         showConfirmButton: false
                     });
@@ -2728,7 +3649,7 @@
                         window.updateViolationBadgeCount();
                     }
                 } else {
-                    Swal.fire('Gagal', res?.message || 'Gagal mengirim laporan pelanggaran.', 'error');
+                    Swal.fire('Gagal', (resJson && resJson.message) || 'Gagal mengirim laporan pelanggaran.', 'error');
                 }
             } catch (err) {
                 Swal.fire('Error', 'Terjadi kesalahan sistem saat memproses laporan.', 'error');

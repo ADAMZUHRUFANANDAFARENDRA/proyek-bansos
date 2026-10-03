@@ -94,6 +94,8 @@ export interface ChatItem {
   pesan: string | null;
   text: string | null;
   file_path: string | null;
+  file_name?: string | null;
+  file_size?: number | null;
   file_type: string | null;
   reply_sender: string | null;
   reply_text: string | null;

@@ -27,7 +27,7 @@ const storage = multer.diskStorage({
   }
 });
 
-export const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
+export const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 * 1024, files: 500 } });
 
 export const KECAMATAN_SIDOARJO = [
   { nama: 'Sidoarjo', lat: -7.4478, lng: 112.7183, desil_avg: 2 },
@@ -180,6 +180,69 @@ export const chatStore: ChatItem[] = [
     deleted_for: null,
     waktu: '08:35',
     created_at: '2026-09-27 08:35'
+  },
+  {
+    id: 3,
+    nik: '3515101408890010',
+    sender: 'petugas',
+    nama: 'Petugas Dinsos Sidoarjo',
+    pesan: 'Berikut kami lampirkan dokumen Surat Keputusan Verifikasi Penerima Bantuan Sosial Kabupaten Sidoarjo tahun 2026.',
+    text: 'Berikut kami lampirkan dokumen Surat Keputusan Verifikasi Penerima Bantuan Sosial Kabupaten Sidoarjo tahun 2026.',
+    file_path: '/uploads/1790940052691_data_hasil_saw.pdf',
+    file_name: 'Surat_Keputusan_Verifikasi_Bansos_2026.pdf',
+    file_size: 245760,
+    file_type: 'document',
+    reply_sender: null,
+    reply_text: null,
+    reply_to_id: null,
+    reaction: '👍',
+    is_pinned: false,
+    is_deleted_all: false,
+    deleted_for: null,
+    waktu: '08:40',
+    created_at: '2026-09-27 08:40'
+  },
+  {
+    id: 4,
+    nik: '3515101408890010',
+    sender: 'petugas',
+    nama: 'Petugas Dinsos Sidoarjo',
+    pesan: 'Ini berkas lembar kerja spreadsheet data rekapitulasi penyaluran sembako per desa di Kecamatan Krian.',
+    text: 'Ini berkas lembar kerja spreadsheet data rekapitulasi penyaluran sembako per desa di Kecamatan Krian.',
+    file_path: '/uploads/1790940052706_data_100_warga_sidoarjo.xlsx',
+    file_name: 'Rekapitulasi_Salur_Bansos_Kecamatan_Krian.xlsx',
+    file_size: 512000,
+    file_type: 'document',
+    reply_sender: null,
+    reply_text: null,
+    reply_to_id: null,
+    reaction: '',
+    is_pinned: false,
+    is_deleted_all: false,
+    deleted_for: null,
+    waktu: '08:42',
+    created_at: '2026-09-27 08:42'
+  },
+  {
+    id: 5,
+    nik: '3515101408890010',
+    sender: 'petugas',
+    nama: 'Petugas Dinsos Sidoarjo',
+    pesan: 'Dan ini formulir berkas panduan persyaratan administrasi pencairan bantuan sosial format Microsoft Word.',
+    text: 'Dan ini formulir berkas panduan persyaratan administrasi pencairan bantuan sosial format Microsoft Word.',
+    file_path: '/uploads/1790940052707_Data_Dummy_20_Kriteria.docx',
+    file_name: 'Panduan_Administrasi_Pencairan_Bansos.docx',
+    file_size: 184320,
+    file_type: 'document',
+    reply_sender: null,
+    reply_text: null,
+    reply_to_id: null,
+    reaction: '',
+    is_pinned: false,
+    is_deleted_all: false,
+    deleted_for: null,
+    waktu: '08:45',
+    created_at: '2026-09-27 08:45'
   }
 ];
 

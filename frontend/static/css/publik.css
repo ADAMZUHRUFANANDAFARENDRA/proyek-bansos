@@ -667,3 +667,204 @@
     color: #009846 !important;
     border-color: #a7f3d0 !important;
 }
+
+/* MEDIA DOKUMEN BERKAS (PDF, WORD, EXCEL DLL) - MODERN, ELEGAN & PREMIUM */
+.chat-doc-card {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 310px !important;
+    max-width: 100% !important;
+    background: #ffffff !important;
+    border-radius: 14px !important;
+    margin: 4px 0 6px 0 !important;
+    box-sizing: border-box !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+    border: 1.5px solid #e2e8f0 !important;
+    overflow: hidden !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+    cursor: default !important;
+    text-align: left !important;
+}
+
+.chat-doc-card:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+.chat-doc-accent-bar {
+    height: 3.5px !important;
+    width: 100% !important;
+    display: block !important;
+}
+
+.chat-doc-card.chat-doc-pdf { border-color: #fca5a5 !important; }
+.chat-doc-card.chat-doc-word { border-color: #93c5fd !important; }
+.chat-doc-card.chat-doc-excel { border-color: #86efac !important; }
+.chat-doc-card.chat-doc-ppt { border-color: #fdba74 !important; }
+
+.chat-doc-main-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 12px 14px 10px 14px !important;
+    cursor: pointer !important;
+}
+
+.chat-doc-icon-box {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.55rem !important;
+    flex-shrink: 0 !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+}
+
+.chat-doc-card.chat-doc-pdf .chat-doc-icon-box { background: linear-gradient(135deg, #fee2e2, #fecaca) !important; color: #dc2626 !important; border: 1px solid #fca5a5 !important; }
+.chat-doc-card.chat-doc-word .chat-doc-icon-box { background: linear-gradient(135deg, #dbeafe, #bfdbfe) !important; color: #1d4ed8 !important; border: 1px solid #93c5fd !important; }
+.chat-doc-card.chat-doc-excel .chat-doc-icon-box { background: linear-gradient(135deg, #dcfce7, #bbf7d0) !important; color: #15803d !important; border: 1px solid #86efac !important; }
+.chat-doc-card.chat-doc-ppt .chat-doc-icon-box { background: linear-gradient(135deg, #ffedd5, #fed7aa) !important; color: #c2410c !important; border: 1px solid #fdba74 !important; }
+.chat-doc-card.chat-doc-other .chat-doc-icon-box { background: linear-gradient(135deg, #e0f2fe, #bae6fd) !important; color: #0369a1 !important; border: 1px solid #7dd3fc !important; }
+
+.chat-doc-info {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+    overflow: hidden !important;
+}
+
+.chat-doc-name,
+.chat-doc-title {
+    font-weight: 800 !important;
+    font-size: 0.9rem !important;
+    color: #0f172a !important;
+    line-height: 1.35 !important;
+    word-break: break-word !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.chat-doc-sub {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    margin-top: 1px !important;
+    font-size: 0.7rem !important;
+    color: #64748b !important;
+    flex-wrap: wrap !important;
+}
+
+.chat-doc-dot {
+    font-size: 0.65rem !important;
+    color: #94a3b8 !important;
+    margin: 0 1px !important;
+}
+
+.chat-doc-size {
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    color: #475569 !important;
+}
+
+.chat-doc-badge {
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    font-size: 0.62rem !important;
+    padding: 1.5px 6px !important;
+    border-radius: 4px !important;
+    letter-spacing: 0.5px !important;
+    text-transform: uppercase !important;
+    line-height: 1.2 !important;
+}
+
+.chat-doc-card.chat-doc-pdf .chat-doc-badge { background: #dc2626 !important; }
+.chat-doc-card.chat-doc-word .chat-doc-badge { background: #2563eb !important; }
+.chat-doc-card.chat-doc-excel .chat-doc-badge { background: #16a34a !important; }
+.chat-doc-card.chat-doc-ppt .chat-doc-badge { background: #ea580c !important; }
+.chat-doc-card.chat-doc-other .chat-doc-badge { background: #0284c7 !important; }
+
+.chat-doc-label {
+    font-size: 0.72rem !important;
+    color: #64748b !important;
+    font-weight: 600 !important;
+}
+
+.chat-doc-filename {
+    font-size: 0.68rem !important;
+    color: #64748b !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin-top: 2px !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+}
+
+.chat-doc-dl-btn {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 50% !important;
+    background: #f1f5f9 !important;
+    color: #334155 !important;
+    border: 1px solid #cbd5e1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 0.95rem !important;
+    text-decoration: none !important;
+    flex-shrink: 0 !important;
+    cursor: pointer !important;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+.chat-doc-card.chat-doc-pdf .chat-doc-dl-btn:hover { background: #dc2626 !important; color: #ffffff !important; border-color: #dc2626 !important; transform: scale(1.1) !important; }
+.chat-doc-card.chat-doc-word .chat-doc-dl-btn:hover { background: #2563eb !important; color: #ffffff !important; border-color: #2563eb !important; transform: scale(1.1) !important; }
+.chat-doc-card.chat-doc-excel .chat-doc-dl-btn:hover { background: #16a34a !important; color: #ffffff !important; border-color: #16a34a !important; transform: scale(1.1) !important; }
+.chat-doc-card.chat-doc-ppt .chat-doc-dl-btn:hover { background: #ea580c !important; color: #ffffff !important; border-color: #ea580c !important; transform: scale(1.1) !important; }
+.chat-doc-card.chat-doc-other .chat-doc-dl-btn:hover { background: #0284c7 !important; color: #ffffff !important; border-color: #0284c7 !important; transform: scale(1.1) !important; }
+
+.chat-doc-actions-strip {
+    display: flex !important;
+    border-top: 1px solid #f1f5f9 !important;
+    background: #f8fafc !important;
+}
+
+.chat-doc-action-link {
+    flex: 1 !important;
+    padding: 8px 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    font-size: 0.74rem !important;
+    font-weight: 700 !important;
+    color: #475569 !important;
+    text-decoration: none !important;
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    transition: background 0.15s ease, color 0.15s ease !important;
+}
+
+.chat-doc-action-link:hover {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+}
+
+.chat-doc-action-link.btn-primary-doc {
+    font-weight: 800 !important;
+    border-left: 1px solid #e2e8f0 !important;
+}
+
+.chat-doc-card.chat-doc-pdf .chat-doc-action-link.btn-primary-doc { color: #dc2626 !important; }
+.chat-doc-card.chat-doc-word .chat-doc-action-link.btn-primary-doc { color: #2563eb !important; }
+.chat-doc-card.chat-doc-excel .chat-doc-action-link.btn-primary-doc { color: #16a34a !important; }
+.chat-doc-card.chat-doc-ppt .chat-doc-action-link.btn-primary-doc { color: #ea580c !important; }
+.chat-doc-card.chat-doc-other .chat-doc-action-link.btn-primary-doc { color: #0284c7 !important; }

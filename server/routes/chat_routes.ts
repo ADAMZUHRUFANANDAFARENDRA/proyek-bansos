@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import path from 'path';
+import fs from 'fs';
 import {
   chatStore,
   pengaduanStore,
@@ -8,12 +9,33 @@ import {
   DATA_MASTER_SIDOARJO,
   catatNotifikasi,
   nowTimeStr,
-  upload
+  upload,
+  UPLOAD_DIR
 } from '../store.js';
 import { parseIntSafe } from '../spk_engine.js';
 import type { ChatItem, PengaduanItem, LaporanPelanggaranItem } from '../types.js';
 
 const router = Router();
+
+// =========================================================================
+// ROUTE DOWNLOAD LANGSUNG BERKAS MEDIA DOKUMEN RESMI (PDF, WORD, EXCEL)
+// =========================================================================
+router.get(['/download/:filename', '/api/chat/download/:filename'], (req: Request, res: Response) => {
+  const filename = path.basename(req.params.filename || '');
+  const safeName = String(req.query.name || filename);
+  const filePath = path.join(UPLOAD_DIR, filename);
+  if (fs.existsSync(filePath)) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    return res.download(filePath, safeName, (err) => {
+      if (err && !res.headersSent) {
+        res.status(500).send('Gagal mengunduh berkas');
+      }
+    });
+  } else {
+    return res.status(404).json({ status: 'error', message: 'Berkas tidak ditemukan pada direktori penyimpanan.' });
+  }
+});
 
 router.get(['/laporan-chat', '/api/laporan-chat', '/api/chat/laporan', '/pengaduan', '/api/pengaduan'], (_req: Request, res: Response) => {
   const list = [...pengaduanStore].sort((a, b) => b.id - a.id).map(a => ({
@@ -199,60 +221,93 @@ router.post('/:nik', (req: Request, res: Response, next: any) => {
   upload.any()(req, res, (err) => {
     if (err) return res.status(500).json({ status: 'error', message: 'Gagal mengunggah berkas.' });
     const d = req.body || {};
-    const sender = String(d.sender || 'warga');
-    const nama = String(d.nama || (sender === 'warga' ? 'Warga' : 'Petugas Dinsos'));
+    const rawSender = String(d.sender || '').toLowerCase().trim();
+    const hasAuthToken = Boolean(req.headers.authorization && req.headers.authorization.startsWith('Bearer '));
+    const isOfficer = rawSender === 'petugas' || rawSender === 'admin' || rawSender === 'operator' || rawSender === 'penyalur' || Boolean(d.is_admin) || hasAuthToken;
+    const sender = isOfficer ? 'petugas' : (rawSender || 'warga');
+    const nama = String(d.nama || (sender === 'petugas' ? 'Petugas Dinsos' : 'Warga'));
     const pesan = String(d.pesan || d.text || '').trim();
     const customType = d.custom_file_type ? String(d.custom_file_type) : null;
-
-    let filePath: string | null = null;
-    let fileType: string | null = customType;
-
     const files = (req.files as Express.Multer.File[]) || [];
-    if (files.length > 0) {
-      const f = files[0];
-      filePath = `/uploads/${f.filename}`;
-      const ext = path.extname(f.filename).toLowerCase().replace('.', '');
-      
-      // Voice notes in webm format or with voice_ prefix MUST be audio
-      if (f.filename.startsWith('voice_') || (f.mimetype && f.mimetype.startsWith('audio/')) || customType === 'audio') {
-        fileType = 'audio';
-      } else if (!fileType) {
-        if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) fileType = 'image';
-        else if (['mp4', 'mov'].includes(ext)) fileType = 'video';
-        else if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'weba'].includes(ext)) fileType = 'audio';
-        else if (ext === 'webm') fileType = (pesan.toLowerCase().includes('suara') || pesan.toLowerCase().includes('voice')) ? 'audio' : 'video';
-        else fileType = 'document';
-      }
-    }
+    const createdChats: ChatItem[] = [];
 
-    const nextId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
-    const newChat: ChatItem = {
-      id: nextId,
-      nik,
-      sender,
-      nama,
-      pesan: pesan || null,
-      text: pesan || null,
-      file_path: filePath,
-      file_type: fileType,
-      reply_sender: d.reply_to_sender || d.reply_sender || null,
-      reply_text: d.reply_to_text || d.reply_text || null,
-      reply_to_id: d.reply_to_id ? parseIntSafe(d.reply_to_id, 0) : null,
-      reaction: '',
-      is_pinned: false,
-      is_deleted_all: false,
-      deleted_for: null,
-      waktu: nowTimeStr().slice(-5),
-      created_at: nowTimeStr()
+    const resolveFileType = (f: Express.Multer.File, pText: string): string => {
+      const ext = path.extname(f.originalname || f.filename).toLowerCase().replace('.', '');
+      if (f.filename.startsWith('voice_') || (f.mimetype && f.mimetype.startsWith('audio/')) || customType === 'audio') {
+        return 'audio';
+      }
+      if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].includes(ext)) return 'image';
+      if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) return 'video';
+      if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'weba'].includes(ext)) return 'audio';
+      if (ext === 'webm') return (pText.toLowerCase().includes('suara') || pText.toLowerCase().includes('voice')) ? 'audio' : 'video';
+      if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'txt'].includes(ext)) return 'document';
+      return 'document';
     };
 
-    chatStore.push(newChat);
-
-    if (sender === 'warga') {
-      catatNotifikasi(`Pesan mediasi baru diterima dari ${nama} (NIK: ${nik}).`, 'Warga', 'chat');
+    if (files.length > 0) {
+      files.forEach((f, idx) => {
+        const filePath = `/uploads/${f.filename}`;
+        const fileType = customType || resolveFileType(f, pesan);
+        const nextId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
+        const chatItem: ChatItem = {
+          id: nextId,
+          nik,
+          sender,
+          nama,
+          pesan: idx === 0 ? (pesan || null) : null,
+          text: idx === 0 ? (pesan || null) : null,
+          file_path: filePath,
+          file_name: f.originalname || f.filename,
+          file_size: f.size || null,
+          file_type: fileType,
+          reply_sender: idx === 0 ? (d.reply_to_sender || d.reply_sender || null) : null,
+          reply_text: idx === 0 ? (d.reply_to_text || d.reply_text || null) : null,
+          reply_to_id: idx === 0 && d.reply_to_id ? parseIntSafe(d.reply_to_id, 0) : null,
+          reaction: '',
+          is_pinned: false,
+          is_deleted_all: false,
+          deleted_for: null,
+          waktu: nowTimeStr().slice(-5),
+          created_at: nowTimeStr()
+        };
+        chatStore.push(chatItem);
+        createdChats.push(chatItem);
+      });
+    } else {
+      const nextId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
+      const chatItem: ChatItem = {
+        id: nextId,
+        nik,
+        sender,
+        nama,
+        pesan: pesan || null,
+        text: pesan || null,
+        file_path: null,
+        file_type: null,
+        reply_sender: d.reply_to_sender || d.reply_sender || null,
+        reply_text: d.reply_to_text || d.reply_text || null,
+        reply_to_id: d.reply_to_id ? parseIntSafe(d.reply_to_id, 0) : null,
+        reaction: '',
+        is_pinned: false,
+        is_deleted_all: false,
+        deleted_for: null,
+        waktu: nowTimeStr().slice(-5),
+        created_at: nowTimeStr()
+      };
+      chatStore.push(chatItem);
+      createdChats.push(chatItem);
     }
 
-    return res.status(201).json({ status: 'success', message: 'Pesan berhasil dikirim.', data: newChat });
+    if (sender === 'warga') {
+      catatNotifikasi(`Pesan mediasi baru diterima dari ${nama} (NIK: ${nik})${files.length > 1 ? ` (${files.length} berkas)` : ''}.`, 'Warga', 'chat');
+    }
+
+    return res.status(201).json({
+      status: 'success',
+      message: `${createdChats.length} pesan berhasil dikirim.`,
+      data: createdChats.length === 1 ? createdChats[0] : createdChats,
+      items: createdChats
+    });
   });
 });
 
@@ -305,7 +360,7 @@ router.post(['/investigasi/selesaikan', '/pengaduan/selesaikan'], (req: Request,
   return res.status(404).json({ status: 'error', message: 'Pengaduan tidak ditemukan.' });
 });
 
-router.post('/react/:msg_id', (req: Request, res: Response) => {
+router.all(['/react/:msg_id', '/api/chat/react/:msg_id'], (req: Request, res: Response) => {
   const id = parseIntSafe(req.params.msg_id, 0);
   const chat = chatStore.find(c => c.id === id);
   if (!chat) return res.status(404).json({ status: 'error', message: 'Pesan tidak ditemukan.' });
@@ -313,12 +368,16 @@ router.post('/react/:msg_id', (req: Request, res: Response) => {
   return res.json({ status: 'success', reaction: chat.reaction });
 });
 
-router.patch('/pin/:msg_id', (req: Request, res: Response) => {
+router.all(['/pin/:msg_id', '/api/chat/pin/:msg_id'], (req: Request, res: Response) => {
   const id = parseIntSafe(req.params.msg_id, 0);
   const chat = chatStore.find(c => c.id === id);
   if (!chat) return res.status(404).json({ status: 'error', message: 'Pesan tidak ditemukan.' });
-  chat.is_pinned = !chat.is_pinned;
-  return res.json({ status: 'success', is_pinned: chat.is_pinned });
+  if (req.body && typeof req.body.is_pinned !== 'undefined') {
+    chat.is_pinned = Boolean(req.body.is_pinned);
+  } else {
+    chat.is_pinned = !chat.is_pinned;
+  }
+  return res.json({ status: 'success', is_pinned: chat.is_pinned, id: chat.id, pesan: chat.pesan, text: chat.text });
 });
 
 router.delete('/action/:msg_id', (req: Request, res: Response) => {
