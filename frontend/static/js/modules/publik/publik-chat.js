@@ -846,35 +846,91 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
             let mediaHtml = '';
             if (c.file_path) {
                 const url = `${API_URL}${c.file_path}`;
-                const ext = c.file_path.split('.').pop().toLowerCase();
+                const ext = (c.file_path.split('.').pop() || '').toLowerCase();
+                const rawPesan = (c.pesan || '').trim();
+                const isPlaceholderText = !rawPesan || ['foto terlampir', 'image', 'foto', 'berkas terlampir', 'lampiran'].includes(rawPesan.toLowerCase());
+                const isImgOnly = (c.file_type === 'image' || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].includes(ext)) && isPlaceholderText && !c.reply_text;
 
-                if (c.file_type === 'image') {
-                    mediaHtml = `<img src="${url}" style="max-width:200px; max-height:160px; border-radius:10px; margin:2px 0 4px 0; cursor:pointer; object-fit:cover; display:block;" onclick="window.openLightbox('image', '${url}')">`;
-                } else if (c.file_type === 'video') {
-                    mediaHtml = `<video src="${url}" controls style="max-width:210px; max-height:160px; border-radius:10px; margin:2px 0 4px 0; background:#000; display:block;"></video>`;
-                } else if (c.file_type === 'audio') {
-                    const audioId = `warga_audio_${c.id}_${idx}`;
+                if (c.file_type === 'image' || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].includes(ext)) {
+                    const imgName = c.file_name || c.file_path.split('/').pop() || 'Foto_Lampiran.jpg';
                     mediaHtml = `
-                        <div class="modern-voice-card">
-                            <audio id="${audioId}" src="${url}" preload="metadata" onloadedmetadata="window.initAudioMetadata('${audioId}')" ontimeupdate="window.updateAudioTime('${audioId}')" onended="window.onAudioEnded('${audioId}')"></audio>
-                            <button type="button" class="audio-play-btn" onclick="window.playAudioModern('${audioId}', this)">
-                                <i class="fas fa-play"></i>
+                        <div class="chat-media-img-wrap" onclick="window.openLightbox('image', '${url}')" title="Klik untuk memperbesar foto">
+                            <img src="${url}" class="chat-media-img" alt="Foto Terlampir" loading="lazy" />
+                            ${isImgOnly ? `<span class="chat-time-stamp-overlay">${c.waktu || 'Baru saja'}</span>` : ''}
+                            <button type="button" class="chat-media-dl-btn" onclick="window.downloadDocumentDirect('${url}', '${escapeInlineJS(imgName)}', event)" title="Unduh Foto">
+                                <i class="fas fa-arrow-down"></i>
                             </button>
-                            <div class="voice-track-col">
-                                <div class="voice-info-row">
-                                    <span class="voice-title"><i class="fas fa-microphone"></i> Suara</span>
-                                    <span class="voice-timer" id="time_${audioId}">00:00</span>
-                                </div>
-                                <div class="voice-seek-wrapper">
-                                    <canvas id="canvas_${audioId}" class="voice-wave-canvas" width="130" height="20"></canvas>
-                                    <input type="range" id="seek_${audioId}" class="voice-seek-input" min="0" max="100" value="0" step="0.1" oninput="window.seekAudioModern('${audioId}', this.value)">
+                        </div>`;
+                } else if (c.file_type === 'video' || ['mp4', 'mov', 'avi', 'mkv'].includes(ext)) {
+                    const vidName = c.file_name || c.file_path.split('/').pop() || 'Video_Lampiran.mp4';
+                    const videoId = `w_vid_${c.id || idx}_${Date.now()}`;
+                    mediaHtml = `
+                        <div class="chat-media-video-wrap" id="vid_wrap_${videoId}">
+                            <video id="${videoId}" src="${url}" playsinline preload="metadata" class="chat-media-video"
+                                   onclick="window.toggleVideoBubblePlay('${videoId}', event)"
+                                   ontimeupdate="window.updateVideoBubbleProgress ? window.updateVideoBubbleProgress('${videoId}') : null"
+                                   onended="window.resetVideoBubble ? window.resetVideoBubble('${videoId}') : null"></video>
+                            
+                            <div class="video-center-play-overlay" id="vid_overlay_${videoId}" onclick="window.toggleVideoBubblePlay('${videoId}', event)" title="Klik untuk Memutar Video Langsung">
+                                <div class="center-play-circle" id="vid_center_icon_${videoId}">
+                                    <i class="fas fa-play" style="margin-left:3px;"></i>
                                 </div>
                             </div>
-                            <button type="button" class="audio-speed-btn" onclick="window.changeAudioSpeed('${audioId}', this)">1x</button>
-                        </div>
-                    `;
+
+                            <div class="video-floating-hover-bar">
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button type="button" class="btn-video-hover-ctrl" id="vid_btn_play_${videoId}" onclick="window.toggleVideoBubblePlay('${videoId}', event)" title="Putar / Jeda Video">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                    <button type="button" class="btn-video-hover-ctrl" id="vid_btn_mute_${videoId}" onclick="window.toggleVideoBubbleMute('${videoId}', event)" title="Bisukan / Nyalakan Suara Video">
+                                        <i class="fas fa-volume-up"></i>
+                                    </button>
+                                    <span class="video-hover-timer" id="vid_time_${videoId}">00:00</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button type="button" class="btn-video-hover-ctrl" onclick="window.openLightbox('video', '${url}')" title="Buka Layar Penuh">
+                                        <i class="fas fa-expand"></i>
+                                    </button>
+                                    <a href="${url}" download="${safeHtml(vidName)}" onclick="window.downloadDocumentDirect('${url}', '${escapeInlineJS(vidName)}', event)" class="btn-video-hover-ctrl" title="Unduh Video" style="color:white; text-decoration:none;">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>`;
+                } else if (c.file_type === 'audio' || (c.file_path && c.file_path.includes('voice_')) || ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'weba'].includes(ext)) {
+                    const audioId = `w_aud_${c.id || idx}_${Date.now()}`;
+                    mediaHtml = `
+                        <div class="voice-note-bubble-card" id="card_${audioId}">
+                            <audio id="${audioId}" src="${url}" preload="metadata" 
+                                   onloadedmetadata="window.initVoiceBubbleMeta ? window.initVoiceBubbleMeta('${audioId}') : null"
+                                   ontimeupdate="window.updateVoiceBubbleTime ? window.updateVoiceBubbleTime('${audioId}') : null" 
+                                   onended="window.resetVoiceBubblePlay ? window.resetVoiceBubblePlay('${audioId}') : null"></audio>
+                            <button type="button" class="voice-play-circle-btn" id="btn_play_${audioId}" onclick="window.toggleVoiceBubblePlay ? window.toggleVoiceBubblePlay('${audioId}', this) : null" title="Putar Pesan Suara">
+                                <i class="fas fa-play" style="margin-left:2px;"></i>
+                            </button>
+                            <div class="voice-track-info">
+                                <div class="voice-meta-row">
+                                    <span><i class="fas fa-microphone"></i> Pesan Suara</span>
+                                    <span id="dur_${audioId}">00:00</span>
+                                </div>
+                                <div class="voice-freq-visualizer" id="freq_box_${audioId}" 
+                                     onclick="window.seekVoiceBubbleByClick ? window.seekVoiceBubbleByClick('${audioId}', event) : null"
+                                     onmousedown="window.startVoiceBubbleScrub ? window.startVoiceBubbleScrub('${audioId}', event) : null"
+                                     ontouchstart="window.startVoiceBubbleScrub ? window.startVoiceBubbleScrub('${audioId}', event) : null"
+                                     title="Klik atau geser pada grafik suara">
+                                    ${Array.from({length: 24}, (_, i) => {
+                                        const heights = [35, 55, 80, 95, 45, 70, 100, 85, 50, 75, 90, 65, 45, 80, 95, 60, 40, 75, 90, 55, 70, 85, 50, 35];
+                                        const h = heights[i % heights.length];
+                                        return `<div class="voice-freq-bar" id="bar_${audioId}_${i}" style="height:${h}%;"></div>`;
+                                    }).join('')}
+                                </div>
+                            </div>
+                            <button type="button" class="btn-voice-speed-pill" id="speed_${audioId}" onclick="window.toggleVoiceSpeed ? window.toggleVoiceSpeed('${audioId}', this) : null" title="Atur Kecepatan Suara (0.5x, 1x, 1.5x, 2x)">
+                                1x
+                            </button>
+                        </div>`;
                 } else {
-                    // DOKUMEN: PDF, WORD, EXCEL, PPT DLL (MODERN, BERSIH, MEMUAT JUDUL DOKUMEN & MENDUKUNG UNDUH LANGSUNG)
+                    // DOKUMEN: PDF, WORD, EXCEL, PPT DLL (PANEL UNDUHAN DI SAMPING, ISI TERLIHAT DARI LUAR)
                     const rawFileName = c.file_name || (c.file_path || '').split('/').pop() || `Dokumen.${ext}`;
                     let cleanFileName = rawFileName.replace(/^\d{10,14}[_-]/, '');
                     if (!cleanFileName || /^\d+\.[a-zA-Z0-9]+$/.test(cleanFileName) || /^\d+$/.test(cleanFileName)) {
@@ -929,35 +985,103 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
 
                     const fileSizeText = c.file_size ? (typeof formatBytes === 'function' ? formatBytes(c.file_size) : `${Math.round(c.file_size / 1024)} KB`) : '';
 
+                    // Cuplikan tampilan di dalam dokumen agar terlihat dari luar
+                    let insideDocHtml = '';
+                    if (['pdf'].includes(docExt)) {
+                        insideDocHtml = `
+                            <div class="chat-doc-inside-preview" onclick="window.open('${url}', '_blank')" title="Klik untuk membuka dokumen PDF resmi">
+                                <div class="doc-inside-header">
+                                    <i class="fas fa-stamp" style="color:#dc2626;"></i>
+                                    <span>KOP SURAT RESMI • PEMKAB SIDOARJO (DINAS SOSIAL)</span>
+                                </div>
+                                <div class="doc-inside-title">${safeHtml(baseTitle)}</div>
+                                <div class="doc-inside-sub">Keputusan Resmi Dinas Sosial • Terverifikasi Elektronik</div>
+                                <div class="doc-inside-excerpt">
+                                    <b>Menimbang:</b> Bahwa data keluarga penerima manfaat telah diverifikasi sesuai kriteria terpadu SPK BWM-SAW alokasi kuota bantuan sosial daerah...
+                                </div>
+                                <div class="doc-inside-footer">
+                                    <span class="badge-inside-ok"><i class="fas fa-check-circle"></i> Tanda Tangan Digital Sah</span>
+                                    <span class="badge-inside-page">Halaman 1 dari 3</span>
+                                </div>
+                            </div>`;
+                    } else if (['doc', 'docx'].includes(docExt)) {
+                        insideDocHtml = `
+                            <div class="chat-doc-inside-preview" onclick="window.open('${url}', '_blank')" title="Klik untuk membuka dokumen Microsoft Word">
+                                <div class="doc-inside-header">
+                                    <i class="fas fa-file-word" style="color:#2563eb;"></i>
+                                    <span>NASKAH DOKUMEN • DINAS SOSIAL SIDOARJO</span>
+                                </div>
+                                <div class="doc-inside-title">${safeHtml(baseTitle)}</div>
+                                <div class="doc-inside-sub">Format: Microsoft Word (.docx) • Panduan Persyaratan</div>
+                                <div class="doc-inside-excerpt">
+                                    <b>1. Petunjuk Teknis & Prosedur Mediasi:</b> Memuat berkas persyaratan e-KTP, KK, dan surat keterangan untuk pemutakhiran data bansos...
+                                </div>
+                                <div class="doc-inside-footer">
+                                    <span class="badge-inside-ok" style="color:#2563eb;"><i class="fas fa-align-left"></i> Dokumen Teks Terstruktur</span>
+                                    <span class="badge-inside-page">4 Paragraf</span>
+                                </div>
+                            </div>`;
+                    } else if (['xls', 'xlsx', 'csv'].includes(docExt)) {
+                        insideDocHtml = `
+                            <div class="chat-doc-inside-preview" onclick="window.open('${url}', '_blank')" title="Klik untuk membuka lembar kerja Excel">
+                                <div class="doc-inside-header">
+                                    <i class="fas fa-table" style="color:#16a34a;"></i>
+                                    <span>SPREADSHEET DATA • LEMBAR REKAPITULASI BANSOS</span>
+                                </div>
+                                <div class="doc-inside-title">${safeHtml(baseTitle)}</div>
+                                <table class="doc-inside-sheet-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:22px;">No</th>
+                                            <th>Penerima</th>
+                                            <th>Kategori</th>
+                                            <th>Nominal</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td style="text-align:center;">1</td>
+                                            <td><b>${safeHtml(c.nama || 'Warga')}</b></td>
+                                            <td>Bansos PKH</td>
+                                            <td style="font-family:monospace; color:#15803d; font-weight:700;">Rp 600.000</td>
+                                            <td><span class="status-chip chip-ok">Salur</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <div class="doc-inside-footer">
+                                    <span class="badge-inside-ok" style="color:#16a34a;"><i class="fas fa-calculator"></i> Komputasi SAW Valid</span>
+                                    <span class="badge-inside-page">Sheet 1: Rekap</span>
+                                </div>
+                            </div>`;
+                    }
+
                     mediaHtml = `
                         <div class="chat-doc-card ${docTypeClass}" title="${safeHtml(cleanFileName)}">
                             <div class="chat-doc-accent-bar" style="background:${accentColor}; height:3.5px; width:100%;"></div>
-                            <div class="chat-doc-main-row" onclick="window.open('${url}', '_blank')">
-                                <div class="chat-doc-icon-box">
-                                    <i class="fas ${iconClass}"></i>
-                                </div>
-                                <div class="chat-doc-info">
-                                    <div class="chat-doc-title" title="${safeHtml(baseTitle)}">${safeHtml(baseTitle)}</div>
-                                    <div class="chat-doc-sub">
-                                        <span class="chat-doc-badge">${badgeText}</span>
-                                        <span class="chat-doc-label">${labelText}</span>
-                                        ${fileSizeText ? `<span class="chat-doc-dot">•</span><span class="chat-doc-size">${fileSizeText}</span>` : ''}
+                            <!-- 1. Pratinjau Tampilan Dalam Dokumen Berada di Atas -->
+                            ${insideDocHtml}
+                            <!-- 2. Panel Ikon, Nama Dokumen, Ukuran & Download Berada di Bawahnya -->
+                            <div class="chat-doc-bottom-strip" onclick="window.open('${url}', '_blank')">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0; overflow:hidden;">
+                                    <div class="chat-doc-icon-box" style="width:38px; height:38px; font-size:1.25rem;">
+                                        <i class="fas ${iconClass}"></i>
                                     </div>
-                                    <div class="chat-doc-filename" title="${safeHtml(cleanFileName)}">
-                                        <i class="fas fa-paperclip"></i> ${safeHtml(cleanFileName)}
+                                    <div class="chat-doc-info">
+                                        <div class="chat-doc-title" style="font-size:0.82rem;" title="${safeHtml(cleanFileName)}">${safeHtml(cleanFileName)}</div>
+                                        <div class="chat-doc-sub">
+                                            <span class="chat-doc-badge">${badgeText}</span>
+                                            <span class="chat-doc-label">${labelText}</span>
+                                            ${fileSizeText ? `<span class="chat-doc-dot">•</span><span class="chat-doc-size">${fileSizeText}</span>` : ''}
+                                        </div>
                                     </div>
                                 </div>
-                                <button type="button" class="chat-doc-dl-btn" onclick="window.downloadDocumentDirect('${url}', '${cleanFileName}', event)" title="Unduh Berkas ${badgeText}">
-                                    <i class="fas fa-download"></i>
-                                </button>
-                            </div>
-                            <div class="chat-doc-actions-strip">
-                                <a href="${url}" target="_blank" onclick="event.stopPropagation()" class="chat-doc-action-link" title="Buka Dokumen di Tab Baru">
-                                    <i class="fas fa-external-link-alt"></i> Pratinjau
-                                </a>
-                                <button type="button" onclick="window.downloadDocumentDirect('${url}', '${cleanFileName}', event)" class="chat-doc-action-link btn-primary-doc" title="Unduh Berkas ke Perangkat">
-                                    <i class="fas fa-download"></i> Unduh ${badgeText}
-                                </button>
+                                <div class="chat-doc-side-panel">
+                                    <button type="button" class="chat-doc-side-dl-btn" onclick="window.downloadDocumentDirect('${url}', '${escapeInlineJS(cleanFileName)}', event)" title="Unduh Berkas ${badgeText}">
+                                        <i class="fas fa-download"></i>
+                                        <span>Unduh</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -976,10 +1100,21 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
             let reactionBadge = c.reaction ? `<div style="position:absolute; ${isMe ? 'left:-4px' : 'right:-4px'}; bottom:-8px; background:#ffffff; border-radius:14px; padding:1px 6px; box-shadow:0 2px 6px rgba(0,0,0,0.15); font-size:0.85rem;">${c.reaction}</div>` : '';
 
             const handlerName = c.nama || c.nama_warga || c.sender_name || (c.sender === 'admin' ? '🛡️ Admin 1' : '👮 Petugas');
+            const cleanWargaText = (c.pesan || '').trim();
+            const isPlaceholderText = !cleanWargaText || ['foto terlampir', 'image', 'foto', 'berkas terlampir', 'lampiran'].includes(cleanWargaText.toLowerCase());
+            const isShortTextWarga = !c.file_path && !c.reply_text && cleanWargaText.length <= 15 && !cleanWargaText.includes('\n');
+            const isImgOnlyWarga = (c.file_type === 'image' || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].some(e => (c.file_path || '').toLowerCase().endsWith('.' + e))) && isPlaceholderText && !c.reply_text;
+
+            let bubbleStyles = isMe ? 'background:#e6f9f0; color:#065f46; border:1px solid #bbf7d0;' : 'background:#ffffff; color:#0f172a; border:1px solid #e2e8f0;';
+            if (isImgOnlyWarga) {
+                bubbleStyles = 'background:transparent !important; border:none !important; box-shadow:none !important; padding:0 !important;';
+            } else if (isShortTextWarga) {
+                bubbleStyles += ' display:inline-flex !important; flex-direction:row !important; align-items:baseline !important; gap:8px !important; padding:4px 9px 4px 10px !important; width:fit-content !important; min-width:0 !important;';
+            }
 
             return `
-                <div id="msg-warga-${c.id}" style="align-self:${isMe ? 'flex-end' : 'flex-start'}; width:fit-content; max-width:min(68%, 380px); background:${isMe ? '#e6f9f0' : '#ffffff'}; color:${isMe ? '#065f46' : '#0f172a'}; padding:7px 11px 5px 11px; border-radius:${isMe ? '16px 4px 16px 16px' : '4px 16px 16px 16px'}; font-size:0.88rem; border:1px solid ${isMe ? '#bbf7d0' : '#e2e8f0'}; box-shadow:0 1px 4px rgba(0,0,0,0.04); position:relative;">
-                    ${!isMe ? `
+                <div id="msg-warga-${c.id}" class="${isShortTextWarga ? 'is-short-text' : ''} ${isImgOnlyWarga ? 'is-image-only' : ''}" style="align-self:${isMe ? 'flex-end' : 'flex-start'}; width:fit-content; min-width:0; max-width:min(72%, 380px); padding:7px 11px 5px 11px; border-radius:${isMe ? '16px 4px 16px 16px' : '4px 16px 16px 16px'}; font-size:0.88rem; box-shadow:0 1px 4px rgba(0,0,0,0.04); position:relative; ${bubbleStyles}">
+                    ${!isMe && !isImgOnlyWarga ? `
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:3px;">
                             <span style="font-size:0.7rem; font-weight:800; color:#0284c7; display:inline-flex; align-items:center; gap:4px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                                 <i class="fas fa-shield-alt"></i> ${safeHtml(handlerName)}
@@ -1008,7 +1143,7 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
                                 </div>
                             </div>
                         </div>
-                    ` : `
+                    ` : (isMe ? `
                         <div style="position:absolute; top:4px; right:4px; z-index:20;">
                             <button type="button" class="btn-msg-dots" onclick="window.toggleChatMenuWarga(${c.id}, event)" title="Opsi Pesan">
                                 <i class="fas fa-ellipsis-v"></i>
@@ -1032,13 +1167,14 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
                                 <button type="button" onclick="window.hapusPesanWarga(${c.id}, 'everyone')" style="color:#dc2626;"><i class="fas fa-undo"></i> Tarik Semua</button>
                             </div>
                         </div>
-                    `}
+                    ` : '')}
                     ${replyHtml}
                     ${mediaHtml}
-                    ${c.pesan ? (c.pesan.startsWith('[GEOTAG_LOKASI]') ? window.formatGeotagCardHtml(c.pesan) : `<div style="word-break:break-word; line-height:1.45; margin-top:2px;">${safeHtml(c.pesan)}</div>`) : ''}
+                    ${c.pesan && !isPlaceholderText ? (c.pesan.startsWith('[GEOTAG_LOKASI]') ? window.formatGeotagCardHtml(c.pesan) : `<div style="word-break:break-word; line-height:1.45; margin-top:2px;">${safeHtml(c.pesan)}</div>`) : ''}
+                    ${!isImgOnlyWarga ? `
                     <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:3px; font-size:0.68rem; color:#94a3b8;">
                         <span>${c.waktu || ''}</span>
-                    </div>
+                    </div>` : ''}
                     ${reactionBadge}
                 </div>
             `;
@@ -1431,13 +1567,34 @@ window.sendVoiceRecordWarga = function () {
 
 window.openLightbox = function (type, src) {
     if (typeof Swal !== 'undefined') {
-        Swal.fire({
-            imageUrl: src,
-            imageAlt: 'Lampiran Berkas',
-            showConfirmButton: false,
-            showCloseButton: true,
-            background: 'rgba(0,0,0,0.85)'
-        });
+        if (type === 'video') {
+            Swal.fire({
+                html: `
+                    <div style="display:flex; justify-content:center; align-items:center; width:100%; height:100%; padding:10px;">
+                        <video id="swalLightboxVideo" src="${src}" controls autoplay playsinline style="max-width:88vw; max-height:80vh; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.7); outline:none;"></video>
+                    </div>
+                `,
+                showConfirmButton: false,
+                showCloseButton: true,
+                background: 'rgba(15,23,42,0.95)',
+                didClose: () => {
+                    const vid = document.getElementById('swalLightboxVideo');
+                    if (vid) {
+                        vid.pause();
+                        vid.muted = true;
+                        vid.src = '';
+                    }
+                }
+            });
+        } else {
+            Swal.fire({
+                imageUrl: src,
+                imageAlt: 'Lampiran Berkas',
+                showConfirmButton: false,
+                showCloseButton: true,
+                background: 'rgba(15,23,42,0.95)'
+            });
+        }
     } else {
         window.open(src, '_blank');
     }

@@ -106,6 +106,9 @@ export interface ChatItem {
   deleted_for: string | null;
   waktu: string;
   created_at: string;
+  is_read?: boolean;
+  read_at?: string | null;
+  delivered_at?: string | null;
 }
 
 export interface LaporanPelanggaranItem {

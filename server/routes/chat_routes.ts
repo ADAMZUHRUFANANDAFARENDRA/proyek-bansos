@@ -21,7 +21,8 @@ const router = Router();
 // ROUTE DOWNLOAD LANGSUNG BERKAS MEDIA DOKUMEN RESMI (PDF, WORD, EXCEL)
 // =========================================================================
 router.get(['/download/:filename', '/api/chat/download/:filename'], (req: Request, res: Response) => {
-  const filename = path.basename(req.params.filename || '');
+  const rawParam = req.params.filename;
+  const filename = path.basename(Array.isArray(rawParam) ? (rawParam[0] || '') : (rawParam || ''));
   const safeName = String(req.query.name || filename);
   const filePath = path.join(UPLOAD_DIR, filename);
   if (fs.existsSync(filePath)) {
@@ -204,9 +205,45 @@ router.get('/messages', (req: Request, res: Response) => {
   return res.json({ status: 'success', messages });
 });
 
+router.get('/info/:id', (req: Request, res: Response) => {
+  const idNum = parseIntSafe(req.params.id, 0);
+  const found = chatStore.find(c => c.id === idNum);
+  if (!found) {
+    return res.status(404).json({ status: 'error', message: 'Pesan tidak ditemukan' });
+  }
+  return res.json({ status: 'success', data: found });
+});
+
+router.post(['/:nik/mark-read', '/mark-read'], (req: Request, res: Response) => {
+  const rawNik = req.params.nik;
+  const nik = String(Array.isArray(rawNik) ? (rawNik[0] || '') : (rawNik || req.body?.nik || '')).trim();
+  const reader = String(req.body?.reader || '').trim().toLowerCase(); // 'petugas' | 'warga'
+  const readTime = String(req.body?.read_time || nowTimeStr());
+
+  let updatedCount = 0;
+  chatStore.forEach(c => {
+    if (nik && c.nik !== nik) return;
+    if ((reader === 'petugas' || reader === 'admin') && c.sender === 'warga' && !c.is_read) {
+      c.is_read = true;
+      c.read_at = readTime;
+      updatedCount++;
+    } else if (reader === 'warga' && c.sender !== 'warga' && !c.is_read) {
+      c.is_read = true;
+      c.read_at = readTime;
+      updatedCount++;
+    } else if (!reader && !c.is_read) {
+      c.is_read = true;
+      c.read_at = readTime;
+      updatedCount++;
+    }
+  });
+
+  return res.json({ status: 'success', updated: updatedCount, read_at: readTime });
+});
+
 router.get('/:nik', (req: Request, res: Response, next: any) => {
   const nik = String(req.params.nik || '').trim();
-  if (['laporan-pelanggaran', 'geotag', 'share-geotag', 'messages', 'laporan-chat', 'react', 'pin', 'action'].includes(nik)) {
+  if (['laporan-pelanggaran', 'geotag', 'share-geotag', 'messages', 'laporan-chat', 'react', 'pin', 'action', 'download', 'info', 'mark-read'].includes(nik)) {
     return next();
   }
   const messages = chatStore.filter(c => c.nik === nik);
@@ -215,7 +252,7 @@ router.get('/:nik', (req: Request, res: Response, next: any) => {
 
 router.post('/:nik', (req: Request, res: Response, next: any) => {
   const nik = String(req.params.nik || '').trim();
-  if (['laporan-pelanggaran', 'lapor-pesan', 'share-geotag', 'react', 'pin', 'action', 'investigasi', 'pengaduan'].includes(nik)) {
+  if (['laporan-pelanggaran', 'lapor-pesan', 'share-geotag', 'react', 'pin', 'action', 'investigasi', 'pengaduan', 'download'].includes(nik)) {
     return next();
   }
   upload.any()(req, res, (err) => {
@@ -244,6 +281,9 @@ router.post('/:nik', (req: Request, res: Response, next: any) => {
       return 'document';
     };
 
+    const msgWaktu = String(d.waktu || '').trim() || nowTimeStr().slice(-5);
+    const msgCreatedAt = String(d.created_at || nowTimeStr());
+
     if (files.length > 0) {
       files.forEach((f, idx) => {
         const filePath = `/uploads/${f.filename}`;
@@ -267,8 +307,11 @@ router.post('/:nik', (req: Request, res: Response, next: any) => {
           is_pinned: false,
           is_deleted_all: false,
           deleted_for: null,
-          waktu: nowTimeStr().slice(-5),
-          created_at: nowTimeStr()
+          waktu: msgWaktu,
+          created_at: msgCreatedAt,
+          is_read: false,
+          read_at: null,
+          delivered_at: msgCreatedAt
         };
         chatStore.push(chatItem);
         createdChats.push(chatItem);
@@ -291,8 +334,11 @@ router.post('/:nik', (req: Request, res: Response, next: any) => {
         is_pinned: false,
         is_deleted_all: false,
         deleted_for: null,
-        waktu: nowTimeStr().slice(-5),
-        created_at: nowTimeStr()
+        waktu: msgWaktu,
+        created_at: msgCreatedAt,
+        is_read: false,
+        read_at: null,
+        delivered_at: msgCreatedAt
       };
       chatStore.push(chatItem);
       createdChats.push(chatItem);

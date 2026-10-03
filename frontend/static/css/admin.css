@@ -3309,23 +3309,48 @@ body.page-dashboard {
 
 .chat-msg-bubble {
     position: relative !important;
-    display: flex !important;
+    display: inline-flex !important;
     flex-direction: column !important;
     width: fit-content !important;
-    min-width: 64px !important;
+    min-width: 0 !important;
     max-width: min(72%, 460px) !important;
     height: auto !important;
     min-height: 0 !important;
     box-sizing: border-box !important;
-    padding: 6px 12px 6px 12px !important;
+    padding: 6px 11px 5px 12px !important;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
     font-size: 0.88rem !important;
-    line-height: 1.45 !important;
+    line-height: 1.4 !important;
     word-wrap: break-word !important;
     word-break: break-word !important;
     overflow-wrap: anywhere !important;
     white-space: pre-wrap !important;
     transition: box-shadow 0.15s ease !important;
+}
+
+/* KETIKA PESAN TEKS PENDEK (1-15 HURUF SEPERTI 'P', 'YA', 'OK') BUBBLE SANGAT RAMPING DAN MENYESUAIKAN ISI */
+.chat-msg-bubble.is-short-text {
+    padding: 4px 8px 3px 10px !important;
+    min-width: 0 !important;
+    flex-direction: row !important;
+    align-items: baseline !important;
+    gap: 8px !important;
+}
+
+.chat-msg-bubble.is-short-text .chat-msg-text {
+    display: inline !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 0.88rem !important;
+}
+
+.chat-msg-bubble.is-short-text .chat-time-stamp {
+    display: inline-block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 0.62rem !important;
+    align-self: flex-end !important;
+    line-height: 1 !important;
 }
 
 @media (max-width: 768px) {
@@ -3573,101 +3598,316 @@ body.page-dashboard {
     flex-shrink: 0 !important;
 }
 
-/* MEDIA GAMBAR TERLAMPIR DALAM BUBBLE CHAT */
+/* MEDIA GAMBAR TERLAMPIR DALAM BUBBLE CHAT - SEIMBANG, PROPORSIONAL, BORDERLESS TANPA BATAS HITAM */
 .chat-media-img-wrap {
-    max-width: 260px !important;
-    width: 100% !important;
-    border-radius: 12px !important;
-    overflow: hidden !important;
-    margin: 2px 0 4px 0 !important;
-    cursor: pointer !important;
+    display: block !important;
     position: relative !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
-    background: #000000 !important;
+    width: fit-content !important;
+    max-width: min(260px, 75vw) !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12) !important;
+    background: transparent !important;
+    line-height: 0 !important;
 }
 
 .chat-media-img {
-    width: 100% !important;
-    max-height: 200px !important;
-    object-fit: cover !important;
     display: block !important;
-    border-radius: 12px !important;
-    transition: transform 0.2s ease !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: min(260px, 75vw) !important;
+    max-height: 270px !important;
+    object-fit: cover !important;
+    border-radius: 14px !important;
+    background: transparent !important;
+    transition: transform 0.2s ease, filter 0.2s ease !important;
 }
 
 .chat-media-img-wrap:hover .chat-media-img {
-    transform: scale(1.02) !important;
+    filter: brightness(0.95) !important;
 }
 
-.chat-media-zoom-overlay {
+/* TOMBOL UNDUH CEPAT DI SUDUT KANAN ATAS FOTO */
+.chat-media-dl-btn {
     position: absolute !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent) !important;
+    top: 6px !important;
+    right: 6px !important;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important;
+    background: rgba(15, 23, 42, 0.55) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
     color: #ffffff !important;
-    font-size: 0.68rem !important;
-    font-weight: 600 !important;
-    padding: 10px 8px 5px 8px !important;
+    border: none !important;
     display: flex !important;
     align-items: center !important;
-    justify-content: space-between !important;
+    justify-content: center !important;
+    font-size: 0.72rem !important;
+    cursor: pointer !important;
     opacity: 0 !important;
-    transition: opacity 0.2s ease !important;
+    transition: opacity 0.2s ease, background 0.15s ease, transform 0.15s ease !important;
+    z-index: 12 !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+    line-height: 1 !important;
 }
 
-.chat-media-img-wrap:hover .chat-media-zoom-overlay {
+.chat-media-img-wrap:hover .chat-media-dl-btn {
     opacity: 1 !important;
 }
 
-/* MEDIA VIDEO TERLAMPIR */
-.chat-media-video-wrap {
-    max-width: 270px !important;
+.chat-media-dl-btn:hover {
+    background: #009846 !important;
+    transform: scale(1.1) !important;
+}
+
+/* KETIKA BUBBLE HANYA BERISI MEDIA FOTO ATAU VIDEO (BORDER HIJAU ELEGAN DI SISI-SISINYA, TANPA BATAS HITAM) */
+.chat-msg-row.outgoing .chat-msg-bubble.is-image-only,
+.chat-msg-row.outgoing .chat-msg-bubble.is-video-only,
+.chat-msg-row.outgoing .chat-msg-bubble.is-media-only {
+    padding: 3px !important;
+    background: #009846 !important;
+    border: 2px solid #009846 !important;
+    box-shadow: 0 3px 12px rgba(0, 152, 70, 0.22) !important;
+    border-radius: 17px !important;
+    overflow: visible !important;
+    width: fit-content !important;
+    min-width: 0 !important;
+    max-width: fit-content !important;
+    display: inline-block !important;
+}
+
+.chat-msg-row.incoming .chat-msg-bubble.is-image-only,
+.chat-msg-row.incoming .chat-msg-bubble.is-video-only,
+.chat-msg-row.incoming .chat-msg-bubble.is-media-only {
+    padding: 3px !important;
+    background: #ffffff !important;
+    border: 2px solid #e2e8f0 !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08) !important;
+    border-radius: 17px !important;
+    overflow: visible !important;
+    width: fit-content !important;
+    min-width: 0 !important;
+    max-width: fit-content !important;
+    display: inline-block !important;
+}
+
+.chat-msg-bubble.is-image-only .chat-media-img-wrap,
+.chat-msg-bubble.is-video-only .chat-media-video-wrap,
+.chat-msg-bubble.is-media-only .chat-media-video-wrap {
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+/* SUDUT TOMBOL MENU BUBBLE PADA PESAN FOTO & VIDEO (POSISI DI KIRI ATAS AGAR RAPI & TIDAK BERTABRAKAN) */
+.chat-msg-bubble.is-image-only .bubble-corner-btn,
+.chat-msg-bubble.is-video-only .bubble-corner-btn,
+.chat-msg-bubble.is-media-only .bubble-corner-btn {
+    top: 8px !important;
+    left: 8px !important;
+    right: auto !important;
+    background: rgba(15, 23, 42, 0.55) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    color: #ffffff !important;
+    border-radius: 50% !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25) !important;
+    z-index: 15 !important;
+}
+
+/* KETIKA FOTO ATAU VIDEO DISERTAI TEKS / CAPTION */
+.chat-msg-bubble:not(.is-image-only):not(.is-video-only) .chat-media-img-wrap,
+.chat-msg-bubble:not(.is-image-only):not(.is-video-only) .chat-media-video-wrap {
+    margin-bottom: 6px !important;
+    border-radius: 13px 13px 6px 6px !important;
     width: 100% !important;
-    border-radius: 12px !important;
-    overflow: hidden !important;
-    margin: 2px 0 4px 0 !important;
-    background: #000000 !important;
+    max-width: min(260px, 75vw) !important;
+}
+
+.chat-msg-bubble:not(.is-image-only):not(.is-video-only) .chat-media-img,
+.chat-msg-bubble:not(.is-image-only):not(.is-video-only) .chat-media-video {
+    border-radius: 13px 13px 6px 6px !important;
+    width: 100% !important;
+}
+
+/* FLOATING TIMESTAMP DI ATAS MEDIA - POLOSAN TANPA KOTAK HITAM DIBELAKANGNYA, TETAP TERLIHAT JELAS DENGAN SHADOW */
+.chat-time-stamp-overlay {
+    position: absolute !important;
+    bottom: 6px !important;
+    right: 8px !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    color: #ffffff !important;
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    pointer-events: none !important;
+    z-index: 10 !important;
+    box-shadow: none !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 3px rgba(0, 0, 0, 0.95), 0 1px 3px #000000 !important;
+    line-height: 1.2 !important;
+}
+
+/* INDIKATOR STATUS BACA TANDA CENTANG (ABU-ABU TERKIRIM -> BIRU TERBACA) */
+.chat-check-read {
+    color: #38bdf8 !important; /* Biru terang dibaca (WhatsApp style) */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 4px rgba(56, 189, 248, 0.8) !important;
+}
+
+.chat-check-delivered {
+    color: #e2e8f0 !important; /* Abu-abu terang terkirim */
+    opacity: 0.95 !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 3px #000000 !important;
+}
+
+/* Di dalam bubble teks hijau biasa (bukan overlay gambar) */
+.chat-msg-row.outgoing .chat-msg-bubble:not(.is-image-only):not(.is-video-only) .chat-check-read {
+    color: #7dd3fc !important;
+    text-shadow: none !important;
+}
+.chat-msg-row.outgoing .chat-msg-bubble:not(.is-image-only):not(.is-video-only) .chat-check-delivered {
+    color: rgba(255, 255, 255, 0.85) !important;
+    text-shadow: none !important;
+}
+
+/* MEDIA VIDEO TERLAMPIR - FULL TANPA HITAM DI ATAS, BAWAH, KANAN, KIRI, SEIMBANG */
+.chat-media-video-wrap {
+    display: block !important;
     position: relative !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12) !important;
+    width: fit-content !important;
+    max-width: min(260px, 75vw) !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+    background: transparent !important; /* TANPA KOTAK HITAM */
+    line-height: 0 !important;
 }
 
 .chat-media-video {
-    width: 100% !important;
-    max-height: 200px !important;
     display: block !important;
-    border-radius: 12px 12px 0 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: min(260px, 75vw) !important;
+    max-height: 270px !important;
+    object-fit: cover !important; /* FULL BLEED TANPA BATAS HITAM */
+    border-radius: 14px !important;
+    cursor: pointer !important;
+    background: transparent !important; /* TANPA LATAR HITAM */
 }
 
-.video-bubble-bar {
+/* TOMBOL PUTAR TENGAH VIDEO (MUNCUL SAAT DIHOVER / JEDA) */
+.video-center-play-overlay {
+    position: absolute !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(0, 0, 0, 0.3) !important;
+    cursor: pointer !important;
+    z-index: 5 !important;
+    opacity: 1 !important;
+    transition: opacity 0.25s ease, background 0.2s ease !important;
+}
+
+.video-center-play-overlay.is-playing {
+    opacity: 0 !important;
+}
+
+.chat-media-video-wrap:hover .video-center-play-overlay.is-playing {
+    opacity: 0.9 !important;
+}
+
+.center-play-circle {
+    width: 52px !important;
+    height: 52px !important;
+    border-radius: 50% !important;
+    background: rgba(0, 152, 70, 0.92) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 2px solid rgba(255, 255, 255, 0.9) !important;
+    color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.35rem !important;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45) !important;
+    transition: transform 0.2s ease, background 0.2s ease !important;
+}
+
+.video-center-play-overlay:hover .center-play-circle {
+    transform: scale(1.12) !important;
+    background: #009846 !important;
+}
+
+/* BILAH KONTROL VIDEO MENGAMBANG (HANYA MUNCUL KETIKA KURSOR MENGARAHKAN KE VIDEO / HOVER) */
+.video-floating-hover-bar {
+    position: absolute !important;
+    bottom: 8px !important;
+    left: 8px !important;
+    right: 8px !important;
+    background: rgba(15, 23, 42, 0.88) !important;
+    backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.22) !important;
+    border-radius: 20px !important;
+    padding: 6px 12px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    padding: 5px 10px !important;
-    background: rgba(15, 23, 42, 0.9) !important;
-    color: #ffffff !important;
-    font-size: 0.7rem !important;
-    gap: 8px !important;
+    z-index: 10 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity 0.25s ease, transform 0.2s ease !important;
+    transform: translateY(4px) !important;
 }
 
-.video-bubble-bar-btns {
-    display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
+.chat-media-video-wrap:hover .video-floating-hover-bar,
+.chat-media-video-wrap.show-controls .video-floating-hover-bar {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: translateY(0) !important;
 }
 
-.btn-video-ctrl {
-    background: none !important;
-    border: none !important;
+.btn-video-hover-ctrl {
+    background: rgba(255, 255, 255, 0.12) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
     color: #ffffff !important;
     cursor: pointer !important;
-    font-size: 0.78rem !important;
-    padding: 2px 5px !important;
-    border-radius: 4px !important;
-    transition: background 0.15s ease !important;
+    font-size: 0.85rem !important;
+    padding: 5px 9px !important;
+    border-radius: 8px !important;
+    transition: all 0.15s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    text-decoration: none !important;
 }
-.btn-video-ctrl:hover {
-    background: rgba(255, 255, 255, 0.2) !important;
+
+.btn-video-hover-ctrl:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+    transform: scale(1.08) !important;
+    color: #ffffff !important;
+}
+
+.video-hover-timer {
+    font-size: 0.7rem !important;
+    color: #cbd5e1 !important;
+    font-family: monospace !important;
+    font-weight: 700 !important;
+    padding: 0 4px !important;
 }
 
 /* MEDIA DOKUMEN BERKAS (PDF, WORD, EXCEL DLL) - MODERN, ELEGAN & PREMIUM */
@@ -3857,6 +4097,106 @@ body.page-dashboard {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
 }
 
+/* PANEL UNDUHAN DI SAMPING KARTU DOKUMEN (WORD, PDF, EXCEL) & HILANGKAN PANEL UNDUH / PRATINJAU BAWAH */
+.chat-doc-actions-strip {
+    display: none !important;
+}
+
+.chat-doc-side-panel {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding-left: 6px !important;
+    flex-shrink: 0 !important;
+}
+
+.chat-doc-side-dl-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    padding: 7px 12px !important;
+    border-radius: 12px !important;
+    background: #f1f5f9 !important;
+    color: #1e293b !important;
+    border: 1.5px solid #cbd5e1 !important;
+    font-size: 0.76rem !important;
+    font-weight: 800 !important;
+    cursor: pointer !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
+    white-space: nowrap !important;
+    text-decoration: none !important;
+}
+
+.chat-doc-side-dl-btn i {
+    font-size: 0.85rem !important;
+}
+
+.chat-doc-card.chat-doc-pdf .chat-doc-side-dl-btn {
+    background: #fef2f2 !important;
+    color: #dc2626 !important;
+    border-color: #fca5a5 !important;
+}
+.chat-doc-card.chat-doc-pdf .chat-doc-side-dl-btn:hover {
+    background: #dc2626 !important;
+    color: #ffffff !important;
+    border-color: #dc2626 !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3) !important;
+}
+
+.chat-doc-card.chat-doc-word .chat-doc-side-dl-btn {
+    background: #eff6ff !important;
+    color: #2563eb !important;
+    border-color: #93c5fd !important;
+}
+.chat-doc-card.chat-doc-word .chat-doc-side-dl-btn:hover {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    border-color: #2563eb !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3) !important;
+}
+
+.chat-doc-card.chat-doc-excel .chat-doc-side-dl-btn {
+    background: #f0fdf4 !important;
+    color: #16a34a !important;
+    border-color: #86efac !important;
+}
+.chat-doc-card.chat-doc-excel .chat-doc-side-dl-btn:hover {
+    background: #16a34a !important;
+    color: #ffffff !important;
+    border-color: #16a34a !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 10px rgba(22, 163, 74, 0.3) !important;
+}
+
+.chat-doc-card.chat-doc-ppt .chat-doc-side-dl-btn {
+    background: #fff7ed !important;
+    color: #ea580c !important;
+    border-color: #fdba74 !important;
+}
+.chat-doc-card.chat-doc-ppt .chat-doc-side-dl-btn:hover {
+    background: #ea580c !important;
+    color: #ffffff !important;
+    border-color: #ea580c !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 10px rgba(234, 88, 12, 0.3) !important;
+}
+
+.chat-doc-card.chat-doc-other .chat-doc-side-dl-btn {
+    background: #f0f9ff !important;
+    color: #0284c7 !important;
+    border-color: #7dd3fc !important;
+}
+.chat-doc-card.chat-doc-other .chat-doc-side-dl-btn:hover {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+    border-color: #0284c7 !important;
+    transform: scale(1.05) !important;
+}
+
 .chat-doc-card.chat-doc-pdf .chat-doc-dl-btn:hover {
     background: #dc2626 !important;
     color: #ffffff !important;
@@ -3888,45 +4228,149 @@ body.page-dashboard {
     transform: scale(1.1) !important;
 }
 
-/* Bottom Action Strip: Buka & Unduh */
-.chat-doc-actions-strip {
-    display: flex !important;
-    border-top: 1px solid #f1f5f9 !important;
+/* CUPLIKAN ISI DOKUMEN DIDALAM (WORD, EXCEL, PDF) TERLIHAT DARI LUAR - BERADA DI ATAS */
+.chat-doc-card {
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 16px !important;
+    overflow: hidden !important;
+    margin: 2px 0 !important;
+    width: 310px !important;
+    max-width: 100% !important;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08) !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.chat-doc-inside-preview {
+    background: #ffffff !important;
+    border-bottom: 1.5px solid #e2e8f0 !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 12px 14px 10px 14px !important;
+    font-size: 0.75rem !important;
+    line-height: 1.4 !important;
+    cursor: pointer !important;
+    transition: background 0.15s ease !important;
+}
+
+.chat-doc-inside-preview:hover {
     background: #f8fafc !important;
 }
 
-.chat-doc-action-link {
-    flex: 1 !important;
-    padding: 8px 10px !important;
-    display: inline-flex !important;
+/* PANEL BERKAS: IKON DOKUMEN, NAMA, UKURAN & TOMBOL UNDUH BERADA DI BAWAH PRATINJAU */
+.chat-doc-bottom-strip {
+    display: flex !important;
     align-items: center !important;
-    justify-content: center !important;
-    gap: 6px !important;
-    font-size: 0.74rem !important;
-    font-weight: 700 !important;
-    color: #475569 !important;
-    text-decoration: none !important;
-    background: transparent !important;
-    border: none !important;
+    justify-content: space-between !important;
+    padding: 10px 12px !important;
+    background: #f8fafc !important;
+    border-radius: 0 0 16px 16px !important;
     cursor: pointer !important;
-    transition: background 0.15s ease, color 0.15s ease !important;
+    transition: background 0.15s ease !important;
+    gap: 8px !important;
 }
 
-.chat-doc-action-link:hover {
+.chat-doc-bottom-strip:hover {
+    background: #f1f5f9 !important;
+}
+
+.doc-inside-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-size: 0.67rem !important;
+    font-weight: 800 !important;
+    color: #475569 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    margin-bottom: 4px !important;
+}
+
+.doc-inside-title {
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    font-size: 0.78rem !important;
+    margin-bottom: 2px !important;
+}
+
+.doc-inside-sub {
+    font-size: 0.68rem !important;
+    color: #64748b !important;
+    margin-bottom: 5px !important;
+}
+
+.doc-inside-excerpt {
+    font-size: 0.72rem !important;
+    color: #334155 !important;
+    background: #ffffff !important;
+    border-left: 3px solid #009846 !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    margin-bottom: 5px !important;
+    border: 1px solid #f1f5f9;
+}
+
+.doc-inside-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    font-size: 0.67rem !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+    margin-top: 5px !important;
+    padding-top: 4px !important;
+    border-top: 1px solid #e2e8f0 !important;
+}
+
+.badge-inside-ok {
+    color: #059669 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+}
+
+.badge-inside-page {
     background: #e2e8f0 !important;
+    padding: 1px 5px !important;
+    border-radius: 4px !important;
+    font-size: 0.62rem !important;
+}
+
+.doc-inside-sheet-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 0.66rem !important;
+    margin: 4px 0 !important;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 4px !important;
+    overflow: hidden !important;
+}
+
+.doc-inside-sheet-table th {
+    background: #f1f5f9 !important;
+    color: #334155 !important;
+    padding: 3px 5px !important;
+    text-align: left !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    font-weight: 800 !important;
+}
+
+.doc-inside-sheet-table td {
+    padding: 3px 5px !important;
+    border-bottom: 1px solid #f1f5f9 !important;
     color: #0f172a !important;
 }
 
-.chat-doc-action-link.btn-primary-doc {
+.status-chip {
+    font-size: 0.6rem !important;
     font-weight: 800 !important;
-    border-left: 1px solid #e2e8f0 !important;
+    padding: 1px 4px !important;
+    border-radius: 3px !important;
 }
-
-.chat-doc-card.chat-doc-pdf .chat-doc-action-link.btn-primary-doc { color: #dc2626 !important; }
-.chat-doc-card.chat-doc-word .chat-doc-action-link.btn-primary-doc { color: #2563eb !important; }
-.chat-doc-card.chat-doc-excel .chat-doc-action-link.btn-primary-doc { color: #16a34a !important; }
-.chat-doc-card.chat-doc-ppt .chat-doc-action-link.btn-primary-doc { color: #ea580c !important; }
-.chat-doc-card.chat-doc-other .chat-doc-action-link.btn-primary-doc { color: #0284c7 !important; }
+.status-chip.chip-salur { background: #dbeafe !important; color: #1e40af !important; }
+.status-chip.chip-ok { background: #dcfce7 !important; color: #166534 !important; }
+.status-chip.chip-proc { background: #fef3c7 !important; color: #92400e !important; }
 
 /* PINNED MESSAGE HIGHLIGHT PULSE */
 @keyframes pinGlow {
@@ -4239,13 +4683,13 @@ body.page-dashboard {
 .voice-note-bubble-card {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
+    gap: 10px;
+    padding: 6px 12px 6px 10px;
     background: rgba(255, 255, 255, 0.95);
-    border-radius: 12px;
+    border-radius: 18px;
     border: 1px solid rgba(0, 0, 0, 0.08);
-    min-width: 175px;
-    max-width: 220px;
+    min-width: 230px;
+    max-width: 290px;
     margin-bottom: 2px;
 }
 .chat-msg-row.outgoing .voice-note-bubble-card {
@@ -4254,8 +4698,8 @@ body.page-dashboard {
     color: #ffffff;
 }
 .voice-play-circle-btn {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     background: #009846;
     color: #ffffff;
@@ -4264,10 +4708,10 @@ body.page-dashboard {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     flex-shrink: 0;
-    transition: transform 0.15s ease;
-    box-shadow: 0 2px 6px rgba(0, 152, 70, 0.3);
+    transition: transform 0.15s ease, background 0.15s ease;
+    box-shadow: 0 2px 8px rgba(0, 152, 70, 0.35);
 }
 .voice-play-circle-btn:hover {
     transform: scale(1.08);
@@ -4275,7 +4719,7 @@ body.page-dashboard {
 .chat-msg-row.outgoing .voice-play-circle-btn {
     background: #ffffff;
     color: #009846;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 .voice-track-info {
     flex: 1;
@@ -4284,17 +4728,138 @@ body.page-dashboard {
     flex-direction: column;
     gap: 3px;
 }
-.voice-wave-progress {
-    width: 100%;
-    height: 4px;
-    border-radius: 2px;
-    appearance: none;
-    background: rgba(0, 0, 0, 0.12);
-    outline: none;
+.voice-freq-visualizer {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 22px;
     cursor: pointer;
+    padding: 1px 0;
+    width: 100%;
 }
-.chat-msg-row.outgoing .voice-wave-progress {
-    background: rgba(255, 255, 255, 0.4);
+.voice-freq-bar {
+    flex: 1;
+    min-width: 2.5px;
+    max-width: 4px;
+    border-radius: 3px;
+    background: #cbd5e1;
+    transition: height 0.12s ease, background 0.15s ease;
+}
+.chat-msg-row.outgoing .voice-freq-bar {
+    background: rgba(255, 255, 255, 0.45);
+}
+.voice-freq-bar.played {
+    background: #009846;
+}
+.chat-msg-row.outgoing .voice-freq-bar.played {
+    background: #ffffff;
+}
+.voice-freq-bar.active-anim {
+    animation: soundwaveBounce 0.45s ease-in-out infinite alternate !important;
+}
+@keyframes soundwaveBounce {
+    0% { transform: scaleY(0.4); }
+    100% { transform: scaleY(1.35); }
+}
+.btn-voice-speed-pill {
+    width: 25px !important;
+    height: 25px !important;
+    min-width: 25px !important;
+    max-width: 25px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    font-size: 0.65rem !important;
+    font-weight: 800 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    background: rgba(0, 0, 0, 0.08) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    color: #334155 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    outline: none !important;
+}
+.btn-voice-speed-pill:hover {
+    background: rgba(0, 0, 0, 0.15) !important;
+    transform: scale(1.1) !important;
+}
+.chat-msg-row.outgoing .btn-voice-speed-pill {
+    background: rgba(255, 255, 255, 0.22) !important;
+    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    color: #ffffff !important;
+}
+.chat-msg-row.outgoing .btn-voice-speed-pill:hover {
+    background: #ffffff !important;
+    color: #009846 !important;
+    transform: scale(1.1) !important;
+}
+
+/* ATTACHMENT MENU POPOVER ELEGAN */
+.chat-attachment-menu-popover {
+    position: absolute !important;
+    bottom: 64px !important;
+    left: 48px !important;
+    background: #ffffff !important;
+    border-radius: 20px !important;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2), 0 2px 8px rgba(15, 23, 42, 0.08) !important;
+    border: 1px solid #e2e8f0 !important;
+    padding: 14px 14px 10px 14px !important;
+    z-index: 99999 !important;
+    display: none;
+    width: 290px !important;
+    animation: popoverFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.attachment-menu-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 12px 8px !important;
+    text-align: center !important;
+}
+
+.attach-option-btn {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 6px !important;
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 6px 4px !important;
+    border-radius: 12px !important;
+    transition: transform 0.15s ease, background 0.15s ease !important;
+    outline: none !important;
+}
+
+.attach-option-btn:hover {
+    background: #f8fafc !important;
+    transform: translateY(-2px) !important;
+}
+
+.attach-icon-circle {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.2rem !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    transition: transform 0.15s ease !important;
+}
+
+.attach-option-btn:hover .attach-icon-circle {
+    transform: scale(1.08) !important;
+}
+
+.attach-option-label {
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+    line-height: 1.15 !important;
 }
 .voice-meta-row {
     display: flex;

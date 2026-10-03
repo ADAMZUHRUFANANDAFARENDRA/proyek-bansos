@@ -1025,3 +1025,169 @@ img, svg, video, canvas {
     0% { background-position: 0 0; }
     100% { background-position: 36px 0; }
 }
+
+/* =========================================================================
+   MEDIA FOTO & VIDEO DALAM BUBBLE CHAT - PROPORSI, BORDER HIJAU, POLOSAN TIMESTAMP
+   ========================================================================= */
+.chat-media-img-wrap {
+    display: block !important;
+    position: relative !important;
+    width: fit-content !important;
+    max-width: min(260px, 75vw) !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12) !important;
+    background: transparent !important;
+    line-height: 0 !important;
+}
+
+.chat-media-img {
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: min(260px, 75vw) !important;
+    max-height: 270px !important;
+    object-fit: cover !important;
+    border-radius: 14px !important;
+    background: transparent !important;
+    transition: transform 0.2s ease, filter 0.2s ease !important;
+}
+
+.chat-media-img-wrap:hover .chat-media-img {
+    filter: brightness(0.95) !important;
+}
+
+.chat-media-dl-btn {
+    position: absolute !important;
+    top: 6px !important;
+    right: 6px !important;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important;
+    background: rgba(15, 23, 42, 0.55) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    color: #ffffff !important;
+    border: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 0.72rem !important;
+    cursor: pointer !important;
+    opacity: 0 !important;
+    transition: opacity 0.2s ease, background 0.15s ease, transform 0.15s ease !important;
+    z-index: 12 !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+    line-height: 1 !important;
+}
+
+.chat-media-img-wrap:hover .chat-media-dl-btn,
+.chat-media-video-wrap:hover .chat-media-dl-btn {
+    opacity: 1 !important;
+}
+
+.chat-media-dl-btn:hover {
+    background: #009846 !important;
+    transform: scale(1.1) !important;
+}
+
+/* OUTGOING MEDIA (BORDER HIJAU SEDIKIT DI SISI-SISINYA) */
+.chat-msg-row.outgoing .chat-msg-bubble.is-image-only,
+.chat-msg-row.outgoing .chat-msg-bubble.is-video-only,
+.chat-msg-row.outgoing .chat-msg-bubble.is-media-only,
+.chat-bubble-media-me {
+    padding: 3px !important;
+    background: #009846 !important;
+    border: 2px solid #009846 !important;
+    box-shadow: 0 3px 12px rgba(0, 152, 70, 0.22) !important;
+    border-radius: 17px !important;
+    overflow: visible !important;
+    width: fit-content !important;
+    min-width: 0 !important;
+    max-width: fit-content !important;
+    display: inline-block !important;
+}
+
+/* INCOMING MEDIA */
+.chat-msg-row.incoming .chat-msg-bubble.is-image-only,
+.chat-msg-row.incoming .chat-msg-bubble.is-video-only,
+.chat-msg-row.incoming .chat-msg-bubble.is-media-only,
+.chat-bubble-media-them {
+    padding: 3px !important;
+    background: #ffffff !important;
+    border: 2px solid #e2e8f0 !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08) !important;
+    border-radius: 17px !important;
+    overflow: visible !important;
+    width: fit-content !important;
+    min-width: 0 !important;
+    max-width: fit-content !important;
+    display: inline-block !important;
+}
+
+/* FLOATING TIMESTAMP DI ATAS MEDIA - POLOSAN TANPA KOTAK HITAM DI BELAKANGNYA */
+.chat-time-stamp-overlay {
+    position: absolute !important;
+    bottom: 6px !important;
+    right: 8px !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    color: #ffffff !important;
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    pointer-events: none !important;
+    z-index: 10 !important;
+    box-shadow: none !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 3px rgba(0, 0, 0, 0.95), 0 1px 3px #000000 !important;
+    line-height: 1.2 !important;
+}
+
+/* STATUS BACA CENTANG DUA: ABU-ABU -> BIRU */
+.chat-check-read {
+    color: #38bdf8 !important; /* Biru terang khas WhatsApp centang dua terbaca */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 4px rgba(56, 189, 248, 0.8) !important;
+}
+
+.chat-check-delivered {
+    color: #e2e8f0 !important; /* Abu-abu terang terkirim */
+    opacity: 0.95 !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 3px #000000 !important;
+}
+
+/* MEDIA VIDEO TERLAMPIR - FULL BLEED TANPA HITAM DI ATAS, BAWAH, KANAN, KIRI */
+.chat-media-video-wrap {
+    display: block !important;
+    position: relative !important;
+    width: fit-content !important;
+    max-width: min(260px, 75vw) !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+    background: transparent !important;
+    line-height: 0 !important;
+}
+
+.chat-media-video {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: min(260px, 75vw) !important;
+    max-height: 270px !important;
+    object-fit: cover !important;
+    border-radius: 14px !important;
+    cursor: pointer !important;
+    background: transparent !important;
+}
