@@ -8,10 +8,30 @@ import {
 } from '../store.js';
 import { parseIntSafe } from '../spk_engine.js';
 import type { UserItem } from '../types.js';
+import {
+  getClientIp,
+  recordLoginAttempt,
+  logSecurityIncident,
+  createRateLimiter
+} from '../security_guard.js';
 
 const router = Router();
 
-router.post(['/login', '/api/auth/login', '/api/login'], (req: Request, res: Response) => {
+// Rate limiter khusus untuk endpoint otentikasi (mencegah credential stuffing)
+const loginLimiter = createRateLimiter({
+  maxRequests: 25,
+  windowMs: 60 * 1000,
+  message: 'Terlalu banyak percobaan masuk dari alamat IP ini. Silakan tunggu 1 menit.'
+});
+
+const recoveryLimiter = createRateLimiter({
+  maxRequests: 10,
+  windowMs: 5 * 60 * 1000,
+  message: 'Terlalu banyak percobaan pemulihan darurat dari IP ini. Akses dibatasi.'
+});
+
+router.post(['/login', '/api/auth/login', '/api/login'], loginLimiter, (req: Request, res: Response) => {
+  const clientIp = getClientIp(req);
   const data = req.body || {};
   const identifier = String(data.username || data.email || '').trim();
   const password = String(data.password || '').trim();
@@ -34,9 +54,18 @@ router.post(['/login', '/api/auth/login', '/api/login'], (req: Request, res: Res
       (user.username === 'petugas' && ['123', '12345', 'petugas'].includes(password)));
 
   if (!user || !isPasswordValid) {
+    const attempt = recordLoginAttempt(clientIp, false);
+    if (attempt.isBlocked) {
+      return res.status(403).json({
+        status: 'error',
+        code: 'ACCOUNT_LOCKED_BRUTE_FORCE',
+        message: 'IP Anda telah diblokir sementara selama 20 menit akibat kegagalan masuk 5 kali berturut-turut.'
+      });
+    }
+
     return res.status(401).json({
       status: 'error',
-      message: 'Username atau kata sandi tidak valid.'
+      message: `Username atau kata sandi tidak valid. Sisa percobaan aman: ${attempt.attemptsLeft}.`
     });
   }
 
@@ -47,6 +76,9 @@ router.post(['/login', '/api/auth/login', '/api/login'], (req: Request, res: Res
     });
   }
 
+  // Login Berhasil - Reset tracker percobaan gagal
+  recordLoginAttempt(clientIp, true);
+
   const token = makeJwtToken(user);
   const userInfo = {
     id: user.id,
@@ -56,7 +88,7 @@ router.post(['/login', '/api/auth/login', '/api/login'], (req: Request, res: Res
     role: user.role || 'operator'
   };
 
-  catatNotifikasi(`Pengguna '${user.username}' berhasil masuk ke sistem.`, user.role.toUpperCase(), 'login');
+  catatNotifikasi(`Pengguna '${user.username}' berhasil masuk ke sistem dari IP ${clientIp}.`, user.role.toUpperCase(), 'login');
 
   return res.json({
     status: 'success',
@@ -76,7 +108,8 @@ router.post(['/logout', '/api/auth/logout'], (_req: Request, res: Response) => {
   });
 });
 
-router.post(['/recovery', '/api/auth/recovery', '/auth/recovery'], (req: Request, res: Response) => {
+router.post(['/recovery', '/api/auth/recovery', '/auth/recovery'], recoveryLimiter, (req: Request, res: Response) => {
+  const clientIp = getClientIp(req);
   const data = req.body || {};
   const masterKey = String(data.master_key || '').trim();
   const targetType = String(data.target_type || 'admin_utama').trim();
@@ -84,8 +117,21 @@ router.post(['/recovery', '/api/auth/recovery', '/auth/recovery'], (req: Request
   const newUsername = String(data.new_username || '').trim();
   const newPassword = String(data.new_password || '').trim();
 
-  const validKeys = [MASTER_RECOVERY_KEY.toUpperCase(), 'DINSOS-SDA-2026', 'DINSOS2026', 'DINSOS-SDA'];
+  const validKeys = [MASTER_RECOVERY_KEY.toUpperCase(), 'DINSOS-SDA-2026'];
   if (!masterKey || !validKeys.includes(masterKey.toUpperCase())) {
+    logSecurityIncident({
+      ip: clientIp,
+      method: 'POST',
+      path: '/api/auth/recovery',
+      attack_type: 'BRUTE_FORCE',
+      threat_level: 'HIGH',
+      matched_rule: 'Invalid Master Recovery Key Attempt',
+      payload_sample: `Attempted key: ${masterKey.slice(0, 15)}...`,
+      user_agent: String(req.headers['user-agent'] || 'Unknown'),
+      status: 'BLOCKED',
+      action_taken: 'Upaya pemulihan darurat tanpa otorisasi kunci dinas ditolak.'
+    });
+
     return res.status(403).json({
       status: 'error',
       message: 'Kunci Otorisasi Darurat Dinas tidak valid atau salah!'
@@ -155,7 +201,8 @@ router.all(['/profile', '/api/auth/profile'], (req: Request, res: Response) => {
   if (!user) return res.status(404).json({ status: 'error', message: 'Pengguna tidak ditemukan.' });
 
   if (req.method === 'GET') {
-    return res.json({ status: 'success', user });
+    const { password, ...safeUser } = user;
+    return res.json({ status: 'success', user: safeUser });
   }
 
   const d = req.body || {};
@@ -183,7 +230,6 @@ router.get(['/users', '/api/users', '/api/auth/users'], (_req: Request, res: Res
       email: u.email,
       role: u.role,
       is_active: u.is_active,
-      current_password: u.password,
       created_at: u.created_at
     }))
   );
@@ -234,7 +280,8 @@ router.all(['/users/:id', '/api/users/:id'], (req: Request, res: Response) => {
   const target = usersStore[idx];
 
   if (req.method === 'GET') {
-    return res.json({ status: 'success', data: target });
+    const { password, ...safeUser } = target;
+    return res.json({ status: 'success', data: safeUser });
   }
 
   if (req.method === 'DELETE') {
@@ -270,8 +317,7 @@ router.all(['/users/:id', '/api/users/:id'], (req: Request, res: Response) => {
       data: {
         id: target.id,
         username: target.username,
-        role: target.role,
-        current_password: target.password
+        role: target.role
       }
     });
   }

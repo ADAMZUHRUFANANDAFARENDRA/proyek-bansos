@@ -11,6 +11,13 @@ import type {
   LaporanPelanggaranItem,
   MasterSeedTuple
 } from './types.js';
+import {
+  validateUploadFileSafe,
+  sanitizeSafeFilename,
+  createSecureJwt,
+  logSecurityIncident,
+  getClientIp
+} from './security_guard.js';
 
 export const MASTER_RECOVERY_KEY = process.env.MASTER_RECOVERY_KEY || 'DINSOS-SDA-2026';
 
@@ -21,13 +28,33 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.dat';
-    const safeBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
-    cb(null, `${Date.now()}_${safeBase}${ext}`);
+    cb(null, sanitizeSafeFilename(file.originalname));
   }
 });
 
-export const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 * 1024, files: 500 } });
+export const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 * 1024, files: 500 },
+  fileFilter: (req, file, cb) => {
+    const check = validateUploadFileSafe(file.originalname, file.mimetype);
+    if (!check.safe) {
+      logSecurityIncident({
+        ip: getClientIp(req as any),
+        method: 'POST',
+        path: req.originalUrl || '/upload',
+        attack_type: 'MALICIOUS_UPLOAD',
+        threat_level: 'HIGH',
+        matched_rule: `Forbidden File: ${path.extname(file.originalname)}`,
+        payload_sample: `Filename: ${file.originalname}, MIME: ${file.mimetype}`,
+        user_agent: String(req.headers['user-agent'] || 'Unknown'),
+        status: 'BLOCKED',
+        action_taken: 'Memblokir unggahan file berbahaya yang dilarang (Anti-Webshell).'
+      });
+      return cb(new Error(check.reason || 'Berkas ditolak oleh sistem keamanan.'));
+    }
+    cb(null, true);
+  }
+});
 
 export const KECAMATAN_SIDOARJO = [
   { nama: 'Sidoarjo', lat: -7.4478, lng: 112.7183, desil_avg: 2 },
@@ -384,15 +411,5 @@ export function formatWarga(w: WargaItem) {
 }
 
 export function makeJwtToken(user: { id: number; username: string; role: string }) {
-  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const payload = Buffer.from(
-    JSON.stringify({
-      sub: String(user.id),
-      user_id: user.id,
-      username: user.username,
-      role: user.role,
-      exp: Math.floor(Date.now() / 1000) + 7 * 24 * 3600
-    })
-  ).toString('base64url');
-  return `${header}.${payload}.sidoarjo_signature`;
+  return createSecureJwt(user);
 }

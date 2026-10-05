@@ -34,11 +34,11 @@ window.loadUserTable = async function () {
 
         if (!users || !users.length) {
             users = [
-                { id: 1, username: "admin", role: "admin", current_password: "admin" },
-                { id: 2, username: "petugas", role: "operator", current_password: "123" },
-                { id: 3, username: "verifikator", role: "operator", current_password: "123" },
-                { id: 4, username: "operator", role: "operator", current_password: "123" },
-                { id: 5, username: "kepala_dinsos", role: "admin", current_password: "123" }
+                { id: 1, username: "admin", role: "admin" },
+                { id: 2, username: "petugas", role: "operator" },
+                { id: 3, username: "verifikator", role: "operator" },
+                { id: 4, username: "operator", role: "operator" },
+                { id: 5, username: "kepala_dinsos", role: "admin" }
             ];
         }
 
@@ -49,7 +49,7 @@ window.loadUserTable = async function () {
                 : `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; padding:3px 10px; border-radius:12px; font-size:0.75rem;">OPERATOR</span>`;
 
             const btnEdit = `
-                <button type="button" class="btn btn-sm" onclick="window.editUser(${u.id}, '${window.escapeInlineJS(u.username)}', '${u.role}', '${window.escapeInlineJS(u.current_password || '')}')" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:8px; padding:5px 9px; cursor:pointer;" title="Edit Akun">
+                <button type="button" class="btn btn-sm" onclick="window.editUser(${u.id}, '${window.escapeInlineJS(u.username)}', '${u.role}')" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:8px; padding:5px 9px; cursor:pointer;" title="Edit Akun">
                     <i class="fas fa-pencil-alt"></i>
                 </button>
             `;

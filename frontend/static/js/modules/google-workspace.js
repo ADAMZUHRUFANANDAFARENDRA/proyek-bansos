@@ -11,7 +11,7 @@
  */
 
 (function () {
-    const GOOGLE_CLIENT_ID = '935928718907-esat4br1mvc30f9mogkc96pglbiom9u6.apps.googleusercontent.com';
+    let dynamicGoogleClientId = '';
     const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.photos.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email openid email profile';
 
     let inMemoryAccessToken = null;
@@ -25,11 +25,35 @@
     let currentFolderPath = [{ id: 'root', name: 'Drive Saya' }];
     let photosActiveTab = 'all'; // 'all' (Semua Foto & Video) | 'albums' (Album Galeri) | 'videos' (Video MP4)
 
+    // Ambil Konfigurasi OAuth Secara Aman dari Backend (Tidak membocorkan rahasia ke kode statis)
+    async function getGoogleClientId() {
+        if (dynamicGoogleClientId) return dynamicGoogleClientId;
+        try {
+            const res = await fetch('/api/security/public-config');
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.oauth && data.oauth.google_client_id) {
+                    dynamicGoogleClientId = data.oauth.google_client_id;
+                    return dynamicGoogleClientId;
+                }
+            }
+        } catch (e) {
+            console.warn('[Security] Menggunakan cadangan konfigurasi oauth:', e);
+        }
+        return dynamicGoogleClientId;
+    }
+
     // Inisialisasi Google Identity Services Client
-    function initGoogleClient() {
+    async function initGoogleClient() {
+        const clientId = await getGoogleClientId();
+        if (!clientId) {
+            console.warn('[Security] Menunggu sinkronisasi kredensial dari server...');
+            return;
+        }
+
         if (typeof google !== 'undefined' && google.accounts && google.accounts.oauth2) {
             tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: GOOGLE_CLIENT_ID,
+                client_id: clientId,
                 scope: GOOGLE_SCOPES,
                 callback: async (tokenResponse) => {
                     if (tokenResponse && tokenResponse.access_token) {
