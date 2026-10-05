@@ -20,6 +20,9 @@
     <link rel="stylesheet" href="static/css/style.css">
     <link rel="stylesheet" href="static/css/admin.css">
 
+    <!-- GOOGLE IDENTITY SERVICES SDK (OAUTH 2.0 GOOGLE DRIVE & GOOGLE FOTO) -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
     <!-- AUTH FAST SECURITY CHECK (MENGIZINKAN VERIFIKASI DOKUMEN DIGITAL BSrE SECARA PUBLIK) -->
     <script>
         (function () {
@@ -1981,17 +1984,149 @@
                         <button type="button" onclick="window.clearAdminAttachment()" style="background:none; border:none; color:#065f46; cursor:pointer; font-size:0.85rem;"><i class="fas fa-times"></i></button>
                     </div>
 
-                    <!-- BILAH PEREKAMAN SUARA (VOICE RECORDING BAR) -->
-                    <div id="adminVoiceRecordingBar" style="display:none; padding:10px 20px; background:#ffffff; border-top:1px solid #e2e8f0; align-items:center; gap:12px;">
-                        <div class="chat-recording-bar" style="display:flex; align-items:center; gap:10px; flex:1; background:#fff1f2; border:1px solid #fecdd3; border-radius:24px; padding:6px 14px;">
-                            <div class="chat-record-pulse-dot"></div>
-                            <span id="adminVoiceRecordTimer" style="font-weight:800; font-family:monospace; color:#e11d48; font-size:0.88rem; min-width:44px;">00:00</span>
-                            <!-- Live Voice Audio Frequency Canvas Visualizer -->
-                            <canvas id="adminLiveVoiceVisualizer" width="220" height="26" style="flex:1; max-width:280px; height:26px; border-radius:6px; background:rgba(225,29,72,0.06);"></canvas>
-                            <span style="font-size:0.75rem; color:#9f1239; font-weight:700; white-space:nowrap;"><i class="fas fa-wave-square"></i> Merekam...</span>
-                            <button type="button" onclick="window.cancelAdminVoiceRecord()" style="background:none; border:none; color:#e11d48; cursor:pointer; font-size:0.95rem; margin-left:4px;" title="Batal Rekam"><i class="fas fa-trash-alt"></i></button>
+                    <!-- BILAH PEREKAMAN SUARA (VOICE RECORDING BAR DENGAN JEDA, LANJUTKAN, PUTAR SEMENTARA & PRATINJAU) -->
+                    <div id="adminVoiceRecordingBar" style="display:none; padding:10px 20px; background:#ffffff; border-top:1px solid #e2e8f0; flex-direction:column; gap:8px;">
+                        <!-- Mode Saat Merekam Aktif -->
+                        <div id="adminVoiceActiveRow" style="display:flex; align-items:center; gap:12px; width:100%;">
+                            <div class="chat-recording-bar" style="display:flex; align-items:center; gap:10px; flex:1; background:#fff1f2; border:1px solid #fecdd3; border-radius:24px; padding:6px 14px;">
+                                <div class="chat-record-pulse-dot" id="adminVoicePulseDot"></div>
+                                <span id="adminVoiceRecordTimer" style="font-weight:800; font-family:monospace; color:#e11d48; font-size:0.88rem; min-width:44px;">00:00</span>
+                                <!-- Live Voice Audio Frequency Canvas Visualizer -->
+                                <canvas id="adminLiveVoiceVisualizer" width="220" height="26" style="flex:1; max-width:280px; height:26px; border-radius:6px; background:rgba(225,29,72,0.06);"></canvas>
+                                <span id="adminVoiceRecordStatus" style="font-size:0.75rem; color:#9f1239; font-weight:700; white-space:nowrap;"><i class="fas fa-wave-square"></i> Merekam...</span>
+                                <!-- Tombol Jeda / Lanjutkan Rekaman Suara -->
+                                <button type="button" id="btnAdminVoicePauseResume" onclick="window.togglePauseAdminVoiceRecord()" style="background:none; border:none; color:#e11d48; cursor:pointer; font-size:1.05rem; padding:4px;" title="Jeda Rekaman"><i class="fas fa-pause"></i></button>
+                                <!-- Tombol Batalkan Rekaman -->
+                                <button type="button" onclick="window.cancelAdminVoiceRecord()" style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:0.95rem; padding:4px;" title="Batal Rekam"><i class="fas fa-trash-alt"></i></button>
+                            </div>
+                            <!-- Tombol Selesai Rekam & Menuju Pratinjau Suara -->
+                            <button type="button" onclick="window.stopAndPreviewAdminVoiceRecord()" style="background:linear-gradient(135deg, #009846, #047857); color:white; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(0,152,70,0.3); flex-shrink:0;" title="Selesai & Dengarkan Pratinjau"><i class="fas fa-check" style="font-size:1rem;"></i></button>
                         </div>
-                        <button type="button" onclick="window.sendAdminVoiceRecord()" style="background:linear-gradient(135deg, #e11d48, #be123c); color:white; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(225,29,72,0.3);" title="Kirim Pesan Suara"><i class="fas fa-paper-plane"></i></button>
+
+                        <!-- Mode Saat Dijeda: Tampilan Pemeriksaan Suara Elegan, Seeking Detik/Menit, Kecepatan & Lanjutkan Rekaman -->
+                        <div id="adminVoicePausedReviewRow" style="display:none; align-items:center; gap:10px; width:100%; flex-wrap:wrap; background:#f0fdf4; border:1.5px solid #86efac; border-radius:20px; padding:8px 14px; box-shadow:0 2px 8px rgba(0,152,70,0.08);">
+                            <!-- Play / Pause Button -->
+                            <button type="button" id="btnAdminVoicePausePlay" onclick="window.togglePlayWhileRecordingAdmin()" style="background:#009846; color:white; border:none; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:0.9rem; flex-shrink:0; box-shadow:0 2px 6px rgba(0,152,70,0.3);" title="Putar / Jeda rekaman yang sudah ada">
+                                <i class="fas fa-play" style="margin-left:2px;"></i>
+                            </button>
+
+                            <!-- Scrubber & Time Info -->
+                            <div style="flex:1; min-width:160px; display:flex; flex-direction:column; gap:2px;">
+                                <div style="display:flex; justify-content:space-between; font-size:0.72rem; font-weight:800; color:#065f46;">
+                                    <span><i class="fas fa-pause-circle text-amber-500"></i> Rekaman Dijeda • Cek Suara</span>
+                                    <span id="adminVoicePauseTimer" style="font-family:monospace; color:#047857;">00:00 / 00:00</span>
+                                </div>
+                                <div style="position:relative; width:100%; height:20px; display:flex; align-items:center;">
+                                    <input type="range" id="adminVoicePauseSeek" min="0" max="100" value="0" step="0.1" oninput="window.seekAdminVoicePause(this.value)" style="width:100%; height:6px; cursor:pointer; accent-color:#009846; border-radius:3px; outline:none;" title="Geser ke detik atau menit tertentu">
+                                </div>
+                            </div>
+
+                            <!-- Tombol Kecepatan (0.5x, 1x, 1.5x, 2x) -->
+                            <button type="button" id="btnAdminVoicePauseSpeed" onclick="window.changeAdminVoicePauseSpeed()" class="audio-speed-btn" style="background:#dcfce7; border:1px solid #86efac; color:#15803d; border-radius:12px; font-size:0.75rem; font-weight:800; padding:4px 9px; cursor:pointer;" title="Atur Kecepatan Pemutaran (0.5x, 1x, 1.5x, 2x)">1x</button>
+
+                            <!-- Tombol Lanjutkan Rekaman (Resume) -->
+                            <button type="button" onclick="window.togglePauseAdminVoiceRecord()" style="background:#009846; color:white; border:none; border-radius:16px; padding:7px 14px; font-size:0.78rem; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(0,152,70,0.3); transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'" title="Lanjutkan Perekaman Suara">
+                                <i class="fas fa-microphone"></i> Lanjutkan
+                            </button>
+
+                            <!-- Tombol Selesai Rekam -->
+                            <button type="button" onclick="window.stopAndPreviewAdminVoiceRecord()" style="background:#047857; color:white; border:none; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;" title="Selesai & Menuju Pratinjau">
+                                <i class="fas fa-check" style="font-size:0.85rem;"></i>
+                            </button>
+
+                            <!-- Tombol Batalkan / Hapus -->
+                            <button type="button" onclick="window.cancelAdminVoiceRecord()" style="background:#fee2e2; color:#dc2626; border:none; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;" title="Batal Rekam">
+                                <i class="fas fa-trash-alt" style="font-size:0.8rem;"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- BILAH PRATINJAU SUARA ADMIN SEBELUM DIKIRIM (PREVIEW DENGAN PEMUTAR BATANG FREKUENSI, TAMBAH TEKS & LAMPIRKAN HINGGA 100 MEDIA) -->
+                    <div id="adminVoicePreviewBar" style="display:none; padding:10px 20px; background:#ffffff; border-top:1px solid #e2e8f0; flex-direction:column; gap:8px;">
+                        <!-- DAFTAR CHIP LAMPIRAN MEDIA HINGGA 100 BERKAS (FOTO, VIDEO, DOKUMEN, LOKASI, DRIVE, FOTO) -->
+                        <div id="adminVoicePreviewAttachmentList" style="display:none; width:100%; flex-direction:column; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:8px 12px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; font-weight:800; color:#1e40af;">
+                                <span id="adminVoiceAttachmentCountLabel"><i class="fas fa-paperclip"></i> Lampiran Berkas</span>
+                                <button type="button" onclick="window.clearAllAdminVoicePreviewAttachments()" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:0.72rem; font-weight:700;"><i class="fas fa-trash-alt"></i> Hapus Semua</button>
+                            </div>
+                            <!-- Wadah Gulir Horizontal Kartu Pratinjau Berkas -->
+                            <div id="adminVoicePreviewAttachmentChipsContainer" style="display:flex; align-items:center; gap:8px; overflow-x:auto; padding-bottom:4px; max-width:100%;"></div>
+                        </div>
+
+                        <div style="display:flex; align-items:center; gap:10px; width:100%; flex-wrap:wrap;">
+                            <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:280px; background:#f0fdf4; border:1.5px solid #86efac; border-radius:24px; padding:6px 14px; box-shadow:0 2px 8px rgba(0,152,70,0.08);">
+                                <!-- Tombol Putar / Jeda Pratinjau Suara -->
+                                <button type="button" id="btnPlayAdminVoicePreview" onclick="window.togglePlayAdminVoicePreview()" style="background:#009846; color:white; border:none; border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">
+                                    <i class="fas fa-play" style="margin-left:2px; font-size:0.88rem;"></i>
+                                </button>
+                                <div style="flex:1; display:flex; flex-direction:column; gap:2px; min-width:120px;">
+                                    <div style="display:flex; justify-content:space-between; font-size:0.72rem; font-weight:800; color:#065f46;">
+                                        <span><i class="fas fa-headphones text-primary"></i> Pratinjau Suara</span>
+                                        <span id="adminVoicePreviewTimer" style="font-family:monospace;">00:00 / 00:08</span>
+                                    </div>
+                                    <div style="position:relative; width:100%; height:26px; display:flex; align-items:center;">
+                                        <!-- Gelombang Frekuensi Batang (WhatsApp Style) -->
+                                        <canvas id="adminVoicePreviewCanvas" width="220" height="26" style="width:100%; height:26px; display:block; border-radius:4px; cursor:pointer;"></canvas>
+                                        <input type="range" id="adminVoicePreviewSeek" min="0" max="100" value="0" step="0.1" oninput="window.seekAdminVoicePreview(this.value)" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; margin:0; z-index:5;">
+                                    </div>
+                                </div>
+                                <!-- Pengatur Kecepatan Pratinjau Suara -->
+                                <button type="button" id="btnAdminVoicePreviewSpeed" class="audio-speed-btn" onclick="window.changeAdminVoicePreviewSpeed()" title="Atur Kecepatan Pemutaran (1x, 1.5x, 2x, 0.5x)" style="background:#dcfce7; border:1px solid #86efac; color:#15803d; border-radius:12px; font-size:0.72rem; font-weight:800; padding:2px 7px; cursor:pointer;">1x</button>
+                                <!-- Tombol Batal / Hapus Pratinjau -->
+                                <button type="button" onclick="window.cancelAdminVoicePreview()" style="background:#fee2e2; color:#dc2626; border:none; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;" title="Hapus Rekaman / Batal">
+                                    <i class="fas fa-trash-alt" style="font-size:0.8rem;"></i>
+                                </button>
+                            </div>
+
+                            <!-- INPUT TEKS & TOMBOL LAMPIRKAN MEDIA PADA PESAN SUARA -->
+                            <div style="flex:1; min-width:260px; display:flex; align-items:center; gap:8px; position:relative;">
+                                <!-- Tombol Menu Lampiran Media untuk Pesan Suara (Foto, Video, Dokumen, Lokasi, Google Drive, Google Foto) -->
+                                <button type="button" id="btnAdminVoicePreviewAttach" onclick="window.toggleAdminVoicePreviewAttachMenu(event)" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer; padding:6px 8px; border-radius:50%; transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" title="Lampirkan Foto, Video, Dokumen, Kamera, Google Drive, atau Google Foto">
+                                    <i class="fas fa-paperclip"></i>
+                                </button>
+
+                                <!-- POPOVER MENU LAMPIRAN MEDIA DALAM PREVIEW PESAN SUARA (LENGKAP DENGAN GOOGLE SERVICES & KAMERA) -->
+                                <div id="adminVoicePreviewAttachMenu" class="chat-attachment-menu-popover" style="display:none; bottom:55px; left:0; min-width:280px; z-index:99999;" onclick="event.stopPropagation()">
+                                    <div style="font-size:0.75rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                                        <span><i class="fas fa-paperclip text-primary"></i> Tambah Media</span>
+                                        <button type="button" onclick="document.getElementById('adminVoicePreviewAttachMenu').style.display='none'" style="background:none; border:none; color:#94a3b8; cursor:pointer;">&times;</button>
+                                    </div>
+                                    <div class="attachment-menu-grid" style="grid-template-columns: repeat(3, 1fr); gap:10px 6px;">
+                                        <button type="button" class="attach-option-btn" onclick="window.triggerAdminVoicePreviewAttach('gallery')" title="Pilih Foto & Video dari Galeri Perangkat">
+                                            <div class="attach-icon-circle" style="background:linear-gradient(135deg, #0284c7, #0369a1);"><i class="fas fa-images"></i></div>
+                                            <span class="attach-option-label">Foto & Video</span>
+                                        </button>
+                                        <button type="button" class="attach-option-btn" onclick="window.triggerAdminVoicePreviewAttach('camera')" title="Akses Kamera Perangkat Langsung">
+                                            <div class="attach-icon-circle" style="background:linear-gradient(135deg, #ec4899, #db2777);"><i class="fas fa-camera"></i></div>
+                                            <span class="attach-option-label">Kamera</span>
+                                        </button>
+                                        <button type="button" class="attach-option-btn" onclick="window.triggerAdminVoicePreviewAttach('doc')" title="Lampirkan Dokumen (PDF, Word, Excel, CSV, dsb)">
+                                            <div class="attach-icon-circle" style="background:linear-gradient(135deg, #7c3aed, #6d28d9);"><i class="fas fa-file-alt"></i></div>
+                                            <span class="attach-option-label">Dokumen</span>
+                                        </button>
+                                        <button type="button" class="attach-option-btn" onclick="window.triggerAdminVoicePreviewAttach('gdrive')" title="Buka & Tautkan Berkas Google Drive Pribadi">
+                                            <div class="attach-icon-circle" style="background:linear-gradient(135deg, #f59e0b, #d97706);"><i class="fab fa-google-drive"></i></div>
+                                            <span class="attach-option-label">Google Drive</span>
+                                        </button>
+                                        <button type="button" class="attach-option-btn" onclick="window.triggerAdminVoicePreviewAttach('gphotos')" title="Buka & Tautkan Foto dari Google Foto Pribadi">
+                                            <div class="attach-icon-circle" style="background:linear-gradient(135deg, #ea4335, #c5221f);"><i class="fas fa-photo-video"></i></div>
+                                            <span class="attach-option-label">Google Foto</span>
+                                        </button>
+                                        <button type="button" class="attach-option-btn" onclick="window.triggerAdminVoicePreviewAttach('location')" title="Bagikan Titik Lokasi Koordinat Resmi">
+                                            <div class="attach-icon-circle" style="background:linear-gradient(135deg, #10b981, #047857);"><i class="fas fa-map-marked-alt"></i></div>
+                                            <span class="attach-option-label">Lokasi</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <input type="file" id="adminVoicePreviewGalleryInput" style="display:none;" multiple accept="image/*,video/*" onchange="window.handleAdminVoicePreviewFileSelected(this, 'media')">
+                                <input type="file" id="adminVoicePreviewCameraInput" style="display:none;" accept="image/*,video/*" onchange="window.handleAdminVoicePreviewFileSelected(this, 'image')">
+                                <input type="file" id="adminVoicePreviewDocInput" style="display:none;" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,application/*" onchange="window.handleAdminVoicePreviewFileSelected(this, 'doc')">
+
+                                <input type="text" id="adminVoiceCaptionInput" placeholder="Tambah keterangan / teks pesan suara (opsional)..." style="flex:1; border:1px solid #cbd5e1; background:#f8fafc; padding:9px 16px; border-radius:22px; outline:none; font-size:0.85rem;" onkeypress="if(event.key==='Enter') window.sendAdminVoiceRecordConfirmed()">
+                                <button type="button" id="btnSendAdminVoiceConfirmed" onclick="window.sendAdminVoiceRecordConfirmed()" style="background:linear-gradient(135deg, #009846, #047857); color:white; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(0,152,70,0.3); flex-shrink:0;" title="Kirim Pesan Suara"><i class="fas fa-paper-plane" style="font-size:0.9rem;"></i></button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- BILAH INPUT TEKS, MEDIA & EMOJI RESMI -->
@@ -2081,11 +2216,11 @@
                         </div>
 
                         <!-- INPUT FILE TERSEMBUNYI KATEGORISASI (MULTI-FILE HINGGA 500 BERKAS / 5GB) -->
-                        <input type="file" id="adminDocFileInput" style="display:none;" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" onchange="window.handleAdminMediaSelection ? window.handleAdminMediaSelection(this) : null">
+                        <input type="file" id="adminDocFileInput" style="display:none;" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.zip,.rar,application/json,application/zip" onchange="window.handleAdminMediaSelection ? window.handleAdminMediaSelection(this) : null">
                         <input type="file" id="adminGalleryFileInput" style="display:none;" multiple accept="image/*,video/*" onchange="window.handleAdminMediaSelection ? window.handleAdminMediaSelection(this) : null">
                         <input type="file" id="adminCameraInput" style="display:none;" accept="image/*" capture="environment" onchange="window.handleAdminMediaSelection ? window.handleAdminMediaSelection(this) : null">
-                        <input type="file" id="adminAudioFileInput" style="display:none;" multiple accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.weba" onchange="window.handleAdminMediaSelection ? window.handleAdminMediaSelection(this) : null">
-                        <input type="file" id="adminMediaFileInput" style="display:none;" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onchange="window.handleAdminMediaSelection ? window.handleAdminMediaSelection(this) : null">
+                        <input type="file" id="adminAudioFileInput" style="display:none;" multiple accept="audio/*" onchange="window.handleAdminMediaSelection ? window.handleAdminMediaSelection(this) : null">
+                        <input type="file" id="adminMediaFileInput" style="display:none;" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.json,.zip" onchange="window.handleAdminMediaSelection ? window.handleAdminMediaSelection(this) : null">
 
                         <!-- INPUT TEKS OBROLAN -->
                         <input type="text" id="adminChatInput" placeholder="Ketik balasan untuk warga... (Enter untuk kirim)" style="flex:1; border:1px solid #cbd5e1; background:#f8fafc; padding:10px 18px; border-radius:25px; outline:none; font-size:0.88rem; transition:border-color 0.2s;" onfocus="this.style.borderColor='#009846'; this.style.background='#ffffff';" onblur="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';" onkeypress="if(event.key==='Enter') window.sendAdminChat ? window.sendAdminChat() : null">
@@ -3585,6 +3720,8 @@
     <script src="static/js/modules/admin-notif.js"></script>
     <script src="static/js/modules/admin-investigasi.js"></script>
     <script src="static/js/modules/admin-sync-db.js"></script>
+    <script src="static/js/modules/camera-manager.js"></script>
+    <script src="static/js/modules/google-workspace.js"></script>
 
     <!-- Orchestrator Utama Dasbor -->
     <script src="static/js/admin.js"></script>

@@ -16,6 +16,9 @@
     <link rel="stylesheet" href="static/css/style.css">
     <link rel="stylesheet" href="static/css/publik.css">
 
+    <!-- GOOGLE IDENTITY SERVICES SDK (OAUTH 2.0 GOOGLE DRIVE & GOOGLE FOTO) -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
     <style>
         :root {
             --primary: #009846;
@@ -1074,19 +1077,184 @@
                             <div class="emoji-grid-cells" id="emojiGridListWarga"></div>
                         </div>
 
-                        <input type="file" id="wargaChatFile" style="display:none;" accept="image/*,video/*,.pdf,.doc,.docx" onchange="window.handleWargaFileSelected(this)">
-                        <button type="button" onclick="document.getElementById('wargaChatFile').click()" style="background:none; border:none; font-size:1.15rem; color:#64748b; cursor:pointer;" title="Lampirkan Dokumen / Foto"><i class="fas fa-paperclip"></i></button>
+                        <!-- TOMBOL LAMPIRKAN TERPADU WARGA (FOTO, VIDEO, DOKUMEN, KAMERA, GOOGLE DRIVE, GOOGLE FOTO, LOKASI) -->
+                        <button type="button" id="btnWargaAttachMenu" onclick="window.toggleWargaAttachmentMenu(event)" style="background:none; border:none; font-size:1.15rem; color:#64748b; cursor:pointer; transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" title="Lampirkan Berkas">
+                            <i class="fas fa-paperclip"></i>
+                        </button>
+
+                        <!-- POPOVER MENU LAMPIRAN WARGA -->
+                        <div id="wargaAttachmentMenuPopover" class="chat-attachment-menu-popover" style="bottom:65px; left:40px; display:none;" onclick="event.stopPropagation()">
+                            <div style="font-size:0.75rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                                <span><i class="fas fa-paperclip text-primary"></i> Lampirkan Berkas</span>
+                                <button type="button" onclick="document.getElementById('wargaAttachmentMenuPopover').style.display='none'" style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:1.1rem; line-height:1;">&times;</button>
+                            </div>
+                            <div class="attachment-menu-grid">
+                                <button type="button" class="attach-option-btn" onclick="document.getElementById('wargaAttachmentMenuPopover').style.display='none'; document.getElementById('wargaChatDocFile').click()" title="Kirim Berkas Dokumen (PDF, Word, Excel, CSV, PPT, JSON, ZIP)">
+                                    <div class="attach-icon-circle" style="background:linear-gradient(135deg, #7c3aed, #6d28d9);"><i class="fas fa-file-alt"></i></div>
+                                    <span class="attach-option-label">Dokumen</span>
+                                </button>
+                                <button type="button" class="attach-option-btn" onclick="document.getElementById('wargaAttachmentMenuPopover').style.display='none'; document.getElementById('wargaChatFile').click()" title="Buka Galeri Foto & Video Perangkat">
+                                    <div class="attach-icon-circle" style="background:linear-gradient(135deg, #0284c7, #0369a1);"><i class="fas fa-images"></i></div>
+                                    <span class="attach-option-label">Galeri</span>
+                                </button>
+                                <button type="button" class="attach-option-btn" onclick="document.getElementById('wargaAttachmentMenuPopover').style.display='none'; window.openLiveCameraModal('warga-chat')" title="Kamera">
+                                    <div class="attach-icon-circle" style="background:linear-gradient(135deg, #ec4899, #db2777);"><i class="fas fa-camera"></i></div>
+                                    <span class="attach-option-label">Kamera</span>
+                                </button>
+                                <button type="button" class="attach-option-btn" onclick="document.getElementById('wargaAttachmentMenuPopover').style.display='none'; document.getElementById('wargaChatAudioFile').click()" title="Kirim Musik atau Audio dari Perangkat">
+                                    <div class="attach-icon-circle" style="background:linear-gradient(135deg, #f59e0b, #d97706);"><i class="fas fa-headphones"></i></div>
+                                    <span class="attach-option-label">Audio</span>
+                                </button>
+                                <button type="button" class="attach-option-btn" onclick="document.getElementById('wargaAttachmentMenuPopover').style.display='none'; window.openGoogleDrivePicker('warga-chat')" title="Lampirkan Dokumen dari Google Drive">
+                                    <div class="attach-icon-circle" style="background:linear-gradient(135deg, #009846, #059669);"><i class="fab fa-google-drive"></i></div>
+                                    <span class="attach-option-label">Drive</span>
+                                </button>
+                                <button type="button" class="attach-option-btn" onclick="document.getElementById('wargaAttachmentMenuPopover').style.display='none'; window.openGooglePhotosPicker('warga-chat')" title="Lampirkan Foto dari Google Foto">
+                                    <div class="attach-icon-circle" style="background:linear-gradient(135deg, #ea4335, #c5221f);"><i class="fas fa-photo-video"></i></div>
+                                    <span class="attach-option-label">Google Foto</span>
+                                </button>
+                                <button type="button" class="attach-option-btn" onclick="document.getElementById('wargaAttachmentMenuPopover').style.display='none'; window.kirimLokasiGeotagWarga()" title="Bagikan Titik Lokasi Koordinat">
+                                    <div class="attach-icon-circle" style="background:linear-gradient(135deg, #10b981, #047857);"><i class="fas fa-map-marked-alt"></i></div>
+                                    <span class="attach-option-label">Lokasi</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <input type="file" id="wargaChatFile" style="display:none;" multiple accept="image/*,video/*" onchange="window.handleWargaFileSelected(this)">
+                        <input type="file" id="wargaChatDocFile" style="display:none;" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.zip,.rar,application/*" onchange="window.handleWargaFileSelected(this)">
+                        <input type="file" id="wargaChatAudioFile" style="display:none;" multiple accept="audio/*" onchange="window.handleWargaFileSelected(this)">
 
                         <!-- TOMBOL BAGIKAN LOKASI GEOTAGGING ARSIP RESMI -->
                         <button type="button" onclick="window.kirimLokasiGeotagWarga()" style="background:none; border:none; font-size:1.15rem; color:#dc2626; cursor:pointer;" title="Bagikan Titik Lokasi Geotagging Resmi Arsip Anda"><i class="fas fa-map-marker-alt"></i></button>
 
                         <input type="text" id="wargaChatInput" placeholder="Ketik pesan koordinasi untuk petugas... (Enter)" class="chat-pill-input" onkeypress="if(event.key==='Enter') window.sendWargaChat()">
 
-                        <!-- CONTROLLER VOICE RECORD WARGA -->
-                        <div id="wargaRecordingUI" style="display:none; flex:1; align-items:center; gap:10px; background:#fff1f2; border:1px solid #fecdd3; padding:4px 14px; border-radius:25px;">
-                            <span id="wargaRecordTime" style="font-weight:800; font-family:monospace; color:#e11d48;">00:00</span>
-                            <div style="flex:1; height:4px; background:#fca5a5; border-radius:2px;"></div>
-                            <button type="button" onclick="window.cancelVoiceRecordWarga()" style="background:none; border:none; color:#e11d48; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
+                        <!-- BILAH PEREKAMAN SUARA WARGA (DENGAN JEDA, LANJUTKAN, PUTAR ULANG SEMENTARA & SELESAI) -->
+                        <div id="wargaRecordingUI" style="display:none; flex:1; flex-direction:column; gap:6px;">
+                            <!-- Baris 1: Saat Merekam Aktif -->
+                            <div id="wargaVoiceActiveRow" style="display:flex; align-items:center; gap:8px; background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 14px; border-radius:25px; box-shadow:0 2px 8px rgba(0,152,70,0.08);">
+                                <div class="chat-record-pulse-dot" id="wargaVoicePulseDot"></div>
+                                <span id="wargaRecordTime" style="font-weight:800; font-family:monospace; color:#009846; font-size:0.85rem; min-width:40px;">00:00</span>
+                                <!-- Live Voice Bar Visualizer -->
+                                <canvas id="wargaRecordWaveCanvas" width="160" height="24" style="flex:1; max-width:200px; height:24px; display:block; border-radius:4px; background:rgba(0,152,70,0.05);"></canvas>
+                                <span id="wargaRecordStatus" style="font-size:0.72rem; color:#047857; font-weight:700; white-space:nowrap;"><i class="fas fa-wave-square"></i> Merekam...</span>
+                                <!-- Tombol Jeda / Lanjutkan Rekaman Suara -->
+                                <button type="button" id="btnPauseResumeWarga" onclick="window.togglePauseVoiceWarga()" style="background:none; border:none; color:#009846; cursor:pointer; font-size:1rem; padding:3px;" title="Jeda Rekaman"><i class="fas fa-pause"></i></button>
+                                <!-- Tombol Batalkan Rekaman -->
+                                <button type="button" onclick="window.cancelVoiceRecordWarga()" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:0.9rem; padding:3px;" title="Batalkan"><i class="fas fa-trash-alt"></i></button>
+                                <!-- Tombol Selesai & Pratinjau Suara -->
+                                <button type="button" onclick="window.stopAndPreviewVoiceWarga()" style="background:linear-gradient(135deg, #009846, #047857); color:white; border:none; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; box-shadow:0 2px 6px rgba(0,152,70,0.25);" title="Selesai & Dengarkan Pratinjau"><i class="fas fa-check" style="font-size:0.8rem;"></i></button>
+                            </div>
+
+                            <!-- Baris 2: Saat Dijeda: Tampilan Pemeriksaan Suara Elegan, Seeking Detik/Menit, Kecepatan & Lanjutkan Rekaman -->
+                            <div id="wargaVoicePausedReviewRow" style="display:none; align-items:center; gap:8px; width:100%; flex-wrap:wrap; background:#f0fdf4; border:1.5px solid #86efac; border-radius:20px; padding:6px 12px; box-shadow:0 2px 8px rgba(0,152,70,0.08);">
+                                <button type="button" id="btnPlayWhileRecordingWarga" onclick="window.togglePlayWhileRecordingWarga()" style="background:#009846; color:white; border:none; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:0.82rem; flex-shrink:0; box-shadow:0 2px 6px rgba(0,152,70,0.3);" title="Putar / Jeda rekaman yang sudah ada">
+                                    <i class="fas fa-play" style="margin-left:2px;"></i>
+                                </button>
+                                <div style="flex:1; min-width:140px; display:flex; flex-direction:column; gap:2px;">
+                                    <div style="display:flex; justify-content:space-between; font-size:0.68rem; font-weight:800; color:#065f46;">
+                                        <span><i class="fas fa-pause-circle text-amber-500"></i> Dijeda • Cek Suara</span>
+                                        <span id="wargaVoicePauseTimer" style="font-family:monospace; color:#047857;">00:00 / 00:00</span>
+                                    </div>
+                                    <input type="range" id="wargaVoicePauseSeek" min="0" max="100" value="0" step="0.1" oninput="window.seekWargaVoicePause(this.value)" style="width:100%; height:5px; cursor:pointer; accent-color:#009846; border-radius:3px; outline:none;" title="Geser ke detik atau menit tertentu">
+                                </div>
+                                <button type="button" id="btnWargaVoicePauseSpeed" onclick="window.changeWargaVoicePauseSpeed()" class="audio-speed-btn" style="background:#dcfce7; border:1px solid #86efac; color:#15803d; border-radius:10px; font-size:0.72rem; font-weight:800; padding:2px 7px; cursor:pointer;" title="Atur Kecepatan (0.5x, 1x, 1.5x, 2x)">1x</button>
+                                <button type="button" onclick="window.togglePauseVoiceWarga()" style="background:#009846; color:white; border:none; border-radius:14px; padding:5px 12px; font-size:0.75rem; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px;" title="Lanjutkan Rekaman Suara">
+                                    <i class="fas fa-microphone"></i> Lanjutkan
+                                </button>
+                                <button type="button" onclick="window.stopAndPreviewVoiceWarga()" style="background:#047857; color:white; border:none; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;" title="Selesai & Pratinjau">
+                                    <i class="fas fa-check" style="font-size:0.75rem;"></i>
+                                </button>
+                                <button type="button" onclick="window.cancelVoiceRecordWarga()" style="background:#fee2e2; color:#dc2626; border:none; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;" title="Batal Rekam">
+                                    <i class="fas fa-trash-alt" style="font-size:0.75rem;"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- BILAH PRATINJAU SUARA WARGA SEBELUM DIKIRIM (DENGAN BATANG FREKUENSI, TEKS KETERANGAN & LAMPIRAN HINGGA 100 MEDIA) -->
+                        <div id="wargaVoicePreviewBar" style="display:none; width:100%; flex-direction:column; gap:8px;">
+                            <!-- DAFTAR CHIP LAMPIRAN MEDIA HINGGA 100 BERKAS WARGA -->
+                            <div id="wargaVoicePreviewAttachmentList" style="display:none; width:100%; flex-direction:column; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:6px 12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; font-weight:800; color:#1e40af;">
+                                    <span id="wargaVoiceAttachmentCountLabel"><i class="fas fa-paperclip"></i> Lampiran Berkas</span>
+                                    <button type="button" onclick="window.clearAllWargaVoicePreviewAttachments()" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:0.72rem; font-weight:700;"><i class="fas fa-trash-alt"></i> Hapus Semua</button>
+                                </div>
+                                <div id="wargaVoicePreviewAttachmentChipsContainer" style="display:flex; align-items:center; gap:8px; overflow-x:auto; padding-bottom:4px; max-width:100%;"></div>
+                            </div>
+
+                            <div style="display:flex; align-items:center; gap:8px; width:100%; flex-wrap:wrap;">
+                                <!-- Pemutar Audio Pratinjau Gelombang Frekuensi Batang -->
+                                <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:240px; background:#ffffff; border:1.5px solid #009846; border-radius:24px; padding:5px 12px; box-shadow:0 3px 10px rgba(0,152,70,0.12);">
+                                    <button type="button" id="btnPlayWargaVoicePreview" onclick="window.togglePlayPreviewWarga(this)" style="background:#009846; color:white; border:none; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">
+                                        <i class="fas fa-play" style="margin-left:2px; font-size:0.82rem;"></i>
+                                    </button>
+                                    <div style="flex:1; min-width:110px; display:flex; flex-direction:column; gap:2px;">
+                                        <div style="display:flex; justify-content:space-between; font-size:0.7rem; font-weight:800; color:#0f172a;">
+                                            <span style="color:#009846;"><i class="fas fa-headphones"></i> Pratinjau Suara</span>
+                                            <span id="wargaPreviewTimer" style="font-family:monospace; color:#047857;">00:00 / 00:08</span>
+                                        </div>
+                                        <div style="position:relative; width:100%; height:20px; display:flex; align-items:center;">
+                                            <canvas id="wargaPreviewCanvas" width="180" height="20" style="width:100%; height:20px; display:block; border-radius:4px; cursor:pointer;"></canvas>
+                                            <input type="range" id="wargaPreviewSeek" min="0" max="100" value="0" step="0.1" oninput="window.seekPreviewWarga(this.value)" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; margin:0; z-index:5;">
+                                        </div>
+                                    </div>
+                                    <button type="button" id="btnWargaPreviewSpeed" class="audio-speed-btn" onclick="window.changePreviewAudioSpeedWarga(this)" title="Atur Kecepatan Suara">1x</button>
+                                    <button type="button" onclick="window.cancelVoiceRecordWarga()" style="background:#fee2e2; color:#dc2626; border:none; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;" title="Hapus / Batal">
+                                        <i class="fas fa-trash-alt" style="font-size:0.75rem;"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Input Keterangan & Tombol Lampiran Media -->
+                                <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:220px; position:relative;">
+                                    <!-- Tombol Menu Lampiran Media untuk Pesan Suara Warga (Foto, Video, Dokumen, Lokasi, Google Drive, Google Foto) -->
+                                    <button type="button" id="btnWargaVoicePreviewAttach" onclick="window.toggleWargaVoicePreviewAttachMenu(event)" style="background:none; border:none; font-size:1.15rem; color:#64748b; cursor:pointer; padding:4px 6px; border-radius:50%; transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" title="Lampirkan Foto, Video, Dokumen, Google Drive, atau Google Foto">
+                                        <i class="fas fa-paperclip"></i>
+                                    </button>
+
+                                    <!-- POPOVER MENU LAMPIRAN MEDIA DALAM PREVIEW PESAN SUARA WARGA (GOOGLE SERVICES & KAMERA) -->
+                                    <div id="wargaVoicePreviewAttachMenu" class="chat-attachment-menu-popover" style="display:none; bottom:48px; left:0; min-width:270px;" onclick="event.stopPropagation()">
+                                        <div style="font-size:0.75rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                                            <span><i class="fas fa-paperclip text-primary"></i> Tambah Media</span>
+                                            <button type="button" onclick="document.getElementById('wargaVoicePreviewAttachMenu').style.display='none'" style="background:none; border:none; color:#94a3b8; cursor:pointer;">&times;</button>
+                                        </div>
+                                        <div class="attachment-menu-grid" style="grid-template-columns: repeat(3, 1fr); gap:10px 6px;">
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerWargaVoicePreviewAttach('gallery')" title="Pilih Foto & Video dari Galeri Perangkat">
+                                                <div class="attach-icon-circle" style="background:linear-gradient(135deg, #0284c7, #0369a1);"><i class="fas fa-images"></i></div>
+                                                <span class="attach-option-label">Foto & Video</span>
+                                            </button>
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerWargaVoicePreviewAttach('camera')" title="Akses Kamera Perangkat Langsung">
+                                                <div class="attach-icon-circle" style="background:linear-gradient(135deg, #ec4899, #db2777);"><i class="fas fa-camera"></i></div>
+                                                <span class="attach-option-label">Kamera</span>
+                                            </button>
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerWargaVoicePreviewAttach('doc')" title="Lampirkan Dokumen (PDF, Word, Excel, CSV, dsb)">
+                                                <div class="attach-icon-circle" style="background:linear-gradient(135deg, #7c3aed, #6d28d9);"><i class="fas fa-file-alt"></i></div>
+                                                <span class="attach-option-label">Dokumen</span>
+                                            </button>
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerWargaVoicePreviewAttach('gdrive')" title="Buka & Tautkan Berkas Google Drive Pribadi">
+                                                <div class="attach-icon-circle" style="background:linear-gradient(135deg, #f59e0b, #d97706);"><i class="fab fa-google-drive"></i></div>
+                                                <span class="attach-option-label">Google Drive</span>
+                                            </button>
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerWargaVoicePreviewAttach('gphotos')" title="Buka & Tautkan Foto dari Google Foto Pribadi">
+                                                <div class="attach-icon-circle" style="background:linear-gradient(135deg, #ea4335, #c5221f);"><i class="fas fa-photo-video"></i></div>
+                                                <span class="attach-option-label">Google Foto</span>
+                                            </button>
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerWargaVoicePreviewAttach('location')" title="Bagikan Titik Lokasi Koordinat Resmi">
+                                                <div class="attach-icon-circle" style="background:linear-gradient(135deg, #10b981, #047857);"><i class="fas fa-map-marked-alt"></i></div>
+                                                <span class="attach-option-label">Lokasi</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <input type="file" id="wargaVoicePreviewGalleryInput" style="display:none;" multiple accept="image/*,video/*" onchange="window.handleWargaVoicePreviewFileSelected(this, 'media')">
+                                    <input type="file" id="wargaVoicePreviewCameraInput" style="display:none;" accept="image/*,video/*" onchange="window.handleWargaVoicePreviewFileSelected(this, 'image')">
+                                    <input type="file" id="wargaVoicePreviewDocInput" style="display:none;" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,application/*" onchange="window.handleWargaVoicePreviewFileSelected(this, 'doc')">
+
+                                    <input type="text" id="wargaVoiceCaptionInput" placeholder="Tambah keterangan teks (opsional)..." style="flex:1; min-width:120px; border:1px solid #cbd5e1; background:#f8fafc; padding:7px 14px; border-radius:20px; font-size:0.82rem; outline:none;" onkeypress="if(event.key==='Enter') window.sendConfirmedVoiceWarga()">
+                                    <button type="button" id="btnSendConfirmedVoiceWarga" onclick="window.sendConfirmedVoiceWarga()" style="background:linear-gradient(135deg, #009846, #047857); color:white; border:none; border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; box-shadow:0 3px 8px rgba(0,152,70,0.3);" title="Kirim Pesan Suara">
+                                        <i class="fas fa-paper-plane" style="font-size:0.85rem;"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <button type="button" id="btnRecordWarga" onclick="window.toggleVoiceRecordWarga()" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer;" title="Rekam Pesan Suara"><i class="fas fa-microphone"></i></button>
@@ -1442,6 +1610,8 @@
     <script src="static/js/global.js"></script>
 
     <!-- MODUL FITUR PORTAL WARGA -->
+    <script src="static/js/modules/camera-manager.js"></script>
+    <script src="static/js/modules/google-workspace.js"></script>
     <script src="static/js/modules/publik/publik-nav.js"></script>
     <script src="static/js/modules/publik/publik-dashboard.js"></script>
     <script src="static/js/modules/publik/publik-lacak.js"></script>

@@ -570,11 +570,25 @@ window.showModernLoadingAlert = function (options = {}) {
     return handle;
 };
 
+// 9. HELPER DURASI AUDIO UNIVERSAL & AKURAT
+function formatAudioTime(seconds) {
+    if (seconds === undefined || seconds === null || isNaN(seconds) || !isFinite(seconds) || seconds < 0) {
+        return '00:00';
+    }
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+window.formatAudioTime = formatAudioTime;
+window.formatTimeDuration = formatAudioTime;
+
 // 8. EXPORT OBJECT LINTAS MODUL
 const Global = {
     formatRupiah,
     formatTanggal: formatDateIndo,
     formatDateIndo,
+    formatAudioTime,
+    formatTimeDuration: formatAudioTime,
     safeHtml,
     toast: (pesan, tipe = 'info') => showToast(tipe, pesan),
     showToast,
@@ -602,3 +616,5 @@ window.formatRupiah = formatRupiah;
 window.formatDateIndo = formatDateIndo;
 window.showToast = showToast;
 window.safeHtml = safeHtml;
+window.formatAudioTime = formatAudioTime;
+window.formatTimeDuration = formatAudioTime;

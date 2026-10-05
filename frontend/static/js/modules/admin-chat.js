@@ -945,7 +945,7 @@
                 );
 
                 if (isAudio) {
-                    const audioId = `adm_aud_${msgId}_${Date.now()}`;
+                    const audioId = `adm_aud_${String(msgId).replace(/[^a-zA-Z0-9_]/g, '_')}`;
                     contentHtml += `
                         <div class="voice-note-bubble-card" id="card_${audioId}">
                             <audio id="${audioId}" src="${url}" preload="metadata" 
@@ -957,23 +957,25 @@
                             </button>
                             <div class="voice-track-info">
                                 <div class="voice-meta-row">
-                                    <span><i class="fas fa-microphone"></i> Pesan Suara</span>
-                                    <span id="dur_${audioId}">00:00</span>
+                                    <span class="voice-title-label"><i class="fas fa-microphone"></i> Pesan Suara</span>
                                 </div>
-                                <div class="voice-freq-visualizer" id="freq_box_${audioId}" 
-                                      onclick="window.seekVoiceBubbleByClick ? window.seekVoiceBubbleByClick('${audioId}', event) : null"
-                                     onmousedown="window.startVoiceBubbleScrub ? window.startVoiceBubbleScrub('${audioId}', event) : null"
-                                     ontouchstart="window.startVoiceBubbleScrub ? window.startVoiceBubbleScrub('${audioId}', event) : null"
-                                     title="Klik atau geser (maju/mundur) pada grafik suara">
-                                    ${Array.from({length: 26}, (_, i) => {
-                                        const heights = [35, 50, 75, 90, 45, 65, 100, 85, 55, 70, 95, 80, 60, 45, 75, 95, 65, 45, 80, 90, 55, 70, 85, 60, 40, 30];
-                                        const h = heights[i % heights.length];
-                                        const delay = (i * 0.04).toFixed(2);
-                                        return `<div class="voice-freq-bar" id="bar_${audioId}_${i}" style="height:${h}%; animation-delay:${delay}s;"></div>`;
-                                    }).join('')}
+                                <div class="voice-waveform-row">
+                                    <div class="voice-freq-visualizer" id="freq_box_${audioId}" 
+                                          onclick="window.seekVoiceBubbleByClick ? window.seekVoiceBubbleByClick('${audioId}', event) : null"
+                                         onmousedown="window.startVoiceBubbleScrub ? window.startVoiceBubbleScrub('${audioId}', event) : null"
+                                         ontouchstart="window.startVoiceBubbleScrub ? window.startVoiceBubbleScrub('${audioId}', event) : null"
+                                         title="Klik atau geser pada grafik suara">
+                                        ${Array.from({length: 22}, (_, i) => {
+                                            const heights = [35, 50, 75, 90, 45, 65, 100, 85, 55, 70, 95, 80, 60, 45, 75, 95, 65, 45, 80, 90, 65, 40];
+                                            const h = heights[i % heights.length];
+                                            const delay = (i * 0.04).toFixed(2);
+                                            return `<div class="voice-freq-bar" id="bar_${audioId}_${i}" style="height:${h}%; animation-delay:${delay}s;"></div>`;
+                                        }).join('')}
+                                    </div>
+                                    <span class="voice-timer-badge" id="dur_${audioId}">00:00</span>
                                 </div>
                             </div>
-                            <button type="button" class="btn-voice-speed-pill" id="speed_${audioId}" onclick="window.toggleVoiceSpeed ? window.toggleVoiceSpeed('${audioId}', this) : null" title="Atur Kecepatan Suara (0.5x, 1x, 1.5x, 2x)">
+                            <button type="button" class="btn-voice-speed-pill" id="speed_${audioId}" onclick="window.toggleVoiceSpeed ? window.toggleVoiceSpeed('${audioId}', this) : null" title="Atur Kecepatan Suara (1x, 1.5x, 2x, 0.5x)">
                                 1x
                             </button>
                         </div>`;
@@ -1091,101 +1093,33 @@
                         badgeText = 'PPT';
                         labelText = 'Presentasi PowerPoint';
                         accentColor = '#ea580c';
+                    } else if (['json'].includes(docExt)) {
+                        docTypeClass = 'chat-doc-json';
+                        iconClass = 'fas fa-file-code';
+                        badgeText = 'JSON';
+                        labelText = 'Berkas Konfigurasi Data (JSON)';
+                        accentColor = '#d97706';
+                    } else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(docExt)) {
+                        docTypeClass = 'chat-doc-zip';
+                        iconClass = 'fas fa-file-archive';
+                        badgeText = docExt.toUpperCase();
+                        labelText = 'Berkas Arsip Terkompresi';
+                        accentColor = '#7c3aed';
                     }
 
                     const fileSizeText = pesan.file_size ? window.formatBytes(pesan.file_size) : '';
 
-                    // Cuplikan tampilan di dalam dokumen (Word, Excel, PDF) agar terlihat dari luar
-                    let insideDocHtml = '';
-                    if (['pdf'].includes(docExt)) {
-                        insideDocHtml = `
-                            <div class="chat-doc-inside-preview" onclick="window.open('${url}', '_blank')" title="Klik untuk membuka dokumen PDF resmi">
-                                <div class="doc-inside-header">
-                                    <i class="fas fa-stamp" style="color:#dc2626;"></i>
-                                    <span>KOP SURAT RESMI • PEMKAB SIDOARJO (DINAS SOSIAL)</span>
-                                </div>
-                                <div class="doc-inside-title">${window.safeHtml(baseTitle)}</div>
-                                <div class="doc-inside-sub">Keputusan Kepala Dinas Sosial • Terverifikasi Elektronik BSrE BSSN</div>
-                                <div class="doc-inside-excerpt">
-                                    <b>Menimbang:</b> Bahwa keluarga penerima manfaat berstatus Desil 1–4 telah memenuhi indikator kelayakan terpadu SPK BWM-SAW untuk alokasi kuota bantuan sosial tunai & pangan daerah...
-                                </div>
-                                <div class="doc-inside-footer">
-                                    <span class="badge-inside-ok"><i class="fas fa-check-circle"></i> Tanda Tangan Digital Sah</span>
-                                    <span class="badge-inside-page">Halaman 1 dari 3</span>
-                                </div>
-                            </div>`;
-                    } else if (['doc', 'docx'].includes(docExt)) {
-                        insideDocHtml = `
-                            <div class="chat-doc-inside-preview" onclick="window.open('${url}', '_blank')" title="Klik untuk membuka dokumen Microsoft Word">
-                                <div class="doc-inside-header">
-                                    <i class="fas fa-file-word" style="color:#2563eb;"></i>
-                                    <span>NASKAH DOKUMEN • DINAS SOSIAL SIDOARJO</span>
-                                </div>
-                                <div class="doc-inside-title">${window.safeHtml(baseTitle)}</div>
-                                <div class="doc-inside-sub">Format: Microsoft Word (.docx) • Tim Verifikasi Lapangan</div>
-                                <div class="doc-inside-excerpt">
-                                    <b>1. Petunjuk Teknis & Prosedur Mediasi:</b> Dokumen memuat verifikasi identitas e-KTP, Kartu Keluarga, dan dokumentasi tinjauan rumah untuk proses pemutakhiran data DTKS Dinas Sosial...
-                                </div>
-                                <div class="doc-inside-footer">
-                                    <span class="badge-inside-ok" style="color:#2563eb;"><i class="fas fa-align-left"></i> Dokumen Teks Terstruktur</span>
-                                    <span class="badge-inside-page">4 Paragraf</span>
-                                </div>
-                            </div>`;
-                    } else if (['xls', 'xlsx', 'csv'].includes(docExt)) {
-                        insideDocHtml = `
-                            <div class="chat-doc-inside-preview" onclick="window.open('${url}', '_blank')" title="Klik untuk membuka lembar kerja Excel">
-                                <div class="doc-inside-header">
-                                    <i class="fas fa-table" style="color:#16a34a;"></i>
-                                    <span>SPREADSHEET DATA • LEMBAR REKAPITULASI BANSOS</span>
-                                </div>
-                                <div class="doc-inside-title">${window.safeHtml(baseTitle)}</div>
-                                <table class="doc-inside-sheet-table">
-                                    <thead>
-                                        <tr>
-                                            <th style="width:22px;">No</th>
-                                            <th>NIK / Nama KPM</th>
-                                            <th>Kategori</th>
-                                            <th>Nominal</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td style="text-align:center;">1</td>
-                                            <td><b>${window.activeChatNik || '351508...'}</b><br><small>${window.safeHtml(window.activeChatName || 'Warga')}</small></td>
-                                            <td>Bansos PKH</td>
-                                            <td style="font-family:monospace; color:#15803d; font-weight:700;">Rp 600.000</td>
-                                            <td><span class="status-chip chip-ok">Salur</span></td>
-                                        </tr>
-                                        <tr>
-                                            <td style="text-align:center;">2</td>
-                                            <td><b>3515091204...</b><br><small>Siti Aminah</small></td>
-                                            <td>Bansos BPNT</td>
-                                            <td style="font-family:monospace; color:#15803d; font-weight:700;">Rp 400.000</td>
-                                            <td><span class="status-chip chip-salur">Valid</span></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                                <div class="doc-inside-footer">
-                                    <span class="badge-inside-ok" style="color:#16a34a;"><i class="fas fa-calculator"></i> Komputasi SAW Terverifikasi</span>
-                                    <span class="badge-inside-page">Sheet 1: Data Penerima</span>
-                                </div>
-                            </div>`;
-                    }
-
                     contentHtml += `
                         <div class="chat-doc-card ${docTypeClass}" title="${window.safeHtml(cleanFileName)}">
                             <div class="chat-doc-accent-bar" style="background:${accentColor}; height:3.5px; width:100%;"></div>
-                            <!-- 1. Pratinjau Tampilan Dalam Dokumen (PDF, Word, Excel) Berada di Atas -->
-                            ${insideDocHtml}
-                            <!-- 2. Panel Gambar/Ikon Dokumen, Download, Nama Dokumen & Ukuran Dokumen Berada di Bawahnya -->
+                            <!-- Kartu Lampiran Dokumen Bersih & Rapi Tanpa Pratinjau Isi Dokumen -->
                             <div class="chat-doc-bottom-strip" onclick="window.open('${url}', '_blank')">
                                 <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0; overflow:hidden;">
-                                    <div class="chat-doc-icon-box" style="width:38px; height:38px; font-size:1.25rem;">
+                                    <div class="chat-doc-icon-box" style="width:40px; height:40px; font-size:1.35rem;">
                                         <i class="${iconClass}"></i>
                                     </div>
                                     <div class="chat-doc-info">
-                                        <div class="chat-doc-title" style="font-size:0.82rem;" title="${window.safeHtml(cleanFileName)}">${window.safeHtml(cleanFileName)}</div>
+                                        <div class="chat-doc-title" style="font-size:0.85rem;" title="${window.safeHtml(cleanFileName)}">${window.safeHtml(cleanFileName)}</div>
                                         <div class="chat-doc-sub">
                                             <span class="chat-doc-badge">${badgeText}</span>
                                             <span class="chat-doc-label">${labelText}</span>
@@ -1204,7 +1138,7 @@
                 }
             }
 
-            const isPlaceholderOnly = !cleanText || ['foto terlampir', 'image', 'foto', 'berkas terlampir', 'lampiran'].includes(cleanText.toLowerCase());
+            const isPlaceholderOnly = !cleanText || ['foto terlampir', 'image', 'foto', 'berkas terlampir', 'lampiran', 'video terlampir', 'video', '🎤 pesan suara (voice note)', '🎤 pesan suara', 'pesan suara'].includes(cleanText.toLowerCase());
             if (cleanText && !isPlaceholderOnly) {
                 if (cleanText.startsWith('[GEOTAG_LOKASI]')) {
                     try {
@@ -1212,14 +1146,20 @@
                         const loc = JSON.parse(jsonStr);
                         const latVal = Number(loc.lat) || -7.4478;
                         const lngVal = Number(loc.lng) || 112.7183;
+                        const isRealtime = loc.tipe === 'realtime';
+                        const headerTitle = isRealtime ? 'Lokasi Perangkat Real-time (GPS)' : 'Lokasi Rumah Arsip Kependudukan';
+                        const badgeHtml = isRealtime 
+                            ? `<span style="background:#ecfdf5; color:#047857; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:10px; border:1px solid #a7f3d0;"><i class="fas fa-crosshairs text-emerald-500"></i> GPS Perangkat Real-time</span>`
+                            : `<span style="background:#eff6ff; color:#1d4ed8; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:10px; border:1px solid #bfdbfe;"><i class="fas fa-check-circle text-blue-500"></i> Arsip Data Warga Terverifikasi</span>`;
+
                         contentHtml += `
                             <div class="chat-geotag-card">
                                 <div class="chat-geotag-header">
-                                    <i class="fas fa-map-marked-alt text-primary" style="font-size:1.15rem;"></i>
-                                    <span>Lokasi Arsip Kependudukan</span>
+                                    <i class="fas ${isRealtime ? 'fa-location-arrow text-emerald-600' : 'fa-map-marked-alt text-primary'}" style="font-size:1.15rem;"></i>
+                                    <span>${headerTitle}</span>
                                 </div>
-                                <div class="chat-geotag-badge">
-                                    <i class="fas fa-check-circle"></i> Terverifikasi Geotag Dinsos
+                                <div style="margin:4px 0 6px 0;">
+                                    ${badgeHtml}
                                 </div>
                                 <div style="font-size:0.82rem; font-weight:800; color:#0f172a; margin-bottom:2px;">
                                     ${window.safeHtml(loc.nama || window.activeChatName)}
@@ -1231,7 +1171,7 @@
                                     <i class="fas fa-map-marker-alt text-danger"></i> ${window.safeHtml(loc.alamat || 'Sidoarjo, Jawa Timur')}
                                 </div>
                                 <div class="chat-geotag-coord">
-                                    📍 Lat: ${latVal.toFixed(4)}, Lng: ${lngVal.toFixed(4)}
+                                    📍 Lat: ${latVal.toFixed(4)}, Lng: ${lngVal.toFixed(4)} ${loc.accuracy ? `(±${loc.accuracy}m)` : ''}
                                 </div>
                                 <div class="chat-geotag-actions">
                                     <a href="${loc.maps_url || `https://www.google.com/maps?q=${latVal},${lngVal}`}" target="_blank" class="btn-geotag-map">
@@ -1397,6 +1337,7 @@
         window.refreshPinnedBanner();
 
         // Ambil riwayat percakapan dari server
+        window.isLoadingChatMessages = true;
         try {
             const res = await apiCall(`/api/chat/${nik}`);
             if (!res || !res.ok) return;
@@ -1430,7 +1371,10 @@
             }
 
             box.scrollTop = box.scrollHeight;
-        } catch (e) {}
+        } catch (e) {
+        } finally {
+            window.isLoadingChatMessages = false;
+        }
 
         if (chatInterval) clearInterval(chatInterval);
         chatInterval = setInterval(() => {
@@ -1439,16 +1383,13 @@
     };
 
     window.silentRefreshMessages = async function (nik) {
-        if (!nik || nik !== window.activeChatNik) return;
+        if (!nik || nik !== window.activeChatNik || window.isLoadingChatMessages) return;
         try {
             const res = await apiCall(`/api/chat/${nik}`);
             if (!res || !res.ok) return;
             const messages = await res.json();
             const box = document.getElementById('adminChatMessages');
-            if (!box) return;
-
-            const existingCount = box.querySelectorAll('.chat-msg-row').length;
-            const currentReadFingerprint = JSON.stringify(messages.map(m => ({ id: m.id, r: m.is_read })));
+            if (!box || nik !== window.activeChatNik) return;
 
             // Jika ada pesan baru dari warga yang belum dibaca, langsung tandai sebagai terbaca oleh petugas
             const hasUnreadFromWarga = messages.some(m => m.sender === 'warga' && !m.is_read);
@@ -1460,14 +1401,45 @@
                 }).catch(() => {});
             }
 
-            if (messages.length !== existingCount || currentReadFingerprint !== window.lastAdminReadFingerprint) {
-                window.lastAdminReadFingerprint = currentReadFingerprint;
-                window.currentActiveChatMessages = messages;
-                box.innerHTML = '';
-                messages.forEach((m) => {
+            const domRows = Array.from(box.querySelectorAll('.chat-msg-row[data-id]'));
+            const existingIdMap = new Map();
+            domRows.forEach(row => {
+                const id = String(row.getAttribute('data-id'));
+                existingIdMap.set(id, row);
+            });
+
+            const serverMsgIds = new Set(messages.map(m => String(m.id)));
+
+            // 1. Hapus hanya pesan yang ditarik / dihapus dari server
+            domRows.forEach(row => {
+                const id = String(row.getAttribute('data-id'));
+                if (!serverMsgIds.has(id)) {
+                    row.remove();
+                }
+            });
+
+            // 2. Tambahkan pesan baru yang belum ada di DOM (mencegah duplikasi pesan secara mutlak)
+            let hasAppended = false;
+            messages.forEach((m) => {
+                const strId = String(m.id);
+                if (!existingIdMap.has(strId)) {
                     const isAdmin = m.sender !== 'warga';
                     box.insertAdjacentHTML('beforeend', window.formatModernBubbleHtml(m, isAdmin));
-                });
+                    hasAppended = true;
+                } else {
+                    // Update status baca in-place tanpa mereset pemutar audio atau audio ID
+                    const row = existingIdMap.get(strId);
+                    if (row && m.sender !== 'warga') {
+                        const checkEl = row.querySelector('.chat-check-delivered');
+                        if (checkEl && m.is_read) {
+                            checkEl.className = 'fas fa-check-double chat-check-read';
+                        }
+                    }
+                }
+            });
+
+            window.currentActiveChatMessages = messages;
+            if (hasAppended) {
                 box.scrollTop = box.scrollHeight;
             }
         } catch (e) {}
@@ -2424,8 +2396,10 @@
 
     window.sendBatchMediaNow = async function () {
         if (!window.activeChatNik) return Swal.fire('Peringatan', 'Pilih obrolan warga terlebih dahulu.', 'warning');
-        if (window.pendingMediaBatch.length === 0) return;
+        if (window.isSendingBatchMedia) return;
+        if (!window.pendingMediaBatch || window.pendingMediaBatch.length === 0) return;
 
+        window.isSendingBatchMedia = true;
         window.saveCurrentCanvasEdit();
 
         const captionInp = document.getElementById('batchMediaCaptionInput');
@@ -2478,6 +2452,7 @@
             if (progBar) progBar.style.width = '100%';
 
             if (uploadRes.ok) {
+                window.pendingMediaBatch = [];
                 window.closeMediaBatchModal();
                 if (captionInp) captionInp.value = '';
                 window.loadChatMessages(window.activeChatNik, window.activeChatName);
@@ -2496,6 +2471,7 @@
         } catch (e) {
             Swal.fire('Error', 'Gagal menghubungi peladen saat mengunggah.', 'error');
         } finally {
+            window.isSendingBatchMedia = false;
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Kirim Berkas';
@@ -2504,8 +2480,40 @@
     };
 
     // =========================================================================
-    // VOICE NOTE RECORDING ADMIN DENGAN AUDIO VISUAL
     // =========================================================================
+    // VOICE NOTE RECORDING ADMIN DENGAN JEDA, LANJUTKAN, PUTAR SEMENTARA,
+    // BATANG FREKUENSI MULUS, DURASI AKURAT & MULTI-LAMPIRAN HINGGA 100 BERKAS
+    // =========================================================================
+    window.formatAudioTime = function (sec) {
+        if (!sec || isNaN(sec) || !isFinite(sec) || sec < 0) return '00:00';
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    };
+    window.formatTimeDuration = window.formatAudioTime;
+
+    window.isSendingVoiceRecord = false;
+    window.isAdminVoicePaused = false;
+    window.audioChunks = [];
+    window.mediaRecorderObj = null;
+    window.voiceTimerInterval = null;
+    window.voiceDurationSecs = 0;
+    window.adminVoiceRecordStartTime = 0;
+    window.adminVoicePausedTotalMs = 0;
+    window.adminVoicePauseStart = 0;
+    window.adminVoiceExactDuration = 0;
+    window.adminVoiceBlob = null;
+    window.adminPreviewAudio = null;
+    window.adminPreviewAnim = null;
+    window.adminPreviewPCM = null;
+    window.adminWhileRecordingAudio = null;
+
+    // Multi-lampiran pratinjau pesan suara admin hingga 100 berkas
+    window.adminVoicePreviewFiles = [];
+    window.adminVoicePreviewExtraFile = null;
+    window.adminVoicePreviewExtraType = null;
+    window.adminVoicePreviewExtraLocation = null;
+
     window.toggleAdminVoiceRecord = async function () {
         if (!window.activeChatNik) return Swal.fire('Peringatan', 'Pilih obrolan warga terlebih dahulu.', 'warning');
 
@@ -2526,18 +2534,47 @@
 
             window.mediaRecorderObj.start(250);
             window.voiceDurationSecs = 0;
+            window.adminVoiceRecordStartTime = Date.now();
+            window.adminVoicePausedTotalMs = 0;
+            window.adminVoicePauseStart = 0;
+            window.adminVoiceExactDuration = 0;
+            window.isAdminVoicePaused = false;
+            if (window.adminWhileRecordingAudio) {
+                window.adminWhileRecordingAudio.pause();
+                window.adminWhileRecordingAudio = null;
+            }
 
             const recBar = document.getElementById('adminVoiceRecordingBar');
+            const previewBar = document.getElementById('adminVoicePreviewBar');
             const inputBar = document.getElementById('adminChatInputBar');
             if (recBar) recBar.style.display = 'flex';
+            if (previewBar) previewBar.style.display = 'none';
             if (inputBar) inputBar.style.display = 'none';
+
+            const pauseBtn = document.getElementById('btnAdminVoicePauseResume');
+            if (pauseBtn) {
+                pauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                pauseBtn.title = 'Jeda Rekaman';
+            }
+            const pausePlayBtn = document.getElementById('btnAdminVoicePausePlay');
+            if (pausePlayBtn) {
+                pausePlayBtn.style.display = 'inline-flex';
+                pausePlayBtn.innerHTML = '<i class="fas fa-play" style="margin-left:2px;"></i>';
+                pausePlayBtn.title = 'Dengarkan rekaman sejauh ini';
+            }
+            const statusEl = document.getElementById('adminVoiceRecordStatus');
+            if (statusEl) statusEl.innerHTML = '<i class="fas fa-wave-square"></i> Merekam...';
+            const pulseDot = document.getElementById('adminVoicePulseDot');
+            if (pulseDot) pulseDot.classList.remove('paused');
+
+            const timerEl = document.getElementById('adminVoiceRecordTimer');
+            if (timerEl) timerEl.innerText = '00:00';
 
             clearInterval(window.voiceTimerInterval);
             window.voiceTimerInterval = setInterval(() => {
                 window.voiceDurationSecs++;
                 const m = String(Math.floor(window.voiceDurationSecs / 60)).padStart(2, '0');
                 const s = String(window.voiceDurationSecs % 60).padStart(2, '0');
-                const timerEl = document.getElementById('adminVoiceRecordTimer');
                 if (timerEl) timerEl.innerText = `${m}:${s}`;
             }, 1000);
 
@@ -2558,6 +2595,8 @@
                     const drawLiveFreq = () => {
                         if (!window.liveAnalyser) return;
                         window.liveVisualizerAnim = requestAnimationFrame(drawLiveFreq);
+                        if (window.isAdminVoicePaused) return;
+
                         window.liveAnalyser.getByteFrequencyData(dataArray);
 
                         vCtx.clearRect(0, 0, vCanvas.width, vCanvas.height);
@@ -2590,12 +2629,224 @@
         }
     };
 
+    // =========================================================================
+    // FITUR PEMERIKSAAN SUARA SAAT JEDA (PAUSED AUDIO REVIEW, SEEK & SPEED)
+    // =========================================================================
+    window.adminVoicePauseSpeed = 1.0;
+
+    window.changeAdminVoicePauseSpeed = function () {
+        const speeds = [0.5, 1.0, 1.5, 2.0];
+        let cur = window.adminVoicePauseSpeed || 1.0;
+        let nextIdx = (speeds.indexOf(cur) + 1) % speeds.length;
+        window.adminVoicePauseSpeed = speeds[nextIdx];
+        if (window.adminWhileRecordingAudio) {
+            window.adminWhileRecordingAudio.playbackRate = window.adminVoicePauseSpeed;
+        }
+        const btn = document.getElementById('btnAdminVoicePauseSpeed');
+        if (btn) btn.innerText = `${window.adminVoicePauseSpeed}x`;
+    };
+
+    window.seekAdminVoicePause = function (val) {
+        if (!window.adminWhileRecordingAudio) return;
+        const total = window.adminWhileRecordingAudio.duration || window.adminVoiceExactDuration || 1;
+        const target = (parseFloat(val) / 100) * total;
+        try {
+            window.adminWhileRecordingAudio.currentTime = target;
+        } catch (e) {}
+        const curMins = String(Math.floor(target / 60)).padStart(2, '0');
+        const curSecs = String(Math.floor(target % 60)).padStart(2, '0');
+        const totMins = String(Math.floor(total / 60)).padStart(2, '0');
+        const totSecs = String(Math.floor(total % 60)).padStart(2, '0');
+        const timeEl = document.getElementById('adminVoicePauseTimer');
+        if (timeEl) timeEl.innerText = `${curMins}:${curSecs} / ${totMins}:${totSecs}`;
+    };
+
+    // Tombol Putar Ulang Rekaman Sementara Saat Sedang Merekam atau Saat Dijeda
+    window.togglePlayWhileRecordingAdmin = function () {
+        if (!window.mediaRecorderObj) return;
+        const btn = document.getElementById('btnAdminVoicePausePlay');
+        const timeEl = document.getElementById('adminVoicePauseTimer');
+        const seekEl = document.getElementById('adminVoicePauseSeek');
+
+        // Jika perekaman masih berjalan aktif, jeda terlebih dahulu
+        if (window.mediaRecorderObj.state === 'recording') {
+            window.togglePauseAdminVoiceRecord();
+            return;
+        }
+
+        // Jika audio sementara sedang memutar, jeda/pause
+        if (window.adminWhileRecordingAudio && !window.adminWhileRecordingAudio.paused) {
+            window.adminWhileRecordingAudio.pause();
+            if (btn) btn.innerHTML = '<i class="fas fa-play" style="margin-left:2px;"></i>';
+            return;
+        }
+
+        // Jika sudah ada instance audio dan tinggal melanjutkan pemutaran
+        if (window.adminWhileRecordingAudio) {
+            window.adminWhileRecordingAudio.playbackRate = window.adminVoicePauseSpeed || 1.0;
+            window.adminWhileRecordingAudio.play().catch(() => {});
+            if (btn) btn.innerHTML = '<i class="fas fa-pause"></i>';
+            return;
+        }
+
+        // Minta data terbaru dari recorder agar audioChunks termutakhirkan
+        try {
+            if (window.mediaRecorderObj.state !== 'inactive') {
+                window.mediaRecorderObj.requestData();
+            }
+        } catch (e) {}
+
+        setTimeout(() => {
+            if (!window.audioChunks || window.audioChunks.length === 0) return;
+            const currentBlob = new Blob(window.audioChunks, { type: 'audio/webm' });
+            window.adminWhileRecordingAudio = new Audio(URL.createObjectURL(currentBlob));
+            window.adminWhileRecordingAudio.playbackRate = window.adminVoicePauseSpeed || 1.0;
+
+            const total = window.adminVoiceExactDuration || window.voiceDurationSecs || 1;
+            const totMins = String(Math.floor(total / 60)).padStart(2, '0');
+            const totSecs = String(Math.floor(total % 60)).padStart(2, '0');
+
+            window.adminWhileRecordingAudio.ontimeupdate = () => {
+                if (!window.adminWhileRecordingAudio) return;
+                const cur = window.adminWhileRecordingAudio.currentTime || 0;
+                const curTot = window.adminWhileRecordingAudio.duration || total;
+                const pct = curTot > 0 ? (cur / curTot) * 100 : 0;
+                if (seekEl) seekEl.value = pct;
+                const cm = String(Math.floor(cur / 60)).padStart(2, '0');
+                const cs = String(Math.floor(cur % 60)).padStart(2, '0');
+                if (timeEl) timeEl.innerText = `${cm}:${cs} / ${totMins}:${totSecs}`;
+            };
+
+            window.adminWhileRecordingAudio.onended = () => {
+                if (btn) btn.innerHTML = '<i class="fas fa-play" style="margin-left:2px;"></i>';
+                if (seekEl) seekEl.value = 0;
+                if (timeEl) timeEl.innerText = `00:00 / ${totMins}:${totSecs}`;
+            };
+
+            if (btn) btn.innerHTML = '<i class="fas fa-pause"></i>';
+            window.adminWhileRecordingAudio.play().catch(() => {
+                if (btn) btn.innerHTML = '<i class="fas fa-play" style="margin-left:2px;"></i>';
+            });
+        }, 80);
+    };
+
+    window.togglePauseAdminVoiceRecord = function () {
+        if (!window.mediaRecorderObj) return;
+
+        const pauseBtn = document.getElementById('btnAdminVoicePauseResume');
+        const statusEl = document.getElementById('adminVoiceRecordStatus');
+        const pulseDot = document.getElementById('adminVoicePulseDot');
+        const activeRow = document.getElementById('adminVoiceActiveRow');
+        const pausedReviewRow = document.getElementById('adminVoicePausedReviewRow');
+        const timeEl = document.getElementById('adminVoicePauseTimer');
+        const seekEl = document.getElementById('adminVoicePauseSeek');
+        const playBtn = document.getElementById('btnAdminVoicePausePlay');
+
+        if (window.mediaRecorderObj.state === 'recording') {
+            try {
+                window.mediaRecorderObj.requestData();
+                window.mediaRecorderObj.pause();
+            } catch (e) {}
+
+            window.isAdminVoicePaused = true;
+            window.adminVoicePauseStart = Date.now();
+            clearInterval(window.voiceTimerInterval);
+
+            const elapsedMs = (Date.now() - window.adminVoiceRecordStartTime) - window.adminVoicePausedTotalMs;
+            window.adminVoiceExactDuration = Math.max(1, Math.floor(elapsedMs / 1000));
+            const total = window.adminVoiceExactDuration;
+            const totMins = String(Math.floor(total / 60)).padStart(2, '0');
+            const totSecs = String(Math.floor(total % 60)).padStart(2, '0');
+
+            if (activeRow) activeRow.style.display = 'none';
+            if (pausedReviewRow) pausedReviewRow.style.display = 'flex';
+            if (timeEl) timeEl.innerText = `00:00 / ${totMins}:${totSecs}`;
+            if (seekEl) seekEl.value = 0;
+            if (playBtn) playBtn.innerHTML = '<i class="fas fa-play" style="margin-left:2px;"></i>';
+
+            // Siapkan audio sementara untuk diperiksa
+            setTimeout(() => {
+                if (window.audioChunks && window.audioChunks.length > 0) {
+                    const currentBlob = new Blob(window.audioChunks, { type: 'audio/webm' });
+                    if (window.adminWhileRecordingAudio) {
+                        window.adminWhileRecordingAudio.pause();
+                        window.adminWhileRecordingAudio = null;
+                    }
+                    window.adminWhileRecordingAudio = new Audio(URL.createObjectURL(currentBlob));
+                    window.adminWhileRecordingAudio.playbackRate = window.adminVoicePauseSpeed || 1.0;
+
+                    window.adminWhileRecordingAudio.ontimeupdate = () => {
+                        if (!window.adminWhileRecordingAudio) return;
+                        const cur = window.adminWhileRecordingAudio.currentTime || 0;
+                        const curTot = window.adminWhileRecordingAudio.duration || total;
+                        const pct = curTot > 0 ? (cur / curTot) * 100 : 0;
+                        if (seekEl) seekEl.value = pct;
+                        const cm = String(Math.floor(cur / 60)).padStart(2, '0');
+                        const cs = String(Math.floor(cur % 60)).padStart(2, '0');
+                        if (timeEl) timeEl.innerText = `${cm}:${cs} / ${totMins}:${totSecs}`;
+                    };
+
+                    window.adminWhileRecordingAudio.onended = () => {
+                        if (playBtn) playBtn.innerHTML = '<i class="fas fa-play" style="margin-left:2px;"></i>';
+                        if (seekEl) seekEl.value = 0;
+                        if (timeEl) timeEl.innerText = `00:00 / ${totMins}:${totSecs}`;
+                    };
+                }
+            }, 60);
+
+            if (pauseBtn) {
+                pauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+                pauseBtn.title = 'Lanjutkan Rekaman';
+            }
+            if (statusEl) statusEl.innerHTML = '<i class="fas fa-pause-circle"></i> Dijeda';
+            if (pulseDot) pulseDot.classList.add('paused');
+        } else if (window.mediaRecorderObj.state === 'paused') {
+            // Hentikan pemutaran sementara jika sedang didengarkan
+            if (window.adminWhileRecordingAudio) {
+                window.adminWhileRecordingAudio.pause();
+                window.adminWhileRecordingAudio = null;
+            }
+
+            try {
+                window.mediaRecorderObj.resume();
+            } catch (e) {}
+
+            window.isAdminVoicePaused = false;
+            if (window.adminVoicePauseStart > 0) {
+                window.adminVoicePausedTotalMs += (Date.now() - window.adminVoicePauseStart);
+                window.adminVoicePauseStart = 0;
+            }
+
+            if (pausedReviewRow) pausedReviewRow.style.display = 'none';
+            if (activeRow) activeRow.style.display = 'flex';
+
+            if (pauseBtn) {
+                pauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                pauseBtn.title = 'Jeda Rekaman';
+            }
+            if (statusEl) statusEl.innerHTML = '<i class="fas fa-wave-square"></i> Merekam...';
+            if (pulseDot) pulseDot.classList.remove('paused');
+
+            clearInterval(window.voiceTimerInterval);
+            window.voiceTimerInterval = setInterval(() => {
+                if (!window.isAdminVoicePaused) {
+                    const elapsedMs = (Date.now() - window.adminVoiceRecordStartTime) - window.adminVoicePausedTotalMs;
+                    window.voiceDurationSecs = Math.floor(elapsedMs / 1000);
+                    const m = String(Math.floor(window.voiceDurationSecs / 60)).padStart(2, '0');
+                    const s = String(window.voiceDurationSecs % 60).padStart(2, '0');
+                    const timerEl = document.getElementById('adminVoiceRecordTimer');
+                    if (timerEl) timerEl.innerText = `${m}:${s}`;
+                }
+            }, 500);
+        }
+    };
+
     function cleanupLiveAudioVisualizer() {
         if (window.liveVisualizerAnim) {
             cancelAnimationFrame(window.liveVisualizerAnim);
             window.liveVisualizerAnim = null;
         }
-        if (window.liveAudioCtx) {
+        if (window.liveAudioCtx && window.liveAudioCtx.state !== 'closed') {
             try { window.liveAudioCtx.close(); } catch (e) {}
             window.liveAudioCtx = null;
         }
@@ -2609,54 +2860,603 @@
 
     window.cancelAdminVoiceRecord = function () {
         if (window.mediaRecorderObj && window.mediaRecorderObj.state !== 'inactive') {
-            window.mediaRecorderObj.stop();
+            try { window.mediaRecorderObj.stop(); } catch (e) {}
         }
         if (micStreamRef) micStreamRef.getTracks().forEach(t => t.stop());
         clearInterval(window.voiceTimerInterval);
         cleanupLiveAudioVisualizer();
 
+        if (window.adminWhileRecordingAudio) {
+            window.adminWhileRecordingAudio.pause();
+            window.adminWhileRecordingAudio = null;
+        }
+
         const recBar = document.getElementById('adminVoiceRecordingBar');
+        const previewBar = document.getElementById('adminVoicePreviewBar');
         const inputBar = document.getElementById('adminChatInputBar');
+        const activeRow = document.getElementById('adminVoiceActiveRow');
+        const pausedReviewRow = document.getElementById('adminVoicePausedReviewRow');
+        if (activeRow) activeRow.style.display = 'flex';
+        if (pausedReviewRow) pausedReviewRow.style.display = 'none';
         if (recBar) recBar.style.display = 'none';
+        if (previewBar) previewBar.style.display = 'none';
         if (inputBar) inputBar.style.display = 'flex';
         window.audioChunks = [];
+        window.isSendingVoiceRecord = false;
+        window.isAdminVoicePaused = false;
+        window.clearAllAdminVoicePreviewAttachments();
     };
 
-    window.sendAdminVoiceRecord = function () {
-        if (!window.mediaRecorderObj || window.audioChunks.length === 0) {
+    // Selesaikan Rekaman Suara & Masuk ke Mode Pratinjau (Bisa Didengarkan Lagi Sebelum Dikirim)
+    window.stopAndPreviewAdminVoiceRecord = function () {
+        if (!window.mediaRecorderObj || window.mediaRecorderObj.state === 'inactive') {
             return window.cancelAdminVoiceRecord();
         }
 
-        window.mediaRecorderObj.onstop = async () => {
+        if (window.adminWhileRecordingAudio) {
+            window.adminWhileRecordingAudio.pause();
+            window.adminWhileRecordingAudio = null;
+        }
+
+        if (window.adminVoicePauseStart > 0) {
+            window.adminVoicePausedTotalMs += (Date.now() - window.adminVoicePauseStart);
+            window.adminVoicePauseStart = 0;
+        }
+        const totalElapsedMs = Math.max(500, (Date.now() - window.adminVoiceRecordStartTime) - window.adminVoicePausedTotalMs);
+        window.adminVoiceExactDuration = totalElapsedMs / 1000;
+
+        window.mediaRecorderObj.onstop = () => {
             if (micStreamRef) micStreamRef.getTracks().forEach(t => t.stop());
             clearInterval(window.voiceTimerInterval);
             cleanupLiveAudioVisualizer();
 
-            const recBar = document.getElementById('adminVoiceRecordingBar');
-            const inputBar = document.getElementById('adminChatInputBar');
-            if (recBar) recBar.style.display = 'none';
-            if (inputBar) inputBar.style.display = 'flex';
+            if (window.audioChunks.length === 0) {
+                return window.cancelAdminVoiceRecord();
+            }
 
-            const audioBlob = new Blob(window.audioChunks, { type: 'audio/webm' });
+            const recBar = document.getElementById('adminVoiceRecordingBar');
+            const previewBar = document.getElementById('adminVoicePreviewBar');
+            const inputBar = document.getElementById('adminChatInputBar');
+            const activeRow = document.getElementById('adminVoiceActiveRow');
+            const pausedReviewRow = document.getElementById('adminVoicePausedReviewRow');
+            if (activeRow) activeRow.style.display = 'flex';
+            if (pausedReviewRow) pausedReviewRow.style.display = 'none';
+            if (recBar) recBar.style.display = 'none';
+            if (inputBar) inputBar.style.display = 'none';
+            if (previewBar) previewBar.style.display = 'flex';
+
+            window.adminVoiceBlob = new Blob(window.audioChunks, { type: 'audio/webm' });
             window.audioChunks = [];
 
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audioFile = new File([audioBlob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
-            window.pendingMediaBatch = [{
-                id: `voice_${Date.now()}`,
-                file: audioFile,
-                type: 'audio',
-                name: 'Pesan Suara (Voice Note)',
-                size: audioBlob.size,
-                url: audioUrl,
-                previewUrl: audioUrl,
-                editedDataUrl: null
-            }];
-            window.activeBatchIndex = 0;
-            window.openMediaBatchModal();
+            window.initAdminVoicePreview(window.adminVoiceBlob);
         };
 
         window.mediaRecorderObj.stop();
+    };
+
+    window.sendAdminVoiceRecord = function () {
+        window.stopAndPreviewAdminVoiceRecord();
+    };
+
+    // =========================================================================
+    // KONTROL PRATINJAU SUARA ADMIN SEBELUM DIKIRIM (BATANG FREKUENSI MULUS & AKURAT)
+    // =========================================================================
+    window.initAdminVoicePreview = function (blob) {
+        if (window.adminPreviewAudio) {
+            window.adminPreviewAudio.pause();
+            window.adminPreviewAudio = null;
+        }
+        if (window.adminPreviewAnim) {
+            cancelAnimationFrame(window.adminPreviewAnim);
+            window.adminPreviewAnim = null;
+        }
+
+        const previewUrl = URL.createObjectURL(blob);
+        window.adminPreviewAudio = new Audio(previewUrl);
+
+        // Tampilkan langsung durasi waktu pasti dari rekaman (Mencegah tampilan 00:00 / 00:00)
+        const durSec = Math.max(0.8, window.adminVoiceExactDuration || window.voiceDurationSecs || 1);
+        window.adminVoiceExactDuration = durSec;
+        const timerEl = document.getElementById('adminVoicePreviewTimer');
+        if (timerEl) timerEl.innerText = `00:00 / ${window.formatAudioTime(durSec)}`;
+
+        const playBtn = document.getElementById('btnPlayAdminVoicePreview');
+        if (playBtn) playBtn.innerHTML = '<i class="fas fa-play" style="margin-left:2px; font-size:0.88rem;"></i>';
+
+        const seekInp = document.getElementById('adminVoicePreviewSeek');
+        if (seekInp) seekInp.value = 0;
+
+        const speedBtn = document.getElementById('btnAdminVoicePreviewSpeed');
+        if (speedBtn) speedBtn.innerText = '1x';
+
+        // Dekode data audio untuk visualisasi gelombang frekuensi batang akurat
+        const reader = new FileReader();
+        reader.onload = async function () {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                const tempCtx = new AudioCtx();
+                const buffer = await tempCtx.decodeAudioData(reader.result);
+                window.adminPreviewPCM = {
+                    data: buffer.getChannelData(0),
+                    sampleRate: buffer.sampleRate,
+                    duration: buffer.duration
+                };
+                if (buffer.duration && isFinite(buffer.duration) && buffer.duration > 0) {
+                    window.adminVoiceExactDuration = buffer.duration;
+                    if (timerEl) {
+                        const cur = window.adminPreviewAudio ? window.adminPreviewAudio.currentTime : 0;
+                        timerEl.innerText = `${window.formatAudioTime(cur)} / ${window.formatAudioTime(buffer.duration)}`;
+                    }
+                    window.drawAdminPreviewWave(false);
+                }
+                tempCtx.close().catch(() => {});
+            } catch (e) {
+                window.adminPreviewPCM = null;
+            }
+        };
+        reader.readAsArrayBuffer(blob);
+
+        window.adminPreviewAudio.onloadedmetadata = () => {
+            const total = window.adminVoiceExactDuration || durSec;
+            if (timerEl) timerEl.innerText = `00:00 / ${window.formatAudioTime(total)}`;
+            window.drawAdminPreviewWave(false);
+        };
+
+        window.adminPreviewAudio.onended = () => {
+            if (playBtn) playBtn.innerHTML = '<i class="fas fa-play" style="margin-left:2px; font-size:0.88rem;"></i>';
+            if (seekInp) seekInp.value = 0;
+            if (window.adminPreviewAnim) cancelAnimationFrame(window.adminPreviewAnim);
+            const total = window.adminVoiceExactDuration || durSec;
+            if (timerEl) timerEl.innerText = `00:00 / ${window.formatAudioTime(total)}`;
+            window.drawAdminPreviewWave(false);
+        };
+
+        window.drawAdminPreviewWave(false);
+        document.getElementById('adminVoiceCaptionInput')?.focus();
+    };
+
+    window.togglePlayAdminVoicePreview = function () {
+        if (!window.adminPreviewAudio) return;
+        const playBtn = document.getElementById('btnPlayAdminVoicePreview');
+
+        if (window.adminPreviewAudio.paused) {
+            window.adminPreviewAudio.play().then(() => {
+                if (playBtn) playBtn.innerHTML = '<i class="fas fa-pause" style="font-size:0.88rem;"></i>';
+                const loop = () => {
+                    if (window.adminPreviewAudio && !window.adminPreviewAudio.paused && !window.adminPreviewAudio.ended) {
+                        window.drawAdminPreviewWave(true);
+                        window.adminPreviewAnim = requestAnimationFrame(loop);
+                    } else {
+                        window.drawAdminPreviewWave(false);
+                    }
+                };
+                window.adminPreviewAnim = requestAnimationFrame(loop);
+            }).catch(() => {});
+        } else {
+            window.adminPreviewAudio.pause();
+            if (playBtn) playBtn.innerHTML = '<i class="fas fa-play" style="margin-left:2px; font-size:0.88rem;"></i>';
+            if (window.adminPreviewAnim) cancelAnimationFrame(window.adminPreviewAnim);
+            window.drawAdminPreviewWave(false);
+        }
+    };
+
+    window.seekAdminVoicePreview = function (val) {
+        if (!window.adminPreviewAudio) return;
+        const total = window.adminVoiceExactDuration > 0 ? window.adminVoiceExactDuration : 1;
+        const target = (parseFloat(val) / 100) * total;
+        try {
+            window.adminPreviewAudio.currentTime = target;
+        } catch (e) {}
+        window.drawAdminPreviewWave(!window.adminPreviewAudio.paused);
+    };
+
+    window.changeAdminVoicePreviewSpeed = function () {
+        if (!window.adminPreviewAudio) return;
+        const speeds = [0.5, 1.0, 1.5, 2.0];
+        let cur = window.adminPreviewAudio.playbackRate || 1.0;
+        let nextIdx = (speeds.indexOf(cur) + 1) % speeds.length;
+        let nextSpeed = speeds[nextIdx];
+        window.adminPreviewAudio.playbackRate = nextSpeed;
+        const btn = document.getElementById('btnAdminVoicePreviewSpeed');
+        if (btn) btn.innerText = `${nextSpeed}x`;
+    };
+
+    // VISUALISASI GELOMBANG FREKUENSI BATANG (BAR FREQUENCY) PREVIEW ADMIN ULTRA-MULUS
+    window.drawAdminPreviewWave = function (isPlaying) {
+        const canvas = document.getElementById('adminVoicePreviewCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+
+        const total = window.adminVoiceExactDuration > 0 ? window.adminVoiceExactDuration : 1;
+        const curTime = (window.adminPreviewAudio) ? window.adminPreviewAudio.currentTime : 0;
+        const progress = Math.max(0, Math.min(1, curTime / total));
+
+        // Update timer dan seek input secara mulus
+        const timerEl = document.getElementById('adminVoicePreviewTimer');
+        if (timerEl) {
+            timerEl.innerText = `${window.formatAudioTime(curTime)} / ${window.formatAudioTime(total)}`;
+        }
+        const seekInp = document.getElementById('adminVoicePreviewSeek');
+        if (seekInp && !document.activeElement?.isSameNode(seekInp)) {
+            seekInp.value = progress * 100;
+        }
+
+        ctx.clearRect(0, 0, width, height);
+
+        const barCount = 40;
+        const barWidth = 3;
+        const barGap = (width - (barCount * barWidth)) / (barCount - 1 || 1);
+
+        for (let i = 0; i < barCount; i++) {
+            const x = i * (barWidth + barGap);
+            let barHeight = 6;
+
+            if (window.adminPreviewPCM && window.adminPreviewPCM.data && window.adminPreviewPCM.data.length > 0) {
+                const sampleIdx = Math.floor((i / barCount) * window.adminPreviewPCM.data.length);
+                const step = Math.max(1, Math.floor(window.adminPreviewPCM.data.length / (barCount * 12)));
+                let sum = 0;
+                let count = 0;
+                for (let k = sampleIdx; k < Math.min(window.adminPreviewPCM.data.length, sampleIdx + step); k += 2) {
+                    sum += Math.abs(window.adminPreviewPCM.data[k]);
+                    count++;
+                }
+                const amp = count > 0 ? (sum / count) : 0;
+                barHeight = Math.max(4, Math.min(height - 2, Math.pow(amp, 0.65) * (height * 3.4)));
+            } else {
+                const norm = i / barCount;
+                const pattern = Math.sin(norm * Math.PI) * 0.75 + Math.sin(norm * Math.PI * 3.5) * 0.25;
+                barHeight = Math.max(5, Math.min(height - 4, (0.35 + 0.65 * Math.abs(pattern)) * (height - 4)));
+            }
+
+            const barProgress = (i + 0.5) / barCount;
+            const isPlayed = barProgress <= progress;
+
+            // Dinamika gelombang halus saat dimainkan
+            let dynamicH = barHeight;
+            if (isPlaying && Math.abs(barProgress - progress) < (2 / barCount)) {
+                dynamicH = Math.min(height - 1, barHeight + Math.sin(Date.now() / 90) * 3);
+            }
+
+            const y = (height - dynamicH) / 2;
+
+            ctx.fillStyle = isPlayed ? '#009846' : '#cbd5e1';
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(x, y, barWidth, dynamicH, 2);
+            } else {
+                ctx.rect(x, y, barWidth, dynamicH);
+            }
+            ctx.fill();
+        }
+
+        // Indikator Titik Pemutar (Playhead Cursor Glow)
+        const playheadX = Math.max(2, Math.min(width - 2, progress * width));
+        ctx.fillStyle = '#009846';
+        ctx.beginPath();
+        ctx.arc(playheadX, height / 2, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    };
+
+    // =========================================================================
+    // FITUR MULTI-LAMPIRAN (FOTO, VIDEO, DOKUMEN, DRIVE, FOTO, LOKASI) HINGGA 100 BERKAS PADA PREVIEW ADMIN
+    // =========================================================================
+    window.toggleAdminVoicePreviewAttachMenu = function (e) {
+        if (e) e.stopPropagation();
+        const menu = document.getElementById('adminVoicePreviewAttachMenu');
+        if (!menu) return;
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    };
+
+    window.triggerAdminVoicePreviewAttach = function (type) {
+        const menu = document.getElementById('adminVoicePreviewAttachMenu');
+        if (menu) menu.style.display = 'none';
+
+        if (type === 'gallery') {
+            document.getElementById('adminVoicePreviewGalleryInput')?.click();
+        } else if (type === 'camera') {
+            if (typeof window.openLiveCameraModal === 'function') {
+                window.openLiveCameraModal('admin-voice-preview');
+            } else {
+                document.getElementById('adminVoicePreviewCameraInput')?.click();
+            }
+        } else if (type === 'doc') {
+            document.getElementById('adminVoicePreviewDocInput')?.click();
+        } else if (type === 'gdrive') {
+            if (typeof window.openGoogleDrivePicker === 'function') {
+                window.openGoogleDrivePicker('admin-voice-preview');
+            }
+        } else if (type === 'gphotos') {
+            if (typeof window.openGooglePhotosPicker === 'function') {
+                window.openGooglePhotosPicker('admin-voice-preview');
+            }
+        } else if (type === 'location') {
+            window.attachLocationToAdminVoicePreview();
+        }
+    };
+
+    window.attachLocationToAdminVoicePreview = function () {
+        const nik = window.activeChatNik;
+        let w = (window.wargaMasterList || []).find(x => x.nik === nik);
+        const lat = w && w.lat ? Number(w.lat) : -7.4478;
+        const lng = w && w.lng ? Number(w.lng) : 112.7183;
+        const alamat = w && w.alamat ? w.alamat : 'Kabupaten Sidoarjo';
+
+        window.adminVoicePreviewExtraLocation = {
+            nik,
+            nama: w ? w.nama : 'Warga Sidoarjo',
+            alamat,
+            lat,
+            lng,
+            maps_url: `https://www.google.com/maps?q=${lat},${lng}`,
+            terverifikasi: true,
+            pengirim: 'petugas'
+        };
+
+        window.renderAdminVoicePreviewAttachmentChips();
+    };
+
+    // Tambah Multi-Berkas ke Pratinjau Suara Admin (Hingga 100 Berkas)
+    window.addAdminVoicePreviewAttachments = function (files) {
+        if (!files || files.length === 0) return;
+        const MAX_FILES = 100;
+        const incoming = Array.isArray(files) ? files : Array.from(files);
+
+        if (window.adminVoicePreviewFiles.length + incoming.length > MAX_FILES) {
+            Swal.fire('Batas Maksimal', `Maksimal lampiran adalah ${MAX_FILES} berkas. Berkas selebihnya diabaikan.`, 'warning');
+        }
+
+        const allowed = incoming.slice(0, MAX_FILES - window.adminVoicePreviewFiles.length);
+        for (const item of allowed) {
+            const fileObj = item.file || item;
+            const name = item.name || fileObj.name || 'Berkas';
+            const size = item.size || fileObj.size || 0;
+            const type = item.type || (fileObj.type ? (fileObj.type.startsWith('image/') ? 'image' : (fileObj.type.startsWith('video/') ? 'video' : 'document')) : 'document');
+            let previewThumb = null;
+            if (type === 'image' && fileObj instanceof Blob) {
+                previewThumb = URL.createObjectURL(fileObj);
+            }
+
+            window.adminVoicePreviewFiles.push({
+                id: `voice_att_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+                file: fileObj,
+                name: name,
+                size: size,
+                type: type,
+                previewThumb: previewThumb,
+                isGoogleDrive: Boolean(item.isGoogleDrive),
+                isCloudLink: Boolean(item.isCloudLink),
+                webViewLink: item.webViewLink
+            });
+        }
+
+        window.renderAdminVoicePreviewAttachmentChips();
+    };
+
+    window.handleAdminVoicePreviewFileSelected = function (input, type) {
+        if (!input.files || input.files.length === 0) return;
+        window.addAdminVoicePreviewAttachments(input.files);
+        input.value = '';
+    };
+
+    window.removeAdminVoicePreviewFile = function (index) {
+        if (index >= 0 && index < window.adminVoicePreviewFiles.length) {
+            const removed = window.adminVoicePreviewFiles.splice(index, 1)[0];
+            if (removed && removed.previewThumb) {
+                URL.revokeObjectURL(removed.previewThumb);
+            }
+            window.renderAdminVoicePreviewAttachmentChips();
+        }
+    };
+
+    window.clearAllAdminVoicePreviewAttachments = function () {
+        (window.adminVoicePreviewFiles || []).forEach(f => {
+            if (f.previewThumb) URL.revokeObjectURL(f.previewThumb);
+        });
+        window.adminVoicePreviewFiles = [];
+        window.adminVoicePreviewExtraLocation = null;
+        window.renderAdminVoicePreviewAttachmentChips();
+
+        const galleryInput = document.getElementById('adminVoicePreviewGalleryInput');
+        const cameraInput = document.getElementById('adminVoicePreviewCameraInput');
+        const docInput = document.getElementById('adminVoicePreviewDocInput');
+        if (galleryInput) galleryInput.value = '';
+        if (cameraInput) cameraInput.value = '';
+        if (docInput) docInput.value = '';
+    };
+
+    window.clearAdminVoicePreviewAttachment = window.clearAllAdminVoicePreviewAttachments;
+
+    window.renderAdminVoicePreviewAttachmentChips = function () {
+        const listContainer = document.getElementById('adminVoicePreviewAttachmentList');
+        const chipsContainer = document.getElementById('adminVoicePreviewAttachmentChipsContainer');
+        const countLabel = document.getElementById('adminVoiceAttachmentCountLabel');
+
+        const totalItems = (window.adminVoicePreviewFiles ? window.adminVoicePreviewFiles.length : 0) + (window.adminVoicePreviewExtraLocation ? 1 : 0);
+
+        if (totalItems === 0) {
+            if (listContainer) listContainer.style.display = 'none';
+            if (chipsContainer) chipsContainer.innerHTML = '';
+            return;
+        }
+
+        if (listContainer) listContainer.style.display = 'flex';
+        if (countLabel) {
+            countLabel.innerHTML = `<i class="fas fa-paperclip"></i> Lampiran Berkas (${totalItems})`;
+        }
+
+        if (!chipsContainer) return;
+        let html = '';
+
+        // Tampilkan Chip Lokasi Geotag jika ada
+        if (window.adminVoicePreviewExtraLocation) {
+            const loc = window.adminVoicePreviewExtraLocation;
+            html += `
+                <div style="display:flex; align-items:center; gap:8px; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:12px; padding:6px 10px; font-size:0.75rem; white-space:nowrap; flex-shrink:0;">
+                    <i class="fas fa-map-marked-alt text-emerald-600" style="font-size:0.95rem;"></i>
+                    <span style="font-weight:700; color:#065f46;">Lokasi: ${loc.alamat}</span>
+                    <button type="button" onclick="window.adminVoicePreviewExtraLocation=null; window.renderAdminVoicePreviewAttachmentChips();" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:0.85rem; padding:0 4px;" title="Hapus Lokasi">&times;</button>
+                </div>
+            `;
+        }
+
+        // Tampilkan Semua Berkas Lampiran (Hingga 100)
+        window.adminVoicePreviewFiles.forEach((item, idx) => {
+            let icon = '<i class="fas fa-file-alt" style="color:#7c3aed;"></i>';
+            if (item.type === 'image') icon = '<i class="fas fa-image" style="color:#0284c7;"></i>';
+            else if (item.type === 'video') icon = '<i class="fas fa-video" style="color:#e11d48;"></i>';
+            if (item.isGoogleDrive) icon = '<i class="fab fa-google-drive" style="color:#f59e0b;"></i>';
+
+            const sizeStr = item.size ? `${(item.size / (1024 * 1024)).toFixed(1)}MB` : '';
+            const thumbHtml = item.previewThumb
+                ? `<img src="${item.previewThumb}" style="width:24px; height:24px; border-radius:4px; object-fit:cover;">`
+                : icon;
+
+            html += `
+                <div style="display:flex; align-items:center; gap:6px; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:5px 8px; font-size:0.75rem; white-space:nowrap; flex-shrink:0; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+                    ${thumbHtml}
+                    <span style="font-weight:700; color:#1e293b; max-width:140px; overflow:hidden; text-overflow:ellipsis;" title="${item.name}">${item.name}</span>
+                    <span style="color:#94a3b8; font-size:0.68rem;">${sizeStr}</span>
+                    <button type="button" onclick="window.removeAdminVoicePreviewFile(${idx})" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:0.85rem; padding:0 4px;" title="Hapus Berkas">&times;</button>
+                </div>
+            `;
+        });
+
+        chipsContainer.innerHTML = html;
+    };
+
+    window.cancelAdminVoicePreview = function () {
+        if (window.adminPreviewAudio) {
+            window.adminPreviewAudio.pause();
+            window.adminPreviewAudio = null;
+        }
+        if (window.adminPreviewAnim) {
+            cancelAnimationFrame(window.adminPreviewAnim);
+            window.adminPreviewAnim = null;
+        }
+        window.adminVoiceBlob = null;
+        window.clearAllAdminVoicePreviewAttachments();
+
+        const previewBar = document.getElementById('adminVoicePreviewBar');
+        const inputBar = document.getElementById('adminChatInputBar');
+        if (previewBar) previewBar.style.display = 'none';
+        if (inputBar) inputBar.style.display = 'flex';
+
+        const captionInp = document.getElementById('adminVoiceCaptionInput');
+        if (captionInp) captionInp.value = '';
+    };
+
+    // KIRIM PESAN SUARA ADMIN RESMI (DENGAN HINGGA 100 BERKAS LAMPIRAN, TEKS OPSIONAL)
+    window.sendAdminVoiceRecordConfirmed = async function () {
+        if (window.isSendingVoiceRecord) return;
+        if (!window.adminVoiceBlob) {
+            return window.cancelAdminVoicePreview();
+        }
+        if (!window.activeChatNik) {
+            return Swal.fire('Peringatan', 'Pilih obrolan warga terlebih dahulu.', 'warning');
+        }
+
+        window.isSendingVoiceRecord = true;
+        const sendBtn = document.getElementById('btnSendAdminVoiceConfirmed');
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.style.opacity = '0.6';
+        }
+
+        if (window.adminPreviewAudio) {
+            window.adminPreviewAudio.pause();
+            window.adminPreviewAudio = null;
+        }
+        if (window.adminPreviewAnim) cancelAnimationFrame(window.adminPreviewAnim);
+
+        const audioBlobToSend = window.adminVoiceBlob;
+        window.adminVoiceBlob = null;
+
+        const filesToSend = [...(window.adminVoicePreviewFiles || [])];
+        const extraLocationToSend = window.adminVoicePreviewExtraLocation;
+
+        // Ambil keterangan teks jika admin mengetik keterangan (opsional, jika kosong JANGAN isi emoji mic!)
+        const captionInp = document.getElementById('adminVoiceCaptionInput');
+        const captionText = captionInp ? captionInp.value.trim() : '';
+        if (captionInp) captionInp.value = '';
+
+        window.clearAllAdminVoicePreviewAttachments();
+
+        const recBar = document.getElementById('adminVoiceRecordingBar');
+        const previewBar = document.getElementById('adminVoicePreviewBar');
+        const inputBar = document.getElementById('adminChatInputBar');
+        if (recBar) recBar.style.display = 'none';
+        if (previewBar) previewBar.style.display = 'none';
+        if (inputBar) inputBar.style.display = 'flex';
+
+        const handler = (window.chatHandlersMap[window.activeChatNik] || 'Petugas').toUpperCase();
+        const nowDevice = new Date();
+        const deviceTime = window.getDeviceRealtimeClock();
+
+        const formData = new FormData();
+        formData.append('sender', 'petugas');
+        formData.append('nama', `Dinsos Sidoarjo (${handler})`);
+        formData.append('pesan', captionText);
+        formData.append('custom_file_type', 'audio');
+        formData.append('file_voice', audioBlobToSend, `voice_admin_${Date.now()}.webm`);
+        formData.append('waktu', deviceTime);
+        formData.append('created_at', nowDevice.toISOString());
+
+        // Lampirkan semua berkas lampiran (hingga 100 berkas)
+        filesToSend.forEach((item, idx) => {
+            if (item.file && item.file instanceof Blob) {
+                formData.append(`file_extra_${idx}`, item.file, item.name || item.file.name);
+            } else if (item.isCloudLink) {
+                formData.append(`cloud_link_${idx}`, item.webViewLink || '');
+            }
+        });
+
+        if (window.activeReplyMessage) {
+            formData.append('reply_sender', window.activeReplyMessage.sender);
+            formData.append('reply_text', window.activeReplyMessage.text);
+            formData.append('reply_to_id', window.activeReplyMessage.id);
+            window.cancelAdminReply();
+        }
+
+        try {
+            await fetch(`${BASE_API_URL}/api/chat/${window.activeChatNik}`, {
+                method: 'POST',
+                body: formData
+            });
+
+            // Jika ada lokasi geotagging yang dilampirkan, kirimkan juga titik lokasi koordinatnya
+            if (extraLocationToSend) {
+                try {
+                    await fetch(`${BASE_API_URL}/api/chat/share-geotag`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(extraLocationToSend)
+                    });
+                } catch (e) {}
+            }
+
+            if (typeof window.catatAktivitasRealtime === 'function') {
+                const actDesc = captionText
+                    ? `Petugas mengirim rekaman suara (Voice Note): "${captionText}" ke warga NIK ${window.activeChatNik}.`
+                    : `Petugas mengirim rekaman suara (Voice Note) ke warga NIK ${window.activeChatNik}.`;
+                window.catatAktivitasRealtime(actDesc, 'Petugas', 'chat');
+            }
+
+            await window.silentRefreshMessages(window.activeChatNik);
+            window.loadChatList();
+        } catch (err) {
+            Swal.fire('Gagal', 'Pesan suara gagal dikirim.', 'error');
+        } finally {
+            window.isSendingVoiceRecord = false;
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.style.opacity = '1';
+            }
+        }
     };
 
     // =========================================================================
@@ -3519,14 +4319,25 @@
             const input = document.getElementById('adminGalleryFileInput');
             if (input) input.click();
         } else if (category === 'camera') {
-            const input = document.getElementById('adminCameraInput');
-            if (input) input.click();
+            if (typeof window.openLiveCameraModal === 'function') {
+                window.openLiveCameraModal('admin-chat');
+            } else {
+                const input = document.getElementById('adminCameraInput');
+                if (input) input.click();
+            }
         } else if (category === 'audio') {
             const input = document.getElementById('adminAudioFileInput');
             if (input) input.click();
         } else if (category === 'location') {
             window.sendAdminGeotagLocation();
         }
+    };
+
+    // Handler untuk menerima lampiran dari Google Workspace atau Kamera Live ke obrolan admin
+    window.addAdminChatAttachments = function (files) {
+        if (!files || files.length === 0) return;
+        const fakeInput = { files: files.map(f => f.file || f) };
+        window.appendAdminMediaSelection(fakeInput);
     };
 
     // 1. MODAL GOOGLE DRIVE PICKER
@@ -3681,7 +4492,7 @@
         inp.value = '';
     };
 
-    // 3. BAGIKAN LOKASI GEOTAGGING RESMI
+    // 3. BAGIKAN LOKASI: 2 OPSI (LOKASI PERANGKAT REAL-TIME vs LOKASI RUMAH SESUAI ARSIP DATA WARGA)
     window.sendAdminGeotagLocation = function () {
         if (!window.activeChatNik) {
             Swal.fire('Perhatian', 'Pilih percakapan warga terlebih dahulu.', 'warning');
@@ -3694,30 +4505,86 @@
         const defaultAlamat = warga ? (warga.alamat || 'Sidoarjo, Jawa Timur') : 'Sidoarjo, Jawa Timur';
 
         Swal.fire({
-            title: 'Bagikan Lokasi Geotagging?',
+            title: '<i class="fas fa-map-marked-alt text-primary"></i> Pilih Opsi Berbagi Lokasi',
             html: `
-                <div style="text-align:left; font-size:0.85rem; background:#f8fafc; padding:12px; border-radius:12px; border:1px solid #e2e8f0;">
-                    <div style="font-weight:700; color:#0f172a; margin-bottom:4px;"><i class="fas fa-map-marker-alt text-danger"></i> Titik Koordinat Penyaluran:</div>
-                    <div style="font-family:monospace; color:#009846; font-size:0.8rem; margin-bottom:6px;">Lat: ${defaultLat}, Lng: ${defaultLng}</div>
-                    <div style="color:#64748b; font-size:0.78rem;">Alamat: ${window.safeHtml(defaultAlamat)}</div>
+                <div style="text-align:left; font-size:0.86rem; color:#334155;">
+                    <p style="margin-bottom:14px; color:#64748b; line-height:1.5;">
+                        Pilih jenis lokasi yang ingin Anda bagikan kepada warga dalam percakapan:
+                    </p>
+
+                    <!-- Opsi 1: Lokasi Perangkat Saat Ini (GPS Real-time) -->
+                    <div id="btnOptRealtimeLoc" onclick="window.confirmSendAdminLoc('realtime')" style="display:flex; align-items:flex-start; gap:12px; padding:14px; border:2px solid #bbf7d0; border-radius:14px; background:#f0fdf4; cursor:pointer; margin-bottom:12px; transition:all 0.15s;" onmouseover="this.style.borderColor='#009846'; this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='#bbf7d0'; this.style.transform='translateY(0)';">
+                        <div style="width:38px; height:38px; border-radius:10px; background:#dcfce7; color:#15803d; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0;">
+                            <i class="fas fa-crosshairs"></i>
+                        </div>
+                        <div style="flex:1;">
+                            <div style="font-weight:800; color:#15803d; font-size:0.92rem;">
+                                1. Lokasi Perangkat Saya Saat Ini (GPS Real-time)
+                            </div>
+                            <div style="font-size:0.78rem; color:#475569; margin-top:3px; line-height:1.4;">
+                                Mengambil koordinat GPS fisik akurat dari perangkat yang sedang digunakan saat ini.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Opsi 2: Lokasi Rumah Warga (Berdasarkan Arsip Data Warga) -->
+                    <div id="btnOptArsipLoc" onclick="window.confirmSendAdminLoc('arsip')" style="display:flex; align-items:flex-start; gap:12px; padding:14px; border:2px solid #bfdbfe; border-radius:14px; background:#eff6ff; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.borderColor='#2563eb'; this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='#bfdbfe'; this.style.transform='translateY(0)';">
+                        <div style="width:38px; height:38px; border-radius:10px; background:#dbeafe; color:#1d4ed8; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0;">
+                            <i class="fas fa-home"></i>
+                        </div>
+                        <div style="flex:1;">
+                            <div style="font-weight:800; color:#1e40af; font-size:0.92rem;">
+                                2. Lokasi Rumah Warga (Arsip Data Warga)
+                            </div>
+                            <div style="font-size:0.78rem; color:#475569; margin-top:3px; line-height:1.4;">
+                                Berdasarkan data kependudukan terdaftar: <b>${window.safeHtml(defaultAlamat)}</b> (Lat: ${defaultLat}, Lng: ${defaultLng}).
+                            </div>
+                        </div>
+                    </div>
                 </div>
             `,
-            icon: 'info',
+            showConfirmButton: false,
             showCancelButton: true,
-            confirmButtonColor: '#009846',
-            confirmButtonText: '<i class="fas fa-paper-plane"></i> Bagikan Lokasi',
-            cancelButtonText: 'Batal'
-        }).then(async (res) => {
-            if (res.isConfirmed) {
+            cancelButtonText: 'Batal',
+            cancelButtonColor: '#64748b'
+        });
+    };
+
+    window.confirmSendAdminLoc = async function (type) {
+        Swal.close();
+        if (!window.activeChatNik) return;
+
+        const warga = (window.globalDataWarga || []).find(w => String(w.nik) === String(window.activeChatNik));
+        const handler = (window.chatHandlersMap[window.activeChatNik] || 'Petugas').toUpperCase();
+
+        if (type === 'realtime') {
+            if (!navigator.geolocation) {
+                return Swal.fire('Perhatian', 'Peramban ini tidak mendukung geolokasi GPS.', 'warning');
+            }
+
+            Swal.fire({
+                title: 'Mendeteksi Posisi GPS...',
+                text: 'Mengambil titik koordinat satelit GPS perangkat Anda...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                const accuracy = Math.round(pos.coords.accuracy || 10);
+
                 const locData = {
-                    lat: defaultLat,
-                    lng: defaultLng,
-                    nama: window.activeChatName,
+                    lat,
+                    lng,
+                    accuracy,
+                    nama: `Petugas Dinsos (${handler})`,
                     nik: window.activeChatNik,
-                    alamat: defaultAlamat,
-                    maps_url: `https://www.google.com/maps?q=${defaultLat},${defaultLng}`
+                    alamat: `Lokasi Perangkat Petugas Lapangan (Akurasi: ±${accuracy}m)`,
+                    tipe: 'realtime',
+                    maps_url: `https://www.google.com/maps?q=${lat},${lng}`
                 };
-                const handler = (window.chatHandlersMap[window.activeChatNik] || 'Petugas').toUpperCase();
+
                 const formData = new FormData();
                 formData.append('sender', 'petugas');
                 formData.append('nama', `Dinsos Sidoarjo (${handler})`);
@@ -3729,16 +4596,53 @@
                         body: formData
                     });
                     if (typeof window.catatAktivitasRealtime === 'function') {
-                        window.catatAktivitasRealtime(`Petugas membagikan titik lokasi geotagging ke warga NIK ${window.activeChatNik}.`, 'Petugas', 'chat');
+                        window.catatAktivitasRealtime(`Petugas membagikan lokasi GPS real-time ke warga NIK ${window.activeChatNik}.`, 'Petugas', 'chat');
                     }
                     window.loadChatMessages(window.activeChatNik, window.activeChatName);
                     window.loadChatList();
-                    Swal.fire({ icon: 'success', title: 'Terkirim', text: 'Titik lokasi geotagging berhasil dibagikan.', timer: 1500, showConfirmButton: false });
+                    Swal.fire({ icon: 'success', title: 'Terkirim', text: 'Titik lokasi GPS perangkat berhasil dibagikan.', timer: 1500, showConfirmButton: false });
                 } catch (e) {
-                    Swal.fire('Gagal', 'Gagal membagikan lokasi.', 'error');
+                    Swal.fire('Gagal', 'Gagal membagikan lokasi real-time.', 'error');
                 }
+            }, (err) => {
+                Swal.fire('Gagal Mendeteksi GPS', `Tidak dapat mengambil lokasi perangkat: ${err.message}. Pastikan izin lokasi aktif.`, 'error');
+            }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+        } else {
+            // Opsi Arsip Data Warga
+            const defaultLat = warga ? (warga.lat || -7.4478) : -7.4478;
+            const defaultLng = warga ? (warga.lng || 112.7183) : 112.7183;
+            const defaultAlamat = warga ? (warga.alamat || 'Sidoarjo, Jawa Timur') : 'Sidoarjo, Jawa Timur';
+
+            const locData = {
+                lat: defaultLat,
+                lng: defaultLng,
+                nama: window.activeChatName,
+                nik: window.activeChatNik,
+                alamat: defaultAlamat,
+                tipe: 'arsip',
+                maps_url: `https://www.google.com/maps?q=${defaultLat},${defaultLng}`
+            };
+
+            const formData = new FormData();
+            formData.append('sender', 'petugas');
+            formData.append('nama', `Dinsos Sidoarjo (${handler})`);
+            formData.append('pesan', `[GEOTAG_LOKASI] ${JSON.stringify(locData)}`);
+
+            try {
+                await fetch(`${BASE_API_URL}/api/chat/${window.activeChatNik}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (typeof window.catatAktivitasRealtime === 'function') {
+                    window.catatAktivitasRealtime(`Petugas membagikan titik lokasi arsip warga NIK ${window.activeChatNik}.`, 'Petugas', 'chat');
+                }
+                window.loadChatMessages(window.activeChatNik, window.activeChatName);
+                window.loadChatList();
+                Swal.fire({ icon: 'success', title: 'Terkirim', text: 'Titik lokasi arsip warga berhasil dibagikan.', timer: 1500, showConfirmButton: false });
+            } catch (e) {
+                Swal.fire('Gagal', 'Gagal membagikan lokasi arsip.', 'error');
             }
-        });
+        }
     };
 
     window.filterEmojiCategory = function (category) {

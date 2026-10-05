@@ -250,6 +250,17 @@ router.get('/:nik', (req: Request, res: Response, next: any) => {
   res.json(messages);
 });
 
+function parseTimestampSafe(str?: string | null): number {
+  if (!str) return 0;
+  const t = new Date(str).getTime();
+  if (!isNaN(t)) return t;
+  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
+  if (m) {
+    return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), Number(m[4]), Number(m[5])).getTime();
+  }
+  return 0;
+}
+
 router.post('/:nik', (req: Request, res: Response, next: any) => {
   const nik = String(req.params.nik || '').trim();
   if (['laporan-pelanggaran', 'lapor-pesan', 'share-geotag', 'react', 'pin', 'action', 'investigasi', 'pengaduan', 'download'].includes(nik)) {
@@ -270,24 +281,54 @@ router.post('/:nik', (req: Request, res: Response, next: any) => {
 
     const resolveFileType = (f: Express.Multer.File, pText: string): string => {
       const ext = path.extname(f.originalname || f.filename).toLowerCase().replace('.', '');
-      if (f.filename.startsWith('voice_') || (f.mimetype && f.mimetype.startsWith('audio/')) || customType === 'audio') {
+      if (f.filename.startsWith('voice_') || (f.originalname && f.originalname.startsWith('voice_')) || (f.mimetype && f.mimetype.startsWith('audio/'))) {
         return 'audio';
       }
-      if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].includes(ext)) return 'image';
-      if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) return 'video';
-      if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'weba'].includes(ext)) return 'audio';
-      if (ext === 'webm') return (pText.toLowerCase().includes('suara') || pText.toLowerCase().includes('voice')) ? 'audio' : 'video';
-      if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'txt'].includes(ext)) return 'document';
-      return 'document';
+      if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].includes(ext) || (f.mimetype && f.mimetype.startsWith('image/'))) return 'image';
+      if (['mp4', 'mov', 'avi', 'mkv', '3gp', 'wmv', 'flv'].includes(ext) || (f.mimetype && f.mimetype.startsWith('video/'))) return 'video';
+      if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'weba', 'flac'].includes(ext)) return 'audio';
+      if (ext === 'webm') return ((f.mimetype && f.mimetype.startsWith('audio/')) || (f.originalname && f.originalname.includes('voice')) || (f.filename && f.filename.includes('voice')) || pText.toLowerCase().includes('suara') || pText.toLowerCase().includes('voice')) ? 'audio' : 'video';
+      if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'txt', 'json', 'zip', 'rar', '7z', 'tar', 'gz', 'xml'].includes(ext)) return 'document';
+      return customType || 'document';
     };
 
+    const nowIso = new Date().toISOString();
     const msgWaktu = String(d.waktu || '').trim() || nowTimeStr().slice(-5);
-    const msgCreatedAt = String(d.created_at || nowTimeStr());
+    const msgCreatedAt = d.created_at && !isNaN(new Date(d.created_at).getTime()) ? String(d.created_at) : nowIso;
 
     if (files.length > 0) {
       files.forEach((f, idx) => {
+        const fileType = resolveFileType(f, pesan);
+        const nowTime = Date.now();
+
+        // Pencegahan duplikasi berkas & pesan suara akibat double-click instan (dalam kurun waktu 1.5 detik)
+        const isDuplicate = chatStore.some(c => {
+          if (c.nik !== nik || c.sender !== sender) return false;
+          if (createdChats.some(created => created.id === c.id)) return false;
+          const diffMs = Math.abs(nowTime - parseTimestampSafe(c.created_at));
+          if (diffMs > 1500) return false;
+
+          // Jika ukuran berkas sama persis dan nama mirip dalam 1.5 detik
+          if (c.file_size === f.size && f.size > 0 && c.file_name === (f.originalname || f.filename)) {
+            return true;
+          }
+          if (fileType === 'audio' && c.file_type === 'audio' && diffMs < 1200 && c.file_size === f.size && c.file_name === (f.originalname || f.filename)) {
+            return true;
+          }
+
+          return false;
+        });
+
+        if (isDuplicate) {
+          // Cari pesan yang sudah ada untuk dikembalikan
+          const existingItem = [...chatStore].reverse().find(c => c.nik === nik && c.sender === sender);
+          if (existingItem) {
+            createdChats.push(existingItem);
+          }
+          return;
+        }
+
         const filePath = `/uploads/${f.filename}`;
-        const fileType = customType || resolveFileType(f, pesan);
         const nextId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
         const chatItem: ChatItem = {
           id: nextId,
@@ -316,8 +357,59 @@ router.post('/:nik', (req: Request, res: Response, next: any) => {
         chatStore.push(chatItem);
         createdChats.push(chatItem);
       });
-    } else {
+    }
+
+    // Tangani berkas cloud link dari Google Drive atau Google Foto jika dilampirkan
+    Object.keys(d).forEach(k => {
+      if (k.startsWith('cloud_link_') && d[k]) {
+        const link = String(d[k]).trim();
+        const suffix = k.replace('cloud_link_', '');
+        const cName = String(d['cloud_name_' + suffix] || 'Berkas Google Workspace').trim();
+        const cType = String(d['cloud_type_' + suffix] || 'document').trim();
+        if (link) {
+          const nextId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
+          const chatItem: ChatItem = {
+            id: nextId,
+            nik,
+            sender,
+            nama,
+            pesan: `📎 [GOOGLE_WORKSPACE] ${cName}`,
+            text: `📎 [GOOGLE_WORKSPACE] ${cName}`,
+            file_path: link,
+            file_name: cName,
+            file_size: null,
+            file_type: cType,
+            reply_sender: null,
+            reply_text: null,
+            reply_to_id: null,
+            reaction: '',
+            is_pinned: false,
+            is_deleted_all: false,
+            deleted_for: null,
+            waktu: msgWaktu,
+            created_at: msgCreatedAt,
+            is_read: false,
+            read_at: null,
+            delivered_at: msgCreatedAt
+          };
+          chatStore.push(chatItem);
+          createdChats.push(chatItem);
+        }
+      }
+    });
+
+    if (files.length === 0 && createdChats.length === 0) {
       const nextId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
+      const fileUrl = d.file_url ? String(d.file_url).trim() : null;
+      const fileName = d.file_name ? String(d.file_name).trim() : (fileUrl ? 'Berkas Google Workspace' : null);
+      let fileType = d.file_type ? String(d.file_type).trim() : (customType || null);
+      if (!fileType && fileUrl) {
+        if (fileUrl.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i) || (fileName && fileName.match(/\.(jpeg|jpg|gif|png|webp)$/i))) fileType = 'image';
+        else if (fileUrl.match(/\.(mp4|webm|mov|mkv)($|\?)/i) || (fileName && fileName.match(/\.(mp4|webm|mov|mkv)$/i))) fileType = 'video';
+        else if (fileUrl.match(/\.(mp3|wav|ogg|m4a)($|\?)/i) || (fileName && fileName.match(/\.(mp3|wav|ogg|m4a)$/i))) fileType = 'audio';
+        else fileType = 'document';
+      }
+
       const chatItem: ChatItem = {
         id: nextId,
         nik,
@@ -325,8 +417,10 @@ router.post('/:nik', (req: Request, res: Response, next: any) => {
         nama,
         pesan: pesan || null,
         text: pesan || null,
-        file_path: null,
-        file_type: null,
+        file_path: fileUrl,
+        file_name: fileName,
+        file_size: d.file_size ? (typeof d.file_size === 'number' ? d.file_size : parseIntSafe(d.file_size, 0)) : null,
+        file_type: fileType,
         reply_sender: d.reply_to_sender || d.reply_sender || null,
         reply_text: d.reply_to_text || d.reply_text || null,
         reply_to_id: d.reply_to_id ? parseIntSafe(d.reply_to_id, 0) : null,
@@ -648,10 +742,12 @@ router.post(['/share-geotag', '/api/chat/share-geotag'], (req: Request, res: Res
     }
   }
 
-  const lat = w ? Number(w.lat) : -7.4478;
-  const lng = w ? Number(w.lng) : 112.7183;
+  const lat = (d.lat !== undefined && d.lat !== null && !isNaN(Number(d.lat))) ? Number(d.lat) : (w ? Number(w.lat) : -7.4478);
+  const lng = (d.lng !== undefined && d.lng !== null && !isNaN(Number(d.lng))) ? Number(d.lng) : (w ? Number(w.lng) : 112.7183);
   const namaWarga = w ? w.nama : nama;
-  const alamat = w ? w.alamat : 'Kabupaten Sidoarjo';
+  const alamat = d.alamat ? String(d.alamat).trim() : (w ? w.alamat : 'Kabupaten Sidoarjo');
+  const tipe = d.tipe || (d.is_realtime ? 'realtime' : 'arsip');
+  const accuracy = d.accuracy ? Number(d.accuracy) : null;
 
   const geotagPayload = {
     nik,
@@ -661,7 +757,10 @@ router.post(['/share-geotag', '/api/chat/share-geotag'], (req: Request, res: Res
     lng,
     maps_url: `https://www.google.com/maps?q=${lat},${lng}`,
     terverifikasi: true,
-    pengirim: sender
+    pengirim: sender,
+    tipe,
+    accuracy,
+    label: tipe === 'realtime' ? '📍 Lokasi Perangkat Real-time' : '🏠 Lokasi Rumah Arsip Warga'
   };
 
   const pesanGeotag = `[GEOTAG_LOKASI] ${JSON.stringify(geotagPayload)}`;
