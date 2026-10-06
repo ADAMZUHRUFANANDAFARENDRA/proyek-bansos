@@ -91,11 +91,12 @@ export const kriteriaStore: KriteriaItem[] = [
 ];
 
 export const usersStore: UserItem[] = [
-  { id: 1, username: 'admin', password: 'admin', nama_lengkap: 'Administrator Utama (Super Admin)', email: 'admin@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' },
-  { id: 2, username: 'petugas', password: '123', nama_lengkap: 'Petugas Lapangan Dinsos', email: 'petugas@sidoarjo.go.id', role: 'operator', is_active: true, created_at: '2026-01-01' },
-  { id: 3, username: 'verifikator', password: '123', nama_lengkap: 'Tim Verifikator Wilayah', email: 'verifikator@sidoarjo.go.id', role: 'operator', is_active: true, created_at: '2026-01-01' },
-  { id: 4, username: 'operator', password: '123', nama_lengkap: 'Operator Data Terpadu', email: 'operator@sidoarjo.go.id', role: 'operator', is_active: true, created_at: '2026-01-01' },
-  { id: 5, username: 'kepala_dinsos', password: '123', nama_lengkap: 'Kepala Dinas Sosial Sidoarjo', email: 'kadinsos@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' }
+  { id: 1, username: 'superadmin', password: '123', nama_lengkap: 'Super Administrator (Developer)', email: 'superadmin@sidoarjo.go.id', role: 'super_admin', is_active: true, created_at: '2026-01-01' },
+  { id: 2, username: 'admin', password: 'admin', nama_lengkap: 'Administrator Utama (Super Admin)', email: 'admin@sidoarjo.go.id', role: 'super_admin', is_active: true, created_at: '2026-01-01' },
+  { id: 3, username: 'admin_bansos', password: '123', nama_lengkap: 'Administrator Bansos Wilayah', email: 'bansos@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' },
+  { id: 4, username: 'petugas', password: '123', nama_lengkap: 'Petugas Lapangan Dinsos', email: 'petugas@sidoarjo.go.id', role: 'petugas', is_active: true, created_at: '2026-01-01' },
+  { id: 5, username: 'verifikator', password: '123', nama_lengkap: 'Tim Verifikator Wilayah', email: 'verifikator@sidoarjo.go.id', role: 'petugas', is_active: true, created_at: '2026-01-01' },
+  { id: 6, username: 'kepala_dinsos', password: '123', nama_lengkap: 'Kepala Dinas Sosial Sidoarjo', email: 'kadinsos@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' }
 ];
 
 export const DATA_MASTER_SIDOARJO: MasterSeedTuple[] = [
@@ -408,6 +409,39 @@ export function formatWarga(w: WargaItem) {
   });
 
   return result;
+}
+
+export function maskNik(nik?: string | null): string {
+  if (!nik) return '3515************';
+  const s = String(nik).trim();
+  if (s.length < 16) return s;
+  return `${s.slice(0, 6)}******${s.slice(12)}`;
+}
+
+export function maskPhone(phone?: string | null): string {
+  if (!phone) return '-';
+  const s = String(phone).trim();
+  if (s.length <= 6) return '****';
+  return `${s.slice(0, 4)}****${s.slice(-3)}`;
+}
+
+export function maskEmail(email?: string | null): string {
+  if (!email) return '-';
+  const parts = email.split('@');
+  if (parts.length !== 2) return '****@mail.com';
+  const name = parts[0];
+  const maskedName = name.length <= 2 ? '*' : `${name[0]}***${name.slice(-1)}`;
+  return `${maskedName}@${parts[1]}`;
+}
+
+export function formatWargaSafe(w: WargaItem, maskPrivacy = true) {
+  const formatted = formatWarga(w);
+  if (maskPrivacy) {
+    formatted.nik = maskNik(w.nik);
+    formatted.no_hp = maskPhone(w.no_hp);
+    formatted.email = maskEmail(w.email);
+  }
+  return formatted;
 }
 
 export function makeJwtToken(user: { id: number; username: string; role: string }) {

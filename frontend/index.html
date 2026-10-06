@@ -55,7 +55,7 @@
             </a>
             
             <div class="user-profile">
-                <button type="button" onclick="window.bukaModalKeamananSiber ? window.bukaModalKeamananSiber() : null" class="btn-chat-nav" style="background:#090d16; border:1px solid #10b981; color:#34d399; margin-right:6px;" title="Pusat Keamanan Siber & Deteksi WAF">
+                <button type="button" id="btnNavCyberShield" onclick="window.bukaModalKeamananSiber ? window.bukaModalKeamananSiber() : null" class="btn-chat-nav" style="background:#090d16; border:1px solid #10b981; color:#34d399; margin-right:6px; display:none;" title="Pusat Keamanan Siber & Deteksi WAF (Super Admin Khusus)">
                     <i class="fas fa-shield-alt text-emerald-400"></i> Cyber Shield <span id="navWafBadge" class="badge-red" style="display:none; font-size:0.68rem; padding:1px 6px; border-radius:10px; margin-left:4px;">0</span>
                 </button>
                 <button onclick="window.openAdminChat ? window.openAdminChat() : null" class="btn-chat-nav">
@@ -172,8 +172,8 @@
                     </div>
                 </div>
 
-                <!-- Tile 6: Pusat Keamanan Siber & Deteksi Serangan -->
-                <div class="cmd-tile-item tile-cyan" onclick="window.bukaModalKeamananSiber ? window.bukaModalKeamananSiber() : null" style="background:#f0fdf4; border:1px solid #86efac; cursor:pointer;">
+                <!-- Tile 6: Pusat Keamanan Siber & Deteksi Serangan (Super Admin Khusus) -->
+                <div class="cmd-tile-item tile-cyan" id="tileCyberShield" onclick="window.bukaModalKeamananSiber ? window.bukaModalKeamananSiber() : null" style="background:#f0fdf4; border:1px solid #86efac; cursor:pointer; display:none;">
                     <div class="cmd-tile-icon-box" style="background:#dcfce7; color:#15803d;">
                         <i class="fas fa-shield-alt"></i>
                     </div>
@@ -553,7 +553,7 @@
                         <div class="form-group"><label class="form-label" id="formUserTitle">Tambah Akun Baru</label></div>
                         <div class="form-group"><label class="form-label">Username</label><input type="text" id="manageUsername" class="form-input" required placeholder="Masukkan username"></div>
                         <div class="form-group" id="groupManagePassword"><label class="form-label">Kata Sandi</label><input type="password" id="managePassword" class="form-input" required placeholder="Masukkan kata sandi"></div>
-                        <div class="form-group"><label class="form-label">Level Akses</label><select id="manageRole" class="form-select custom-rounded-select"><option value="operator">Petugas / Operator</option><option value="admin">Administrator</option></select></div>
+                        <div class="form-group"><label class="form-label">Level Akses</label><select id="manageRole" class="form-select custom-rounded-select"><option value="petugas">Petugas Lapangan Bansos</option><option value="admin">Admin Bansos</option><option value="super_admin">Super Admin (Akses Penuh Developer & Cyber Shield)</option></select></div>
                         <div style="display:flex; gap:10px; margin-top:20px;"><button type="button" onclick="window.resetFormUser()" class="btn btn-secondary" style="flex:1;">Batal</button><button type="submit" class="btn btn-primary" style="flex:2;"><i class="fas fa-save"></i> Simpan</button></div>
                     </form>
                 </div>

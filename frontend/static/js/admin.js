@@ -265,13 +265,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         f.addEventListener('submit', (e) => e.preventDefault());
     });
 
-    const currentRole = (
+    let cleanRole = (
         localStorage.getItem('role') || 
         localStorage.getItem('user_role') || 
         localStorage.getItem('bansos_user_role') || 
         user?.role || 
-        'admin'
-    ).toLowerCase();
+        'petugas'
+    ).toLowerCase().replace(/[\s-]/g, '_');
+    if (cleanRole === 'operator') cleanRole = 'petugas';
+    if (cleanRole === 'superadmin') cleanRole = 'super_admin';
 
     const nameEl = document.getElementById('navUsername');
     const roleEl = document.getElementById('navRoleBadge');
@@ -280,15 +282,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (nameEl) nameEl.innerText = currentUsername.toUpperCase();
 
-    const isAdmin = (currentRole === 'admin' || currentRole === 'super admin');
+    const isSuperAdmin = (cleanRole === 'super_admin' || cleanRole === 'developer');
+    const isAdmin = (cleanRole === 'admin' || isSuperAdmin);
+
     if (roleEl) {
-        if (isAdmin) {
-            roleEl.className = 'role-badge role-admin';
-            roleEl.innerHTML = '<i class="fas fa-crown"></i> Super Admin';
+        if (isSuperAdmin) {
+            roleEl.className = 'role-badge';
+            roleEl.style.cssText = 'background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
+            roleEl.innerHTML = '<i class="fas fa-shield-alt"></i> Super Admin';
+        } else if (cleanRole === 'admin') {
+            roleEl.className = 'role-badge';
+            roleEl.style.cssText = 'background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
+            roleEl.innerHTML = '<i class="fas fa-user-tie"></i> Admin Bansos';
         } else {
-            roleEl.className = 'role-badge role-petugas';
+            roleEl.className = 'role-badge';
+            roleEl.style.cssText = 'background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
             roleEl.innerHTML = '<i class="fas fa-user-edit"></i> Petugas Lapangan';
         }
+    }
+
+    // Hak Akses Cyber Shield: HANYA untuk Super Admin / Developer
+    const navCyberBtn = document.getElementById('btnNavCyberShield');
+    if (navCyberBtn) {
+        navCyberBtn.style.display = isSuperAdmin ? 'inline-flex' : 'none';
+    }
+    const tileCyber = document.getElementById('tileCyberShield');
+    if (tileCyber) {
+        tileCyber.style.display = isSuperAdmin ? 'block' : 'none';
     }
 
     if (cmdEl) {

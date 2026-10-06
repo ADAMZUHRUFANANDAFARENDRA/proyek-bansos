@@ -42,6 +42,15 @@ pip-delete-this-directory.txt
 *.pem
 *.key
 *.cert
+firebase-applet-config.json
+firebase-applet-config.*
+firebase_applet_config.*
+*.applet-config.json
+serviceAccountKey.json
+google-services.json
+client_secret*.json
+*.secret
+credentials.json
 
 # 4. Flask Instance & Cache Runtime
 instance/

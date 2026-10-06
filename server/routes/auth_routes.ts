@@ -76,6 +76,12 @@ router.post(['/login', '/api/auth/login', '/api/login'], loginLimiter, (req: Req
     });
   }
 
+  // Normalisasi peran pengguna ke 3 kategori resmi: super_admin, admin, petugas
+  let normalizedRole = (user.role || 'petugas').toLowerCase().replace(/[\s-]/g, '_');
+  if (normalizedRole === 'operator') normalizedRole = 'petugas';
+  if (normalizedRole === 'superadmin' || normalizedRole === 'super_admin') normalizedRole = 'super_admin';
+  user.role = normalizedRole;
+
   // Login Berhasil - Reset tracker percobaan gagal
   recordLoginAttempt(clientIp, true);
 
@@ -85,17 +91,17 @@ router.post(['/login', '/api/auth/login', '/api/login'], loginLimiter, (req: Req
     username: user.username,
     nama_lengkap: user.nama_lengkap || user.username,
     email: user.email,
-    role: user.role || 'operator'
+    role: normalizedRole
   };
 
-  catatNotifikasi(`Pengguna '${user.username}' berhasil masuk ke sistem dari IP ${clientIp}.`, user.role.toUpperCase(), 'login');
+  catatNotifikasi(`Pengguna '${user.username}' (${normalizedRole.toUpperCase()}) berhasil masuk ke sistem dari IP ${clientIp}.`, normalizedRole.toUpperCase(), 'login');
 
   return res.json({
     status: 'success',
     message: 'Login berhasil.',
     token,
     access_token: token,
-    role: user.role || 'operator',
+    role: normalizedRole,
     user: userInfo,
     data: userInfo
   });
@@ -239,7 +245,10 @@ router.post(['/users', '/api/users', '/api/auth/users'], (req: Request, res: Res
   const d = req.body || {};
   const username = String(d.username || '').trim();
   const password = String(d.password || '').trim();
-  const role = String(d.role || 'operator').trim().toLowerCase();
+  let role = String(d.role || 'petugas').trim().toLowerCase().replace(/[\s-]/g, '_');
+  if (role === 'operator') role = 'petugas';
+  if (role === 'superadmin') role = 'super_admin';
+  if (!['super_admin', 'admin', 'petugas'].includes(role)) role = 'petugas';
   const nama = String(d.nama_lengkap || d.nama || username).trim();
 
   if (!username || !password) {
@@ -285,8 +294,8 @@ router.all(['/users/:id', '/api/users/:id'], (req: Request, res: Response) => {
   }
 
   if (req.method === 'DELETE') {
-    if (target.username.toLowerCase() === 'admin' || target.id === 1) {
-      return res.status(400).json({ status: 'error', message: 'Akun Administrator Utama tidak boleh dihapus.' });
+    if (target.username.toLowerCase() === 'admin' || target.id === 1 || target.role === 'super_admin') {
+      return res.status(400).json({ status: 'error', message: 'Akun Super Administrator Utama tidak boleh dihapus.' });
     }
     usersStore.splice(idx, 1);
     catatNotifikasi(`Akun pengguna '${target.username}' telah dihapus dari sistem.`, 'Admin', 'user');
@@ -303,7 +312,14 @@ router.all(['/users/:id', '/api/users/:id'], (req: Request, res: Response) => {
       }
       target.username = nextU;
     }
-    if (d.role) target.role = String(d.role).trim().toLowerCase();
+    if (d.role) {
+      let nextRole = String(d.role).trim().toLowerCase().replace(/[\s-]/g, '_');
+      if (nextRole === 'operator') nextRole = 'petugas';
+      if (nextRole === 'superadmin') nextRole = 'super_admin';
+      if (['super_admin', 'admin', 'petugas'].includes(nextRole)) {
+        target.role = nextRole;
+      }
+    }
     if (d.nama_lengkap) target.nama_lengkap = String(d.nama_lengkap).trim();
     if (d.email) target.email = String(d.email).trim().toLowerCase();
     if (typeof d.is_active === 'boolean') target.is_active = d.is_active;

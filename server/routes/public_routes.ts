@@ -4,6 +4,7 @@ import {
   wargaStore,
   catatNotifikasi,
   formatWarga,
+  formatWargaSafe,
   nowTimeStr
 } from '../store.js';
 
@@ -18,7 +19,8 @@ router.get(['/cek-bansos', '/api/publik/cek-bansos', '/api/public/cek-bansos'], 
   if (!w) {
     return res.status(404).json({ status: 'error', message: 'Data NIK belum terdaftar pada sistem kependudukan.' });
   }
-  return res.json({ status: 'success', data: formatWarga(w) });
+  // Lindungi privasi data pribadi warga dari scraping publik
+  return res.json({ status: 'success', data: formatWargaSafe(w, true) });
 });
 
 router.post(['/konfirmasi-terima', '/api/public/konfirmasi-terima', '/api/publik/konfirmasi-terima'], (req: Request, res: Response) => {

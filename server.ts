@@ -132,14 +132,30 @@ app.use(['/uploads', '/static/uploads'], (_req: Request, res: Response, next: Ne
 app.use('/uploads', express.static(UPLOAD_DIR));
 app.use('/static/uploads', express.static(UPLOAD_DIR));
 
-// Lindungi berkas sensitif dari pengunduhan langsung (e.g. .env, mysql-config.json, dsb.)
+// Lindungi berkas sensitif dari pengunduhan langsung (firebase-applet-config, .env, package.json, dsb.)
 app.use((req: Request, res: Response, next: NextFunction) => {
   const p = req.path.toLowerCase();
-  if (p.includes('.env') || p.includes('config.json') || p.includes('.git') || p.includes('mysql_storage')) {
+  const isProtected = 
+    p.includes('.env') ||
+    p.includes('config.json') ||
+    p.includes('firebase') ||
+    p.includes('serviceaccount') ||
+    p.includes('.git') ||
+    p.includes('metadata.json') ||
+    p.includes('package.json') ||
+    p.includes('tsconfig') ||
+    p.includes('bun.lock') ||
+    p.includes('mysql_storage') ||
+    p.includes('server.ts') ||
+    p.endsWith('.key') ||
+    p.endsWith('.pem') ||
+    p.endsWith('.cert');
+
+  if (isProtected) {
     res.status(403).json({
       status: 'error',
       code: 'ACCESS_DENIED_PROTECTED_FILE',
-      message: 'Akses ke berkas sistem dilarang oleh kebijakan keamanan.'
+      message: 'Akses ke berkas sistem dan konfigurasi rahasia dilarang oleh kebijakan Cyber Shield.'
     });
     return;
   }

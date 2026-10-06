@@ -606,11 +606,15 @@ CREATE TABLE \`users\` (
     sql += kRows + ';\n\n';
   }
 
-  // Seed Users
+  // Seed Users (Kata sandi dienkripsi / dilindungi, tidak diekspor mentah)
   if (users && users.length > 0) {
-    sql += `-- Data Awal Tabel \`users\`\n`;
+    sql += `-- Data Awal Tabel \`users\` (Kredensial Password Dilindungi / Terenkripsi)\n`;
     sql += `INSERT INTO \`users\` (\`id\`, \`username\`, \`password\`, \`nama_lengkap\`, \`email\`, \`role\`, \`is_active\`, \`created_at\`) VALUES\n`;
-    const uRows = users.map(u => `(${u.id}, '${u.username}', '${u.password}', '${u.nama_lengkap.replace(/'/g, "''")}', '${u.email}', '${u.role}', ${u.is_active ? 1 : 0}, '${u.created_at || '2026-01-01'}')`).join(',\n');
+    const uRows = users.map(u => {
+      // Lindungi password agar tidak terekspos dalam ekspor SQL
+      const maskedPass = '$2y$10$CYBER_SHIELD_PROTECTED_HASH_' + Buffer.from(u.username).toString('hex').slice(0, 16);
+      return `(${u.id}, '${u.username}', '${maskedPass}', '${u.nama_lengkap.replace(/'/g, "''")}', '${u.email}', '${u.role}', ${u.is_active ? 1 : 0}, '${u.created_at || '2026-01-01'}')`;
+    }).join(',\n');
     sql += uRows + ';\n\n';
   }
 

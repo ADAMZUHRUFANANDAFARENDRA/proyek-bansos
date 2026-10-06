@@ -34,27 +34,33 @@ window.loadUserTable = async function () {
 
         if (!users || !users.length) {
             users = [
-                { id: 1, username: "admin", role: "admin" },
-                { id: 2, username: "petugas", role: "operator" },
-                { id: 3, username: "verifikator", role: "operator" },
-                { id: 4, username: "operator", role: "operator" },
-                { id: 5, username: "kepala_dinsos", role: "admin" }
+                { id: 1, username: "superadmin", role: "super_admin" },
+                { id: 2, username: "admin", role: "super_admin" },
+                { id: 3, username: "admin_bansos", role: "admin" },
+                { id: 4, username: "petugas", role: "petugas" },
+                { id: 5, username: "verifikator", role: "petugas" }
             ];
         }
 
         tbody.innerHTML = users.map(u => {
-            const isAdmin = (u.role === 'admin' || u.role === 'super admin');
-            const roleBadge = isAdmin
-                ? `<span class="badge" style="background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe; font-weight:800; padding:3px 10px; border-radius:12px; font-size:0.75rem;">ADMIN</span>`
-                : `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; padding:3px 10px; border-radius:12px; font-size:0.75rem;">OPERATOR</span>`;
+            const rawRole = (u.role || 'petugas').toLowerCase().replace(/[\s-]/g, '_');
+            let roleBadge = '';
+            if (rawRole === 'super_admin' || rawRole === 'superadmin' || rawRole === 'developer') {
+                roleBadge = `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:800; padding:3px 10px; border-radius:12px; font-size:0.72rem;"><i class="fas fa-shield-alt"></i> SUPER ADMIN</span>`;
+            } else if (rawRole === 'admin') {
+                roleBadge = `<span class="badge" style="background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe; font-weight:800; padding:3px 10px; border-radius:12px; font-size:0.72rem;"><i class="fas fa-user-tie"></i> ADMIN BANSOS</span>`;
+            } else {
+                roleBadge = `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; padding:3px 10px; border-radius:12px; font-size:0.72rem;"><i class="fas fa-user-edit"></i> PETUGAS</span>`;
+            }
 
             const btnEdit = `
-                <button type="button" class="btn btn-sm" onclick="window.editUser(${u.id}, '${window.escapeInlineJS(u.username)}', '${u.role}')" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:8px; padding:5px 9px; cursor:pointer;" title="Edit Akun">
+                <button type="button" class="btn btn-sm" onclick="window.editUser(${u.id}, '${window.escapeInlineJS(u.username)}', '${rawRole}')" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:8px; padding:5px 9px; cursor:pointer;" title="Edit Akun">
                     <i class="fas fa-pencil-alt"></i>
                 </button>
             `;
 
-            const btnDelete = (u.id === 1 || u.username === 'admin')
+            const isProtectedAdmin = (u.id === 1 || u.username === 'superadmin' || (u.id === 2 && u.username === 'admin'));
+            const btnDelete = isProtectedAdmin
                 ? `<span style="font-size:0.75rem; color:#94a3b8; font-weight:600; padding:4px 6px;">Utama</span>`
                 : `
                 <button type="button" class="btn btn-sm" onclick="window.hapusUser(${u.id}, '${window.escapeInlineJS(u.username)}')" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:8px; padding:5px 9px; cursor:pointer;" title="Hapus Akun">
@@ -174,7 +180,12 @@ window.editUser = function (id, username, role, currentPassword) {
     if (userInput) userInput.value = username;
 
     const roleSelect = document.getElementById('manageRole') || modalPengguna.querySelector('select');
-    if (roleSelect) roleSelect.value = role || 'operator';
+    if (roleSelect) {
+        let rVal = (role || 'petugas').toLowerCase().replace(/[\s-]/g, '_');
+        if (rVal === 'operator') rVal = 'petugas';
+        if (rVal === 'superadmin') rVal = 'super_admin';
+        roleSelect.value = rVal;
+    }
 
     const passInput = document.getElementById('managePassword') || modalPengguna.querySelector('input[type="password"]');
     if (passInput) {
@@ -205,7 +216,7 @@ window.resetFormUser = function () {
     }
 
     const roleSelect = document.getElementById('manageRole') || modalPengguna.querySelector('select');
-    if (roleSelect) roleSelect.value = 'operator';
+    if (roleSelect) roleSelect.value = 'petugas';
 
     const title = document.getElementById('formUserTitle') || modalPengguna.querySelector('.modal-title');
     if (title) title.innerText = 'Tambah Akun Baru';
