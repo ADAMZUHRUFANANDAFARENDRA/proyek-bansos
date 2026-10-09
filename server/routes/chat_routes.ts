@@ -6,14 +6,24 @@ import {
   pengaduanStore,
   wargaStore,
   laporanPelanggaranStore,
+  kriteriaStore,
   DATA_MASTER_SIDOARJO,
   catatNotifikasi,
   nowTimeStr,
   upload,
   UPLOAD_DIR
 } from '../store.js';
-import { parseIntSafe } from '../spk_engine.js';
+import { parseIntSafe, hitungDanSinkronkanSawBwm } from '../spk_engine.js';
 import type { ChatItem, PengaduanItem, LaporanPelanggaranItem } from '../types.js';
+import {
+  realtimeAduanNew,
+  realtimeAduanUpdate,
+  realtimeEskalasiSuperAdmin,
+  realtimePutusanSuperAdmin,
+  realtimeLaporanPelanggaranNew,
+  realtimeLaporanPelanggaranUpdate,
+  realtimeChatMessage
+} from '../realtime.js';
 
 const router = Router();
 
@@ -83,6 +93,7 @@ export function createPengaduanHandler(req: Request, res: Response) {
 
   pengaduanStore.push(newAduan);
   catatNotifikasi(`🚨 Pengaduan warga baru diterima: ${nama} (NIK: ${nik}) melaporkan kendala.`, 'Warga', 'urgent');
+  realtimeAduanNew(newAduan);
 
   return res.status(201).json({
     status: 'success',
@@ -154,6 +165,10 @@ router.post('/investigasi/tindak-lanjut', (req: Request, res: Response) => {
     waktu: nowTimeStr().slice(-5),
     created_at: nowTimeStr()
   });
+
+  const newestChat = chatStore[chatStore.length - 1];
+  if (newestChat) realtimeChatMessage(newestChat);
+  realtimeAduanUpdate(aduan, aksi);
 
   return res.json({
     status: 'success',
@@ -243,7 +258,8 @@ router.post(['/:nik/mark-read', '/mark-read'], (req: Request, res: Response) => 
 
 router.get('/:nik', (req: Request, res: Response, next: any) => {
   const nik = String(req.params.nik || '').trim();
-  if (['laporan-pelanggaran', 'geotag', 'share-geotag', 'messages', 'laporan-chat', 'react', 'pin', 'action', 'download', 'info', 'mark-read'].includes(nik)) {
+  // Hanya proses jika parameter adalah format 16 digit NIK numerik, jika nama file/rute lain lanjutkan ke next()
+  if (!/^\d{16}$/.test(nik)) {
     return next();
   }
   const messages = chatStore.filter(c => c.nik === nik);
@@ -263,7 +279,8 @@ function parseTimestampSafe(str?: string | null): number {
 
 router.post('/:nik', (req: Request, res: Response, next: any) => {
   const nik = String(req.params.nik || '').trim();
-  if (['laporan-pelanggaran', 'lapor-pesan', 'share-geotag', 'react', 'pin', 'action', 'investigasi', 'pengaduan', 'download'].includes(nik)) {
+  // Hanya proses jika parameter adalah format 16 digit NIK numerik, jika nama file/rute lain lanjutkan ke next()
+  if (!/^\d{16}$/.test(nik)) {
     return next();
   }
   upload.any()(req, res, (err) => {
@@ -442,6 +459,11 @@ router.post('/:nik', (req: Request, res: Response, next: any) => {
       catatNotifikasi(`Pesan mediasi baru diterima dari ${nama} (NIK: ${nik})${files.length > 1 ? ` (${files.length} berkas)` : ''}.`, 'Warga', 'chat');
     }
 
+    // Broadcast pesan ke penerima secara realtime dengan latency 0ms
+    createdChats.forEach(c => {
+      try { realtimeChatMessage(c); } catch(e) {}
+    });
+
     return res.status(201).json({
       status: 'success',
       message: `${createdChats.length} pesan berhasil dikirim.`,
@@ -494,10 +516,226 @@ router.post(['/investigasi/selesaikan', '/pengaduan/selesaikan'], (req: Request,
       created_at: nowTimeStr()
     });
 
+    const newestChat = chatStore[chatStore.length - 1];
+    if (newestChat) realtimeChatMessage(newestChat);
+    realtimeAduanUpdate(aduan, 'selesai');
+
     return res.json({ status: 'success', message: 'Laporan pengaduan berhasil diselesaikan.', data: aduan });
   }
 
   return res.status(404).json({ status: 'error', message: 'Pengaduan tidak ditemukan.' });
+});
+
+// =========================================================================
+// MEKANISME TERHUBUNG: ADMIN BANSOS <-> SUPER ADMIN (ESKALASI & INVESTIGASI)
+// =========================================================================
+
+// 1. Admin Bansos meneruskan / mengeskalasikan aduan ke Super Admin (Developer)
+router.post(['/investigasi/eskalasikan', '/api/investigasi/eskalasikan', '/pengaduan/eskalasikan', '/api/pengaduan/eskalasikan'], (req: Request, res: Response) => {
+  const d = req.body || {};
+  const idStr = String(d.id || '').replace('ADUAN-', '').trim();
+  const idNum = parseIntSafe(idStr, 0);
+  const nik = String(d.nik || '').trim();
+  const alasan = String(d.alasan_eskalasi || d.alasan || 'Pemeriksaan integritas algoritma SPK & audit keabsahan data').trim();
+  const urgensi = String(d.urgensi_eskalasi || d.urgensi || 'Tinggi').trim();
+  const catatanAdmin = String(d.catatan_admin || d.catatan || 'Mohon bantuan Super Admin untuk penelusuran kode dan log database.').trim();
+  const petugas = String(d.petugas || 'Admin Bansos Sidoarjo').trim();
+
+  let aduan = pengaduanStore.find(a => (idNum > 0 && a.id === idNum) || (nik && a.nik === nik));
+  if (!aduan && pengaduanStore.length > 0) {
+    aduan = pengaduanStore.find(a => a.status !== 'Selesai') || pengaduanStore[0];
+  }
+
+  if (!aduan) {
+    return res.status(404).json({ status: 'error', message: 'Laporan aduan tidak ditemukan.' });
+  }
+
+  aduan.eskalasi_ke_superadmin = true;
+  aduan.alasan_eskalasi = alasan;
+  aduan.urgensi_eskalasi = urgensi;
+  aduan.diteruskan_oleh = petugas;
+  aduan.waktu_eskalasi = nowTimeStr();
+  aduan.status_superadmin = 'Menunggu Review Super Admin';
+  aduan.status_text = 'Diteruskan ke Super Admin (Investigasi Teknis)';
+  aduan.catatan_petugas = `[Diteruskan ke Super Admin] ${alasan}. Catatan Admin: ${catatanAdmin}`;
+
+  catatNotifikasi(
+    `🚨 [ESKALASI ADUAN KE SUPER ADMIN] ${aduan.nama} (NIK: ${aduan.nik}) diteruskan oleh ${petugas}. Alasan: ${alasan} (Urgensi: ${urgensi})`,
+    'Admin Bansos',
+    'urgent'
+  );
+
+  const nextChatId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
+  const msgText = `🛡️ [ESKALASI KEDINASAN] Laporan Anda telah diteruskan oleh ${petugas} ke tim Super Admin (Developer) untuk audit kode dan verifikasi basis data teknis.\n\nAlasan: ${alasan}\nUrgensi: ${urgensi}`;
+  chatStore.push({
+    id: nextChatId,
+    nik: aduan.nik,
+    sender: 'petugas',
+    nama: 'Sistem Terpadu Dinsos',
+    pesan: msgText,
+    text: msgText,
+    file_path: null,
+    file_type: null,
+    reply_sender: null,
+    reply_text: null,
+    reply_to_id: null,
+    reaction: '🛡️',
+    is_pinned: true,
+    is_deleted_all: false,
+    deleted_for: null,
+    waktu: nowTimeStr().slice(-5),
+    created_at: nowTimeStr()
+  });
+
+  const newestChat = chatStore[chatStore.length - 1];
+  if (newestChat) realtimeChatMessage(newestChat);
+  realtimeEskalasiSuperAdmin(aduan);
+
+  return res.json({
+    status: 'success',
+    message: 'Laporan aduan berhasil dieskalasikan ke Super Admin.',
+    data: aduan
+  });
+});
+
+// 2. Super Admin memberikan putusan teknis & instruksi perbaikan kepada Admin Bansos
+router.post(['/investigasi/putusan-superadmin', '/api/investigasi/putusan-superadmin', '/pengaduan/putusan-superadmin', '/api/pengaduan/putusan-superadmin'], (req: Request, res: Response) => {
+  const d = req.body || {};
+  const idStr = String(d.id || '').replace('ADUAN-', '').trim();
+  const idNum = parseIntSafe(idStr, 0);
+  const nik = String(d.nik || '').trim();
+  const tindakan = String(d.tindakan || 'selesai').trim(); // 'selesai' | 'perbaiki_data' | 'kembalikan'
+  const putusan = String(d.putusan || d.rekomendasi || 'Telah dilakukan verifikasi algoritma dan perbaikan kode data.').trim();
+  const auditKode = String(d.audit_kode || 'Inspeksi SPK SAW BWM, Bobot 10 Kriteria, dan Cyber Shield WAF Selesai').trim();
+  const petugas = String(d.petugas || 'Super Admin (Developer)').trim();
+
+  let aduan = pengaduanStore.find(a => (idNum > 0 && a.id === idNum) || (nik && a.nik === nik));
+  if (!aduan && pengaduanStore.length > 0) {
+    aduan = pengaduanStore.find(a => a.eskalasi_ke_superadmin) || pengaduanStore[0];
+  }
+
+  if (!aduan) {
+    return res.status(404).json({ status: 'error', message: 'Laporan aduan tidak ditemukan.' });
+  }
+
+  aduan.putusan_superadmin = putusan;
+  aduan.audit_kode_terkait = auditKode;
+  aduan.waktu_putusan_superadmin = nowTimeStr();
+
+  if (tindakan === 'selesai' || tindakan === 'perbaiki_data') {
+    aduan.status = 'Selesai';
+    aduan.status_step = 4;
+    aduan.status_text = 'Selesai & Ditutup (Putusan Super Admin)';
+    aduan.status_superadmin = 'Selesai - Rekomendasi Diterapkan';
+    aduan.catatan_petugas = `[Selesai oleh Super Admin] Putusan: ${putusan} | Audit: ${auditKode}`;
+
+    // Jika ada instruksi perbaikan data warga, sesuaikan status warga dan hitung ulang SPK
+    const warga = wargaStore.find(w => w.nik === aduan?.nik);
+    if (warga && tindakan === 'perbaiki_data') {
+      warga.status_salur = 'Disetujui (Koreksi Super Admin)';
+      warga.status_validasi = 'Disetujui';
+      warga.is_verified = true;
+      warga.status_bansos = 'Layak Bansos';
+      hitungDanSinkronkanSawBwm();
+    }
+  } else {
+    // Dikembalikan ke Admin Bansos untuk tindak lanjut verifikasi lapangan lanjutan
+    aduan.status_superadmin = 'Dikembalikan ke Admin Bansos';
+    aduan.status_text = 'Dikembalikan oleh Super Admin (Perlu Tindak Lanjut Admin)';
+    aduan.catatan_petugas = `[Instruksi Super Admin untuk Admin Bansos] ${putusan}`;
+  }
+
+  catatNotifikasi(
+    `🛡️ [PUTUSAN RESMI SUPER ADMIN] Tiket ${aduan.nama} (NIK: ${aduan.nik}) telah diputuskan oleh ${petugas}: "${putusan}". Admin Bansos dapat menindaklanjuti.`,
+    'Super Admin',
+    'success'
+  );
+
+  const nextChatId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
+  const msgText = `🏛️ [KEPUTUSAN AKHIR SUPER ADMIN]\nHasil Investigasi Kode & Data:\n${putusan}\n\nAudit Teknis: ${auditKode}\nStatus: ${aduan.status_text}`;
+  chatStore.push({
+    id: nextChatId,
+    nik: aduan.nik,
+    sender: 'petugas',
+    nama: petugas,
+    pesan: msgText,
+    text: msgText,
+    file_path: null,
+    file_type: null,
+    reply_sender: null,
+    reply_text: null,
+    reply_to_id: null,
+    reaction: '⚖️',
+    is_pinned: true,
+    is_deleted_all: false,
+    deleted_for: null,
+    waktu: nowTimeStr().slice(-5),
+    created_at: nowTimeStr()
+  });
+
+  const newestChat = chatStore[chatStore.length - 1];
+  if (newestChat) realtimeChatMessage(newestChat);
+  realtimePutusanSuperAdmin(aduan);
+
+  return res.json({
+    status: 'success',
+    message: 'Putusan Super Admin berhasil disimpan dan diteruskan kembali ke Admin Bansos.',
+    data: aduan
+  });
+});
+
+// 3. Daftar seluruh tiket eskalasi aduan untuk Super Admin
+router.get(['/investigasi/eskalasi-list', '/api/investigasi/eskalasi-list'], (_req: Request, res: Response) => {
+  const list = pengaduanStore.filter(a => a.eskalasi_ke_superadmin);
+  return res.json({
+    status: 'success',
+    total_eskalasi: list.length,
+    menunggu_review: list.filter(a => a.status !== 'Selesai').length,
+    data: list
+  });
+});
+
+// 4. API Akses Keseluruhan Kode & Inspeksi Sistem bagi Super Admin
+router.get(['/investigasi/inspeksi-kode', '/api/investigasi/inspeksi-kode'], (req: Request, res: Response) => {
+  const nik = String(req.query.nik || '').trim();
+  const wargaTerkait = nik ? wargaStore.find(w => w.nik === nik) : null;
+
+  return res.json({
+    status: 'success',
+    system_version: 'SIP-BANSOS v3.5.0 Enterprise Multi-Role',
+    engine_spk: {
+      metode_utama: 'Best-Worst Method (BWM) & Simple Additive Weighting (SAW)',
+      rumus_benefit: 'r_ij = x_ij / max(x_j)',
+      rumus_cost: 'r_ij = min(x_j) / x_ij',
+      rumus_skor_akhir: 'V_i = SUM(w_j * r_ij) untuk j=1..10',
+      total_kriteria: kriteriaStore.length,
+      daftar_kriteria: kriteriaStore.map(k => ({
+        kode: k.kode,
+        nama: k.nama,
+        tipe: k.tipe,
+        bobot: k.bobot,
+        bobot_persen: `${(k.bobot * 100).toFixed(1)}%`
+      }))
+    },
+    cyber_shield: {
+      status: 'Active Real-Time Monitoring',
+      kategori_serangan_diawasi: [
+        'SQL Injection (SQLi)',
+        'Cross-Site Scripting (XSS)',
+        'Path Traversal & LFI',
+        'Command Injection (RCE)',
+        'Server-Side Template Injection (SSTI)',
+        'Tamper & DevTools Injection'
+      ],
+      waf_active: true
+    },
+    warga_terkait: wargaTerkait || null,
+    database_status: {
+      total_penerima_terdata: wargaStore.length,
+      total_pengaduan_masuk: pengaduanStore.length,
+      total_eskalasi_aktif: pengaduanStore.filter(a => a.eskalasi_ke_superadmin && a.status !== 'Selesai').length
+    }
+  });
 });
 
 router.all(['/react/:msg_id', '/api/chat/react/:msg_id'], (req: Request, res: Response) => {
@@ -589,6 +827,7 @@ router.post(['/laporan-pelanggaran', '/lapor-pesan', '/api/chat/lapor-pesan', '/
 
   laporanPelanggaranStore.unshift(newReport);
   catatNotifikasi(`🚩 Laporan Pelanggaran Chat Baru (${kodeLaporan}) diajukan oleh ${pelaporNama} terkait "${alasan}".`, 'Pengawas', 'urgent');
+  realtimeLaporanPelanggaranNew(newReport);
 
   return res.status(201).json({
     status: 'success',
@@ -626,6 +865,7 @@ router.post(['/laporan-pelanggaran/:id/tindak', '/api/chat/laporan-pelanggaran/:
   }
 
   catatNotifikasi(`⚖️ Tindak Lanjut (${report.kode_laporan}): Status diubah menjadi "${statusAksi}" oleh ${petugas}.`, 'Moderasi', 'info');
+  realtimeLaporanPelanggaranUpdate(report);
 
   return res.json({
     status: 'success',

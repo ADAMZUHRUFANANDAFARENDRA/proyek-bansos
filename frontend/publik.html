@@ -15,6 +15,7 @@
     <!-- CSS INTERNAL RESMI -->
     <link rel="stylesheet" href="static/css/style.css">
     <link rel="stylesheet" href="static/css/publik.css">
+    <link rel="stylesheet" href="static/css/modern-notifications.css">
 
     <!-- GOOGLE IDENTITY SERVICES SDK (OAUTH 2.0 GOOGLE DRIVE & GOOGLE FOTO) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -634,17 +635,229 @@
 </head>
 <body class="page-public">
 
-    <!-- TOMBOL AKSES PETUGAS -->
-    <a href="login.html" class="btn-petugas-link">
-        <i class="fas fa-user-shield"></i> Akses Petugas
-    </a>
+    <!-- STICKY TOP DIAGNOSTIC BAR: HANYA MUNCUL JIKA LOGIN SEBAGAI SUPER ADMIN / DEVELOPER -->
+    <div id="panelDiagnostikDev" class="dev-diagnostic-bar" style="display:none;">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <span class="badge-dev-role">
+                <i class="fas fa-terminal"></i> MODE DIAGNOSTIK & UJI SISTEM
+            </span>
+            <div style="color:#e2e8f0; font-size:0.82rem;">
+                Akses Teknis: <span id="devAuthUser">Super Admin / Developer</span>
+            </div>
+            <div id="devApiStatusPill" class="dev-stat-chip">
+                <i class="fas fa-spinner fa-spin text-amber-400"></i> Memeriksa API...
+            </div>
+            <div id="devWsStatusPill" class="dev-stat-chip">
+                <i class="fas fa-spinner fa-spin text-amber-400"></i> Memeriksa WS...
+            </div>
+            <div id="devErrorCounter" class="badge-counter-clean" onclick="window.PublikDiagnostic?.openModal()">
+                <i class="fas fa-shield-alt text-emerald-400"></i> 0 Eror Terdeteksi
+            </div>
+        </div>
 
-    <!-- HERO BANNER -->
+        <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" onclick="window.PublikDiagnostic?.openModal()" class="btn-dev-action primary" title="Buka Alat Penelusuran & Diagnostik Eror">
+                <i class="fas fa-stethoscope"></i> Cek & Investigasi Eror
+            </button>
+            <a href="/index.html" class="btn-dev-action" title="Kembali ke Dashboard Utama Aparatur">
+                <i class="fas fa-chart-line"></i> Dashboard Admin
+            </a>
+            <button type="button" onclick="window.PublikDiagnostic?.logout()" class="btn-dev-action" style="color:#fca5a5; border-color:rgba(239,68,68,0.3);" title="Keluar dari Sesi Diagnostik">
+                <i class="fas fa-sign-out-alt"></i> Keluar
+            </button>
+        </div>
+    </div>
+
+    <!-- GERBANG AKSES TERBATAS: HANYA SUPER ADMIN & DEVELOPER -->
+    <div id="superAdminPortalGate" class="portal-gate-overlay" style="display:none;">
+        <div class="portal-gate-card">
+            <div class="gate-shield-icon">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            
+            <div class="gate-badge-tag">
+                <i class="fas fa-lock"></i> Akses Terbatas: Khusus Internal
+            </div>
+            
+            <h2 style="font-size:1.45rem; font-weight:800; color:#f8fafc; margin-bottom:8px; letter-spacing:-0.3px;">
+                Portal Warga (Mode Diagnostik)
+            </h2>
+            
+            <p style="font-size:0.86rem; color:#94a3b8; line-height:1.6; margin-bottom:20px;">
+                Sesuai kebijakan pengawasan sistem Dinas Sosial, Portal Warga dialihkan ke mode pengujian & investigasi internal. Halaman ini <b>hanya dapat diakses oleh Super Admin dan Developer</b> guna menindaklanjuti laporan kendala, memverifikasi keterjadian eror, serta menganalisis akar penyebabnya (<i>Root Cause Analysis</i>).
+            </p>
+
+            <form id="gateLoginForm" onsubmit="window.PublikDiagnostic?.loginFromGate(event); return false;" style="text-align:left; margin-bottom:16px;">
+                <div style="margin-bottom:10px;">
+                    <label style="display:block; font-size:0.75rem; font-weight:700; color:#cbd5e1; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px;">Nama Pengguna (Super Admin / Developer)</label>
+                    <input type="text" id="gateUsername" class="gate-input-field" placeholder="superadmin / developer" autocomplete="username" required>
+                </div>
+
+                <div style="margin-bottom:14px;">
+                    <label style="display:block; font-size:0.75rem; font-weight:700; color:#cbd5e1; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px;">Kata Sandi</label>
+                    <input type="password" id="gatePassword" class="gate-input-field" placeholder="Masukkan kata sandi..." autocomplete="current-password" required>
+                </div>
+
+                <div id="gateLoginMsg" style="display:none; font-size:0.8rem; margin-bottom:12px; padding:8px 12px; border-radius:10px; background:rgba(15,23,42,0.8); border:1px solid rgba(255,255,255,0.1);"></div>
+
+                <button type="submit" id="btnGateLogin" class="btn-gate-submit">
+                    <i class="fas fa-sign-in-alt"></i> Masuk Mode Diagnostik
+                </button>
+            </form>
+
+            <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:14px; display:flex; justify-content:center; gap:16px; flex-wrap:wrap;">
+                <a href="/login.html" class="btn-gate-alt">
+                    <i class="fas fa-arrow-left"></i> Login Aparatur
+                </a>
+                <a href="/index.html" class="btn-gate-alt">
+                    <i class="fas fa-columns"></i> Dashboard Admin
+                </a>
+                <a href="/verifikasi.html" class="btn-gate-alt">
+                    <i class="fas fa-certificate"></i> Cek BSrE
+                </a>
+            </div>
+
+            <div style="margin-top:16px; font-size:0.72rem; color:#64748b;">
+                <i class="fas fa-shield-alt text-emerald-500"></i> Dilindungi oleh Cyber Shield WAF & Keamanan RBAC Sidoarjo
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DIAGNOSTIK MENYELURUH & PEREKAM EROR SISTEM -->
+    <div id="modalDiagnostikEror" class="dev-diag-modal-overlay" style="display:none;" onclick="if(event.target === this) window.PublikDiagnostic?.closeModal()">
+        <div class="dev-diag-modal-card">
+            <!-- Header Modal -->
+            <div class="dev-diag-header">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:42px; height:42px; border-radius:12px; background:rgba(2,132,199,0.2); border:1px solid rgba(56,189,248,0.3); display:flex; align-items:center; justify-content:center; color:#38bdf8; font-size:1.25rem;">
+                        <i class="fas fa-tools"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1.1rem; font-weight:800; color:#f8fafc; letter-spacing:-0.2px;">Pusat Diagnostik & Analisis Eror Portal Warga</div>
+                        <div style="font-size:0.78rem; color:#94a3b8;">Alat verifikasi status teknis & penelusuran akar penyebab kendala untuk Super Admin & Developer</div>
+                    </div>
+                </div>
+                <button type="button" onclick="window.PublikDiagnostic?.closeModal()" style="background:transparent; border:none; color:#94a3b8; font-size:1.3rem; cursor:pointer; padding:6px; border-radius:8px; transition:color 0.15s;" onmouseover="this.style.color='#f8fafc';" onmouseout="this.style.color='#94a3b8';">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Body Modal -->
+            <div class="dev-diag-body">
+                <!-- Nav Tabs Diagnostik -->
+                <div style="display:flex; gap:8px; margin-bottom:18px; border-bottom:1px solid #1e293b; padding-bottom:10px;">
+                    <button type="button" onclick="window.switchTabDiagnostik('tabHealth')" id="btnTabDiagHealth" class="btn-dev-action primary">
+                        <i class="fas fa-heartbeat"></i> Status Kesehatan Sistem
+                    </button>
+                    <button type="button" onclick="window.switchTabDiagnostik('tabLogs')" id="btnTabDiagLogs" class="btn-dev-action">
+                        <i class="fas fa-list-alt"></i> Perekam Log Eror & RCA
+                    </button>
+                    <button type="button" onclick="window.switchTabDiagnostik('tabSimulation')" id="btnTabDiagSim" class="btn-dev-action">
+                        <i class="fas fa-vial"></i> Simulasi Kasus Warga
+                    </button>
+                </div>
+
+                <!-- Konten 1: Status Kesehatan Sistem -->
+                <div id="kontenDiagHealth">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <div style="font-size:0.88rem; font-weight:700; color:#e2e8f0;">
+                            Hasil Inspeksi Komponen Sistem Real-Time
+                        </div>
+                        <button type="button" onclick="window.PublikDiagnostic?.runDiagnostic()" class="btn-dev-action" style="font-size:0.75rem; padding:4px 10px;">
+                            <i class="fas fa-sync-alt"></i> Jalankan Tes Ulang
+                        </button>
+                    </div>
+
+                    <div style="background:#0c1427; border:1px solid #1e293b; border-radius:16px; overflow:hidden; margin-bottom:16px;">
+                        <table style="width:100%; border-collapse:collapse; font-size:0.85rem; text-align:left;">
+                            <thead>
+                                <tr style="background:#080d1a; border-bottom:1px solid #1e293b; color:#94a3b8; font-size:0.75rem; text-transform:uppercase;">
+                                    <th style="padding:10px 14px;">Komponen Layanan</th>
+                                    <th style="padding:10px 14px;">Status</th>
+                                    <th style="padding:10px 14px;">Detail / Latency</th>
+                                </tr>
+                            </thead>
+                            <tbody id="devHealthTableBody">
+                                <!-- Terisi otomatis oleh publik-diagnostic.js -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Konten 2: Perekam Log Eror & RCA -->
+                <div id="kontenDiagLogs" style="display:none;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <div style="font-size:0.88rem; font-weight:700; color:#e2e8f0;">
+                            Perekam Pengecualian & Galat Jaringan (Real-time Error Interceptor)
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" onclick="window.PublikDiagnostic?.copyLogs()" class="btn-dev-action" style="font-size:0.75rem; padding:4px 10px;">
+                                <i class="fas fa-copy"></i> Salin Log
+                            </button>
+                            <button type="button" onclick="window.PublikDiagnostic?.clearLogs()" class="btn-dev-action" style="font-size:0.75rem; padding:4px 10px; color:#fca5a5;">
+                                <i class="fas fa-trash-alt"></i> Bersihkan Log
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="devErrorLogsList" style="max-height:360px; overflow-y:auto; padding-right:4px;">
+                        <!-- Terisi otomatis oleh publik-diagnostic.js -->
+                    </div>
+                </div>
+
+                <!-- Konten 3: Simulasi Kasus Warga -->
+                <div id="kontenDiagSimulation" style="display:none;">
+                    <div style="font-size:0.88rem; font-weight:700; color:#e2e8f0; margin-bottom:10px;">
+                        Uji Coba Cepat (Reproduce & Troubleshoot Kasus Warga)
+                    </div>
+                    <div style="background:#0c1427; border:1px solid #1e293b; border-radius:16px; padding:16px; margin-bottom:14px;">
+                        <label style="display:block; font-size:0.78rem; font-weight:700; color:#cbd5e1; margin-bottom:6px;">Uji Permintaan Cek Bansos (NIK)</label>
+                        <div style="display:flex; gap:8px;">
+                            <input type="text" id="devTestNikInput" class="gate-input-field" placeholder="Masukkan 16 digit NIK pelapor..." style="margin-bottom:0; flex:1;" value="3515990000000001">
+                            <button type="button" onclick="window.PublikDiagnostic?.testNik()" class="btn-dev-action primary" style="padding:10px 18px; border-radius:12px;">
+                                <i class="fas fa-play"></i> Uji Coba Lacak
+                            </button>
+                        </div>
+                        <div id="devTestResultBox" style="margin-top:12px; background:#080d1a; border:1px solid #1e293b; padding:12px; border-radius:12px; font-size:0.82rem; min-height:50px;">
+                            <span style="color:#64748b;">Hasil respon API cek bansos akan ditampilkan di sini beserta analisis latency dan kode status.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOP NAVBAR RESMI PEMKAB SIDOARJO (PORTAL KHUSUS WARGA & MASYARAKAT) -->
+    <header style="background:#ffffff; border-bottom:1px solid #e2e8f0; padding:12px 24px; display:flex; justify-content:space-between; align-items:center; position:relative; z-index:100; box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <img src="static/img/logo-sidoarjo.png" 
+                 onerror="this.onerror=null; this.src='https://upload.wikimedia.org/wikipedia/commons/7/70/Lambang_Kabupaten_Sidoarjo.png';" 
+                 alt="Logo Pemkab Sidoarjo" 
+                 style="height:38px; width:auto; object-fit:contain;">
+            <div>
+                <div style="font-size:0.78rem; font-weight:800; color:#0f172a; letter-spacing:0.3px; text-transform:uppercase;">PEMERINTAH KABUPATEN SIDOARJO</div>
+                <div style="font-size:0.7rem; font-weight:700; color:#009846;">DINAS SOSIAL &bull; LAYANAN BANTUAN SOSIAL TERPADU</div>
+            </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:14px;">
+            <div style="display:inline-flex; align-items:center; gap:8px; background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 16px; border-radius:20px; font-size:0.78rem; font-weight:800; color:#166534;">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,0.2);"></span>
+                Layanan Publik Aktif 24 Jam
+            </div>
+
+            <button type="button" onclick="window.switchTabPortal ? window.switchTabPortal('pengaduan') : null" style="background:#f8fafc; color:#334155; border:1px solid #cbd5e1; padding:7px 16px; border-radius:20px; font-size:0.78rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s;" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='#f8fafc;'">
+                <i class="fas fa-headset text-emerald-600"></i> Bantuan & Kontak
+            </button>
+        </div>
+    </header>
+
+    <!-- HERO BANNER PORTAL WARGA -->
     <div class="hero-public">
-        <h1>Portal Layanan Sosial</h1>
+        <h1>Portal Layanan Bantuan Sosial</h1>
         <p>Platform pendaftaran mandiri dan pemantauan transparan Bantuan Sosial Terpadu Pemerintah Kabupaten Sidoarjo.</p>
         <button type="button" onclick="window.mulaiTurInteraktif()" class="btn-tour-nav" id="btnTourNav">
-            <i class="fas fa-play-circle"></i> Mulai Tur Interaktif Sistem
+            <i class="fas fa-play-circle"></i> Panduan Layanan Masyarakat
         </button>
     </div>
 
@@ -652,12 +865,9 @@
     <div class="container-public" id="landingView">
         <div class="card-portal-shell" id="portalTabsShell">
             
-            <!-- 5 TAB NAVIGASI MANDIRI (TERMASUK PANTAU ADUAN) -->
+            <!-- TAB NAVIGASI LAYANAN WARGA -->
             <div class="tabs-portal" id="portalTabsBar" style="grid-template-columns: repeat(5, 1fr);">
-                <button class="tab-btn-portal active" id="btn-login" onclick="window.switchTabPublik('loginWargaSection', this)">
-                    <i class="fas fa-sign-in-alt"></i> Masuk Dashboard
-                </button>
-                <button class="tab-btn-portal" id="btn-cek" onclick="window.switchTabPublik('cekStatusSection', this)">
+                <button class="tab-btn-portal active" id="btn-cek" onclick="window.switchTabPublik('cekStatusSection', this)">
                     <i class="fas fa-search"></i> Cek Status Bansos
                 </button>
                 <button class="tab-btn-portal" id="btn-daftar" onclick="window.switchTabPublik('daftarMandiriSection', this)">
@@ -666,21 +876,48 @@
                 <button class="tab-btn-portal" id="btn-aduan" onclick="window.switchTabPublik('pantauAduanSection', this)">
                     <i class="fas fa-clipboard-check"></i> Pantau Aduan
                 </button>
+                <button class="tab-btn-portal" id="btn-login" onclick="window.switchTabPublik('loginWargaSection', this)">
+                    <i class="fas fa-comments"></i> Konsultasi Warga
+                </button>
                 <button class="tab-btn-portal" id="btn-panduan" onclick="window.switchTabPublik('bantuanSection', this)">
                     <i class="fas fa-info-circle"></i> Bantuan (FAQ)
                 </button>
             </div>
 
-            <!-- 1. TAB LOGIN DASHBOARD WARGA -->
-            <div id="loginWargaSection" class="tab-content-portal active">
-                <div style="max-width: 100%; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px;">
+            <!-- 1. TAB CEK STATUS (NIK) - DEFAULT AKTIF UNTUK WARGA -->
+            <div id="cekStatusSection" class="tab-content-portal active">
+                <div class="panel-cek-status-full" id="panelInputLacak">
+                    <div style="text-align: center; margin-bottom: 25px; max-width: 600px; margin-left:auto; margin-right:auto;">
+                        <div style="width: 70px; height: 70px; background: #e0f2fe; border-radius: 50%; color: #0284c7; font-size: 2.2rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 8px;">Cek Status Kepesertaan Bansos</h2>
+                        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px;">Ketahui status pengajuan Bantuan Sosial Anda secara instan dan transparan hanya menggunakan NIK.</p>
+                        
+                        <form onsubmit="window.prosesLacakBansos ? window.prosesLacakBansos(event) : window.cekStatusAwal(event)" style="width: 100%;">
+                            <div class="form-group">
+                                <label class="form-label" style="text-align: left;">Nomor Induk Kependudukan (NIK 16 Digit)</label>
+                                <input type="text" inputmode="numeric" maxlength="16" id="inputLacakNik" class="form-input" placeholder="Masukkan 16 digit NIK kepala keluarga" required>
+                            </div>
+                            <button type="submit" class="btn-action" style="padding: 14px; border-radius: 30px; font-size: 1rem;">
+                                <i class="fas fa-search"></i> Periksa Data Bansos Sekarang
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                <div id="panelHasilLacak" style="display: none;"></div>
+            </div>
+
+            <!-- 2. TAB KONSULTASI & DASHBOARD WARGA -->
+            <div id="loginWargaSection" class="tab-content-portal">
+                <div style="max-width: 100%; margin: 0 auto; display: flex-direction: column; align-items: center; justify-content: center; min-height: 400px;">
                     <div style="width: 70px; height: 70px; background: #e6f9f0; border-radius: 50%; color: #009846; font-size: 2.2rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
                         <i class="fas fa-fingerprint"></i>
                     </div>
-                    <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 8px;">Akses Dashboard Personal</h2>
-                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; text-align: center; max-width: 500px;">Masukkan identitas lengkap terdaftar Anda untuk membuka riwayat penetapan dan live chat koordinasi bersama Dinsos.</p>
+                    <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 8px; text-align: center;">Akses Konsultasi Warga</h2>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; text-align: center; max-width: 500px; margin-left:auto; margin-right:auto;">Masukkan identitas lengkap terdaftar Anda untuk membuka riwayat penetapan dan konsultasi terpadu bersama Dinsos.</p>
                     
-                    <form onsubmit="window.prosesMasukDashboard ? window.prosesMasukDashboard(event) : window.loginWarga(event)" style="width: 100%; max-width: 500px;">
+                    <form onsubmit="window.prosesMasukDashboard ? window.prosesMasukDashboard(event) : window.loginWarga(event)" style="width: 100%; max-width: 500px; margin: 0 auto;">
                         <div class="form-group">
                             <label class="form-label">Nomor Induk Kependudukan (NIK)</label>
                             <input type="text" inputmode="numeric" maxlength="16" id="loginNik" class="form-input" placeholder="16 Digit NIK KTP" required>
@@ -694,36 +931,9 @@
                             <input type="email" id="loginEmail" class="form-input" placeholder="contoh@gmail.com" required>
                         </div>
                         <button type="submit" class="btn-action" style="padding: 15px; border-radius: 30px; font-size: 1.05rem; margin-top: 10px;">
-                            <i class="fas fa-arrow-right"></i> Masuk Dashboard Saya
+                            <i class="fas fa-arrow-right"></i> Buka Ruang Konsultasi
                         </button>
                     </form>
-                </div>
-            </div>
-
-            <!-- 2. TAB CEK STATUS (NIK) -->
-            <div id="cekStatusSection" class="tab-content-portal">
-                <div class="panel-cek-status-full" id="panelInputLacak">
-                    <div style="text-align: center; margin-bottom: 25px; max-width: 600px;">
-                        <div style="width: 70px; height: 70px; background: #e0f2fe; border-radius: 50%; color: #0284c7; font-size: 2.2rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
-                            <i class="fas fa-shield-alt"></i>
-                        </div>
-                        <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 8px;">Cek Status Kepesertaan Bansos</h2>
-                        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px;">Ketahui status pengajuan Bantuan Sosial Anda secara instan dan transparan hanya menggunakan NIK.</p>
-                        
-                        <form onsubmit="window.prosesLacakBansos ? window.prosesLacakBansos(event) : window.cekStatusAwal(event)" style="width: 100%;">
-                            <div class="form-group">
-                                <label class="form-label" style="text-align: left;">Nomor Induk Kependudukan (NIK 16 Digit)</label>
-                                <input type="text" inputmode="numeric" maxlength="16" id="cekNik" class="form-input" placeholder="Ketik 16 digit NIK..." required>
-                            </div>
-                            <button type="submit" class="btn-action" style="padding: 14px; border-radius: 30px; background: linear-gradient(135deg, #0284c7, #1d4ed8);">
-                                <i class="fas fa-search"></i> Lacak Status Bansos
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
-                <div id="panel-hasil-cek" style="display:none; width: 100%;">
-                    <div id="kartuStatus" style="width: 100%;"></div>
                 </div>
             </div>
 
@@ -1019,9 +1229,9 @@
                                 <small style="color:#009846; font-weight:700;"><i class="fas fa-circle" style="font-size:0.5rem;"></i> Petugas Online</small>
                             </div>
                         </div>
-                        <div style="display:flex; gap:6px;">
-                            <button type="button" onclick="window.startCallAdmin('audio')" class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:20px; padding:5px 12px; font-weight:700; cursor:pointer;"><i class="fas fa-phone-alt"></i> Suara</button>
-                            <button type="button" onclick="window.startCallAdmin('video')" class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:20px; padding:5px 12px; font-weight:700; cursor:pointer;"><i class="fas fa-video"></i> Video</button>
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <button type="button" onclick="window.startCallAdmin('audio')" class="btn btn-sm" style="background:#009846; color:#ffffff; border:none; border-radius:20px; padding:6px 14px; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 6px rgba(0,152,70,0.25);" title="Telepon Langsung Petugas Dinsos"><i class="fas fa-phone-alt"></i> Telepon</button>
+                            <button type="button" onclick="window.startCallAdmin('video')" class="btn btn-sm" style="background:#0284c7; color:#ffffff; border:none; border-radius:20px; padding:6px 14px; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 6px rgba(2,132,199,0.25);" title="Video Call Langsung Petugas Dinsos"><i class="fas fa-video"></i> Video Call</button>
                         </div>
                     </div>
 
@@ -1457,26 +1667,59 @@
     </button>
 
     <!-- WEBRTC PANGGILAN WARGA DUA ARAH -->
-    <div id="wargaActiveCallUI" class="modal-blur-overlay">
-        <div class="call-card-modern" style="width:400px; max-width:95vw; background:#0f172a; border-radius:24px; overflow:hidden; border:1px solid #334155;">
-            <div style="padding:20px; text-align:center; color:white;">
-                <h3 id="wargaActiveCallName" style="margin:0;">Petugas Dinsos Sidoarjo</h3>
-                <p id="wargaCallStatusText" style="color:#38bdf8; font-family:monospace; margin-top:4px;">00:00</p>
+    <!-- MODAL PANGGILAN MASUK UNTUK WARGA (DARI ADMIN / SUPER ADMIN / PETUGAS) -->
+    <div id="wargaIncomingCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(11,19,41,0.88); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); z-index:9999999; justify-content:center; align-items:center;">
+        <div class="call-incoming-card">
+            <div class="call-incoming-avatar-wrapper">
+                <div class="call-incoming-ripple"></div>
+                <div class="call-incoming-avatar">
+                    <i class="fas fa-phone-volume"></i>
+                </div>
             </div>
-            <div id="wargaVideoCallArea" style="width:100%; height:260px; background:black; position:relative; display:none;">
-                <video id="wargaRemoteVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
-                <video id="wargaLocalVideo" autoplay muted playsinline style="position:absolute; bottom:10px; right:10px; width:80px; height:110px; border-radius:10px; border:2px solid #009846; object-fit:cover;"></video>
+            <div class="call-incoming-badge"><i class="fas fa-bell"></i> Panggilan Masuk</div>
+            <h3 id="wargaCallerNameText" class="call-incoming-name">Aparatur Dinsos</h3>
+            <div id="wargaCallerRoleBadge" class="call-official-pill" style="margin-bottom:8px;">PETUGAS DINAS SOSIAL</div>
+            <p id="wargaCallerTypeText" class="call-incoming-type">Panggilan Langsung Terkait Bansos</p>
+            <div class="call-incoming-actions">
+                <button type="button" onclick="window.rejectCallWarga ? window.rejectCallWarga() : null" class="call-incoming-btn btn-reject" title="Tolak">
+                    <i class="fas fa-phone-slash"></i>
+                    <span>Tolak</span>
+                </button>
+                <button type="button" onclick="window.acceptCallWarga ? window.acceptCallWarga() : null" class="call-incoming-btn btn-accept" title="Terima">
+                    <i class="fas fa-phone"></i>
+                    <span>Terima</span>
+                </button>
             </div>
-            <div id="wargaAudioCallArea" style="width:100%; height:180px; display:flex; justify-content:center; align-items:center; background:#0f172a;">
-                <div style="width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg, #009846, #059669); color:white; font-size:2.4rem; display:flex; justify-content:center; align-items:center; box-shadow:0 0 20px rgba(0,152,70,0.4);">
-                    <i class="fas fa-headset"></i>
+        </div>
+    </div>
+
+    <!-- MODAL PANGGILAN AKTIF WARGA -->
+    <div id="wargaActiveCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(6,11,25,0.92); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); z-index:9999999; justify-content:center; align-items:center;">
+        <div class="call-card-modern">
+            <div class="call-header-modern">
+                <h3 id="wargaActiveCallName" class="call-contact-name">Petugas Dinsos Sidoarjo</h3>
+                <div class="call-single-status-badge">
+                    <span class="status-indicator-dot dot-connected"></span>
+                    <span id="wargaCallStatusText">00:00</span>
+                </div>
+            </div>
+            <div id="wargaVideoCallArea" class="video-area-modern" style="display:none;">
+                <video id="wargaRemoteVideo" autoplay playsinline class="video-remote-player"></video>
+                <video id="wargaLocalVideo" autoplay muted playsinline class="video-local-pip"></video>
+            </div>
+            <div id="wargaAudioCallArea" class="audio-area-modern">
+                <div class="audio-avatar-wrapper">
+                    <div class="audio-ripple-ring ring-1"></div>
+                    <div class="audio-ripple-ring ring-2"></div>
+                    <div class="audio-avatar">
+                        <i class="fas fa-headset"></i>
+                    </div>
                 </div>
             </div>
 
-            <!-- DOCK REAKSI EMOJI DALAM PANGGILAN WARGA -->
-            <div style="padding:0 16px 10px 16px; background:#1e293b; display:flex; flex-direction:column; align-items:center;">
-                <div style="font-size:0.68rem; color:#94a3b8; font-weight:700; margin-bottom:4px; text-transform:uppercase;">Kirim Reaksi ke Petugas:</div>
-                <div class="call-emoji-dock" style="margin-top:0;">
+            <!-- DOCK REAKSI EMOJI DALAM PANGGILAN WARGA (MEMBULAT & MODERN) -->
+            <div class="call-reaction-dock-section">
+                <div class="call-emoji-dock">
                     <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('👍')" title="Jempol">👍</button>
                     <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('❤️')" title="Hati">❤️</button>
                     <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('😂')" title="Tertawa">😂</button>
@@ -1486,13 +1729,14 @@
                     <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('👏')" title="Tepuk Tangan">👏</button>
                     <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('🚨')" title="Darurat">🚨</button>
                     <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('✅')" title="Setuju">✅</button>
+                    <button type="button" class="call-emoji-btn" onclick="window.sendCallReactionWarga('💯')" title="Mantap">💯</button>
                 </div>
             </div>
 
-            <div style="padding:14px; background:#0f172a; display:flex; justify-content:center; gap:14px; border-top:1px solid rgba(255,255,255,0.06);">
-                <button type="button" id="wargaBtnMute" onclick="window.toggleMuteCallWarga()" class="ctrl-btn" style="width:48px; height:48px; border-radius:50%; background:#334155; color:white; border:none; cursor:pointer;" title="Mikrofon"><i class="fas fa-microphone"></i></button>
-                <button type="button" id="wargaBtnVideo" onclick="window.toggleVideoCallWarga()" class="ctrl-btn" style="width:48px; height:48px; border-radius:50%; background:#334155; color:white; border:none; cursor:pointer;" title="Kamera Video"><i class="fas fa-video"></i></button>
-                <button type="button" onclick="window.endCallWarga()" class="ctrl-btn btn-end" style="width:48px; height:48px; border-radius:50%; background:#ef4444; color:white; border:none; cursor:pointer;" title="Tutup Panggilan"><i class="fas fa-phone-slash"></i></button>
+            <div class="call-controls-modern">
+                <button type="button" id="wargaBtnMute" onclick="window.toggleMuteCallWarga()" class="call-ctrl-btn" title="Mikrofon"><i class="fas fa-microphone"></i></button>
+                <button type="button" id="wargaBtnVideo" onclick="window.toggleVideoCallWarga()" class="call-ctrl-btn" title="Kamera Video"><i class="fas fa-video"></i></button>
+                <button type="button" onclick="window.endCallWarga()" class="call-ctrl-btn btn-end" title="Tutup Panggilan"><i class="fas fa-phone-slash"></i></button>
             </div>
 
             <!-- LAYER ANIMASI FLOATING EMOJI WARGA -->
@@ -1600,14 +1844,29 @@
         </div>
     </div>
 
+    <!-- FOOTER RESMI PORTAL WARGA -->
+    <footer style="text-align:center; padding:36px 20px 48px 20px; color:#64748b; font-size:0.84rem; line-height:1.6; background:transparent;">
+        <div style="font-weight:800; color:#1e293b; margin-bottom:4px; font-size:0.92rem;">
+            Portal Layanan Bantuan Sosial &copy; 2026 Pemerintah Kabupaten Sidoarjo
+        </div>
+        <div style="color:#64748b; font-size:0.82rem;">
+            Dinas Sosial Kabupaten Sidoarjo &bull; Layanan Terpadu Penyaluran Bantuan Sosial Transparan
+        </div>
+        <div style="margin-top:14px; display:inline-flex; align-items:center; gap:8px; font-size:0.74rem; color:#94a3b8; background:#f8fafc; padding:6px 16px; border-radius:20px; border:1px solid #e2e8f0; cursor:default;" id="bsreSealFooter" title="Sertifikasi Keamanan & Integritas Dokumen Digital">
+            <i class="fas fa-certificate text-emerald-600"></i> Terintegrasi BSrE &bull; Keamanan Siber Terkelola
+        </div>
+    </footer>
+
     <!-- PUSTAKA JS & CONTROLLER PORTAL -->
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="static/js/core/modern-notifications.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
     <!-- CORE & GLOBAL JS -->
     <script src="static/js/global.js"></script>
+    <script src="static/js/core/realtime-client.js"></script>
 
     <!-- MODUL FITUR PORTAL WARGA -->
     <script src="static/js/modules/camera-manager.js"></script>
@@ -1622,10 +1881,31 @@
     <script src="static/js/modules/publik/publik-chat.js"></script>
     <script src="static/js/modules/publik/publik-chatbot.js"></script>
 
+    <!-- Modul Diagnostik & Pengawasan Khusus Super Admin & Developer -->
+    <script src="static/js/modules/publik/publik-diagnostic.js"></script>
+
     <!-- Orchestrator Utama Portal Warga -->
     <script src="static/js/publik.js"></script>
 
     <script>
+        // Helper Tab Navigasi Modal Diagnostik
+        window.switchTabDiagnostik = function(tab) {
+            const h = document.getElementById('kontenDiagHealth');
+            const l = document.getElementById('kontenDiagLogs');
+            const s = document.getElementById('kontenDiagSimulation');
+            const bh = document.getElementById('btnTabDiagHealth');
+            const bl = document.getElementById('btnTabDiagLogs');
+            const bs = document.getElementById('btnTabDiagSim');
+
+            if (h) h.style.display = (tab === 'tabHealth') ? 'block' : 'none';
+            if (l) l.style.display = (tab === 'tabLogs') ? 'block' : 'none';
+            if (s) s.style.display = (tab === 'tabSimulation') ? 'block' : 'none';
+
+            if (bh) bh.className = (tab === 'tabHealth') ? 'btn-dev-action primary' : 'btn-dev-action';
+            if (bl) bl.className = (tab === 'tabLogs') ? 'btn-dev-action primary' : 'btn-dev-action';
+            if (bs) bs.className = (tab === 'tabSimulation') ? 'btn-dev-action primary' : 'btn-dev-action';
+        };
+
         // =========================================================================
         // INISIALISASI CUSTOM DROPDOWN MEMBULAT SECARA OTOMATIS
         // =========================================================================
@@ -1817,6 +2097,29 @@
                 }
             } catch(e) {}
         };
+
+        // =========================================================================
+        // JALUR AKSES KHUSUS APARATUR (TERSEMBUNYI & DISKRET DARI WARGA AWAM)
+        // Warga umum tidak melihat tombol login aparatur di UI.
+        // Aparatur dapat membuka login dengan:
+        // 1. Mengunjungi URL: /aparatur atau /login
+        // 2. Menekan kombinasi tombol rahasia: Ctrl + Shift + A atau Alt + A
+        // 3. Mengetuk ganda (double-click) lambang segel BSrE di footer
+        // =========================================================================
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) || 
+                (e.altKey && (e.key === 'A' || e.key === 'a'))) {
+                e.preventDefault();
+                window.location.href = '/aparatur';
+            }
+        });
+
+        const bsreSeal = document.getElementById('bsreSealFooter');
+        if (bsreSeal) {
+            bsreSeal.addEventListener('dblclick', function() {
+                window.location.href = '/aparatur';
+            });
+        }
     </script>
 </body>
 </html>

@@ -76,10 +76,11 @@ router.post(['/login', '/api/auth/login', '/api/login'], loginLimiter, (req: Req
     });
   }
 
-  // Normalisasi peran pengguna ke 3 kategori resmi: super_admin, admin, petugas
+  // Normalisasi peran pengguna: super_admin, developer, admin, petugas
   let normalizedRole = (user.role || 'petugas').toLowerCase().replace(/[\s-]/g, '_');
   if (normalizedRole === 'operator') normalizedRole = 'petugas';
   if (normalizedRole === 'superadmin' || normalizedRole === 'super_admin') normalizedRole = 'super_admin';
+  if (normalizedRole === 'dev' || normalizedRole === 'developer') normalizedRole = 'developer';
   user.role = normalizedRole;
 
   // Login Berhasil - Reset tracker percobaan gagal

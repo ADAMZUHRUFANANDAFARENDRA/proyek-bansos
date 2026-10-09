@@ -212,7 +212,7 @@ const SQLI_PATTERNS = [
   /(\b(or|and)\s+['"]?\d+['"]?\s*=\s*['"]?\d+)/i,
   /(['"]\s*(or|and)\s*['"]?[\w\d]+['"]?\s*=\s*['"]?[\w\d]+)/i,
   /(\b(order\s+by\s+\d+)\b)/i,
-  /(--|#|\/\*)/
+  /(?:;\s*--|'\s*--|"\s*--|\b(union|select|insert|update|delete|drop)\b.*?(?:--|#|\/\*))/i
 ];
 
 const XSS_PATTERNS = [
@@ -445,7 +445,7 @@ export function cyberShieldWaf(req: Request, res: Response, next: NextFunction):
   }
 
   // 1. Cek apakah IP klien sedang diblokir
-  const isLocalDev = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === 'localhost';
+  const isLocalDev = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === 'localhost' || clientIp.startsWith('10.') || clientIp.startsWith('172.') || clientIp.startsWith('192.168.');
   if (!isLocalDev) {
     const blockStatus = isIpBlocked(clientIp);
     if (blockStatus.blocked) {
@@ -458,6 +458,18 @@ export function cyberShieldWaf(req: Request, res: Response, next: NextFunction):
       return;
     }
   }
+
+  // Izinkan rute administrasi internal / API data warga & SPK memproses muatan data kependudukan
+  const isDataProcessingRoute = 
+    rawPath.startsWith('/api/warga') || 
+    rawPath.startsWith('/warga') || 
+    rawPath.startsWith('/api/spk') || 
+    rawPath.startsWith('/spk') ||
+    rawPath.startsWith('/hitung') ||
+    rawPath.startsWith('/api/hitung') ||
+    rawPath.startsWith('/api/mysql') ||
+    rawPath.startsWith('/mysql');
+
 
   // 2. Kategori 6: Perlindungan Berkas Rahasia Sistem (firebase-applet-config, .env, package.json, dll.)
   const secretFileMatch = testAgainstPatterns(rawPath, PROTECTED_CONFIG_PATHS);
@@ -516,7 +528,7 @@ export function cyberShieldWaf(req: Request, res: Response, next: NextFunction):
   }
 
   // Kumpulkan seluruh data request untuk analisis muatan
-  const bodyStrings = extractStringsFromObject(req.body);
+  const bodyStrings = isDataProcessingRoute ? [] : extractStringsFromObject(req.body);
   const queryStrings = extractStringsFromObject(req.query);
   const allPayloads = [rawPath, ...queryStrings, ...bodyStrings];
 

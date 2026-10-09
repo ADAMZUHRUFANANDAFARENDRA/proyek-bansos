@@ -19,6 +19,7 @@
     <!-- CSS INTERNAL RESMI -->
     <link rel="stylesheet" href="static/css/style.css">
     <link rel="stylesheet" href="static/css/admin.css">
+    <link rel="stylesheet" href="static/css/modern-notifications.css">
 
     <!-- GOOGLE IDENTITY SERVICES SDK (OAUTH 2.0 GOOGLE DRIVE & GOOGLE FOTO) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -58,9 +59,15 @@
                 <button type="button" id="btnNavCyberShield" onclick="window.bukaModalKeamananSiber ? window.bukaModalKeamananSiber() : null" class="btn-chat-nav" style="background:#090d16; border:1px solid #10b981; color:#34d399; margin-right:6px; display:none;" title="Pusat Keamanan Siber & Deteksi WAF (Super Admin Khusus)">
                     <i class="fas fa-shield-alt text-emerald-400"></i> Cyber Shield <span id="navWafBadge" class="badge-red" style="display:none; font-size:0.68rem; padding:1px 6px; border-radius:10px; margin-left:4px;">0</span>
                 </button>
+                <button type="button" id="btnNavEskalasiDev" onclick="window.bukaModalEskalasiSuperAdmin ? window.bukaModalEskalasiSuperAdmin() : null" class="btn-chat-nav" style="background:#450a0a; border:1px solid #ef4444; color:#fca5a5; margin-right:6px; display:none;" title="Pusat Eskalasi Aduan & Cek Kode (Super Admin)">
+                    <i class="fas fa-code-branch text-red-400"></i> Eskalasi Aduan <span id="badgeNavEskalasiCount" class="badge-red" style="display:none; font-size:0.68rem; padding:1px 6px; border-radius:10px; margin-left:4px;">0</span>
+                </button>
                 <button onclick="window.openAdminChat ? window.openAdminChat() : null" class="btn-chat-nav">
                     <i class="fas fa-comments"></i> Chat Warga
                 </button>
+                <a href="/publik.html" id="btnNavPortalWarga" target="_blank" class="btn-chat-nav" style="text-decoration:none; color:#334155; background:#ffffff; border:1px solid #cbd5e1; margin-right:6px; display:none;" title="Portal Warga (Khusus Uji Sistem & Penelusuran Eror - Super Admin & Developer)">
+                    <i class="fas fa-stethoscope text-emerald-600"></i> Portal Warga (Uji Sistem)
+                </a>
                 
                 <div class="notif-wrapper" onclick="window.toggleNotifPanel ? window.toggleNotifPanel(event) : null">
                     <i class="fas fa-bell notif-icon"></i>
@@ -90,7 +97,7 @@
                     <div class="user-name" id="navUsername">Memuat...</div>
                     <div id="navRoleBadge" class="role-badge">Tamu</div>
                 </div>
-                <button onclick="localStorage.clear(); sessionStorage.clear(); window.location.replace('login.html');" class="btn-logout-nav" title="Keluar">
+                <button onclick="if (window.Auth && typeof window.Auth.logout === 'function') { window.Auth.logout(); } else if (window.logout) { window.logout(); } else { try { localStorage.clear(); sessionStorage.clear(); } catch(e){} window.location.replace('/aparatur?logout=1'); }" class="btn-logout-nav" title="Keluar">
                     <i class="fas fa-sign-out-alt"></i>
                 </button>
             </div>
@@ -180,6 +187,20 @@
                     <div class="cmd-tile-body">
                         <div class="cmd-tile-name" style="color:#14532d;">Keamanan Siber & WAF</div>
                         <div class="cmd-tile-desc">Deteksi & Tangani Serangan</div>
+                    </div>
+                </div>
+
+                <!-- Tile 7: Pusat Eskalasi Aduan & Inspeksi Kode (Super Admin Khusus) -->
+                <div class="cmd-tile-item tile-purple" id="tileEskalasiSuperAdmin" onclick="window.bukaModalEskalasiSuperAdmin ? window.bukaModalEskalasiSuperAdmin() : null" style="background:#fef2f2; border:1px solid #fca5a5; cursor:pointer; display:none;">
+                    <div class="cmd-tile-icon-box" style="background:#fee2e2; color:#dc2626;">
+                        <i class="fas fa-code-branch"></i>
+                    </div>
+                    <div class="cmd-tile-body">
+                        <div class="cmd-tile-name" style="color:#991b1b; display:flex; align-items:center; gap:6px;">
+                            Eskalasi & Cek Kode
+                            <span id="badgeTileEskalasiCount" style="background:#dc2626; color:#ffffff; font-size:0.68rem; padding:1px 6px; border-radius:10px; font-weight:800; display:none;">0</span>
+                        </div>
+                        <div class="cmd-tile-desc">Audit Aduan & Log Teknis</div>
                     </div>
                 </div>
             </div>
@@ -308,7 +329,7 @@
                         <div class="form-group">
                             <label class="form-label">Nomor Induk Kependudukan (NIK 16 Digit)</label>
                             <div class="nik-input-row" style="display:flex; gap:10px; align-items:center;">
-                                <input type="number" id="nik" class="form-input" style="flex:1; min-width:0;" required placeholder="Masukkan 16 digit NIK">
+                                <input type="number" id="nik" class="form-input" style="flex:1; min-width:0;" required placeholder="Masukkan 16 digit NIK" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.cekDukcapilLokal();}">
                                 <button type="button" onclick="window.cekDukcapilLokal()" class="btn btn-secondary btn-cek-dukcapil" style="flex:0 0 auto; color:var(--info); border-color:var(--info); white-space:nowrap; padding:9px 14px; font-size:0.85rem;"><i class="fas fa-search"></i> Cek Dukcapil</button>
                             </div>
                         </div>
@@ -423,17 +444,17 @@
                         <div class="filter-btn-group" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                             <button class="filter-btn active filter-kategori" onclick="window.applyFilter ? window.applyFilter('all', this) : null"><i class="fas fa-border-all"></i> Semua</button>
                             <button class="filter-btn filter-kategori" onclick="window.applyFilter ? window.applyFilter('layak', this) : null"><i class="fas fa-check-circle text-primary"></i> Disetujui</button>
-                            <button class="filter-btn filter-kategori" onclick="window.applyFilter ? window.applyFilter('disalurkan', this) : null"><i class="fas fa-truck text-success"></i> Disalurkan</button>
+                            <button class="filter-btn filter-kategori" onclick="window.applyFilter ? window.applyFilter('proses', this) : null" title="Filter data warga yang bansosnya sedang proses penyaluran"><i class="fas fa-truck text-success"></i> Sedang Proses</button>
                             <button class="filter-btn filter-kategori" onclick="window.applyFilter ? window.applyFilter('menerima', this) : null"><i class="fas fa-box-open text-info"></i> Telah Menerima</button>
                             <button class="filter-btn filter-btn-danger filter-kategori" onclick="window.applyFilter ? window.applyFilter('bermasalah', this) : null"><i class="fas fa-exclamation-triangle"></i> Bermasalah</button>
                             <div class="filter-divider"></div>
                             
                             <!-- Toggle Mode Tampilan: Tabel vs Layout Card -->
-                            <div style="display:inline-flex; background:#e2e8f0; padding:3px; border-radius:12px; gap:3px;">
-                                <button type="button" id="btnViewModeTable" onclick="window.toggleWargaViewMode('table')" class="filter-btn active" style="margin:0; border-radius:10px; padding:6px 14px; font-weight:700; font-size:0.8rem; background:#009846; color:#ffffff; box-shadow:0 2px 6px rgba(0,152,70,0.35); border:none; transition:all 0.2s;" title="Tampilan Tabel">
+                            <div class="view-mode-panel-wrapper" style="display:inline-flex; background:#e2e8f0; padding:3px; border-radius:12px; gap:3px;">
+                                <button type="button" id="btnViewModeTable" onclick="window.toggleWargaViewMode('table')" class="view-mode-btn active" style="margin:0; border-radius:10px; padding:6px 14px; font-weight:700; font-size:0.8rem; background:#009846; color:#ffffff; box-shadow:0 2px 6px rgba(0,152,70,0.35); border:none; transition:all 0.2s;" title="Tampilan Tabel">
                                     <i class="fas fa-table"></i> Tabel
                                 </button>
-                                <button type="button" id="btnViewModeCard" onclick="window.toggleWargaViewMode('card')" class="filter-btn" style="margin:0; border-radius:10px; padding:6px 14px; font-weight:700; font-size:0.8rem; background:transparent; color:#64748b; border:none; transition:all 0.2s;" title="Tampilan Layout Card Warga">
+                                <button type="button" id="btnViewModeCard" onclick="window.toggleWargaViewMode('card')" class="view-mode-btn" style="margin:0; border-radius:10px; padding:6px 14px; font-weight:700; font-size:0.8rem; background:transparent; color:#64748b; border:none; transition:all 0.2s;" title="Tampilan Layout Card Warga">
                                     <i class="fas fa-th-large"></i> Layout Card
                                 </button>
                             </div>
@@ -480,6 +501,8 @@
                             <div id="wargaCardsContainer" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:18px;">
                                 <!-- Kartu warga diisi secara dinamis oleh JavaScript -->
                             </div>
+                            <!-- Navigasi pagination dan info limit mode kartu -->
+                            <div id="wargaCardPagination" style="display:none; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-top:20px; padding:12px 18px; background:#f8fafc; border-radius:14px; border:1px solid #e2e8f0; gap:10px;"></div>
                         </div>
                     </div>
                 </div>
@@ -564,47 +587,65 @@
         </div>
     </div>
 
-    <!-- UI WEBRTC CALLING -->
-    <div id="incomingCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); backdrop-filter:blur(10px); z-index:9999999; justify-content:center; align-items:center; flex-direction:column;">
-        <div style="text-align:center;">
-            <div style="width: 120px; height: 120px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 3.5rem; color: white; margin: 0 auto 30px auto;"><i class="fas fa-phone-volume"></i></div>
-            <h2 id="callerNameText" style="color:white; font-size: 1.8rem; margin: 0 0 10px 0;">Memanggil...</h2>
-            <p id="callerTypeText" style="color: #94a3b8; font-size: 1.1rem; margin-bottom: 40px;">Menerima Panggilan Baru</p>
-            <div style="display:flex; gap: 40px; justify-content:center;">
-                <button onclick="window.rejectCall ? window.rejectCall() : null" style="width: 70px; height: 70px; border-radius: 50%; background: #ef4444; border: none; color: white; font-size: 1.8rem; cursor: pointer;"><i class="fas fa-phone-slash"></i></button>
-                <button onclick="window.acceptCall ? window.acceptCall() : null" style="width: 70px; height: 70px; border-radius: 50%; background: #10b981; border: none; color: white; font-size: 1.8rem; cursor: pointer;"><i class="fas fa-phone"></i></button>
+    <!-- UI WEBRTC CALLING: PANGGILAN MASUK (INCOMING CALL) -->
+    <div id="incomingCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(11,19,41,0.88); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); z-index:9999999; justify-content:center; align-items:center;">
+        <div class="call-incoming-card">
+            <div class="call-incoming-avatar-wrapper">
+                <div class="call-incoming-ripple"></div>
+                <div class="call-incoming-avatar">
+                    <i class="fas fa-phone-volume"></i>
+                </div>
+            </div>
+            <div class="call-incoming-badge"><i class="fas fa-bell"></i> Panggilan Masuk</div>
+            <h2 id="callerNameText" class="call-incoming-name">Memanggil...</h2>
+            <p id="callerTypeText" class="call-incoming-type">Menerima Panggilan Koordinasi</p>
+            <div class="call-incoming-actions">
+                <button type="button" onclick="window.rejectCall ? window.rejectCall() : null" class="call-incoming-btn btn-reject" title="Tolak Panggilan">
+                    <i class="fas fa-phone-slash"></i>
+                    <span>Tolak</span>
+                </button>
+                <button type="button" onclick="window.acceptCall ? window.acceptCall() : null" class="call-incoming-btn btn-accept" title="Terima Panggilan">
+                    <i class="fas fa-phone"></i>
+                    <span>Terima</span>
+                </button>
             </div>
         </div>
     </div>
 
-    <div id="activeCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.92); backdrop-filter:blur(12px); z-index:9999999; justify-content:center; align-items:center;">
-        <div class="call-card-modern" style="position:relative; width:440px; max-width:96vw; background:#0f172a; border-radius:24px; overflow:hidden; border:1px solid #334155; box-shadow:0 25px 60px rgba(0,0,0,0.5);">
-            <div class="call-header-modern" style="padding:18px 20px 10px 20px; text-align:center; color:white;">
-                <h3 id="activeCallName" style="margin:0; font-size:1.25rem; font-weight:800; color:#f8fafc;">Nama Kontak</h3>
-                <p id="callStatusText" style="margin:3px 0; font-size:0.85rem; color:#94a3b8;"><i class="fas fa-circle text-success" style="font-size:0.55rem;"></i> Panggilan Langsung Terhubung</p>
-                <div id="callDuration" style="font-family:monospace; font-size:1.1rem; font-weight:800; color:#38bdf8; margin:4px 0;">00:00</div>
-                <div class="call-status-badges-container" style="display:flex; justify-content:center; gap:8px; margin-top:6px;">
-                    <span id="callMicStatus" class="call-live-badge badge-mic-on" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:12px;"><i class="fas fa-microphone"></i> Mikrofon Aktif</span>
-                    <span id="callCamStatus" class="call-live-badge badge-cam-off" style="background:rgba(148,163,184,0.15); color:#94a3b8; border:1px solid rgba(148,163,184,0.3); font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:12px;"><i class="fas fa-video-slash"></i> Kamera Mati</span>
+    <!-- UI WEBRTC CALLING: PANGGILAN AKTIF (ACTIVE CALL) -->
+    <div id="activeCallUI" class="modal-blur-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(6,11,25,0.92); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); z-index:9999999; justify-content:center; align-items:center;">
+        <div class="call-card-modern">
+            <!-- 1. HEADER INFORMASI PANGGILAN (HANYA NAMA WARGA & 1 KETERANGAN STATUS BERSIH) -->
+            <div class="call-header-modern">
+                <h3 id="activeCallName" class="call-contact-name">Nama Warga</h3>
+                <div id="callStatusBadge" class="call-single-status-badge">
+                    <span id="callStatusDot" class="status-indicator-dot dot-calling"></span>
+                    <span id="callStatusLabel">Memanggil</span>
                 </div>
+                <!-- Jembatan kompatibilitas skrip lama (tersembunyi secara visual agar tidak ganda/bentrok) -->
+                <span id="callStatusText" style="display:none;"></span>
+                <span id="callDuration" style="display:none;">00:00</span>
             </div>
-            
-            <div id="videoCallArea" class="video-area-modern" style="display:none; width:100%; height:260px; background:#000000; position:relative;">
-                <video id="remoteVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
-                <video id="localVideo" autoplay muted playsinline style="position:absolute; bottom:12px; right:12px; width:90px; height:120px; border-radius:12px; border:2px solid #009846; object-fit:cover; box-shadow:0 4px 12px rgba(0,0,0,0.5);"></video>
+
+            <!-- 2. AREA VIDEO CALL (AKTIF JIKA MODE VIDEO) -->
+            <div id="videoCallArea" class="video-area-modern" style="display:none;">
+                <video id="remoteVideo" autoplay playsinline class="video-remote-player"></video>
+                <video id="localVideo" autoplay muted playsinline class="video-local-pip"></video>
             </div>
-            
-            <div id="audioCallArea" class="audio-area-modern" style="display:flex; height:170px; justify-content:center; align-items:center; background:radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);">
-                <div class="audio-avatar" style="width:84px; height:84px; border-radius:50%; background:linear-gradient(135deg, #009846, #047857); color:white; font-size:2.4rem; display:flex; align-items:center; justify-content:center; box-shadow:0 0 25px rgba(0,152,70,0.4); animation: pulseAvatar 2s infinite ease-in-out;">
-                    <i class="fas fa-user"></i>
+
+            <!-- 3. AREA AUDIO CALL (AKTIF JIKA MODE TELEPON / AUDIO - BERSIH TANPA KETERANGAN TEKS MIC/KAMERA) -->
+            <div id="audioCallArea" class="audio-area-modern">
+                <div class="audio-avatar-wrapper">
+                    <div class="audio-ripple-ring ring-1"></div>
+                    <div class="audio-ripple-ring ring-2"></div>
+                    <div class="audio-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
                 </div>
             </div>
 
-            <!-- DOCK REAKSI EMOJI DALAM PANGGILAN (LENGKAP & MODERN) -->
-            <div style="padding:4px 16px 12px 16px; background:#1e293b; display:flex; flex-direction:column; align-items:center; border-top:1px solid rgba(255,255,255,0.06);">
-                <div style="font-size:0.68rem; color:#94a3b8; font-weight:800; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.4px;">
-                    <i class="far fa-smile text-accent"></i> Kirim Reaksi Emoji ke Warga:
-                </div>
+            <!-- 4. DOCK REAKSI EMOJI: TAMPILAN LEBIH MODERN & MEMBULAT -->
+            <div class="call-reaction-dock-section">
                 <div class="call-emoji-dock">
                     <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('👍')" title="Jempol">👍</button>
                     <button type="button" class="call-emoji-btn" onclick="window.sendCallReaction('❤️')" title="Hati">❤️</button>
@@ -619,12 +660,104 @@
                 </div>
             </div>
 
-            <!-- TOMBOL KONTROL UTAMA PANGGILAN -->
-            <div class="call-controls-modern" style="padding:14px; background:#0f172a; display:flex; justify-content:center; gap:14px; border-top:1px solid rgba(255,255,255,0.06);">
-                <button type="button" id="btnMute" onclick="window.toggleMuteCall ? window.toggleMuteCall() : null" class="ctrl-btn" style="width:48px; height:48px; border-radius:50%; background:#334155; color:white; border:none; cursor:pointer;" title="Bisukan Mikrofon"><i class="fas fa-microphone"></i></button>
-                <button type="button" id="btnVideo" onclick="window.toggleVideoCall ? window.toggleVideoCall() : null" class="ctrl-btn" style="width:48px; height:48px; border-radius:50%; background:#334155; color:white; border:none; cursor:pointer;" title="Kamera Video"><i class="fas fa-video"></i></button>
-                <button type="button" id="btnBlur" onclick="window.toggleBlur ? window.toggleBlur() : null" class="ctrl-btn" style="width:48px; height:48px; border-radius:50%; background:#334155; color:white; border:none; cursor:pointer;" title="Efek Filter Buram"><i class="fas fa-magic"></i></button>
-                <button type="button" onclick="window.endCall ? window.endCall() : null" class="ctrl-btn btn-end" style="width:48px; height:48px; border-radius:50%; background:#dc2626; color:white; border:none; cursor:pointer;" title="Akhiri Panggilan"><i class="fas fa-phone-slash"></i></button>
+            <!-- 5. TOMBOL KONTROL UTAMA PANGGILAN -->
+            <div class="call-controls-modern">
+                <!-- Opsi Titik Tiga (di samping kiri tombol Mic) untuk Kualitas & Bar Kotak Jaringan Stabil -->
+                <button type="button" id="btnCallMoreOptions" onclick="window.toggleCallNetworkOptions(event)" class="call-ctrl-btn" title="Kualitas Jaringan Panggilan">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+
+                <!-- Tombol Mikrofon -->
+                <button type="button" id="btnMute" onclick="window.toggleMuteCall ? window.toggleMuteCall() : null" class="call-ctrl-btn" title="Bisukan Mikrofon">
+                    <i class="fas fa-microphone"></i>
+                </button>
+
+                <!-- Tombol Kamera Video -->
+                <button type="button" id="btnVideo" onclick="window.toggleVideoCall ? window.toggleVideoCall() : null" class="call-ctrl-btn" title="Kamera Video">
+                    <i class="fas fa-video"></i>
+                </button>
+
+                <!-- Tombol Pensil (Filter Video Call) - HANYA MUNCUL DI VIDEO CALL, TERSEMBUNYI DI TELEPON -->
+                <button type="button" id="btnVideoFilter" onclick="window.toggleVideoFilterOptions(event)" class="call-ctrl-btn" style="display:none;" title="Pengaturan Filter Video Call">
+                    <i class="fas fa-pen"></i>
+                </button>
+
+                <!-- Tombol Akhiri Panggilan -->
+                <button type="button" onclick="window.endCall ? window.endCall() : null" class="call-ctrl-btn btn-end" title="Akhiri Panggilan">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
+            </div>
+
+            <!-- POPOVER 1: STATUS KONEKSI & JARINGAN BAR KOTAK -->
+            <div id="callNetworkPopover" class="call-floating-popover" style="display:none;" onclick="event.stopPropagation()">
+                <div class="popover-header">
+                    <div class="popover-title"><i class="fas fa-signal-alt text-success"></i> Kualitas Jaringan</div>
+                    <button type="button" onclick="document.getElementById('callNetworkPopover').style.display='none'" class="popover-close-btn">&times;</button>
+                </div>
+                <div class="network-bar-squares-wrapper">
+                    <div class="network-bar-squares">
+                        <div class="net-sq-bar filled"></div>
+                        <div class="net-sq-bar filled"></div>
+                        <div class="net-sq-bar filled"></div>
+                        <div class="net-sq-bar filled"></div>
+                    </div>
+                    <span class="network-label-stabil"><i class="fas fa-check-circle"></i> Jaringan Stabil</span>
+                </div>
+                <div class="network-stats-grid">
+                    <div class="net-stat-item">
+                        <span class="net-stat-name">Latensi</span>
+                        <span class="net-stat-val text-success">14 ms</span>
+                    </div>
+                    <div class="net-stat-item">
+                        <span class="net-stat-name">Paket Hilang</span>
+                        <span class="net-stat-val text-success">0%</span>
+                    </div>
+                    <div class="net-stat-item">
+                        <span class="net-stat-name">Resolusi</span>
+                        <span class="net-stat-val text-info">HD 720p</span>
+                    </div>
+                    <div class="net-stat-item">
+                        <span class="net-stat-name">Bitrate</span>
+                        <span class="net-stat-val text-success">Optimal</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POPOVER 2: PENGATURAN FILTER VIDEO CALL (2 FILTER: WAJAH MULUS & TERANG + BURAMKAN BACKGROUND) -->
+            <div id="videoFilterPopover" class="call-floating-popover" style="display:none;" onclick="event.stopPropagation()">
+                <div class="popover-header">
+                    <div class="popover-title"><i class="fas fa-pen text-warning"></i> Pengaturan Filter Video</div>
+                    <button type="button" onclick="document.getElementById('videoFilterPopover').style.display='none'" class="popover-close-btn">&times;</button>
+                </div>
+                <div class="filter-options-list">
+                    <!-- Filter 1: Wajah Mulus & Terang -->
+                    <div class="filter-option-card" onclick="window.toggleBeautyFilter()">
+                        <div class="filter-option-info">
+                            <div class="filter-icon-circle" style="background:linear-gradient(135deg, #f59e0b, #d97706);"><i class="fas fa-magic"></i></div>
+                            <div>
+                                <div class="filter-name">Wajah Mulus & Terang</div>
+                                <div class="filter-desc">Menghaluskan kulit dan mencerahkan pencahayaan kamera</div>
+                            </div>
+                        </div>
+                        <div class="custom-switch-indicator" id="switchBeautyFilter">
+                            <span class="switch-toggle-knob"></span>
+                        </div>
+                    </div>
+
+                    <!-- Filter 2: Buramkan Background -->
+                    <div class="filter-option-card" onclick="window.toggleBackgroundBlurFilter()">
+                        <div class="filter-option-info">
+                            <div class="filter-icon-circle" style="background:linear-gradient(135deg, #3b82f6, #1d4ed8);"><i class="fas fa-portrait"></i></div>
+                            <div>
+                                <div class="filter-name">Buramkan Background</div>
+                                <div class="filter-desc">Memberikan efek bokeh fokus pada objek wajah</div>
+                            </div>
+                        </div>
+                        <div class="custom-switch-indicator" id="switchBlurFilter">
+                            <span class="switch-toggle-knob"></span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- LAYER ANIMASI FLOATING EMOJI -->
@@ -1812,11 +1945,11 @@
                         </button>
                     </div>
 
-                    <!-- FILTER CEPAT (SEMUA, DESIL 1-4, BELUM DIBACA) -->
-                    <div style="display:flex; gap:6px; margin-bottom:10px; overflow-x:auto; padding-bottom:2px;">
-                        <button type="button" class="chat-filter-chip active" id="chipFilterSemua" onclick="window.filterChatKategori('semua')">Semua</button>
-                        <button type="button" class="chat-filter-chip" id="chipFilterDesil" onclick="window.filterChatKategori('desil1-4')">Prioritas Desil 1–4</button>
-                        <button type="button" class="chat-filter-chip" id="chipFilterUnread" onclick="window.filterChatKategori('unread')">Pesan Baru</button>
+                    <!-- FILTER CEPAT (SEMUA, PRIORITAS DESIL 1 HINGGA 4, PESAN BARU) -->
+                    <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; margin-bottom:10px; background:#f1f5f9; padding:4px; border-radius:12px; width:100%; box-sizing:border-box;">
+                        <button type="button" class="chat-filter-chip active" id="chipFilterSemua" onclick="window.filterChatKategori('semua')" style="width:100%;" title="Tampilkan Semua Pesan">Semua</button>
+                        <button type="button" class="chat-filter-chip" id="chipFilterDesil" onclick="window.filterChatKategori('desil1-4')" style="width:100%; font-size:0.71rem; letter-spacing:-0.2px;" title="Filter Prioritas Desil 1 hingga 4">Prioritas Desil 1–4</button>
+                        <button type="button" class="chat-filter-chip" id="chipFilterUnread" onclick="window.filterChatKategori('unread')" style="width:100%;" title="Pesan Baru & Belum Terbaca">Pesan Baru</button>
                     </div>
 
                     <!-- PENCARIAN NAMA / NIK / ALAMAT -->
@@ -1876,67 +2009,60 @@
                 <!-- 2. ACTIVE CONVERSATION PANEL (AKTIF SAAT WARGA DIPILIH) -->
                 <div id="chatActiveConversationPanel" style="display:none; flex:1; flex-direction:column; min-height:0; height:100%; position:relative;">
                     <!-- HEADER RUANG OBROLAN WARGA -->
-                    <div class="chat-header-panel" id="chatHeaderArea" style="padding:12px 20px; border-bottom:1px solid #e2e8f0; background:#ffffff; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
-                        <div style="display:flex; align-items:center; gap:12px; min-width:0;">
-                            <div id="chatHeaderAvatar" style="width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg, #009846, #047857); color:#ffffff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.15rem; flex-shrink:0; position:relative; box-shadow:0 3px 8px rgba(0,152,70,0.25);">
+                    <div class="chat-header-panel" id="chatHeaderArea" style="padding:10px 18px; border-bottom:1px solid #e2e8f0; background:#ffffff; display:flex; justify-content:space-between; align-items:center; min-height:64px; box-sizing:border-box; gap:12px; position:relative; z-index:50;">
+                        <!-- INFORMASI IDENTITAS WARGA (KIRI) -->
+                        <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1; overflow:hidden;">
+                            <div id="chatHeaderAvatar" style="width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg, #009846, #047857); color:#ffffff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.1rem; flex-shrink:0; position:relative; box-shadow:0 3px 8px rgba(0,152,70,0.25);">
                                 <span id="chatHeaderAvatarLetter">W</span>
                                 <span class="contact-online-badge"></span>
                             </div>
-                            <div style="min-width:0;">
-                                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                    <h3 id="chatActiveNameDisplay" style="margin:0; font-size:1.02rem; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Pilih Warga</h3>
-                                    <span id="chatActiveDesilBadge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:2px 8px; border-radius:12px; font-size:0.7rem; font-weight:800;">Desil 1</span>
-                                    <span id="chatActiveStatusBadge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; padding:2px 8px; border-radius:12px; font-size:0.7rem; font-weight:800;">DITETAPKAN</span>
+                            <div style="min-width:0; flex:1; display:flex; flex-direction:column; justify-content:center; overflow:hidden;">
+                                <div style="display:flex; align-items:center; gap:6px; overflow:hidden; white-space:nowrap;">
+                                    <h3 id="chatActiveNameDisplay" style="margin:0; font-size:0.95rem; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:240px;" title="Nama Warga">Pilih Warga</h3>
+                                    <span id="chatActiveDesilBadge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:1px 7px; border-radius:10px; font-size:0.68rem; font-weight:800; flex-shrink:0; white-space:nowrap;">Desil 1</span>
+                                    <span id="chatActiveStatusBadge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; padding:1px 7px; border-radius:10px; font-size:0.68rem; font-weight:800; flex-shrink:0; white-space:nowrap;">DITETAPKAN</span>
                                 </div>
-                                <div style="font-size:0.76rem; color:#64748b; margin-top:2px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                    <span><i class="fas fa-id-card text-muted"></i> <span id="chatActiveNikDisplay" style="font-family:monospace; font-weight:700; color:#0f172a;">-</span></span>
+                                <div style="font-size:0.72rem; color:#64748b; margin-top:2px; display:flex; align-items:center; gap:6px; overflow:hidden; white-space:nowrap;">
+                                    <span style="flex-shrink:0;"><i class="fas fa-id-card text-muted"></i> <span id="chatActiveNikDisplay" style="font-family:monospace; font-weight:700; color:#0f172a;">-</span></span>
                                     <span>&bull;</span>
-                                    <span id="chatActiveAlamatDisplay" style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Sidoarjo</span>
+                                    <span id="chatActiveAlamatDisplay" style="max-width:120px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:1;">Sidoarjo</span>
                                     <span>&bull;</span>
-                                    <span style="color:#009846; font-weight:700;"><i class="fas fa-shield-alt"></i> Ditangani: <b id="chatActiveHandlerDisplay">PETUGAS</b></span>
+                                    <span style="color:#009846; font-weight:700; white-space:nowrap; flex-shrink:0;"><i class="fas fa-shield-alt"></i> Ditangani: <b id="chatActiveHandlerDisplay">PETUGAS</b></span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- TOMBOL AKSI CEPAT DI HEADER CHAT -->
-                        <div style="display:flex; gap:8px; align-items:center;" id="chatHeaderActions">
-                            <!-- TOMBOL PUSAT LAPORAN PELANGGARAN KESELURUHAN -->
-                            <button type="button" onclick="window.bukaModalLaporanPelanggaranKeseluruhan()" class="btn btn-sm" style="background:#fef2f2; color:#dc2626; border:1px solid #fecaca; border-radius:12px; font-weight:800; padding:6px 12px; font-size:0.78rem; display:inline-flex; align-items:center; gap:6px;" title="Pusat Moderasi & Rekapitulasi Pelanggaran Seluruh Chat">
-                                <i class="fas fa-shield-alt text-danger"></i> <span class="d-none d-md-inline">Pelanggaran</span> <span id="headerViolationCountBadge" class="badge bg-danger" style="font-size:0.65rem; border-radius:10px; padding:2px 6px;">0</span>
+                        <!-- TOMBOL AKSI CEPAT DI HEADER CHAT (KANAN: RAPI, TERTATA, TIDAK BERTUMPUK) -->
+                        <div style="display:flex; gap:6px; align-items:center; flex-shrink:0; margin-left:auto;" id="chatHeaderActions">
+                            <!-- TOMBOL PANGGILAN SUARA WEBRTC -->
+                            <button type="button" id="btnHeaderCallAudio" onclick="window.startCallWarga('audio')" class="btn btn-sm" style="background:#009846; color:#ffffff; border:none; border-radius:18px; font-weight:800; padding:6px 13px; font-size:0.76rem; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 6px rgba(0,152,70,0.25); cursor:pointer; flex-shrink:0; white-space:nowrap;" title="Panggilan Suara Langsung ke Warga">
+                                <i class="fas fa-phone-alt"></i> <span>Telepon</span>
                             </button>
 
-                            <!-- TOMBOL SELESAIKAN LAPORAN PENGADUAN WARGA -->
-                            <button type="button" onclick="window.selesaikanAduanDariChat()" class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #6ee7b7; border-radius:12px; font-weight:800; padding:6px 12px; font-size:0.78rem; display:inline-flex; align-items:center; gap:6px;" title="Selesaikan Laporan Pengaduan Warga Ini">
-                                <i class="fas fa-check-circle text-success"></i> <span class="d-none d-md-inline">Selesaikan Laporan</span>
+                            <!-- TOMBOL VIDEO CALL WEBRTC -->
+                            <button type="button" id="btnHeaderCallVideo" onclick="window.startCallWarga('video')" class="btn btn-sm" style="background:#0284c7; color:#ffffff; border:none; border-radius:18px; font-weight:800; padding:6px 13px; font-size:0.76rem; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 6px rgba(2,132,199,0.25); cursor:pointer; flex-shrink:0; white-space:nowrap;" title="Panggilan Video Call Langsung ke Warga">
+                                <i class="fas fa-video"></i> <span>Video Call</span>
                             </button>
 
-                            <!-- TOMBOL BUKA PROFIL LENGKAP WARGA -->
-                            <button type="button" onclick="window.bukaProfilWargaChat()" class="btn btn-sm" style="background:#f8fafc; color:#1e293b; border:1px solid #cbd5e1; border-radius:12px; font-weight:700; padding:6px 12px; font-size:0.78rem; display:inline-flex; align-items:center; gap:6px;" title="Lihat Profil Lengkap & Kriteria SPK Warga">
-                                <i class="fas fa-user-circle text-primary"></i> <span class="d-none d-md-inline">Profil Warga</span>
+                            <!-- TOMBOL SELESAIKAN LAPORAN PENGADUAN WARGA (HANYA MUNCUL JIKA WARGA MELAPORKAN MASALAH) -->
+                            <button type="button" id="btnHeaderSelesaikanLaporan" onclick="window.selesaikanAduanDariChat()" class="btn btn-sm" style="display:none; background:#ecfdf5; color:#059669; border:1px solid #6ee7b7; border-radius:18px; font-weight:800; padding:6px 11px; font-size:0.74rem; align-items:center; gap:4px; flex-shrink:0; white-space:nowrap; box-shadow:0 2px 4px rgba(5,150,105,0.1); cursor:pointer;" title="Selesaikan Laporan Pengaduan Warga Ini">
+                                <i class="fas fa-check-circle text-success"></i> <span>Selesaikan Laporan</span>
                             </button>
 
                             <!-- TOMBOL CARI DALAM CHAT -->
-                            <button type="button" onclick="window.toggleChatInlineSearch()" class="btn btn-sm" style="background:#f8fafc; color:#1e293b; border:1px solid #cbd5e1; border-radius:12px; font-weight:700; padding:6px 10px; font-size:0.78rem;" title="Cari Pesan">
+                            <button type="button" onclick="window.toggleChatInlineSearch()" class="btn btn-sm" style="background:#f8fafc; color:#475569; border:1px solid #cbd5e1; border-radius:50%; width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; font-size:0.78rem; cursor:pointer; flex-shrink:0;" title="Cari Pesan dalam Obrolan Ini">
                                 <i class="fas fa-search"></i>
                             </button>
 
-                            <!-- PANGGILAN AUDIO & VIDEO WEBRTC -->
-                            <button type="button" onclick="window.startCallWarga ? window.startCallWarga('audio') : null" class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:12px; font-weight:700; padding:6px 12px; font-size:0.78rem; display:inline-flex; align-items:center; gap:6px;">
-                                <i class="fas fa-phone-alt"></i> <span class="d-none d-md-inline">Suara</span>
-                            </button>
-                            <button type="button" onclick="window.startCallWarga ? window.startCallWarga('video') : null" class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; border-radius:12px; font-weight:700; padding:6px 12px; font-size:0.78rem; display:inline-flex; align-items:center; gap:6px;">
-                                <i class="fas fa-video"></i> <span class="d-none d-md-inline">Video</span>
-                            </button>
-
-                            <!-- MENU TITIK TIGA HEADER -->
-                            <div class="chat-action-menu">
-                                <button type="button" class="chat-action-btn" onclick="window.toggleChatActionDropdown(event)" title="Opsi Obrolan Lainnya">
+                            <!-- MENU TITIK TIGA HEADER (OPSI LENGKAP: PROFIL, PELANGGARAN, GEOTAG, DLL) -->
+                            <div class="chat-action-menu" style="flex-shrink:0;">
+                                <button type="button" class="chat-action-btn" onclick="window.toggleChatActionDropdown(event)" style="width:32px; height:32px; border-radius:50%; border:1px solid #cbd5e1; background:#f8fafc; color:#475569; display:flex; align-items:center; justify-content:center; cursor:pointer;" title="Menu Opsi Lainnya">
                                     <i class="fas fa-ellipsis-v"></i>
                                 </button>
                                 <div class="chat-dropdown-content" id="chatActionDropdown" onclick="event.stopPropagation()">
+                                    <button type="button" onclick="window.bukaProfilWargaChat()"><i class="fas fa-user-circle text-primary"></i> Lihat Profil Lengkap Warga</button>
+                                    <button type="button" onclick="window.bukaModalLaporanPelanggaranKeseluruhan()" style="color:#dc2626; font-weight:700;"><i class="fas fa-shield-alt text-danger"></i> Pusat Moderasi & Pelanggaran Chat (<span id="headerViolationCountBadge">0</span>)</button>
                                     <button type="button" onclick="window.tarikLokasiGeotagWarga()" style="color:#0284c7; font-weight:700;"><i class="fas fa-map-marked-alt text-primary"></i> Tarik Lokasi Arsip Geotagging</button>
-                                    <button type="button" onclick="window.bukaModalLaporanPelanggaranKeseluruhan()" style="color:#dc2626; font-weight:700;"><i class="fas fa-shield-alt text-danger"></i> Pusat Pelanggaran Seluruh Chat</button>
-                                    <button type="button" onclick="window.selesaikanAduanDariChat()" style="color:#059669; font-weight:700;"><i class="fas fa-check-circle text-success"></i> Selesaikan Laporan Warga</button>
                                     <button type="button" onclick="window.quickSwitchPetugas()"><i class="fas fa-exchange-alt text-primary"></i> Alihkan Petugas Penangan</button>
                                     <button type="button" onclick="window.bukaModalLaporRiwayat()"><i class="fas fa-shield-virus text-warning"></i> Teruskan ke Pusat Investigasi</button>
                                     <button type="button" onclick="window.exportRiwayatChatTxt()"><i class="fas fa-file-download text-success"></i> Ekspor Riwayat Chat (.txt)</button>
@@ -3696,6 +3822,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="static/js/core/modern-notifications.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     <script>
@@ -3718,6 +3845,7 @@
     <!-- Global & Core State -->
     <script src="static/js/global.js"></script>
     <script src="static/js/core/logo-base64.js"></script>
+    <script src="static/js/core/realtime-client.js"></script>
 
     <!-- Modul Fitur Terdedikasi & Modularisasi Admin -->
     <script src="static/js/modules/admin-map.js"></script>
@@ -3736,6 +3864,7 @@
     <script src="static/js/modules/camera-manager.js"></script>
     <script src="static/js/modules/google-workspace.js"></script>
     <script src="static/js/modules/admin-security.js"></script>
+    <script src="static/js/modules/admin-eskalasi-superadmin.js"></script>
 
     <!-- Orchestrator Utama Dasbor -->
     <script src="static/js/admin.js"></script>

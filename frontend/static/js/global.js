@@ -278,12 +278,18 @@ function safeHtml(str) {
 
 function showToast(icon = 'success', title = 'Berhasil!') {
     if (typeof Swal !== 'undefined') {
+        if (icon === 'success' && typeof window.playSuccessChime === 'function') {
+            window.playSuccessChime();
+        }
         const Toast = Swal.mixin({
             toast: true,
             position: 'top-end',
             showConfirmButton: false,
             timer: 3000,
-            timerProgressBar: true
+            timerProgressBar: true,
+            customClass: {
+                popup: icon === 'success' ? 'swal-toast-modern-success swal2-toast' : 'swal2-toast'
+            }
         });
         Toast.fire({ icon, title });
     } else {
@@ -467,6 +473,7 @@ window.showModernLoadingAlert = function (options = {}) {
         },
         didOpen: (popup) => {
             const suppressNativeLoader = () => {
+                if (!popup || !popup.classList.contains('swal-modern-loading-card')) return;
                 const nativeLoader = popup.querySelector('.swal2-loader');
                 if (nativeLoader) {
                     nativeLoader.style.setProperty('display', 'none', 'important');
@@ -602,7 +609,9 @@ const Global = {
     openModal: window.openModal,
     closeModal: window.closeModal,
     applyCustomRoundedDropdowns,
-    showModernLoadingAlert: window.showModernLoadingAlert
+    showModernLoadingAlert: window.showModernLoadingAlert,
+    showModernSuccessPanel: (cfg, msg, opts) => window.showModernSuccessPanel?.(cfg, msg, opts),
+    showSuccessPopup: (cfg, msg, opts) => window.showSuccessPopup?.(cfg, msg, opts)
 };
 
 window.Global = Global;
@@ -615,6 +624,7 @@ window.fetchWithAuth = fetchWithAuth;
 window.formatRupiah = formatRupiah;
 window.formatDateIndo = formatDateIndo;
 window.showToast = showToast;
+window.showModernToast = (t, m, o) => (window.showModernToast ? window.showModernToast(t, m, o) : showToast('success', t));
 window.safeHtml = safeHtml;
 window.formatAudioTime = formatAudioTime;
 window.formatTimeDuration = formatAudioTime;

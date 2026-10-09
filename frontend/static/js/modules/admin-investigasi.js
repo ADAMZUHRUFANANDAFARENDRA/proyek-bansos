@@ -149,6 +149,90 @@ window.selesaikanLaporanAduan = async function (id, nik, nama) {
     }
 };
 
+// =========================================================================
+// ESKALASI ADUAN KE SUPER ADMIN (MEKANISME TERHUBUNG ADMIN BANSOS <-> SUPER ADMIN)
+// =========================================================================
+window.eskalasikanKeSuperAdmin = async function (id, nik, nama) {
+    const { value: formValues } = await Swal.fire({
+        title: '🛡️ Teruskan Aduan ke Super Admin',
+        html: `
+            <div style="text-align:left; font-size:0.86rem; color:#475569; margin-bottom:12px;">
+                Eskalasi investigasi kode & audit data untuk warga:
+                <div style="font-weight:800; color:#0f172a; margin-top:2px;">${window.safeHtml(nama)} (${nik})</div>
+            </div>
+            <div style="text-align:left; margin-bottom:10px;">
+                <label style="font-size:0.8rem; font-weight:700; color:#334155; display:block; margin-bottom:4px;">Kategori Alasan Eskalasi:</label>
+                <select id="swalAlasanEskalasi" style="width:100%; padding:8px 12px; border-radius:10px; border:1px solid #cbd5e1; font-size:0.85rem;">
+                    <option value="Anomali Algoritma / Perhitungan Skor SAW">Anomali Algoritma / Perhitungan Skor SAW</option>
+                    <option value="Dugaan Duplikasi / Sengketa NIK & Keluarga">Dugaan Duplikasi / Sengketa NIK & Keluarga</option>
+                    <option value="Ketidaksesuaian Kuota Bansos & Rekapitulasi Wilayah">Ketidaksesuaian Kuota Bansos & Rekapitulasi Wilayah</option>
+                    <option value="Investigasi Log Keamanan & Audit Siber Data Warga">Investigasi Log Keamanan & Audit Siber Data Warga</option>
+                    <option value="Lainnya (Perlu Putusan Tingkat Lanjut Developer)">Lainnya (Perlu Putusan Tingkat Lanjut Developer)</option>
+                </select>
+            </div>
+            <div style="text-align:left; margin-bottom:10px;">
+                <label style="font-size:0.8rem; font-weight:700; color:#334155; display:block; margin-bottom:4px;">Tingkat Urgensi Masalah:</label>
+                <select id="swalUrgensiEskalasi" style="width:100%; padding:8px 12px; border-radius:10px; border:1px solid #cbd5e1; font-size:0.85rem;">
+                    <option value="Tinggi" selected>Tinggi (Butuh Investigasi Cepat)</option>
+                    <option value="Kritis">Kritis (Mendesak / Sengketa Penyaluran)</option>
+                    <option value="Sedang">Sedang (Audit Rutin Kode & Aturan)</option>
+                </select>
+            </div>
+            <div style="text-align:left;">
+                <label style="font-size:0.8rem; font-weight:700; color:#334155; display:block; margin-bottom:4px;">Catatan Analisis Awal Admin Bansos:</label>
+                <textarea id="swalCatatanAdminEskalasi" placeholder="Jelaskan temuan awal atau alasan membutuhkan audit Super Admin..." style="width:100%; height:75px; padding:8px 12px; border-radius:10px; border:1px solid #cbd5e1; font-size:0.85rem; font-family:inherit;">Mohon dilakukan audit kode pada formula perhitungan SAW dan verifikasi status kelayakan NIK ini.</textarea>
+            </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Kirim Eskalasi ke Super Admin',
+        confirmButtonColor: '#dc2626',
+        cancelButtonText: 'Batal',
+        preConfirm: () => {
+            const alasan = document.getElementById('swalAlasanEskalasi')?.value;
+            const urgensi = document.getElementById('swalUrgensiEskalasi')?.value;
+            const catatan = document.getElementById('swalCatatanAdminEskalasi')?.value.trim();
+            if (!catatan) {
+                Swal.showValidationMessage('Mohon isi catatan analisis awal sebelum meneruskan.');
+                return false;
+            }
+            return { alasan, urgensi, catatan };
+        }
+    });
+
+    if (formValues) {
+        try {
+            const currentHandler = (localStorage.getItem('username') || 'Admin Bansos').toUpperCase();
+            const res = await fetch(`${window.BASE_URL}/api/investigasi/eskalasikan`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: id,
+                    nik: nik,
+                    alasan_eskalasi: formValues.alasan,
+                    urgensi_eskalasi: formValues.urgensi,
+                    catatan_admin: formValues.catatan,
+                    petugas: `Admin Bansos (${currentHandler})`
+                })
+            });
+
+            if (res.ok) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Aduan Berhasil Diteruskan!',
+                    html: `Tiket aduan <b>${window.safeHtml(nama)}</b> telah diteruskan ke <b>Super Admin (Developer)</b>.<br><br>Super Admin akan meneliti kode SPK, log basis data, dan memberikan rekomendasi teknis yang akan langsung muncul di panel ini.`,
+                    confirmButtonColor: '#009846'
+                });
+                window.loadLaporanChatData();
+            } else {
+                Swal.fire('Error', 'Gagal meneruskan laporan ke Super Admin.', 'error');
+            }
+        } catch (e) {
+            Swal.fire('Error', 'Koneksi terputus saat eskalasi.', 'error');
+        }
+    }
+};
+
 window.ubahTahapAduan = async function (id, nik) {
     const { value: tahap } = await Swal.fire({
         title: 'Ubah Tahapan Investigasi',
@@ -187,6 +271,8 @@ window.ubahTahapAduan = async function (id, nik) {
 function renderLaporanChat(data) {
     const container = document.getElementById('laporanChatList');
     if (!container) return;
+
+    const prevScrollTop = container.scrollTop;
 
     if (!Array.isArray(data) || data.length === 0) {
         container.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8; font-size:0.9rem;"><i class="fas fa-clipboard-check fa-3x" style="opacity:0.3; margin-bottom:10px; display:block;"></i>Tidak ada laporan yang sesuai kriteria pencarian.</div>';
@@ -231,17 +317,57 @@ function renderLaporanChat(data) {
                 </div>
 
                 ${item.catatan_petugas ? `
-                    <div style="background:#eff6ff; padding:10px 14px; border-radius:12px; font-size:0.82rem; color:#1e40af; margin-bottom:14px; border-left:4px solid #3b82f6;">
+                    <div style="background:#eff6ff; padding:10px 14px; border-radius:12px; font-size:0.82rem; color:#1e40af; margin-bottom:12px; border-left:4px solid #3b82f6;">
                         <b><i class="fas fa-user-shield"></i> Tindak Lanjut Petugas:</b> ${window.safeHtml(item.catatan_petugas)}
+                    </div>
+                ` : ''}
+
+                <!-- KOTAK ESKALASI DAN PUTUSAN SUPER ADMIN (TERHUBUNG LANGSUNG) -->
+                ${item.eskalasi_ke_superadmin ? `
+                    <div style="background:#fef2f2; border:1.5px solid #fecaca; border-radius:14px; padding:12px 14px; margin-bottom:12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                            <span style="font-weight:800; color:#b91c1c; font-size:0.82rem;">
+                                <i class="fas fa-shield-alt"></i> DITERUSKAN KE SUPER ADMIN (DEVELOPER)
+                            </span>
+                            <span style="background:#fee2e2; color:#dc2626; font-weight:800; font-size:0.72rem; padding:2px 8px; border-radius:6px; border:1px solid #fca5a5;">
+                                Urgensi: ${item.urgensi_eskalasi || 'Tinggi'}
+                            </span>
+                        </div>
+                        <div style="font-size:0.8rem; color:#475569; margin-top:4px;">
+                            <b>Alasan:</b> ${window.safeHtml(item.alasan_eskalasi || '-')}
+                            <span style="color:#94a3b8; font-size:0.75rem;">&bull; Diteruskan oleh: ${window.safeHtml(item.diteruskan_oleh || 'Admin Bansos')} (${item.waktu_eskalasi || ''})</span>
+                        </div>
+                        ${item.putusan_superadmin ? `
+                            <div style="background:#ffffff; border:1.5px solid #86efac; border-radius:10px; padding:10px 12px; margin-top:8px; box-shadow:0 2px 6px rgba(22,101,52,0.06);">
+                                <div style="font-weight:800; color:#166534; font-size:0.82rem; display:flex; align-items:center; gap:6px;">
+                                    <i class="fas fa-check-circle text-emerald-600"></i> Rekomendasi & Putusan Super Admin:
+                                </div>
+                                <div style="font-size:0.84rem; color:#1e293b; margin-top:4px; font-weight:600; line-height:1.4;">
+                                    ${window.safeHtml(item.putusan_superadmin)}
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b; margin-top:4px;">
+                                    <i class="fas fa-code"></i> Audit Teknis: ${window.safeHtml(item.audit_kode_terkait || '-')} &bull; ${item.waktu_putusan_superadmin || ''}
+                                </div>
+                            </div>
+                        ` : `
+                            <div style="font-size:0.76rem; color:#dc2626; margin-top:6px; font-weight:600; display:flex; align-items:center; gap:6px;">
+                                <i class="fas fa-spinner fa-spin"></i> Menunggu audit kode dan investigasi dari Super Admin...
+                            </div>
+                        `}
                     </div>
                 ` : ''}
 
                 <!-- ACTIONS DOCK RESMI -->
                 <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #f1f5f9; padding-top:12px; flex-wrap:wrap; gap:10px;">
-                    <div style="display:flex; gap:8px;">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
                         <button type="button" onclick="window.ubahTahapAduan('${item.id}', '${item.nik}')" class="btn btn-sm btn-secondary" style="border-radius:14px; font-weight:700; font-size:0.75rem; padding:6px 12px;" title="Ubah Tahapan Penanganan">
                             <i class="fas fa-tasks text-primary"></i> Ubah Tahapan
                         </button>
+                        ${!isSelesai && !item.eskalasi_ke_superadmin ? `
+                            <button type="button" onclick="window.eskalasikanKeSuperAdmin('${item.id}', '${item.nik}', '${window.escapeInlineJS(item.nama)}')" class="btn btn-sm" style="background:#fef2f2; color:#dc2626; border:1px solid #fca5a5; border-radius:14px; font-weight:800; font-size:0.75rem; padding:6px 12px;" title="Teruskan ke Super Admin untuk audit kode & data">
+                                <i class="fas fa-share text-red-600"></i> Teruskan ke Super Admin 🛡️
+                            </button>
+                        ` : ''}
                         <button type="button" onclick="window.panggilWargaDariAduan('${item.nik}', 'audio')" class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:14px; font-weight:700; font-size:0.75rem; padding:6px 12px;">
                             <i class="fas fa-phone-alt"></i> Telepon
                         </button>
@@ -268,6 +394,8 @@ function renderLaporanChat(data) {
             </div>
         `;
     }).join('');
+
+    container.scrollTop = prevScrollTop;
 }
 
 window.filterInvestigasi = function (filterType, btn) {

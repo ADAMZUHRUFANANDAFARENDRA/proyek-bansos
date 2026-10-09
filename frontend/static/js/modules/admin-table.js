@@ -70,8 +70,27 @@ window.filterAndRenderData = function () {
 
     if (window.currentFilter === 'layak') {
         filtered = filtered.filter(w => w.is_verified && ((w.desil || 5) <= 4));
+    } else if (window.currentFilter === 'proses' || window.currentFilter === 'sedang_proses' || window.currentFilter === 'disalurkan') {
+        filtered = filtered.filter(w => {
+            // 1. Yang TIDAK menerima bansos (Desil > 4 atau status_bansos 'Tidak Menerima' atau bukan kuota bansos) -> TIDAK MASUK
+            const isMenerimaBansos = ((w.desil || 5) <= 4 || w.is_layak || w.status_bansos === 'Menerima Bansos' || w.status_bansos === 'Layak Bansos') &&
+                                    w.status_bansos !== 'Tidak Menerima';
+            if (!isMenerimaBansos) return false;
+
+            // 2. Bansos yang SUDAH DITERIMA -> TIDAK MASUK
+            const sudahDiterima = w.status_salur === 'Telah Menerima' ||
+                                  w.status_salur === 'Sudah Diterima' ||
+                                  Boolean(w.konfirmasi_warga);
+            if (sudahDiterima) return false;
+
+            // 3. Status bermasalah / sengketa -> TIDAK MASUK (masuk ke filter Bermasalah)
+            if (String(w.status_salur || '').toLowerCase().includes('sengketa')) return false;
+
+            // 4. Sisanya adalah warga yang bansosnya SEDANG PROSES PENYALURAN
+            return true;
+        });
     } else if (window.currentFilter === 'menerima') {
-        filtered = filtered.filter(w => w.status_salur === 'Telah Menerima');
+        filtered = filtered.filter(w => w.status_salur === 'Telah Menerima' || w.status_salur === 'Sudah Diterima' || Boolean(w.konfirmasi_warga));
     } else if (window.currentFilter === 'bermasalah') {
         filtered = filtered.filter(w => String(w.status_salur || '').includes('Sengketa') || !w.is_verified);
     }
@@ -182,13 +201,17 @@ window.renderTable = function (data) {
             : '';
 
         let statusSalurBadge = '';
-        const isDisalurkan = w.status_salur === 'Disalurkan' || w.status_salur === 'Telah Menerima' || Boolean(w.bukti_salur);
-        if (w.status_salur === 'Telah Menerima') {
+        const isMenerimaBansosRow = ((w.desil || 5) <= 4 || w.is_layak || w.status_bansos === 'Menerima Bansos' || w.status_bansos === 'Layak Bansos') && w.status_bansos !== 'Tidak Menerima';
+        const isDisalurkan = w.status_salur === 'Disalurkan' || w.status_salur === 'Sedang Proses' || w.status_salur === 'Telah Menerima' || Boolean(w.bukti_salur);
+
+        if (w.status_salur === 'Telah Menerima' || w.status_salur === 'Sudah Diterima' || Boolean(w.konfirmasi_warga)) {
             statusSalurBadge = `<span class="badge badge-blue" style="font-size:0.7rem; margin-top:3px; font-weight:800;"><i class="fas fa-check-double"></i> Telah Menerima (Dikonfirmasi Warga)</span>`;
-        } else if (w.status_salur === 'Disalurkan' || Boolean(w.bukti_salur)) {
-            statusSalurBadge = `<span class="badge" style="background:#ecfdf5; color:#065f46; border:1px solid #6ee7b7; font-size:0.7rem; margin-top:3px; font-weight:800;"><i class="fas fa-truck text-emerald-600"></i> Disalurkan (Menunggu Konfirmasi Warga)</span>`;
-        } else if (String(w.status_salur || '').includes('Sengketa')) {
+        } else if (String(w.status_salur || '').toLowerCase().includes('sengketa')) {
             statusSalurBadge = `<span class="badge badge-red" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-exclamation-triangle"></i> Sengketa</span>`;
+        } else if (isDisalurkan) {
+            statusSalurBadge = `<span class="badge" style="background:#ecfdf5; color:#065f46; border:1px solid #6ee7b7; font-size:0.7rem; margin-top:3px; font-weight:800;"><i class="fas fa-truck text-emerald-600"></i> Sedang Proses Penyaluran (Menunggu Konfirmasi Warga)</span>`;
+        } else if (isMenerimaBansosRow) {
+            statusSalurBadge = `<span class="badge" style="background:#fffbeb; color:#b45309; border:1px solid #fde68a; font-size:0.7rem; margin-top:3px; font-weight:700;"><i class="fas fa-hourglass-half text-amber-500"></i> Sedang Proses Penyaluran</span>`;
         }
 
         const isSengketa = String(w.status_salur || '').toLowerCase().includes('sengketa') || 
@@ -211,9 +234,10 @@ window.renderTable = function (data) {
             btnKamera = `<button onclick="window.bukaUploadBuktiSalur(${w.id})" class="btn btn-sm" style="padding:5px 9px; background:#dcfce7; color:#15803d; border-radius:6px; margin-right:3px; border:1px solid #86efac;" title="Unggah Bukti & Keterangan Penyaluran"><i class="fas fa-camera"></i></button>`;
         }
 
-        const currentRole = (localStorage.getItem('role') || user?.role || 'operator').toLowerCase();
-        const btnDelete = currentRole === 'admin'
-            ? `<button onclick="window.hapusData(${w.id})" class="btn" style="padding:5px 8px; background:#ef4444; color:white; font-size:0.8rem; border-radius:6px;" title="Hapus Data"><i class="fas fa-trash"></i></button>`
+        const currentRole = (localStorage.getItem('role') || (window.currentUser && window.currentUser.role) || user?.role || 'admin').toLowerCase();
+        const canDelete = currentRole.includes('admin') || currentRole === 'developer' || currentRole === 'super_admin' || currentRole === 'petugas';
+        const btnDelete = canDelete
+            ? `<button onclick="window.hapusData('${w.id}', '${w.nik}')" class="btn" style="padding:5px 8px; background:#ef4444; color:white; font-size:0.8rem; border-radius:6px;" title="Hapus Data"><i class="fas fa-trash"></i></button>`
             : '';
 
         const ttlText = (w.tempat_lahir || w.tanggal_lahir) ? `${w.tempat_lahir || 'Sidoarjo'}, ${w.tanggal_lahir || '-'}` : '-';
@@ -250,7 +274,20 @@ window.renderTable = function (data) {
 
     tbody.innerHTML = html;
 
-    // Render juga tampilan Layout Card Warga
+    // Simpan referensi data terakhir yang terfilter
+    window.lastFilteredWargaData = data;
+
+    const currentLenVal = window.currentTablePageLength || '10';
+    const currentLen = (currentLenVal === 'all' || currentLenVal === '-1' || currentLenVal === -1) 
+        ? -1 
+        : (parseInt(currentLenVal, 10) || 10);
+
+    const selLimit = document.getElementById('selectDataLimit');
+    if (selLimit && selLimit.value !== String(currentLenVal)) {
+        selLimit.value = String(currentLenVal);
+    }
+
+    // Render juga tampilan Layout Card Warga dengan data terfilter yang sama
     if (typeof window.renderWargaCards === 'function') {
         window.renderWargaCards(data);
     }
@@ -260,12 +297,18 @@ window.renderTable = function (data) {
             dtTable = $('#dataTable').DataTable({
                 destroy: true,
                 retrieve: true,
-                pageLength: 10,
+                pageLength: currentLen,
+                lengthMenu: [
+                    [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, -1],
+                    ['5 Data', '10 Data', '15 Data', '20 Data', '25 Data', '30 Data', '35 Data', '40 Data', '45 Data', '50 Data', 'Semuanya']
+                ],
                 responsive: true,
                 order: [],
+                dom: '<"dataTables_controls_bar"lf>rt<"dataTables_bottom_bar"ip>',
                 language: {
                     search: "Cari NIK/Nama:",
-                    lengthMenu: "_MENU_ baris",
+                    searchPlaceholder: "Ketik NIK atau Nama warga...",
+                    lengthMenu: "Tampilkan: _MENU_",
                     info: "Menampilkan _START_ s.d. _END_ dari _TOTAL_ warga",
                     infoEmpty: "Menampilkan 0 warga",
                     zeroRecords: "Data warga tidak ditemukan",
@@ -273,30 +316,100 @@ window.renderTable = function (data) {
                     paginate: { next: "→", previous: "←" }
                 }
             });
+
+            // Sinkronkan saat user mengubah panjang baris langsung dari DataTables
+            $('#dataTable').off('length.dt').on('length.dt', function (e, settings, len) {
+                const valStr = (len === -1) ? 'all' : String(len);
+                window.currentTablePageLength = valStr;
+                if (window.currentWargaViewMode === 'card') {
+                    window.renderWargaCards(window.lastFilteredWargaData || window.globalDataWarga || []);
+                }
+            });
+
+            // Sinkronkan pencarian NIK/Nama saat user berada pada mode Layout Card
+            $('#dataTable').off('search.dt').on('search.dt', function () {
+                if (window.currentWargaViewMode === 'card') {
+                    try {
+                        const dt = $('#dataTable').DataTable();
+                        const searchVal = String(dt.search() || '').trim().toLowerCase();
+                        const currentData = window.lastFilteredWargaData || window.globalDataWarga || [];
+                        if (!searchVal) {
+                            window.renderWargaCards(currentData);
+                        } else {
+                            const filtered = currentData.filter(w => 
+                                String(w.nik || '').toLowerCase().includes(searchVal) ||
+                                String(w.nama || '').toLowerCase().includes(searchVal) ||
+                                String(w.alamat || '').toLowerCase().includes(searchVal)
+                            );
+                            window.renderWargaCards(filtered);
+                        }
+                    } catch (_) {}
+                }
+            });
         } catch (e) {
             console.warn('[DataTable] Gagal inisialisasi tabel:', e);
         }
+    }
+
+    // Pastikan status tampilan yang aktif (Tabel vs Card) tidak reset mendadak saat render ulang
+    const tableEl = document.getElementById('dataTable');
+    const tableBottom = document.querySelector('.dataTables_bottom_bar');
+    const cardWrap = document.getElementById('wargaCardGridWrapper');
+    if (window.currentWargaViewMode === 'card') {
+        if (tableEl) tableEl.style.display = 'none';
+        if (tableBottom) tableBottom.style.display = 'none';
+        if (cardWrap) cardWrap.style.display = 'block';
+    } else {
+        if (tableEl) tableEl.style.display = '';
+        if (tableBottom) tableBottom.style.display = '';
+        if (cardWrap) cardWrap.style.display = 'none';
+    }
+};
+
+// Pengaturan jumlah data yang ditampilkan pada tabel & card layout
+window.currentTablePageLength = '10';
+
+window.setTablePageLength = function (val) {
+    window.currentTablePageLength = String(val);
+    const num = (val === 'all' || val === '-1' || val === -1) ? -1 : parseInt(val, 10);
+
+    if (typeof $ !== 'undefined' && $.fn && $.fn.DataTable && $.fn.DataTable.isDataTable('#dataTable')) {
+        try {
+            $('#dataTable').DataTable().page.len(num).draw();
+        } catch (e) {
+            console.warn('[DataTable] Gagal mengubah batas tampilan tabel:', e);
+        }
+    }
+
+    window.cardCurrentPage = 1;
+    if (typeof window.renderWargaCards === 'function') {
+        window.renderWargaCards(window.lastFilteredWargaData || window.globalDataWarga || []);
     }
 };
 
 window.currentWargaViewMode = 'table';
 window.toggleWargaViewMode = function (mode) {
     window.currentWargaViewMode = mode;
-    const tableWrap = document.getElementById('wargaTableWrapper');
+    const tableEl = document.getElementById('dataTable');
+    const tableBottom = document.querySelector('.dataTables_bottom_bar');
     const cardWrap = document.getElementById('wargaCardGridWrapper');
     const btnTable = document.getElementById('btnViewModeTable');
     const btnCard = document.getElementById('btnViewModeCard');
 
     if (mode === 'card') {
-        if (tableWrap) tableWrap.style.display = 'none';
+        // Tampilan langsung beralih ke Layout Card dengan kontrol length & search tetap aktif di atas
+        if (tableEl) tableEl.style.display = 'none';
+        if (tableBottom) tableBottom.style.display = 'none';
         if (cardWrap) {
             cardWrap.style.display = 'block';
-            window.renderWargaCards(window.globalDataWarga || []);
+            window.renderWargaCards(window.lastFilteredWargaData || window.globalDataWarga || []);
         }
+
+        // Panel opsi "Layout Card" langsung berubah warna menjadi hijau mantap
         if (btnCard) {
             btnCard.style.setProperty('background', '#009846', 'important');
             btnCard.style.setProperty('color', '#ffffff', 'important');
-            btnCard.style.setProperty('box-shadow', '0 2px 8px rgba(0, 152, 70, 0.35)', 'important');
+            btnCard.style.setProperty('box-shadow', '0 2px 8px rgba(0, 152, 70, 0.4)', 'important');
             btnCard.classList.add('active');
         }
         if (btnTable) {
@@ -306,12 +419,16 @@ window.toggleWargaViewMode = function (mode) {
             btnTable.classList.remove('active');
         }
     } else {
-        if (tableWrap) tableWrap.style.display = 'block';
+        // Tampilan langsung beralih ke Tabel
+        if (tableEl) tableEl.style.display = '';
+        if (tableBottom) tableBottom.style.display = '';
         if (cardWrap) cardWrap.style.display = 'none';
+
+        // Panel opsi "Tabel" langsung berubah warna menjadi hijau mantap
         if (btnTable) {
             btnTable.style.setProperty('background', '#009846', 'important');
             btnTable.style.setProperty('color', '#ffffff', 'important');
-            btnTable.style.setProperty('box-shadow', '0 2px 8px rgba(0, 152, 70, 0.35)', 'important');
+            btnTable.style.setProperty('box-shadow', '0 2px 8px rgba(0, 152, 70, 0.4)', 'important');
             btnTable.classList.add('active');
         }
         if (btnCard) {
@@ -320,33 +437,64 @@ window.toggleWargaViewMode = function (mode) {
             btnCard.style.setProperty('box-shadow', 'none', 'important');
             btnCard.classList.remove('active');
         }
+        if (typeof $ !== 'undefined' && $.fn && $.fn.DataTable && $.fn.DataTable.isDataTable('#dataTable')) {
+            try {
+                $('#dataTable').DataTable().columns.adjust().responsive.recalc();
+            } catch (e) {}
+        }
     }
+};
+
+window.cardCurrentPage = 1;
+window.changeCardPage = function (delta) {
+    window.cardCurrentPage = (window.cardCurrentPage || 1) + delta;
+    window.renderWargaCards(window.lastFilteredWargaData || window.globalDataWarga || []);
 };
 
 window.renderWargaCards = function (data) {
     const cardContainer = document.getElementById('wargaCardsContainer');
+    const paginationWrap = document.getElementById('wargaCardPagination');
     if (!cardContainer) return;
 
-    if (!data || data.length === 0) {
+    if (!Array.isArray(data)) data = [];
+    window.lastFilteredWargaData = data;
+
+    if (data.length === 0) {
         cardContainer.innerHTML = `
             <div style="grid-column: 1 / -1; text-align:center; padding:40px; background:#f8fafc; border-radius:18px; border:1.5px dashed #cbd5e1;">
                 <i class="fas fa-folder-open text-muted" style="font-size:2.5rem; margin-bottom:10px;"></i>
                 <div style="font-weight:700; color:#475569;">Belum Ada Data Arsip Warga</div>
             </div>
         `;
+        if (paginationWrap) paginationWrap.style.display = 'none';
         return;
     }
 
-    const currentRole = (localStorage.getItem('role') || 'operator').toLowerCase();
+    const currentLenVal = window.currentTablePageLength || '10';
+    const isAll = (currentLenVal === 'all' || currentLenVal === '-1' || currentLenVal === -1);
+    const limit = isAll ? data.length : (parseInt(currentLenVal, 10) || 10);
+    const totalItems = data.length;
+    const totalPages = Math.ceil(totalItems / limit) || 1;
 
-    cardContainer.innerHTML = data.map(w => {
+    if (!window.cardCurrentPage || window.cardCurrentPage < 1) window.cardCurrentPage = 1;
+    if (window.cardCurrentPage > totalPages) window.cardCurrentPage = totalPages;
+
+    const startIdx = isAll ? 0 : (window.cardCurrentPage - 1) * limit;
+    const endIdx = isAll ? totalItems : Math.min(startIdx + limit, totalItems);
+    const displayData = data.slice(startIdx, endIdx);
+
+    const currentRole = (localStorage.getItem('role') || 'operator').toLowerCase();
+    const canDelete = currentRole.includes('admin') || currentRole === 'developer' || currentRole === 'super_admin' || currentRole === 'petugas';
+
+    cardContainer.innerHTML = displayData.map(w => {
         const isVerified = Boolean(w.is_verified);
         const desil = w.desil || 5;
         const isEligible = isVerified && desil <= 4;
-        const isDisalurkan = w.status_salur === 'Disalurkan' || w.status_salur === 'Telah Menerima' || Boolean(w.bukti_salur);
+        const isMenerimaBansosCard = ((w.desil || 5) <= 4 || w.is_layak || w.status_bansos === 'Menerima Bansos' || w.status_bansos === 'Layak Bansos') && w.status_bansos !== 'Tidak Menerima';
+        const isDisalurkan = w.status_salur === 'Disalurkan' || w.status_salur === 'Sedang Proses' || w.status_salur === 'Telah Menerima' || Boolean(w.bukti_salur);
 
         let statusSalurCard = '';
-        if (w.status_salur === 'Telah Menerima') {
+        if (w.status_salur === 'Telah Menerima' || w.status_salur === 'Sudah Diterima' || Boolean(w.konfirmasi_warga)) {
             statusSalurCard = `
                 <div style="background:#eff6ff; border:1.5px solid #93c5fd; border-radius:12px; padding:10px 14px; margin:10px 0; color:#1e40af; font-size:0.82rem; font-weight:800; display:flex; align-items:center; gap:8px;">
                     <i class="fas fa-check-double text-blue-600" style="font-size:1.1rem;"></i>
@@ -356,21 +504,21 @@ window.renderWargaCards = function (data) {
                     </div>
                 </div>
             `;
-        } else if (isDisalurkan) {
+        } else if (isDisalurkan || isMenerimaBansosCard) {
             statusSalurCard = `
                 <div style="background:#ecfdf5; border:1.5px solid #6ee7b7; border-radius:12px; padding:10px 14px; margin:10px 0; color:#065f46; font-size:0.82rem; font-weight:800; display:flex; align-items:center; gap:8px;">
                     <i class="fas fa-truck text-emerald-600" style="font-size:1.1rem;"></i>
                     <div>
-                        <div>Keterangan: Sudah Disalurkan (Menunggu Konfirmasi Warga)</div>
-                        <small style="font-size:0.72rem; color:#059669;">${window.safeHtml(w.keterangan_salur || 'Dokumentasi bukti penyaluran telah tercatat')}</small>
+                        <div>Keterangan: Sedang Proses Penyaluran ${Boolean(w.bukti_salur) ? '(Menunggu Konfirmasi Warga)' : ''}</div>
+                        <small style="font-size:0.72rem; color:#059669;">${window.safeHtml(w.keterangan_salur || 'Alokasi bantuan bansos sedang dalam proses penyaluran petugas')}</small>
                     </div>
                 </div>
             `;
         } else {
             statusSalurCard = `
                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:8px 12px; margin:10px 0; color:#64748b; font-size:0.8rem; display:flex; align-items:center; gap:8px;">
-                    <i class="fas fa-clock text-amber-500"></i>
-                    <div>Status Bansos: Belum Disalurkan</div>
+                    <i class="fas fa-minus-circle text-muted"></i>
+                    <div>Status Bansos: Tidak Menerima / Diluar Kuota</div>
                 </div>
             `;
         }
@@ -439,13 +587,44 @@ window.renderWargaCards = function (data) {
                     </div>
                     <div style="display:flex; gap:6px;">
                         ${btnSalur}
-                        <button onclick="window.bukaModalEdit(${w.id})" class="btn" style="padding:7px 10px; background:#fef3c7; color:#b45309; border-radius:10px; font-weight:700; font-size:0.8rem;" title="Edit Seluruh Data & Variabel"><i class="fas fa-edit"></i></button>
-                        ${currentRole === 'admin' ? `<button onclick="window.hapusData(${w.id})" class="btn" style="padding:7px 10px; background:#fee2e2; color:#dc2626; border-radius:10px; font-size:0.8rem;" title="Hapus Data"><i class="fas fa-trash"></i></button>` : ''}
+                        <button onclick="window.bukaModalEdit('${w.id}')" class="btn" style="padding:7px 10px; background:#fef3c7; color:#b45309; border-radius:10px; font-weight:700; font-size:0.8rem;" title="Edit Seluruh Data & Variabel"><i class="fas fa-edit"></i></button>
+                        ${canDelete ? `<button onclick="window.hapusData('${w.id}', '${w.nik}')" class="btn" style="padding:7px 10px; background:#fee2e2; color:#dc2626; border-radius:10px; font-size:0.8rem;" title="Hapus Data"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
                 </div>
             </div>
         `;
     }).join('');
+
+    // Render info bar dan tombol navigasi halaman mode kartu
+    if (paginationWrap) {
+        paginationWrap.style.display = 'flex';
+        const startNum = totalItems === 0 ? 0 : startIdx + 1;
+        const endNum = endIdx;
+
+        let navButtons = '';
+        if (!isAll && totalPages > 1) {
+            navButtons = `
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button type="button" onclick="window.changeCardPage(-1)" ${window.cardCurrentPage <= 1 ? 'disabled' : ''} class="btn btn-sm" style="border-radius:10px; font-weight:700; padding:6px 14px; background:#ffffff; border:1px solid #cbd5e1; color:#334155; cursor:${window.cardCurrentPage <= 1 ? 'not-allowed' : 'pointer'}; opacity:${window.cardCurrentPage <= 1 ? '0.5' : '1'};">
+                        <i class="fas fa-chevron-left"></i> Sebelumnya
+                    </button>
+                    <span style="font-size:0.82rem; font-weight:700; color:#475569; padding:0 6px;">
+                        Halaman <b>${window.cardCurrentPage}</b> dari <b>${totalPages}</b>
+                    </span>
+                    <button type="button" onclick="window.changeCardPage(1)" ${window.cardCurrentPage >= totalPages ? 'disabled' : ''} class="btn btn-sm" style="border-radius:10px; font-weight:700; padding:6px 14px; background:#ffffff; border:1px solid #cbd5e1; color:#334155; cursor:${window.cardCurrentPage >= totalPages ? 'not-allowed' : 'pointer'}; opacity:${window.cardCurrentPage >= totalPages ? '0.5' : '1'};">
+                        Selanjutnya <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            `;
+        }
+
+        paginationWrap.innerHTML = `
+            <div style="font-size:0.82rem; font-weight:700; color:#475569;">
+                Menampilkan <span style="color:#009846;">${startNum}</span> s.d. <span style="color:#009846;">${endNum}</span> dari <span style="color:#0f172a; font-weight:800;">${totalItems}</span> arsip warga (${isAll ? 'Semua Data' : `${limit} Data per tampilan`})
+            </div>
+            ${navButtons}
+        `;
+    }
 };
 
 window.hitungTotalVariabelWarga = function (w) {
@@ -635,7 +814,7 @@ window.toggleSelectAll = function (source) {
 window.logout = function () {
     localStorage.clear();
     sessionStorage.clear();
-    window.location.replace('login.html');
+    window.location.replace('login.html?logout=1');
 };
 
 window.exportSPKPDF = () => window.AdminPrint ? window.AdminPrint.cetakSKBupati() : (window.cetakSKBupati ? window.cetakSKBupati() : null);

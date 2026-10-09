@@ -18,11 +18,11 @@ router.get(['/init-kriteria', '/api/init-kriteria'], (_req: Request, res: Respon
   res.json({ status: 'success', data: kriteriaStore });
 });
 
-router.get(['/kriteria', '/api/kriteria', '/bobot', '/api/bobot'], (_req: Request, res: Response) => {
+router.get(['/', '/kriteria', '/api/kriteria', '/bobot', '/api/bobot'], (_req: Request, res: Response) => {
   res.json(kriteriaStore);
 });
 
-router.get('/bobot-bwm', (_req: Request, res: Response) => {
+router.get(['/bobot-bwm', '/api/bobot-bwm'], (_req: Request, res: Response) => {
   res.json({ status: 'success', bobot: kriteriaStore.map(k => k.bobot) });
 });
 
@@ -60,11 +60,11 @@ function updateKriteriaBobotHandler(req: Request, res: Response) {
   return res.json({ status: 'success', message: 'Bobot kriteria BWM berhasil diterapkan ke sistem.' });
 }
 
-router.post(['/kriteria', '/kriteria/bobot', '/bobot'], updateKriteriaBobotHandler);
-router.put(['/kriteria/bobot', '/bobot'], updateKriteriaBobotHandler);
+router.post(['/', '/kriteria', '/kriteria/bobot', '/api/kriteria/bobot', '/bobot', '/api/bobot'], updateKriteriaBobotHandler);
+router.put(['/', '/kriteria/bobot', '/api/kriteria/bobot', '/bobot', '/api/bobot'], updateKriteriaBobotHandler);
 
 router.all(
-  ['/hitung-saw', '/api/hitung-saw', '/sinkron-saw', '/api/spk/sinkron-saw', '/api/spk/hitung-saw', '/hitung'],
+  ['/', '/hitung-saw', '/api/hitung-saw', '/sinkron-saw', '/api/spk/sinkron-saw', '/api/spk/hitung-saw', '/hitung'],
   (_req: Request, res: Response) => {
     hitungDanSinkronkanSawBwm();
     const target = wargaStore;

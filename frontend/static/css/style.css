@@ -1,3 +1,5 @@
+@import url('modern-notifications.css');
+
 /* =========================================================
    UI/UX MODERN SPK BANSOS SIDOARJO 2026 (GLOBAL STYLE)
    Tema: Clean, Soft-Neumorphism, & Elegant Glassmorphism
@@ -244,7 +246,14 @@ tbody tr:last-child td { border-bottom: none; }
 .badge-green { background-color: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
 
 /* --- GLOBAL POP-UP / MODAL --- */
-.swal2-container { z-index: 110000 !important; }
+.swal2-container { z-index: 9999999 !important; }
+.swal2-container.swal2-backdrop-show,
+.swal2-container.swal-no-dark-backdrop {
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
 .modal-blur-overlay, .modal-blur { 
     position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
     background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px); 
@@ -281,28 +290,26 @@ tbody tr:last-child td { border-bottom: none; }
 ========================================================= */
 .call-card-modern { 
     width: 100%; 
-    max-width: 400px; 
+    max-width: 390px; 
+    max-height: calc(100vh - 48px);
     background: #0f172a; 
-    border-radius: 24px; 
+    border-radius: 36px; 
     overflow: hidden; 
     box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8); 
-    border: 1px solid #334155; 
+    border: 1px solid rgba(255, 255, 255, 0.12); 
     display: flex; 
     flex-direction: column; 
     position: relative; 
+    margin: 24px auto;
     animation: scaleUp 0.3s ease-out;
 }
 
 .call-header-modern { 
-    position: absolute; 
-    top: 0; 
-    left: 0; 
+    position: relative; 
     width: 100%; 
-    padding: 25px 20px 40px 20px; 
+    padding: 20px 20px 10px 20px; 
     text-align: center; 
     z-index: 20; 
-    background: linear-gradient(to bottom, rgba(15,23,42,0.95) 0%, transparent 100%); 
-    pointer-events: none; 
 }
 .call-header-modern h3 { margin: 0; color: white; font-size: 1.4rem; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
 .call-header-modern p { margin: 5px 0 0 0; color: #a7f3d0; font-weight: 600; font-size: 0.95rem; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
@@ -341,27 +348,28 @@ tbody tr:last-child td { border-bottom: none; }
 
 .audio-area-modern { 
     width: 100%; 
-    height: 50vh; 
-    max-height: 400px; 
+    min-height: 180px; 
     display: flex; 
+    flex-direction: column;
     justify-content: center; 
     align-items: center; 
-    background: #0f172a; 
+    background: transparent; 
     position: relative; 
+    padding: 16px 20px;
 }
 .audio-avatar { 
-    width: 140px; 
-    height: 140px; 
-    background: linear-gradient(135deg, var(--info), #4f46e5); 
+    width: 96px; 
+    height: 96px; 
+    background: linear-gradient(135deg, #009846, #047857); 
     border-radius: 50%; 
     display: flex; 
     justify-content: center; 
     align-items: center; 
-    font-size: 4rem; 
+    font-size: 2.6rem; 
     color: white; 
     position: relative; 
     z-index: 2; 
-    box-shadow: 0 0 30px rgba(59, 130, 246, 0.4); 
+    box-shadow: 0 0 35px rgba(0, 152, 70, 0.45); 
 }
 .ripple-ring { 
     position: absolute; 
@@ -691,6 +699,22 @@ img, svg, video, canvas {
     margin: 0 !important;
 }
 
+/* PASTIKAN TOMBOL OKE / KONFIRMASI SELALU TAMPIL AKTIF PADA POPUP BUKAN LOADING */
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading) .swal2-confirm,
+.swal2-popup.swal-modern-success-popup .swal2-confirm,
+.swal2-popup.swal-modern-success-popup .swal-btn-pill-oke,
+.swal2-popup.swal-modern-success-popup .swal-btn-pill-confirm {
+    display: inline-flex !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    opacity: 1 !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 13px 40px !important;
+    margin: 6px !important;
+    cursor: pointer !important;
+}
+
 /* TOMBOL SILANG (X) */
 .swal2-popup .swal2-close {
     width: 38px !important;
@@ -723,9 +747,23 @@ img, svg, video, canvas {
 }
 
 /* TOMBOL BATALKAN */
-.swal2-popup .swal2-cancel.swal-btn-pill-cancel,
-.swal2-popup.swal-modern-loading-card .swal2-cancel,
-.swal2-loading .swal2-cancel {
+.swal-btn-hidden-force,
+button.swal2-cancel[style*="display: none"],
+button.swal2-cancel[style*="display:none"],
+button.swal2-cancel:empty {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    pointer-events: none !important;
+}
+
+.swal2-popup:not(.swal-no-cancel) .swal2-cancel.swal-btn-pill-cancel:not([style*="display: none"]):not([style*="display:none"]),
+.swal2-popup.swal-modern-loading-card .swal2-cancel:not([style*="display: none"]):not([style*="display:none"]),
+.swal2-loading .swal2-cancel:not([style*="display: none"]):not([style*="display:none"]) {
     border-radius: 9999px !important;
     padding: 10px 26px !important;
     font-size: 0.9rem !important;
@@ -1472,4 +1510,120 @@ img, svg, video, canvas {
     color: #007a37 !important;
     border-color: #ffffff !important;
     transform: scale(1.06) !important;
+}
+
+/* =========================================================================
+   BARIS KONTROL TABEL ARSIP: TAMPILKAN LIMIT & CARI NIK/NAMA SEJAJAR
+   ========================================================================= */
+.dataTables_controls_bar {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+    margin-bottom: 14px !important;
+    padding: 6px 2px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.dataTables_controls_bar .dataTables_length {
+    float: none !important;
+    margin: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+}
+
+.dataTables_controls_bar .dataTables_length label {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+}
+
+.dataTables_controls_bar .dataTables_length select {
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 12px !important;
+    padding: 7px 14px !important;
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    background: #f8fafc !important;
+    outline: none !important;
+    cursor: pointer !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+    transition: all 0.2s ease !important;
+}
+
+.dataTables_controls_bar .dataTables_length select:hover,
+.dataTables_controls_bar .dataTables_length select:focus {
+    border-color: #009846 !important;
+    background: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(0, 152, 70, 0.15) !important;
+}
+
+.dataTables_controls_bar .dataTables_filter {
+    float: none !important;
+    margin: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    margin-left: auto !important;
+}
+
+.dataTables_controls_bar .dataTables_filter label {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+    margin: 0 !important;
+}
+
+.dataTables_controls_bar .dataTables_filter input {
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 12px !important;
+    padding: 7px 14px !important;
+    font-size: 0.85rem !important;
+    color: #0f172a !important;
+    background: #ffffff !important;
+    outline: none !important;
+    width: 250px !important;
+    max-width: 100% !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+    transition: all 0.2s ease !important;
+}
+
+.dataTables_controls_bar .dataTables_filter input:hover,
+.dataTables_controls_bar .dataTables_filter input:focus {
+    border-color: #009846 !important;
+    box-shadow: 0 0 0 3px rgba(0, 152, 70, 0.15) !important;
+}
+
+.dataTables_bottom_bar {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+    margin-top: 14px !important;
+    width: 100% !important;
+}
+
+.swal-no-cancel .swal2-cancel,
+.swal-no-cancel button.swal2-cancel,
+.swal-btn-hidden-force,
+button.swal2-cancel.swal-btn-hidden-force {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    pointer-events: none !important;
 }

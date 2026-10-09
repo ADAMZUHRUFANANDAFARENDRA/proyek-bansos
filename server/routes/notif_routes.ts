@@ -5,6 +5,7 @@ import {
   catatNotifikasi
 } from '../store.js';
 import { parseIntSafe } from '../spk_engine.js';
+import { realtimeNotifyUpdate } from '../realtime.js';
 
 const router = Router();
 
@@ -39,6 +40,7 @@ router.all(['/:id/read', '/api/notifikasi/:id/read'], (req: Request, res: Respon
   const id = parseIntSafe(req.params.id, 0);
   const item = notifikasiStore.find(n => n.id === id);
   if (item) item.is_read = true;
+  realtimeNotifyUpdate('read', id);
   res.json({ status: 'success', message: `Notifikasi #${id} ditandai dibaca.` });
 });
 
@@ -46,6 +48,7 @@ router.all(['/:id/pin', '/api/notifikasi/:id/pin'], (req: Request, res: Response
   const id = parseIntSafe(req.params.id, 0);
   const item = notifikasiStore.find(n => n.id === id);
   if (item) item.is_pinned = !item.is_pinned;
+  realtimeNotifyUpdate('pin', id);
   res.json({ status: 'success', message: `Status semat #${id} diperbarui.` });
 });
 
@@ -53,17 +56,20 @@ router.all(['/:id/archive', '/api/notifikasi/:id/archive'], (req: Request, res: 
   const id = parseIntSafe(req.params.id, 0);
   const item = notifikasiStore.find(n => n.id === id);
   if (item) item.is_archived = !item.is_archived;
+  realtimeNotifyUpdate('archive', id);
   res.json({ status: 'success', message: `Status arsip #${id} diperbarui.` });
 });
 
 router.delete(['/:id', '/api/notifikasi/:id'], (req: Request, res: Response) => {
   const id = parseIntSafe(req.params.id, 0);
   setNotifikasiStore(notifikasiStore.filter(n => n.id !== id));
+  realtimeNotifyUpdate('delete', id);
   res.json({ status: 'success', message: `Notifikasi #${id} berhasil dihapus.` });
 });
 
 router.all(['/clear-all', '/api/notifikasi/clear-all'], (_req: Request, res: Response) => {
   setNotifikasiStore(notifikasiStore.filter(n => n.is_pinned));
+  realtimeNotifyUpdate('clear_all');
   res.json({ status: 'success', message: 'Seluruh notifikasi berhasil dibersihkan.' });
 });
 
@@ -71,6 +77,7 @@ router.post(['/read-all', '/api/notifikasi/read-all'], (_req: Request, res: Resp
   notifikasiStore.forEach(n => {
     n.is_read = true;
   });
+  realtimeNotifyUpdate('read_all');
   res.json({ status: 'success', message: 'Semua notifikasi ditandai dibaca.' });
 });
 

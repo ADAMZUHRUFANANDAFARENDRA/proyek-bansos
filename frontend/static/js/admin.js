@@ -217,19 +217,43 @@ function showAdminAlert(options = {}) {
             }
         }
 
-        const defaultClass = {
-            popup: 'swal-modern-rounded',
+        const isCancelAllowed = options.showCancelButton === true;
+        const defaultClass = options.toast ? {} : {
+            popup: `swal-modern-rounded ${isCancelAllowed ? 'swal-has-cancel' : 'swal-no-cancel'}`,
             confirmButton: 'swal-btn-pill-primary',
-            cancelButton: 'swal-btn-pill-cancel',
+            cancelButton: isCancelAllowed ? 'swal-btn-pill-cancel' : 'swal-btn-hidden-force',
             denyButton: 'swal-btn-pill-danger',
             loader: 'swal-modern-loader'
         };
+
+        const origDidOpen = options.didOpen;
         const mergedOptions = {
             buttonsStyling: false,
             ...options,
+            showCancelButton: isCancelAllowed,
             customClass: {
                 ...defaultClass,
                 ...(options.customClass || {})
+            },
+            didOpen: (popup) => {
+                if (!isCancelAllowed && popup) {
+                    const cancelBtn = popup.querySelector('.swal2-cancel');
+                    if (cancelBtn) {
+                        cancelBtn.style.setProperty('display', 'none', 'important');
+                        cancelBtn.style.setProperty('visibility', 'hidden', 'important');
+                        try { cancelBtn.remove(); } catch(e) {}
+                    }
+                }
+                if (options.showCloseButton === false && popup) {
+                    const closeBtn = popup.querySelector('.swal2-close');
+                    if (closeBtn) {
+                        closeBtn.style.setProperty('display', 'none', 'important');
+                        try { closeBtn.remove(); } catch(e) {}
+                    }
+                }
+                if (typeof origDidOpen === 'function') {
+                    origDidOpen(popup);
+                }
             }
         };
         return Swal.fire(mergedOptions);
@@ -301,7 +325,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Hak Akses Cyber Shield: HANYA untuk Super Admin / Developer
+    // Hak Akses Cyber Shield & Eskalasi: HANYA untuk Super Admin / Developer
     const navCyberBtn = document.getElementById('btnNavCyberShield');
     if (navCyberBtn) {
         navCyberBtn.style.display = isSuperAdmin ? 'inline-flex' : 'none';
@@ -309,6 +333,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tileCyber = document.getElementById('tileCyberShield');
     if (tileCyber) {
         tileCyber.style.display = isSuperAdmin ? 'block' : 'none';
+    }
+
+    // Hak Akses Pusat Eskalasi & Inspeksi Kode
+    const navEskalasiBtn = document.getElementById('btnNavEskalasiDev');
+    if (navEskalasiBtn) {
+        navEskalasiBtn.style.display = isSuperAdmin ? 'inline-flex' : 'none';
+    }
+    const tileEskalasi = document.getElementById('tileEskalasiSuperAdmin');
+    if (tileEskalasi) {
+        tileEskalasi.style.display = isSuperAdmin ? 'block' : 'none';
+    }
+
+    // Hak Akses Uji Portal Warga: HANYA untuk Super Admin & Developer
+    const navPortalBtn = document.getElementById('btnNavPortalWarga');
+    if (navPortalBtn) {
+        navPortalBtn.style.display = isSuperAdmin ? 'inline-flex' : 'none';
+    }
+
+    if (isSuperAdmin && typeof window.muatDataEskalasiSuperAdmin === 'function') {
+        window.muatDataEskalasiSuperAdmin();
     }
 
     if (cmdEl) {
@@ -343,7 +387,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 350);
 
     window.cekNotifikasiRealtime();
-    setInterval(window.cekNotifikasiRealtime, 6000);
+    setInterval(() => {
+        // Fallback lembut hanya jika koneksi realtime socket terputus
+        if (window.RealtimeHub && window.RealtimeHub.isConnected()) return;
+        window.cekNotifikasiRealtime();
+    }, 15000);
 });
 
 // =========================================================================

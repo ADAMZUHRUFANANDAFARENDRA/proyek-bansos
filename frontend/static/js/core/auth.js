@@ -362,9 +362,21 @@
             if (timeRemainingMs <= 0) return;
 
             logoutTimer = setTimeout(() => {
-                alert('Sesi masuk Anda telah kedaluwarsa demi keamanan. Silakan login kembali.');
-                window.isManualLogout = true;
-                this.clearSession(true);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Sesi Berakhir',
+                        text: 'Sesi masuk Anda telah kedaluwarsa demi keamanan. Silakan login kembali.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        window.isManualLogout = true;
+                        this.clearSession(true);
+                    });
+                } else {
+                    window.isManualLogout = true;
+                    this.clearSession(true);
+                }
             }, Math.min(timeRemainingMs, 2147483647));
         },
 
@@ -478,7 +490,7 @@
             window.dispatchEvent(new CustomEvent('auth:logout'));
 
             if (redirect) {
-                window.location.replace('login.html');
+                window.location.replace('/aparatur?logout=1');
             }
         },
 
@@ -502,7 +514,7 @@
                 sessionStorage.clear();
             } catch (e) {}
 
-            window.location.replace('login.html');
+            window.location.replace('/aparatur?logout=1');
         },
 
         /**
@@ -598,9 +610,11 @@
     window.Auth = Auth;
     window.logout = function () {
         window.isManualLogout = true;
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.replace('login.html');
+        try {
+            localStorage.clear();
+            sessionStorage.clear();
+        } catch(e) {}
+        window.location.replace('/aparatur?logout=1');
     };
     window.getCleanToken = () => Auth.getToken();
 

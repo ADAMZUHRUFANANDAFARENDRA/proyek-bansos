@@ -106,13 +106,20 @@ window.hitungSPK = async function () {
         try {
             let res = null;
             if (typeof window.fetchData === 'function') {
-                res = await window.fetchData('/hitung-saw', { signal: controller.signal });
+                res = await window.fetchData('/api/spk/hitung-saw', { signal: controller.signal });
                 if (!res || !res.ok) res = await window.fetchData('/api/hitung-saw', { signal: controller.signal });
+                if (!res || !res.ok) res = await window.fetchData('/hitung-saw', { signal: controller.signal });
             } else {
-                res = await fetch(`${BASE_API_URL}/api/hitung-saw`, {
+                res = await fetch(`${BASE_API_URL}/api/spk/hitung-saw`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` },
                     signal: controller.signal
                 });
+                if (!res || !res.ok) {
+                    res = await fetch(`${BASE_API_URL}/api/hitung-saw`, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` },
+                        signal: controller.signal
+                    });
+                }
             }
 
             if (res && res.ok) {
@@ -138,14 +145,23 @@ window.hitungSPK = async function () {
         if (hasilList.length === 0) throw new Error('Hasil komputasi kosong.');
 
         // Rekonstruksi Audit Matematis Lengkap (X, Min/Max, R, W, V)
-        window.rekonstruksiAuditMatematisSAW(wargaLayak, spkData);
+        try {
+            window.rekonstruksiAuditMatematisSAW(wargaLayak, spkData);
+        } catch (auditErr) {
+            console.warn('[Audit Warning]', auditErr);
+        }
 
         const resultCard = document.getElementById('resultCard');
         const resultTable = document.getElementById('resultTable');
-        const resultTbody = document.querySelector('#resultTable tbody');
-        if (!resultCard || !resultTbody) throw new Error('Elemen tabel hasil SPK tidak ditemukan di halaman.');
-
-        resultCard.style.display = 'block';
+        let resultTbody = document.querySelector('#resultTable tbody');
+        if (!resultTbody && resultTable) {
+            resultTbody = document.createElement('tbody');
+            resultTable.appendChild(resultTbody);
+        }
+        if (resultCard) {
+            resultCard.style.display = 'block';
+            resultCard.classList.remove('hidden');
+        }
 
         const totalWarga = hasilList.length;
         const totalLayak = hasilList.filter(item => (item.desil || 5) <= 4).length;
@@ -234,10 +250,30 @@ window.hitungSPK = async function () {
         });
 
         if (typeof window.loadDashboardData === 'function') {
-            window.loadDashboardData(true);
+            await window.loadDashboardData(false);
         }
 
-        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Perhitungan BWM-SAW Selesai!', showConfirmButton: false, timer: 2000 });
+        window._lastLocalActionTime = Date.now();
+
+        if (typeof window.showModernSuccessPanel === 'function') {
+            window.showModernSuccessPanel({
+                title: 'Perhitungan BWM-SAW Selesai!',
+                message: `Berhasil mengkalkulasi normalisasi matriks, pembobotan BWM, dan perangkingan untuk ${hasilList.length} data kependudukan.`,
+                headerTag: 'SPK Algoritma BWM-SAW',
+                auditInfo: `${hasilList.length} Warga Teranking Akurat`,
+                confirmButtonText: 'Oke, Mengerti',
+                showConfirmButton: true,
+                showCloseButton: true,
+                timer: 5000
+            });
+        } else {
+            Swal.fire({
+                icon: 'success',
+                title: 'Perhitungan BWM-SAW Selesai!',
+                text: `Berhasil mengkalkulasi peringkat untuk ${hasilList.length} data warga.`,
+                confirmButtonText: 'Oke, Mengerti'
+            });
+        }
     } catch (e) {
         Swal.fire('Gagal Komputasi', `Detail Kendala: ${e.message}`, 'error');
     }
@@ -2360,7 +2396,7 @@ window.eksekusiPulihkanArsip = async function () {
         const json = await res.json();
         if (res.ok) {
             Swal.fire({ icon: 'success', title: 'Berhasil Dipulihkan!', text: json.message, buttonsStyling: false, customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-confirm' } })
-                .then(() => { if (typeof window.loadDashboardData === 'function') window.loadDashboardData(true); else location.reload(); });
+                .then(() => { if (typeof window.loadDashboardData === 'function') window.loadDashboardData(false); else location.reload(); });
         } else throw new Error(json.message);
     } catch (e) {
         Swal.fire({ icon: 'error', title: 'Gagal', text: e.message, buttonsStyling: false, customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-danger' } });

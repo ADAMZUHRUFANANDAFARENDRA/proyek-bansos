@@ -1,0 +1,738 @@
+/**
+ * MODERN NOTIFICATIONS & SUCCESS POP-UP PANEL
+ * Sistem Notifikasi Pop-Up Panel Ultra-Modern, Membulat & Interaktif
+ * Standar Desain Berkelas: Soft Squircles, Frosted Glass, Ambient Glow & Micro-Interactions
+ */
+
+/* =============================================================================
+   1. OVERLAY & BACKDROP (TRANSPARAN PENUH - TANPA BACKGROUND HITAM DIBALIK NOTIFIKASI)
+   ============================================================================= */
+.swal2-container,
+.swal2-container.swal-modern-backdrop,
+.swal2-container.swal-no-dark-backdrop,
+.swal2-container:has(.swal-modern-success-popup),
+.swal2-container:has(.swal2-icon.swal2-success),
+.swal2-container:has(.swal-modern-rounded),
+.swal2-container.swal2-backdrop-show {
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    transition: all 0.25s ease !important;
+    z-index: 99999999 !important;
+    pointer-events: auto !important;
+}
+
+/* =============================================================================
+   2. POP-UP CARD PANEL (ULTRA-MODERN & MEMBULAT)
+   ============================================================================= */
+.swal2-popup.swal-modern-success-popup,
+.swal2-popup:has(.swal2-icon.swal2-success) {
+    border-radius: 32px !important;
+    padding: 34px 32px 30px 32px !important;
+    max-width: 480px !important;
+    width: 92% !important;
+    background: radial-gradient(130% 65% at 50% 0%, rgba(16, 185, 129, 0.08) 0%, #ffffff 60%) #ffffff !important;
+    border: 1.5px solid rgba(226, 232, 240, 0.95) !important;
+    box-shadow: 
+        0 25px 65px -10px rgba(16, 185, 129, 0.25),
+        0 15px 35px -8px rgba(15, 23, 42, 0.16),
+        0 0 0 1px rgba(255, 255, 255, 0.95) !important;
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    text-align: center !important;
+    position: relative !important;
+    overflow: hidden !important;
+    animation: modernPanelSpringIn 0.42s cubic-bezier(0.175, 0.885, 0.32, 1.15) both;
+}
+
+/* Pastikan saat popup ditutup (swal2-hide), popup langsung hilang tanpa macet */
+.swal2-popup.swal2-hide,
+.swal2-popup.swal-modern-success-popup.swal2-hide,
+.swal2-popup.swal-modern-rounded.swal2-hide {
+    animation: none !important;
+    opacity: 0 !important;
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+.swal2-container.swal2-backdrop-hide {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+/* Aksen Garis Gradasi di Atas Kartu */
+.swal2-popup.swal-modern-success-popup::before,
+.swal2-popup:has(.swal2-icon.swal2-success)::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 15%;
+    right: 15%;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, #10b981 30%, #059669 70%, transparent);
+    border-radius: 0 0 8px 8px;
+    opacity: 0.9;
+}
+
+/* =============================================================================
+   3. HEADER PILL BADGE (TAG DI ATAS MODAL)
+   ============================================================================= */
+.modern-success-header-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.26);
+    color: #059669;
+    padding: 6px 16px;
+    border-radius: 9999px;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    margin: 0 auto 16px auto;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.08);
+    animation: fadeInDownPill 0.35s ease-out both;
+}
+
+.modern-success-header-pill i {
+    font-size: 0.8rem;
+    color: #10b981;
+}
+
+/* =============================================================================
+   4. HERO SUCCESS EMBLEM (3D SQUIRCLE GLOW ICON)
+   ============================================================================= */
+/* Menggantikan ikon garis tipis default SweetAlert menjadi squircle 3D modern */
+.swal2-popup .swal2-icon.swal2-success {
+    border: none !important;
+    width: 78px !important;
+    height: 78px !important;
+    min-width: 78px !important;
+    min-height: 78px !important;
+    border-radius: 26px !important;
+    background: linear-gradient(135deg, #10b981 0%, #059669 55%, #047857 100%) !important;
+    box-shadow: 
+        0 16px 36px -6px rgba(16, 185, 129, 0.48), 
+        0 0 0 8px rgba(16, 185, 129, 0.14), 
+        0 0 0 16px rgba(16, 185, 129, 0.05) !important;
+    margin: 10px auto 16px auto !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    animation: modernEmblemBounce 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both !important;
+}
+
+/* Sembunyikan elemen lingkaran wireframe lama */
+.swal2-popup .swal2-icon.swal2-success .swal2-success-circular-line-left,
+.swal2-popup .swal2-icon.swal2-success .swal2-success-circular-line-right,
+.swal2-popup .swal2-icon.swal2-success .swal2-success-fix,
+.swal2-popup .swal2-icon.swal2-success .swal2-success-ring {
+    display: none !important;
+}
+
+/* Centang Putih Bersih Tebal & Membulat */
+.swal2-popup .swal2-icon.swal2-success [class^='swal2-success-line'] {
+    background-color: #ffffff !important;
+    border-radius: 4px !important;
+    height: 5px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15) !important;
+}
+
+.swal2-popup .swal2-icon.swal2-success .swal2-success-line-tip {
+    width: 24px !important;
+    top: 44px !important;
+    left: 14px !important;
+}
+
+.swal2-popup .swal2-icon.swal2-success .swal2-success-line-long {
+    width: 44px !important;
+    top: 36px !important;
+    right: 8px !important;
+}
+
+/* Custom Emblem Component (untuk panel kustom mandiri) */
+.modern-success-emblem-wrapper {
+    position: relative;
+    width: 82px;
+    height: 82px;
+    margin: 4px auto 16px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modern-success-emblem {
+    width: 76px;
+    height: 76px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 55%, #047857 100%);
+    box-shadow: 
+        0 16px 36px -6px rgba(16, 185, 129, 0.48), 
+        0 0 0 8px rgba(16, 185, 129, 0.14), 
+        0 0 0 16px rgba(16, 185, 129, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 2.2rem;
+    animation: modernEmblemBounce 0.52s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+/* Partikel Kilau Mikro / Sparkles di Sekitar Emblem */
+.sparkle-particle {
+    position: absolute;
+    pointer-events: none;
+    font-size: 0.9rem;
+    line-height: 1;
+    color: #10b981;
+    filter: drop-shadow(0 2px 4px rgba(16, 185, 129, 0.3));
+    animation: floatSparkle 2s ease-in-out infinite alternate;
+}
+
+.sparkle-particle.top-right {
+    top: -6px;
+    right: -8px;
+    color: #f59e0b;
+    font-size: 1.1rem;
+    animation-delay: 0.2s;
+}
+
+.sparkle-particle.bottom-left {
+    bottom: -4px;
+    left: -6px;
+    color: #10b981;
+    font-size: 0.85rem;
+    animation-delay: 0.5s;
+}
+
+.sparkle-particle.top-left {
+    top: 4px;
+    left: -10px;
+    color: #34d399;
+    font-size: 0.75rem;
+    animation-delay: 0.8s;
+}
+
+/* =============================================================================
+   5. TIPOGRAFI & KONTEN KARTU POP-UP
+   ============================================================================= */
+.swal2-popup.swal-modern-success-popup .swal2-title,
+.swal2-popup:has(.swal2-icon.swal2-success) .swal2-title,
+.modern-success-title {
+    font-size: 1.38rem !important;
+    font-weight: 850 !important;
+    color: #0f172a !important;
+    letter-spacing: -0.025em !important;
+    margin: 6px 0 6px 0 !important;
+    line-height: 1.32 !important;
+}
+
+.swal2-popup.swal-modern-success-popup .swal2-html-container,
+.swal2-popup:has(.swal2-icon.swal2-success) .swal2-html-container,
+.modern-success-body {
+    font-size: 0.92rem !important;
+    color: #475569 !important;
+    line-height: 1.6 !important;
+    margin: 4px 0 16px 0 !important;
+}
+
+/* Chip Verifikasi Status & Stempel Waktu (Activity Info) */
+.modern-success-audit-badge {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 9px 15px;
+    margin: 12px auto 18px auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 600;
+    max-width: 100%;
+}
+
+.modern-success-audit-badge b {
+    color: #0f172a;
+}
+
+.modern-success-audit-badge .sep {
+    opacity: 0.35;
+    font-size: 0.7rem;
+}
+
+/* =============================================================================
+   6. TOMBOL AKSI MODERN & MEMBULAT
+   ============================================================================= */
+.swal2-popup .swal2-actions,
+.swal2-popup.swal-modern-success-popup .swal2-actions,
+.swal2-popup:has(.swal2-icon.swal2-success) .swal2-actions {
+    margin: 16px auto 4px auto !important;
+    width: 100% !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 10px !important;
+    display: flex !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 999999 !important;
+}
+
+.swal-btn-modern-success,
+.swal2-popup .swal2-confirm,
+.swal2-popup.swal-modern-success-popup .swal2-confirm,
+.swal2-popup:has(.swal2-icon.swal2-success) .swal2-confirm,
+.swal-btn-pill-confirm,
+.swal-btn-pill-oke {
+    border-radius: 9999px !important;
+    padding: 13px 40px !important;
+    font-size: 0.94rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.25px !important;
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    cursor: pointer !important;
+    box-shadow: 0 8px 24px -4px rgba(5, 150, 105, 0.45) !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    outline: none !important;
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    z-index: 999999 !important;
+}
+
+.swal-btn-modern-success:hover,
+.swal2-popup .swal2-confirm:hover,
+.swal2-popup.swal-modern-success-popup .swal2-confirm:hover,
+.swal2-popup:has(.swal2-icon.swal2-success) .swal2-confirm:hover,
+.swal-btn-pill-confirm:hover,
+.swal-btn-pill-oke:hover {
+    transform: translateY(-2px) scale(1.01) !important;
+    box-shadow: 0 12px 28px -4px rgba(5, 150, 105, 0.55) !important;
+    filter: brightness(1.06) !important;
+}
+
+.swal-btn-modern-success:active,
+.swal2-popup .swal2-confirm:active,
+.swal2-popup.swal-modern-success-popup .swal2-confirm:active,
+.swal2-popup:has(.swal2-icon.swal2-success) .swal2-confirm:active,
+.swal-btn-pill-confirm:active,
+.swal-btn-pill-oke:active {
+    transform: translateY(0) scale(0.99) !important;
+}
+
+/* Tombol Silang (Close) Modern & Responsif */
+.swal2-popup .swal2-close,
+.swal-close-modern,
+.swal2-popup.swal-modern-success-popup .swal2-close,
+.swal2-popup:has(.swal2-icon.swal2-success) .swal2-close {
+    position: absolute !important;
+    top: 14px !important;
+    right: 14px !important;
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    border-radius: 50% !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #64748b !important;
+    font-size: 18px !important;
+    line-height: 1 !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    z-index: 999999 !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+    outline: none !important;
+    user-select: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.swal2-popup .swal2-close:hover,
+.swal-close-modern:hover,
+.swal2-popup.swal-modern-success-popup .swal2-close:hover,
+.swal2-popup:has(.swal2-icon.swal2-success) .swal2-close:hover {
+    background: #fee2e2 !important;
+    color: #ef4444 !important;
+    border-color: #fca5a5 !important;
+    transform: rotate(90deg) scale(1.08) !important;
+    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2) !important;
+}
+
+.swal2-popup .swal2-close:active,
+.swal-close-modern:active,
+.swal2-popup.swal-modern-success-popup .swal2-close:active,
+.swal2-popup:has(.swal2-icon.swal2-success) .swal2-close:active {
+    transform: rotate(90deg) scale(0.95) !important;
+}
+
+/* =============================================================================
+   7. FLOATING TOAST MODERN (PANEL NOTIFIKASI KARTU MODEREN & BERKELAS)
+   ============================================================================= */
+.swal2-container.swal2-top-end,
+.swal2-container.swal-toast-container-top-end {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    bottom: auto !important;
+    left: auto !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    pointer-events: auto !important;
+    z-index: 9999999 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+.swal2-popup.swal2-toast.swal-toast-modern-success,
+.swal2-popup.swal2-toast.swal-modern-toast-card {
+    border-radius: 20px !important;
+    padding: 16px 48px 16px 16px !important;
+    min-width: 350px !important;
+    max-width: 440px !important;
+    width: auto !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border: 1.5px solid rgba(16, 185, 129, 0.28) !important;
+    box-shadow: 
+        0 20px 45px -8px rgba(16, 185, 129, 0.26),
+        0 8px 24px -4px rgba(15, 23, 42, 0.14),
+        0 0 0 1px rgba(255, 255, 255, 0.95) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    box-sizing: border-box !important;
+    pointer-events: auto !important;
+    z-index: 9999999 !important;
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif !important;
+    animation: modernToastSlideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+/* Aksen Garis Gradasi Emerald di Atas Kartu Toast */
+.swal2-popup.swal2-toast.swal-toast-modern-success::before,
+.swal2-popup.swal2-toast.swal-modern-toast-card::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 16px !important;
+    right: 16px !important;
+    height: 3px !important;
+    background: linear-gradient(90deg, #10b981 0%, #059669 100%) !important;
+    border-radius: 0 0 4px 4px !important;
+}
+
+.swal2-popup.swal2-toast.swal-toast-modern-success .swal2-html-container,
+.swal2-popup.swal2-toast.swal-modern-toast-card .swal2-html-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    text-align: left !important;
+    pointer-events: auto !important;
+}
+
+/* Sembunyikan ikon dan tombol close bawaan SweetAlert pada toast karena digantikan elemen custom terpadu */
+.swal2-popup.swal2-toast.swal-toast-modern-success > .swal2-icon,
+.swal2-popup.swal2-toast.swal-modern-toast-card > .swal2-icon,
+.swal2-popup.swal2-toast.swal-toast-modern-success > .swal2-close,
+.swal2-popup.swal2-toast.swal-modern-toast-card > .swal2-close {
+    display: none !important;
+}
+
+/* Struktur Isi Kartu Notifikasi */
+.modern-toast-inner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+}
+
+.modern-toast-emblem {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: 13px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 60%, #047857 100%);
+    box-shadow: 0 6px 14px rgba(16, 185, 129, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.modern-toast-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: left;
+}
+
+.modern-toast-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: #059669;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    padding: 2px 8px;
+    border-radius: 9999px;
+    width: fit-content;
+    margin-bottom: 2px;
+}
+
+.modern-toast-title {
+    font-size: 0.91rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.35;
+    margin: 0;
+}
+
+.modern-toast-desc {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #64748b;
+    line-height: 1.4;
+    margin-top: 1px;
+}
+
+.modern-toast-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.71rem;
+    color: #94a3b8;
+    font-weight: 600;
+    margin-top: 3px;
+}
+
+/* Tombol Silang (X) Khusus Toast: Sangat Responsif & Clickable */
+.modern-toast-btn-close,
+.swal2-popup.swal2-toast .swal2-close,
+.swal2-popup.swal2-toast .swal-toast-close-btn {
+    position: absolute !important;
+    top: 14px !important;
+    right: 14px !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    border-radius: 50% !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #64748b !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    z-index: 99999999 !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
+    outline: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+}
+
+.modern-toast-btn-close:hover,
+.swal2-popup.swal2-toast .swal2-close:hover,
+.swal2-popup.swal2-toast .swal-toast-close-btn:hover {
+    background: #fee2e2 !important;
+    color: #ef4444 !important;
+    border-color: #fca5a5 !important;
+    transform: rotate(90deg) scale(1.1) !important;
+    box-shadow: 0 3px 8px rgba(239, 68, 68, 0.25) !important;
+}
+
+.modern-toast-btn-close:active,
+.swal2-popup.swal2-toast .swal2-close:active,
+.swal2-popup.swal2-toast .swal-toast-close-btn:active {
+    transform: rotate(90deg) scale(0.92) !important;
+}
+
+.modern-toast-btn-close svg {
+    pointer-events: none !important;
+}
+
+/* Bilah Kemajuan / Progress Bar Waktu */
+.swal2-popup.swal2-toast .swal2-timer-progress-bar {
+    background: linear-gradient(90deg, #10b981, #047857) !important;
+    height: 3px !important;
+    bottom: 0 !important;
+    border-radius: 9999px !important;
+}
+
+@keyframes modernToastSlideIn {
+    0% {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.92);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* =============================================================================
+   8. ANIMASI KEYFRAMES
+   ============================================================================= */
+@keyframes modernPanelSpringIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.86) translateY(16px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes modernEmblemBounce {
+    0% {
+        opacity: 0;
+        transform: scale(0.4) rotate(-15deg);
+    }
+    60% {
+        opacity: 1;
+        transform: scale(1.1) rotate(4deg);
+    }
+    100% {
+        transform: scale(1) rotate(0);
+    }
+}
+
+@keyframes fadeInDownPill {
+    0% {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes floatSparkle {
+    0% {
+        transform: translateY(0) scale(0.9);
+        opacity: 0.7;
+    }
+    100% {
+        transform: translateY(-4px) scale(1.15);
+        opacity: 1;
+    }
+}
+
+/* =============================================================================
+   9. KONTAINER NOTIFIKASI TOAST MELAYANG BEBAS TABRAKAN (ANTI-COLLISION TOAST STACK)
+   ============================================================================= */
+#modernFloatingToastContainer {
+    position: fixed !important;
+    top: 24px !important;
+    right: 24px !important;
+    z-index: 120000 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    pointer-events: none !important;
+    max-width: 440px !important;
+    width: calc(100vw - 36px) !important;
+}
+
+.modern-floating-toast-card {
+    border-radius: 20px !important;
+    padding: 16px 48px 16px 16px !important;
+    min-width: 320px !important;
+    max-width: 440px !important;
+    width: 100% !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border: 1.5px solid rgba(16, 185, 129, 0.28) !important;
+    box-shadow: 
+        0 20px 45px -8px rgba(16, 185, 129, 0.26),
+        0 8px 24px -4px rgba(15, 23, 42, 0.14),
+        0 0 0 1px rgba(255, 255, 255, 0.95) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    box-sizing: border-box !important;
+    pointer-events: auto !important;
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif !important;
+    animation: modernToastSlideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.modern-floating-toast-card.toast-leaving {
+    opacity: 0 !important;
+    transform: translateY(-20px) scale(0.92) !important;
+}
+
+.modern-floating-toast-card::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 16px !important;
+    right: 16px !important;
+    height: 3px !important;
+    background: linear-gradient(90deg, #10b981 0%, #059669 100%) !important;
+    border-radius: 0 0 4px 4px !important;
+}
+
+.modern-floating-toast-progress {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    height: 3px !important;
+    background: linear-gradient(90deg, #10b981, #047857) !important;
+    width: 100% !important;
+    transform-origin: left !important;
+    animation: toastProgressLinear linear forwards !important;
+}
+
+@keyframes toastProgressLinear {
+    from {
+        transform: scaleX(1);
+    }
+    to {
+        transform: scaleX(0);
+    }
+}
+

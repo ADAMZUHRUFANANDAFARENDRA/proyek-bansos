@@ -96,22 +96,23 @@ export const usersStore: UserItem[] = [
   { id: 3, username: 'admin_bansos', password: '123', nama_lengkap: 'Administrator Bansos Wilayah', email: 'bansos@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' },
   { id: 4, username: 'petugas', password: '123', nama_lengkap: 'Petugas Lapangan Dinsos', email: 'petugas@sidoarjo.go.id', role: 'petugas', is_active: true, created_at: '2026-01-01' },
   { id: 5, username: 'verifikator', password: '123', nama_lengkap: 'Tim Verifikator Wilayah', email: 'verifikator@sidoarjo.go.id', role: 'petugas', is_active: true, created_at: '2026-01-01' },
-  { id: 6, username: 'kepala_dinsos', password: '123', nama_lengkap: 'Kepala Dinas Sosial Sidoarjo', email: 'kadinsos@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' }
+  { id: 6, username: 'kepala_dinsos', password: '123', nama_lengkap: 'Kepala Dinas Sosial Sidoarjo', email: 'kadinsos@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' },
+  { id: 7, username: 'developer', password: '123', nama_lengkap: 'Lead Developer & DevOps Sidoarjo', email: 'developer@sidoarjo.go.id', role: 'developer', is_active: true, created_at: '2026-01-01' }
 ];
 
 export const DATA_MASTER_SIDOARJO: MasterSeedTuple[] = [
-  ['3515011002850001', 'SUTRISNO HADI', 'Sidoarjo', '1985-02-10', 'Jl. Raya Waru No. 14, RT 02/RW 01, Kec. Waru', '081234567001', 'sutrisno@mail.com', '-7.3524', '112.7245', 950000.0, 2500000.0, 54, 1, 4, 2, 2, 3, 1, 2, true, 'Disetujui', 'Belum Salur', 'Keluarga rentan prasejahtera'],
-  ['3515022507900002', 'SITI AMINAH', 'Sidoarjo', '1983-02-01', 'Dusun Badas, RT 04/RW 02, Barengkrajan, Kec. Krian', '081234567002', 'siti@mail.com', '-7.4082', '112.5831', 800000.0, 1500000.0, 48, 2, 3, 3, 2, 3, 1, 1, true, 'Disetujui', 'Telah Menerima', 'Lansia tunggal tanggungan anak'],
-  ['3515031505880003', 'BAMBANG PAMUNGKAS', 'Sidoarjo', '1988-05-15', 'Desa Cemandi, RT 08/RW 03, Kec. Sedati', '081234567003', 'bambang@mail.com', '-7.3821', '112.7756', 1100000.0, 3200000.0, 42, 1, 5, 2, 3, 2, 2, 1, true, 'Disetujui', 'Belum Salur', 'Pekerja serabutan pesisir'],
-  ['3515040909770004', 'RUDI HERMAWAN', 'Sidoarjo', '1977-09-09', 'Jl. Gajah Mada No. 45, RT 01/RW 05, Kec. Sidoarjo', '081234567004', 'rudi@mail.com', '-7.4478', '112.7183', 1300000.0, 4000000.0, 49, 1, 3, 2, 1, 2, 2, 1, true, 'Disetujui', 'Telah Menerima', 'Buruh pabrik harian lepas'],
-  ['3515051812830005', 'KARTINI WULANDARI', 'Sidoarjo', '1983-12-18', 'Desa Kebonagung, RT 03/RW 01, Kec. Porong', '081234567005', 'kartini@mail.com', '-7.5451', '112.6987', 700000.0, 1200000.0, 58, 2, 2, 3, 0, 3, 1, 2, true, 'Disetujui', 'Telah Menerima', 'Warga terdampak tanggul'],
-  ['3515060403920006', 'ACHMAD FAUZI', 'Sidoarjo', '1992-03-04', 'Kelurahan Geluran, RT 05/RW 02, Kec. Taman', '081234567006', 'fauzi@mail.com', '-7.3621', '112.6954', 1400000.0, 4500000.0, 39, 1, 4, 2, 2, 2, 3, 1, false, 'Menunggu', 'Belum Salur', 'Pekerja sektor informal'],
-  ['3515072010860007', 'ENDANG SUNARMI', 'Sidoarjo', '1986-10-20', 'Desa Sepande, RT 02/RW 04, Kec. Candi', '081234567007', 'endang@mail.com', '-7.4721', '112.7142', 850000.0, 2000000.0, 51, 2, 3, 3, 1, 3, 1, 1, true, 'Disetujui', 'Belum Salur', 'Pedagang keliling skala mikro'],
-  ['3515081111810008', 'JOKO PRASETYO', 'Sidoarjo', '1981-11-11', 'Desa Pekarungan, RT 06/RW 02, Kec. Sukodono', '081234567008', 'joko@mail.com', '-7.4112', '112.6789', 1250000.0, 3800000.0, 44, 1, 4, 2, 2, 2, 2, 1, false, 'Menunggu', 'Belum Salur', 'Keluarga anak usia sekolah'],
-  ['3515090101750009', 'SUHARTONO', 'Sidoarjo', '1975-01-01', 'Desa Kalitengah, RT 03/RW 03, Kec. Tanggulangin', '081234567009', 'suhartono@mail.com', '-7.5089', '112.7121', 900000.0, 2200000.0, 56, 1, 3, 2, 1, 3, 1, 2, true, 'Disetujui', 'Telah Menerima', 'Pengrajin rumahan musiman'],
-  ['3515101408890010', 'NURUL HIDAYATI', 'Sidoarjo', '1989-08-14', 'Desa Kraton, RT 02/RW 01, Kec. Krian', '081234567010', 'nurul@mail.com', '-7.3995', '112.5921', 750000.0, 1800000.0, 47, 2, 4, 3, 3, 3, 1, 1, true, 'Disetujui', 'Laporan Sengketa', 'Bansos sembako belum diterima padahal status layak.'],
-  ['3515112204930011', 'ARIF BUDIMAN', 'Sidoarjo', '1993-04-22', 'Desa Tambaksumur, RT 05/RW 02, Kec. Waru', '081234567011', 'arif@mail.com', '-7.3456', '112.7612', 1500000.0, 5200000.0, 36, 1, 2, 2, 1, 2, 3, 1, false, 'Menunggu', 'Belum Salur', 'Verifikasi mandiri bansos'],
-  ['3515121606820012', 'SRI WAHYUNI', 'Sidoarjo', '1982-06-16', 'Desa Urangagung, RT 04/RW 03, Kec. Sidoarjo', '081234567012', 'sri@mail.com', '-7.4567', '112.6934', 820000.0, 1900000.0, 52, 2, 3, 2, 1, 3, 1, 2, true, 'Disetujui', 'Telah Menerima', 'Keluarga rentan penyakit kronis']
+  ['3515990000000001', 'KPM WILAYAH WARU 01', 'Sidoarjo', '1985-02-10', 'Kawasan Domisili Wilayah Kec. Waru', '0812****0001', 'kpm.waru01@dinsos-sda.id', '-7.3524', '112.7245', 950000.0, 2500000.0, 54, 1, 4, 2, 2, 3, 1, 2, true, 'Disetujui', 'Belum Salur', 'Keluarga rentan prasejahtera terdata'],
+  ['3515990000000002', 'KPM WILAYAH KRIAN 02', 'Sidoarjo', '1983-02-01', 'Kawasan Domisili Wilayah Kec. Krian', '0812****0002', 'kpm.krian02@dinsos-sda.id', '-7.4082', '112.5831', 800000.0, 1500000.0, 48, 2, 3, 3, 2, 3, 1, 1, true, 'Disetujui', 'Telah Menerima', 'Lansia tunggal tanggungan anak'],
+  ['3515990000000003', 'KPM WILAYAH SEDATI 03', 'Sidoarjo', '1988-05-15', 'Kawasan Domisili Wilayah Kec. Sedati', '0812****0003', 'kpm.sedati03@dinsos-sda.id', '-7.3821', '112.7756', 1100000.0, 3200000.0, 42, 1, 5, 2, 3, 2, 2, 1, true, 'Disetujui', 'Belum Salur', 'Pekerja serabutan pesisir'],
+  ['3515990000000004', 'KPM WILAYAH SIDOARJO 04', 'Sidoarjo', '1977-09-09', 'Kawasan Domisili Wilayah Kec. Sidoarjo', '0812****0004', 'kpm.sda04@dinsos-sda.id', '-7.4478', '112.7183', 1300000.0, 4000000.0, 49, 1, 3, 2, 1, 2, 2, 1, true, 'Disetujui', 'Telah Menerima', 'Buruh pabrik harian lepas'],
+  ['3515990000000005', 'KPM WILAYAH PORONG 05', 'Sidoarjo', '1983-12-18', 'Kawasan Domisili Wilayah Kec. Porong', '0812****0005', 'kpm.porong05@dinsos-sda.id', '-7.5451', '112.6987', 700000.0, 1200000.0, 58, 2, 2, 3, 0, 3, 1, 2, true, 'Disetujui', 'Telah Menerima', 'Warga terdampak tanggul'],
+  ['3515990000000006', 'KPM WILAYAH TAMAN 06', 'Sidoarjo', '1992-03-04', 'Kawasan Domisili Wilayah Kec. Taman', '0812****0006', 'kpm.taman06@dinsos-sda.id', '-7.3621', '112.6954', 1400000.0, 4500000.0, 39, 1, 4, 2, 2, 2, 3, 1, false, 'Menunggu', 'Belum Salur', 'Pekerja sektor informal'],
+  ['3515990000000007', 'KPM WILAYAH CANDI 07', 'Sidoarjo', '1986-10-20', 'Kawasan Domisili Wilayah Kec. Candi', '0812****0007', 'kpm.candi07@dinsos-sda.id', '-7.4721', '112.7142', 850000.0, 2000000.0, 51, 2, 3, 3, 1, 3, 1, 1, true, 'Disetujui', 'Belum Salur', 'Pedagang keliling skala mikro'],
+  ['3515990000000008', 'KPM WILAYAH SUKODONO 08', 'Sidoarjo', '1981-11-11', 'Kawasan Domisili Wilayah Kec. Sukodono', '0812****0008', 'kpm.sukodono08@dinsos-sda.id', '-7.4112', '112.6789', 1250000.0, 3800000.0, 44, 1, 4, 2, 2, 2, 2, 1, false, 'Menunggu', 'Belum Salur', 'Keluarga anak usia sekolah'],
+  ['3515990000000009', 'KPM WILAYAH TANGGULANGIN 09', 'Sidoarjo', '1975-01-01', 'Kawasan Domisili Wilayah Kec. Tanggulangin', '0812****0009', 'kpm.tanggulangin09@dinsos-sda.id', '-7.5089', '112.7121', 900000.0, 2200000.0, 56, 1, 3, 2, 1, 3, 1, 2, true, 'Disetujui', 'Telah Menerima', 'Pengrajin rumahan musiman'],
+  ['3515990000000010', 'KPM WILAYAH KRIAN 10', 'Sidoarjo', '1989-08-14', 'Kawasan Domisili Wilayah Kec. Krian', '0812****0010', 'kpm.krian10@dinsos-sda.id', '-7.3995', '112.5921', 750000.0, 1800000.0, 47, 2, 4, 3, 3, 3, 1, 1, true, 'Disetujui', 'Laporan Sengketa', 'Bansos sembako belum diterima padahal status layak.'],
+  ['3515990000000011', 'KPM WILAYAH WARU 11', 'Sidoarjo', '1993-04-22', 'Kawasan Domisili Wilayah Kec. Waru', '0812****0011', 'kpm.waru11@dinsos-sda.id', '-7.3456', '112.7612', 1500000.0, 5200000.0, 36, 1, 2, 2, 1, 2, 3, 1, false, 'Menunggu', 'Belum Salur', 'Verifikasi mandiri bansos'],
+  ['3515990000000012', 'KPM WILAYAH SIDOARJO 12', 'Sidoarjo', '1982-06-16', 'Kawasan Domisili Wilayah Kec. Sidoarjo', '0812****0012', 'kpm.sda12@dinsos-sda.id', '-7.4567', '112.6934', 820000.0, 1900000.0, 52, 2, 3, 2, 1, 3, 1, 2, true, 'Disetujui', 'Telah Menerima', 'Keluarga rentan penyakit kronis']
 ];
 
 export let wargaStore: WargaItem[] = [];
@@ -155,9 +156,9 @@ export function setNotifikasiStore(newList: NotifikasiItem[]) {
 export const pengaduanStore: PengaduanItem[] = [
   {
     id: 1,
-    nik: '3515101408890010',
-    nama: 'NURUL HIDAYATI',
-    nama_pelapor: 'NURUL HIDAYATI',
+    nik: '3515990000000010',
+    nama: 'KPM Wilayah Terdaftar 10',
+    nama_pelapor: 'KPM Wilayah Terdaftar 10',
     kategori: 'Sengketa Penyaluran Bansos',
     uraian: 'Bansos sembako belum diterima padahal status verifikasi dinyatakan layak pada desil 1.',
     deskripsi: 'Bansos sembako belum diterima padahal status verifikasi dinyatakan layak pada desil 1.',
@@ -173,11 +174,11 @@ export const pengaduanStore: PengaduanItem[] = [
 export const chatStore: ChatItem[] = [
   {
     id: 1,
-    nik: '3515101408890010',
+    nik: '3515990000000010',
     sender: 'warga',
-    nama: 'NURUL HIDAYATI',
-    pesan: 'Selamat pagi petugas Dinsos, saya ingin menanyakan status bantuan sembako saya yang belum disalurkan.',
-    text: 'Selamat pagi petugas Dinsos, saya ingin menanyakan status bantuan sembako saya yang belum disalurkan.',
+    nama: 'Warga Terdata Wilayah',
+    pesan: 'Selamat pagi petugas Dinsos, saya ingin menanyakan status bantuan sembako yang belum disalurkan.',
+    text: 'Selamat pagi petugas Dinsos, saya ingin menanyakan status bantuan sembako yang belum disalurkan.',
     file_path: null,
     file_type: null,
     reply_sender: null,
@@ -192,11 +193,11 @@ export const chatStore: ChatItem[] = [
   },
   {
     id: 2,
-    nik: '3515101408890010',
+    nik: '3515990000000010',
     sender: 'petugas',
     nama: 'Petugas Dinsos Sidoarjo',
-    pesan: 'Selamat pagi Ibu Nurul, laporan Anda telah kami terima dan sedang kami koordinasikan dengan koordinator penyalur Kecamatan Krian.',
-    text: 'Selamat pagi Ibu Nurul, laporan Anda telah kami terima dan sedang kami koordinasikan dengan koordinator penyalur Kecamatan Krian.',
+    pesan: 'Selamat pagi, laporan dan aduan Anda telah kami terima dan sedang kami koordinasikan dengan tim verifikator wilayah.',
+    text: 'Selamat pagi, laporan dan aduan Anda telah kami terima dan sedang kami koordinasikan dengan tim verifikator wilayah.',
     file_path: null,
     file_type: null,
     reply_sender: null,
@@ -211,7 +212,7 @@ export const chatStore: ChatItem[] = [
   },
   {
     id: 3,
-    nik: '3515101408890010',
+    nik: '3515990000000010',
     sender: 'petugas',
     nama: 'Petugas Dinsos Sidoarjo',
     pesan: 'Berikut kami lampirkan dokumen Surat Keputusan Verifikasi Penerima Bantuan Sosial Kabupaten Sidoarjo tahun 2026.',
@@ -232,7 +233,7 @@ export const chatStore: ChatItem[] = [
   },
   {
     id: 4,
-    nik: '3515101408890010',
+    nik: '3515990000000010',
     sender: 'petugas',
     nama: 'Petugas Dinsos Sidoarjo',
     pesan: 'Ini berkas lembar kerja spreadsheet data rekapitulasi penyaluran sembako per desa di Kecamatan Krian.',
@@ -253,7 +254,7 @@ export const chatStore: ChatItem[] = [
   },
   {
     id: 5,
-    nik: '3515101408890010',
+    nik: '3515990000000010',
     sender: 'petugas',
     nama: 'Petugas Dinsos Sidoarjo',
     pesan: 'Dan ini formulir berkas panduan persyaratan administrasi pencairan bantuan sosial format Microsoft Word.',
@@ -279,7 +280,7 @@ export const laporanPelanggaranStore: LaporanPelanggaranItem[] = [
     id: 1,
     kode_laporan: 'VIO-2026-001',
     msg_id: 101,
-    nik: '3515101408890010',
+    nik: '3515990000000010',
     nama_terlapor: 'Oknum Penyalur Lapangan',
     sender_terlapor: 'petugas',
     pesan_kutipan: 'Kalau mau proses bantuan sembako Anda cepat keluar, ada biaya administrasi lapangan Rp 50.000.',
@@ -287,8 +288,8 @@ export const laporanPelanggaranStore: LaporanPelanggaranItem[] = [
     kategori: 'Pungutan Liar (Pungli)',
     deskripsi: 'Warga dimintai biaya administrasi ilegal untuk pencairan bansos sembako.',
     pelapor_role: 'warga',
-    pelapor_nama: 'NURUL HIDAYATI',
-    pelapor_nik: '3515101408890010',
+    pelapor_nama: 'KPM Wilayah Terdaftar 10',
+    pelapor_nik: '3515990000000010',
     status: 'Dalam Investigasi',
     tindakan_petugas: 'Pemanggilan petugas lapangan terkait oleh tim pengawas Dinsos Kab. Sidoarjo.',
     petugas_penindak: 'Administrator Utama (Super Admin)',
@@ -300,8 +301,8 @@ export const laporanPelanggaranStore: LaporanPelanggaranItem[] = [
     id: 2,
     kode_laporan: 'VIO-2026-002',
     msg_id: 102,
-    nik: '3515081111810008',
-    nama_terlapor: 'JOKO PRASETYO',
+    nik: '3515990000000008',
+    nama_terlapor: 'KPM Wilayah Terdaftar 08',
     sender_terlapor: 'warga',
     pesan_kutipan: 'Dasar petugas tidak becus, saya tahu kantor kalian di mana awas saja kalau tidak cair hari ini!',
     alasan: 'Kata-kata Kasar & Ancaman Intimidasi',
@@ -325,10 +326,16 @@ export function nowTimeStr(): string {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+export type NotifListener = (notif: NotifikasiItem) => void;
+const notifListeners: NotifListener[] = [];
+export function onNotifCreated(listener: NotifListener) {
+  notifListeners.push(listener);
+}
+
 export function catatNotifikasi(pesan: string, roleSender = 'Sistem', kategori = 'info') {
   const nextId = notifikasiStore.length > 0 ? Math.max(...notifikasiStore.map(n => n.id)) + 1 : 1;
   const formattedMsg = pesan.startsWith('[') ? pesan : `[${roleSender}] ${pesan}`;
-  notifikasiStore.unshift({
+  const newNotif: NotifikasiItem = {
     id: nextId,
     pesan: formattedMsg,
     kategori,
@@ -337,6 +344,10 @@ export function catatNotifikasi(pesan: string, roleSender = 'Sistem', kategori =
     is_read: false,
     is_pinned: false,
     is_archived: false
+  };
+  notifikasiStore.unshift(newNotif);
+  notifListeners.forEach(fn => {
+    try { fn(newNotif); } catch(e) {}
   });
 }
 
@@ -440,6 +451,9 @@ export function formatWargaSafe(w: WargaItem, maskPrivacy = true) {
     formatted.nik = maskNik(w.nik);
     formatted.no_hp = maskPhone(w.no_hp);
     formatted.email = maskEmail(w.email);
+    if (w.alamat) {
+      formatted.alamat = `Wilayah Terdaftar (${w.alamat.includes('Kec.') ? w.alamat.slice(w.alamat.indexOf('Kec.')) : 'Kabupaten Sidoarjo'})`;
+    }
   }
   return formatted;
 }

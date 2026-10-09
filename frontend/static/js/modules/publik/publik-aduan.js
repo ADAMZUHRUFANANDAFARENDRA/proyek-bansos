@@ -101,11 +101,30 @@ window.masukDashboardPengaduan = function (nik, nama, uraian, isNewReport = fals
     window.sinkronStatusStepperAduan();
     window.muatPesanAduan(true);
 
+    // Daftarkan listener real-time instan untuk pembaruan stepper & status aduan
+    if (window.RealtimeHub && typeof window.RealtimeHub.on === 'function') {
+        window.RealtimeHub.on('ADUAN_UPDATE', (evt) => {
+            if (sesiAduanAktif && evt.nik === sesiAduanAktif.nik) {
+                window.sinkronStatusStepperAduan();
+            }
+        });
+        window.RealtimeHub.on('PUTUSAN_SUPERADMIN', (evt) => {
+            if (sesiAduanAktif && evt.nik === sesiAduanAktif.nik) {
+                window.sinkronStatusStepperAduan();
+                window.muatPesanAduan(true);
+            }
+        });
+    }
+
     if (!aduanChatInterval) {
         aduanChatInterval = setInterval(() => {
+            // Hanya poll jika koneksi realtime terputus untuk menghemat bandwidth & cegah glitch
+            if (window.RealtimeHub && window.RealtimeHub.isConnected()) {
+                return;
+            }
             window.muatPesanAduan(false);
             window.sinkronStatusStepperAduan();
-        }, 3500);
+        }, 5000);
     }
 };
 

@@ -130,14 +130,38 @@ window.loadDashboardData = async function (showToast = false) {
     }
 
     if (showToast) {
-        showAdminAlert({
-            toast: true,
-            position: 'top-end',
-            icon: 'success',
-            title: `Berhasil memuat ${total} data kependudukan!`,
-            showConfirmButton: false,
-            timer: 1500
-        });
+        // Cegah tabrakan notifikasi jika ada pop-up lain yang sedang aktif
+        if (typeof Swal !== 'undefined' && Swal.isVisible()) {
+            console.log('[loadDashboardData] Notifikasi dilewati untuk mencegah tabrakan/tumpukan dengan alert aktif.');
+            return;
+        }
+
+        const now = Date.now();
+        if (window._lastDashboardToastTime && (now - window._lastDashboardToastTime < 1500)) {
+            return;
+        }
+        window._lastDashboardToastTime = now;
+
+        if (typeof window.showModernSuccessPanel === 'function') {
+            window.showModernSuccessPanel({
+                title: `Berhasil Memuat ${total} Data Kependudukan!`,
+                message: 'Arsip kependudukan Kabupaten Sidoarjo telah berhasil disinkronkan dan siap dianalisis.',
+                headerTag: 'Data Kependudukan Sidoarjo',
+                auditInfo: `${total} Warga Aktif Terverifikasi`,
+                confirmButtonText: 'Oke, Mengerti',
+                showConfirmButton: true,
+                showCloseButton: true,
+                timer: 5000
+            });
+        } else {
+            showAdminAlert({
+                icon: 'success',
+                title: `Berhasil Memuat ${total} Data Kependudukan!`,
+                text: 'Arsip kependudukan Kabupaten Sidoarjo telah berhasil disinkronkan dan siap dianalisis.',
+                confirmButtonText: 'Oke, Mengerti',
+                showCloseButton: true
+            });
+        }
     }
 };
 

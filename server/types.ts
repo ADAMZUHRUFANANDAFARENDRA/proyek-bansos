@@ -84,6 +84,15 @@ export interface PengaduanItem {
   status_text: string;
   catatan_petugas: string;
   waktu: string;
+  eskalasi_ke_superadmin?: boolean;
+  alasan_eskalasi?: string;
+  urgensi_eskalasi?: string;
+  diteruskan_oleh?: string;
+  waktu_eskalasi?: string;
+  status_superadmin?: string;
+  putusan_superadmin?: string;
+  audit_kode_terkait?: string;
+  waktu_putusan_superadmin?: string;
 }
 
 export interface ChatItem {

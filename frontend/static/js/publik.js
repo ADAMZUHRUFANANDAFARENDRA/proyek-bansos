@@ -409,6 +409,11 @@ function showPortalAlert(options) {
 // 4. INISIALISASI HALAMAN & EVENT LISTENER
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
+    // Verifikasi Otorisasi: Portal Warga Hanya untuk Super Admin & Developer
+    if (window.PublikDiagnostic && typeof window.PublikDiagnostic.checkAccess === 'function') {
+        window.PublikDiagnostic.checkAccess();
+    }
+
     const savedNik = localStorage.getItem('wargaNik');
     const savedNama = localStorage.getItem('wargaNama');
 

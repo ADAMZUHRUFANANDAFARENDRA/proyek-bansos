@@ -35,8 +35,18 @@ router.get(['/', '/warga', '/api/warga'], (req: Request, res: Response) => {
 
   if (statusFilter === 'layak') {
     list = list.filter(w => w.desil <= 4);
+  } else if (statusFilter === 'proses' || statusFilter === 'sedang_proses' || statusFilter === 'disalurkan') {
+    list = list.filter(w => {
+      const isMenerimaBansos = (w.desil <= 4 || w.status_bansos === 'Menerima Bansos' || w.status_bansos === 'Layak Bansos') &&
+                              w.status_bansos !== 'Tidak Menerima';
+      if (!isMenerimaBansos) return false;
+      const sudahDiterima = w.status_salur === 'Telah Menerima' || w.status_salur === 'Sudah Diterima' || Boolean(w.konfirmasi_warga);
+      if (sudahDiterima) return false;
+      if (String(w.status_salur || '').toLowerCase().includes('sengketa')) return false;
+      return true;
+    });
   } else if (statusFilter === 'menerima') {
-    list = list.filter(w => w.status_salur === 'Telah Menerima');
+    list = list.filter(w => w.status_salur === 'Telah Menerima' || w.status_salur === 'Sudah Diterima' || Boolean(w.konfirmasi_warga));
   } else if (statusFilter === 'bermasalah') {
     list = list.filter(w => w.status_salur.toLowerCase().includes('sengketa') || !w.is_verified);
   }
@@ -346,8 +356,11 @@ router.post(['/bulk', '/bulk-import'], (req: Request, res: Response) => {
     berhasil++;
   });
 
-  hitungDanSinkronkanSawBwm();
-  catatNotifikasi(`Impor massal selesai: ${berhasil} warga baru ditambahkan${diperbarui > 0 ? `, ${diperbarui} data diperbarui` : ''}.`, 'Admin', 'import');
+  const isSilentBatch = req.body?.silent === true || req.body?.is_final === false;
+  if (!isSilentBatch) {
+    hitungDanSinkronkanSawBwm();
+    catatNotifikasi(`Impor massal selesai: ${berhasil} warga baru ditambahkan${diperbarui > 0 ? `, ${diperbarui} data diperbarui` : ''}.`, 'Admin', 'import');
+  }
   res.json({ 
     status: 'success', 
     message: `Berhasil mengimpor ${berhasil} data warga baru${diperbarui > 0 ? ` dan memperbarui ${diperbarui} data` : ''}.`,
@@ -356,14 +369,30 @@ router.post(['/bulk', '/bulk-import'], (req: Request, res: Response) => {
   });
 });
 
-router.post(['/bulk-delete'], (req: Request, res: Response) => {
-  const ids: number[] = (req.body?.ids || []).map((x: unknown) => parseIntSafe(x, -1));
-  if (!ids.length) {
+router.post(['/bulk-delete', '/api/warga/bulk-delete'], (req: Request, res: Response) => {
+  const rawList = Array.isArray(req.body) ? req.body : (req.body?.ids || req.body?.data || []);
+  const rawIds: string[] = rawList.map((x: unknown) => String(x).trim());
+  const numIds: number[] = rawIds.map(x => parseIntSafe(x, -1)).filter(n => n > 0);
+  if (!rawIds.length) {
     return res.status(400).json({ status: 'error', message: 'Pilih data terlebih dahulu.' });
   }
-  setWargaStore(wargaStore.filter(w => !ids.includes(w.id)));
+  const beforeCount = wargaStore.length;
+  setWargaStore(wargaStore.filter(w => !numIds.includes(w.id) && !rawIds.includes(String(w.id)) && !rawIds.includes(w.nik)));
+  const deletedCount = beforeCount - wargaStore.length;
   hitungDanSinkronkanSawBwm();
-  return res.json({ status: 'success', message: `${ids.length} data terpilih berhasil dihapus.` });
+  catatNotifikasi(`Penghapusan massal: ${deletedCount || rawIds.length} data warga berhasil dihapus dari arsip.`, 'Admin', 'hapus');
+  return res.json({ status: 'success', message: `${deletedCount || rawIds.length} data terpilih berhasil dihapus.`, deleted: deletedCount });
+});
+
+router.post(['/:warga_id/delete'], (req: Request, res: Response) => {
+  const param = String(req.params.warga_id).trim();
+  const idx = wargaStore.findIndex(x => String(x.id) === param || x.nik === param);
+  if (idx === -1) return res.status(404).json({ status: 'error', message: 'Warga tidak ditemukan.' });
+  const w = wargaStore[idx];
+  wargaStore.splice(idx, 1);
+  hitungDanSinkronkanSawBwm();
+  catatNotifikasi(`Data kependudukan ${w.nama} (NIK: ${w.nik}) telah dihapus dari sistem.`, 'Admin', 'hapus');
+  return res.json({ status: 'success', message: 'Data warga berhasil dihapus.' });
 });
 
 router.post(['/:warga_id/bukti-salur'], upload.any(), (req: Request, res: Response) => {

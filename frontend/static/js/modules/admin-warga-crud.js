@@ -3,44 +3,414 @@
  * Deskripsi: Tambah data, edit data multi-variabel, cek Dukcapil, peta picker, dan status verifikasi
  */
 
-// 8. VERIFIKASI DUKCAPIL SIDOARJO
+// 8. VERIFIKASI DUKCAPIL SIDOARJO (AMBIL DATA DARI ARSIP DATA WARGA)
 // =========================================================================
 window.cekDukcapilLokal = async function () {
-    const nik = document.getElementById('nik')?.value.trim();
-    if (!nik || nik.length !== 16 || !/^\d+$/.test(nik)) {
-        return showAdminAlert({ icon: 'warning', title: 'Peringatan', text: 'Masukkan tepat 16 digit angka NIK.' });
+    const nikInput = document.getElementById('nik');
+    const nik = (nikInput?.value || '').trim();
+
+    if (!nik) {
+        return showAdminAlert({ 
+            icon: 'warning', 
+            title: 'Peringatan', 
+            text: 'Silakan masukkan 16 digit Nomor Induk Kependudukan (NIK) terlebih dahulu.' 
+        });
     }
 
-    showAdminAlert({ title: 'Memeriksa Data Dukcapil...', didOpen: () => Swal?.showLoading() });
+    if (nik.length !== 16 || !/^\d+$/.test(nik)) {
+        return showAdminAlert({ 
+            icon: 'warning', 
+            title: 'Peringatan', 
+            text: 'Nomor Induk Kependudukan (NIK) harus tepat 16 digit angka.' 
+        });
+    }
+
+    // Fungsi utilitas untuk mengosongkan seluruh kolom form pendataan warga
+    const kosongkanFormPendataanWarga = function () {
+        const fieldsToClear = [
+            'nama', 'no_hp', 'email', 'tempatLahir', 'tglLahir', 
+            'alamat', 'lat', 'lng', 'c1', 'c2', 'c3', 'c5', 'c7', 'catatan'
+        ];
+        fieldsToClear.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+
+        // Reset dropdown pilihan ke opsi awal
+        if (document.getElementById('inputC4')) document.getElementById('inputC4').value = '1';
+        if (document.getElementById('inputC6')) document.getElementById('inputC6').value = '2';
+        if (document.getElementById('inputC8')) document.getElementById('inputC8').value = '1';
+        if (document.getElementById('inputC9')) document.getElementById('inputC9').value = '1';
+        if (document.getElementById('inputC10')) document.getElementById('inputC10').value = '1';
+
+        // Reset peta ke pusat Sidoarjo
+        if (typeof formMap !== 'undefined' && formMap && typeof formMarker !== 'undefined' && formMarker) {
+            const center = window.MAP_CENTER_SIDOARJO || [-7.4478, 112.7183];
+            formMap.setView(center, 13);
+            formMarker.setLatLng(center);
+        }
+    };
+
+    // Fungsi utilitas untuk memformat tanggal ke YYYY-MM-DD
+    const formatTanggalInput = function (val) {
+        if (!val) return '';
+        const s = String(val).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const parts = s.split(/[\/\-\.]/);
+        if (parts.length === 3) {
+            if (parts[0].length === 4) {
+                return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+            } else if (parts[2].length === 4) {
+                return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            }
+        }
+        try {
+            const d = new Date(s);
+            if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+        } catch (_) {}
+        return '';
+    };
+
+    // Tampilkan indikator pencarian (tanpa tombol batalkan)
+    showAdminAlert({ 
+        title: 'Memeriksa Arsip Data Warga...', 
+        text: `Mencari catatan kependudukan untuk NIK: ${nik}...`, 
+        showCancelButton: false,
+        canCancel: false,
+        showCloseButton: false,
+        didOpen: (popup) => {
+            popup?.querySelector('.swal2-cancel')?.remove();
+            popup?.querySelector('.swal2-close')?.remove();
+            Swal?.showLoading();
+        }
+    });
 
     try {
-        const res = await (window.fetchWithAuth ? window.fetchWithAuth(`/api/dukcapil/${nik}`) : fetch(`${window.BASE_URL}/api/dukcapil/${nik}`));
-        const json = await res.json();
+        let found = null;
+
+        // 1. Prioritas Utama: Cari langsung di memori Arsip Data Warga (window.globalDataWarga)
+        if (Array.isArray(window.globalDataWarga) && window.globalDataWarga.length > 0) {
+            found = window.globalDataWarga.find(w => String(w.nik).trim() === nik);
+        }
+
+        // 2. Jika belum ditemukan, periksa cache lokal browser
+        if (!found) {
+            try {
+                const cached = JSON.parse(localStorage.getItem('cachedDataWarga') || '[]');
+                if (Array.isArray(cached) && cached.length > 0) {
+                    found = cached.find(w => String(w.nik).trim() === nik);
+                }
+            } catch (_) {}
+        }
+
+        // 3. Jika belum ditemukan, periksa endpoint Arsip Server / Dukcapil
+        if (!found) {
+            try {
+                const dukUrl = `/api/dukcapil/${encodeURIComponent(nik)}`;
+                const res = await (window.fetchWithAuth ? window.fetchWithAuth(dukUrl) : fetch(`${window.BASE_URL || ''}${dukUrl}`));
+                if (res && res.ok) {
+                    const json = await res.json();
+                    if (json && json.status === 'success' && json.data) {
+                        found = json.data;
+                    }
+                }
+            } catch (_) {}
+        }
+
+        // 4. Jika masih belum ditemukan, periksa endpoint data warga terpusat
+        if (!found) {
+            try {
+                const wUrl = `/api/warga/${encodeURIComponent(nik)}`;
+                const res = await (window.fetchWithAuth ? window.fetchWithAuth(wUrl) : fetch(`${window.BASE_URL || ''}${wUrl}`));
+                if (res && res.ok) {
+                    const json = await res.json();
+                    if (json && json.status === 'success' && json.data) {
+                        found = json.data;
+                    }
+                }
+            } catch (_) {}
+        }
+
         Swal?.close();
 
-        if (res && res.ok && json.status === 'success') {
-            const d = json.data;
-            if (document.getElementById('nama')) document.getElementById('nama').value = d.nama;
-            if (document.getElementById('tempatLahir')) document.getElementById('tempatLahir').value = d.tempat_lahir;
-            if (document.getElementById('tglLahir')) document.getElementById('tglLahir').value = d.tanggal_lahir;
-            if (document.getElementById('alamat')) document.getElementById('alamat').value = d.alamat;
-            if (document.getElementById('inputC4')) document.getElementById('inputC4').value = d.jenis_kelamin === 'Perempuan' ? '2' : '1';
-
-            if (typeof window.cariAlamatDiPeta === 'function') {
-                window.cariAlamatDiPeta(d.alamat);
-            }
-
-            showAdminAlert({
-                icon: 'success',
-                title: 'Data Dukcapil Ditemukan',
-                html: `<b>Nama:</b> ${d.nama}<br><b>TTL:</b> ${d.tempat_lahir}, ${d.tanggal_lahir}<br><b>Alamat:</b> ${d.alamat}`,
-                confirmButtonColor: '#10b981'
+        // KONDISI A: DATA TIDAK ADA DI ARSIP DATA WARGA -> KOSONGKAN SELURUH FORMULIR
+        if (!found) {
+            kosongkanFormPendataanWarga();
+            return showAdminAlert({ 
+                icon: 'warning', 
+                title: 'Data Tidak Ditemukan', 
+                html: `
+                    <div style="text-align:center; font-size:0.92rem; line-height:1.6;">
+                        <p>Catatan kependudukan NIK <b>${nik}</b> <u>tidak terdaftar</u> di dalam <b>Arsip Data Warga</b>.</p>
+                        <div style="background:#fee2e2; color:#b91c1c; padding:8px 12px; border-radius:8px; margin-top:8px; font-weight:600; font-size:0.85rem;">
+                            <i class="fas fa-eraser"></i> Seluruh kolom pada Formulir Pendataan Warga telah dikosongkan.
+                        </div>
+                    </div>
+                `,
+                showCancelButton: false,
+                showCloseButton: false,
+                confirmButtonColor: '#e11d48',
+                confirmButtonText: 'Selesai',
+                customClass: {
+                    popup: 'swal-modern-rounded swal-no-cancel',
+                    confirmButton: 'swal-btn-pill-danger',
+                    cancelButton: 'swal-btn-hidden-force'
+                },
+                didOpen: (popup) => {
+                    popup?.querySelector('.swal2-cancel')?.remove();
+                    popup?.querySelector('.swal2-close')?.remove();
+                }
             });
-        } else {
-            showAdminAlert({ icon: 'error', title: 'Gagal', text: 'Data NIK tidak ditemukan pada peladen Dukcapil.' });
         }
+
+        // KONDISI B: DATA ADA DI ARSIP DATA WARGA -> AMBIL DATA LENGKAP & ISI OTOMATIS KE FORM
+        const d = found;
+
+        // 1. Nomor Induk Kependudukan (NIK)
+        if (document.getElementById('nik')) {
+            document.getElementById('nik').value = d.nik || nik;
+        }
+
+        // 2. Nama Lengkap Pemohon
+        if (document.getElementById('nama')) {
+            document.getElementById('nama').value = d.nama || d.nama_lengkap || '';
+        }
+
+        // 3. No. WhatsApp / HP
+        if (document.getElementById('no_hp')) {
+            document.getElementById('no_hp').value = d.no_hp || d.telepon || d.hp || d.noHp || d.extra_data?.['No. WA'] || d.extra_data?.['Kontak'] || d.extra_data?.['No. HP'] || '';
+        }
+
+        // 4. Alamat Email
+        if (document.getElementById('email')) {
+            document.getElementById('email').value = d.email || d.extra_data?.['Email'] || '';
+        }
+
+        // 5. Tempat Lahir
+        if (document.getElementById('tempatLahir')) {
+            document.getElementById('tempatLahir').value = d.tempat_lahir || d.tempatLahir || d.extra_data?.['Tempat Lahir'] || 'Sidoarjo';
+        }
+        
+        // 6. Tanggal Lahir (Format YYYY-MM-DD untuk input date)
+        const tglLahirFormatted = formatTanggalInput(d.tanggal_lahir || d.tglLahir || d.tgl_lahir || d.extra_data?.['Tanggal Lahir']);
+        if (document.getElementById('tglLahir')) {
+            document.getElementById('tglLahir').value = tglLahirFormatted;
+        }
+        
+        // 7. Alamat Lengkap Tempat Tinggal
+        if (document.getElementById('alamat')) {
+            document.getElementById('alamat').value = d.alamat || d.extra_data?.['Alamat'] || d.extra_data?.['Alamat Lengkap'] || '';
+        }
+
+        // 8. Titik Lokasi Rumah (Geotagging Lintang & Bujur)
+        const latVal = (d.lat !== undefined && d.lat !== null && d.lat !== '') ? d.lat : (d.extra_data?.['Lat'] || d.extra_data?.['Latitude'] || '');
+        const lngVal = (d.lng !== undefined && d.lng !== null && d.lng !== '') ? d.lng : (d.extra_data?.['Lng'] || d.extra_data?.['Longitude'] || '');
+        if (document.getElementById('lat')) document.getElementById('lat').value = latVal;
+        if (document.getElementById('lng')) document.getElementById('lng').value = lngVal;
+
+        const numLat = parseFloat(latVal);
+        const numLng = parseFloat(lngVal);
+        if (!isNaN(numLat) && !isNaN(numLng)) {
+            if (typeof window.setFormCoords === 'function') {
+                window.setFormCoords(numLat, numLng);
+            }
+            if (typeof formMap !== 'undefined' && formMap && typeof formMarker !== 'undefined' && formMarker) {
+                formMap.setView([numLat, numLng], 16);
+                formMarker.setLatLng([numLat, numLng]);
+            }
+        } else if (d.alamat && typeof window.cariAlamatDiPeta === 'function') {
+            window.cariAlamatDiPeta(d.alamat);
+        }
+
+        // 9. Kuesioner 10 Kriteria Kelayakan (C1 - C10)
+        // C1. Kondisi Ekonomi
+        if (document.getElementById('c1')) {
+            const v1 = d.c1 !== undefined && d.c1 !== null ? d.c1 : (d.c1_ekonomi !== undefined ? d.c1_ekonomi : (d.extra_data?.['C1'] || d.extra_data?.['c1'] || ''));
+            document.getElementById('c1').value = v1 !== '' ? Math.round(Number(v1) || 0) : '';
+        }
+        // C2. Nilai Aset
+        if (document.getElementById('c2')) {
+            const v2 = d.c2 !== undefined && d.c2 !== null ? d.c2 : (d.c2_aset !== undefined ? d.c2_aset : (d.extra_data?.['C2'] || d.extra_data?.['c2'] || ''));
+            document.getElementById('c2').value = v2 !== '' ? Math.round(Number(v2) || 0) : '';
+        }
+        // C3. Usia Kepala Keluarga
+        if (document.getElementById('c3')) {
+            const v3 = d.c3 !== undefined && d.c3 !== null ? d.c3 : (d.c3_umur !== undefined ? d.c3_umur : (d.extra_data?.['C3'] || d.extra_data?.['c3'] || ''));
+            document.getElementById('c3').value = v3 !== '' ? Math.round(Number(v3) || 0) : '';
+        }
+        // C4. Jenis Kelamin (1 = Laki-laki, 2 = Perempuan)
+        if (document.getElementById('inputC4')) {
+            let c4Val = '1';
+            if (d.c4 !== undefined && d.c4 !== null && String(d.c4) !== '') c4Val = String(d.c4);
+            else if (d.c4_jenis_kelamin !== undefined && d.c4_jenis_kelamin !== null) c4Val = String(d.c4_jenis_kelamin);
+            else if (d.c4_jk !== undefined && d.c4_jk !== null) c4Val = String(d.c4_jk);
+            else if (d.jenis_kelamin) {
+                const s = String(d.jenis_kelamin).toLowerCase();
+                c4Val = (s.includes('perempuan') || s === 'p' || s === '2') ? '2' : '1';
+            } else if (d.extra_data?.['Jenis Kelamin']) {
+                const s = String(d.extra_data['Jenis Kelamin']).toLowerCase();
+                c4Val = (s.includes('perempuan') || s === 'p' || s === '2') ? '2' : '1';
+            }
+            document.getElementById('inputC4').value = c4Val;
+        }
+        // C5. Jumlah Tanggungan
+        if (document.getElementById('c5')) {
+            const v5 = d.c5 !== undefined && d.c5 !== null ? d.c5 : (d.c5_tanggungan !== undefined ? d.c5_tanggungan : (d.extra_data?.['C5'] || d.extra_data?.['c5'] || ''));
+            document.getElementById('c5').value = v5 !== '' ? Math.round(Number(v5) || 0) : '';
+        }
+        // C6. Status Pernikahan (1 = Belum Menikah, 2 = Menikah, 3 = Cerai)
+        if (document.getElementById('inputC6')) {
+            let c6Val = '2';
+            if (d.c6 !== undefined && d.c6 !== null && String(d.c6) !== '') c6Val = String(d.c6);
+            else if (d.c6_status_pernikahan !== undefined && d.c6_status_pernikahan !== null) c6Val = String(d.c6_status_pernikahan);
+            else if (d.status_pernikahan || d.extra_data?.['Status Pernikahan']) {
+                const s = String(d.status_pernikahan || d.extra_data?.['Status Pernikahan']).toLowerCase();
+                if (s.includes('belum') || s === '1') c6Val = '1';
+                else if (s.includes('cerai') || s === '3') c6Val = '3';
+                else c6Val = '2';
+            }
+            document.getElementById('inputC6').value = c6Val;
+        }
+        // C7. Kepemilikan Anak Sekolah
+        if (document.getElementById('c7')) {
+            const v7 = d.c7 !== undefined && d.c7 !== null ? d.c7 : (d.c7_kepemilikan_anak !== undefined ? d.c7_kepemilikan_anak : (d.c7_anak_sekolah !== undefined ? d.c7_anak_sekolah : (d.extra_data?.['C7'] || d.extra_data?.['c7'] || '')));
+            document.getElementById('c7').value = v7 !== '' ? Math.round(Number(v7) || 0) : '';
+        }
+        // C8. Status Tempat Tinggal (1 = Milik Sendiri, 2 = Sewa/Kontrak, 3 = Menumpang/Tidak Layak)
+        if (document.getElementById('inputC8')) {
+            let c8Val = '1';
+            if (d.c8 !== undefined && d.c8 !== null && String(d.c8) !== '') c8Val = String(d.c8);
+            else if (d.c8_tempat_tinggal !== undefined && d.c8_tempat_tinggal !== null) c8Val = String(d.c8_tempat_tinggal);
+            else if (d.status_tempat_tinggal || d.extra_data?.['Status Tempat Tinggal']) {
+                const s = String(d.status_tempat_tinggal || d.extra_data?.['Status Tempat Tinggal']).toLowerCase();
+                if (s.includes('sewa') || s.includes('kontrak') || s === '2') c8Val = '2';
+                else if (s.includes('numpang') || s.includes('tidak layak') || s === '3') c8Val = '3';
+                else c8Val = '1';
+            }
+            document.getElementById('inputC8').value = c8Val;
+        }
+        // C9. Tingkat Pendidikan Terakhir (1 = SD/Tidak Sekolah, 2 = SMP, 3 = SMA/SMK, 4 = Sarjana/Diploma)
+        if (document.getElementById('inputC9')) {
+            let c9Val = '1';
+            if (d.c9 !== undefined && d.c9 !== null && String(d.c9) !== '') c9Val = String(d.c9);
+            else if (d.c9_pendidikan !== undefined && d.c9_pendidikan !== null) c9Val = String(d.c9_pendidikan);
+            else if (d.pendidikan || d.extra_data?.['Pendidikan']) {
+                const s = String(d.pendidikan || d.extra_data?.['Pendidikan']).toLowerCase();
+                if (s.includes('sarjana') || s.includes('diploma') || s.includes('s1') || s === '4') c9Val = '4';
+                else if (s.includes('sma') || s.includes('smk') || s === '3') c9Val = '3';
+                else if (s.includes('smp') || s === '2') c9Val = '2';
+                else c9Val = '1';
+            }
+            document.getElementById('inputC9').value = c9Val;
+        }
+        // C10. Status Kesehatan (1 = Sehat, 2 = Sakit Menahun / Disabilitas Fisik)
+        if (document.getElementById('inputC10')) {
+            let c10Val = '1';
+            if (d.c10 !== undefined && d.c10 !== null && String(d.c10) !== '') c10Val = String(d.c10);
+            else if (d.c10_kesehatan !== undefined && d.c10_kesehatan !== null) c10Val = String(d.c10_kesehatan);
+            else if (d.status_kesehatan || d.extra_data?.['Status Kesehatan']) {
+                const s = String(d.status_kesehatan || d.extra_data?.['Status Kesehatan']).toLowerCase();
+                if (s.includes('sakit') || s.includes('disabilitas') || s === '2') c10Val = '2';
+                else c10Val = '1';
+            }
+            document.getElementById('inputC10').value = c10Val;
+        }
+
+        // 10. Catatan Lapangan Tambahan (Lengkap)
+        if (document.getElementById('catatan')) {
+            document.getElementById('catatan').value = d.catatan || d.keterangan || d.catatan_lapangan || d.extra_data?.['Catatan'] || d.extra_data?.['Catatan Lapangan'] || '';
+        }
+
+        // Tampilkan notifikasi sukses dengan keseluruhan rincian arsip
+        const jkLabel = (d.c4 == 2 || String(d.jenis_kelamin).toLowerCase().includes('perempuan')) ? 'Perempuan (2)' : 'Laki-laki (1)';
+        const formattedC1 = d.c1 !== undefined && d.c1 !== null && d.c1 !== '' ? `Rp ${Number(d.c1).toLocaleString('id-ID')}` : '-';
+        const formattedC2 = d.c2 !== undefined && d.c2 !== null && d.c2 !== '' ? `Rp ${Number(d.c2).toLocaleString('id-ID')}` : '-';
+        
+        const nikVal = d.nik || nik;
+        const namaVal = d.nama || d.nama_lengkap || 'Warga Terdata';
+        const ttlVal = `${d.tempat_lahir || d.tempatLahir || 'Sidoarjo'}, ${tglLahirFormatted || '-'}`;
+        const kontakVal = d.no_hp || d.telepon || d.hp || d.noHp || '-';
+        const emailVal = d.email || '-';
+        const alamatVal = d.alamat || '-';
+        const geoVal = (latVal && lngVal) ? `${latVal}, ${lngVal}` : 'Belum Tersemat';
+        const catatanVal = d.catatan || d.keterangan || d.catatan_lapangan || '-';
+
+        const nikahLabel = (document.getElementById('inputC6')?.options[document.getElementById('inputC6')?.selectedIndex]?.text) || 'Menikah (2)';
+        const rumahLabel = (document.getElementById('inputC8')?.options[document.getElementById('inputC8')?.selectedIndex]?.text) || 'Milik Sendiri (1)';
+        const pendLabel = (document.getElementById('inputC9')?.options[document.getElementById('inputC9')?.selectedIndex]?.text) || 'Tidak Sekolah / SD (1)';
+        const sehatLabel = (document.getElementById('inputC10')?.options[document.getElementById('inputC10')?.selectedIndex]?.text) || 'Sehat (1)';
+
+        // Tampilkan modal hasil verifikasi HANYA dengan tombol 'Selesai' (TIDAK ADA tombol Cancel)
+        showAdminAlert({
+            icon: 'success',
+            title: 'Data Arsip Warga Ditemukan!',
+            html: `
+                <div style="text-align:left; font-size:0.86rem; line-height:1.6; background:#f8fafc; padding:14px 16px; border-radius:12px; border:1px solid #e2e8f0; margin-top:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid #cbd5e1; padding-bottom:8px;">
+                        <span style="font-weight:800; font-size:0.98rem; color:#0f172a;">${namaVal}</span>
+                        <span style="background:#dcfce7; color:#15803d; padding:3px 10px; border-radius:12px; font-weight:800; font-size:0.75rem;"><i class="fas fa-check-circle mr-1"></i> Arsip Terverifikasi</span>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:6px; margin-bottom:10px;">
+                        <div><span style="color:#64748b;">NIK:</span> <b>${nikVal}</b></div>
+                        <div><span style="color:#64748b;">TTL:</span> <b>${ttlVal}</b></div>
+                        <div><span style="color:#64748b;">Jenis Kelamin:</span> <b>${jkLabel}</b></div>
+                        <div><span style="color:#64748b;">Kontak:</span> <b>${kontakVal}</b></div>
+                        <div><span style="color:#64748b;">Email:</span> <b>${emailVal}</b></div>
+                        <div><span style="color:#64748b;">Titik Geotagging:</span> <b style="font-family:monospace; color:#0284c7;">${geoVal}</b></div>
+                    </div>
+
+                    <div style="margin-bottom:10px;"><span style="color:#64748b;">Alamat Lengkap:</span><br><b>${alamatVal}</b></div>
+
+                    <div style="background:#f1f5f9; padding:10px 12px; border-radius:8px; border:1px solid #e2e8f0; margin-bottom:10px;">
+                        <div style="font-weight:800; color:#0f172a; margin-bottom:6px; font-size:0.84rem; display:flex; align-items:center; gap:6px;">
+                            <i class="fas fa-list-check" style="color:#009846;"></i> Ringkasan 10 Kriteria Kelayakan:
+                        </div>
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:4px; font-size:0.82rem;">
+                            <div><b>C1. Ekonomi:</b> ${formattedC1}</div>
+                            <div><b>C2. Aset:</b> ${formattedC2}</div>
+                            <div><b>C3. Usia:</b> ${d.c3 !== undefined && d.c3 !== null ? d.c3 : '-'} Tahun</div>
+                            <div><b>C4. Gender:</b> ${jkLabel}</div>
+                            <div><b>C5. Tanggungan:</b> ${d.c5 !== undefined && d.c5 !== null ? d.c5 : '-'} Jiwa</div>
+                            <div><b>C6. Pernikahan:</b> ${nikahLabel}</div>
+                            <div><b>C7. Anak Sekolah:</b> ${d.c7 !== undefined && d.c7 !== null ? d.c7 : '-'} Anak</div>
+                            <div><b>C8. Tempat Tinggal:</b> ${rumahLabel}</div>
+                            <div><b>C9. Pendidikan:</b> ${pendLabel}</div>
+                            <div><b>C10. Kesehatan:</b> ${sehatLabel}</div>
+                        </div>
+                    </div>
+
+                    <div style="background:#fff7ed; padding:8px 12px; border-radius:8px; border:1px solid #fed7aa; margin-bottom:10px; font-size:0.82rem; color:#9a3412;">
+                        <b><i class="fas fa-sticky-note mr-1"></i> Catatan Lapangan:</b> ${catatanVal}
+                    </div>
+
+                    <div style="padding-top:6px; border-top:1px dashed #cbd5e1; color:#059669; font-weight:700; font-size:0.84rem; text-align:center;">
+                        <i class="fas fa-check-double mr-1"></i> Seluruh data arsip warga telah otomatis dimasukkan ke dalam Formulir Pendataan Warga.
+                    </div>
+                </div>
+            `,
+            showCancelButton: false,
+            showCloseButton: false,
+            confirmButtonColor: '#009846',
+            confirmButtonText: 'Selesai',
+            customClass: {
+                popup: 'swal-modern-rounded swal-no-cancel',
+                confirmButton: 'swal-btn-pill-confirm',
+                cancelButton: 'swal-btn-hidden-force'
+            },
+            didOpen: (popup) => {
+                popup?.querySelector('.swal2-cancel')?.remove();
+                popup?.querySelector('.swal2-close')?.remove();
+            }
+        });
+
     } catch (err) {
-        showAdminAlert({ icon: 'error', title: 'Error', text: 'Gagal menghubungi peladen Dukcapil.' });
+        console.error('Error saat memeriksa data warga:', err);
+        showAdminAlert({ 
+            icon: 'error', 
+            title: 'Gagal Memeriksa Data', 
+            text: 'Terjadi kendala saat memeriksa data ke basis data arsip.' 
+        });
     }
 };
 
@@ -310,7 +680,7 @@ window.ubahStatusVerifikasiWarga = async function (idOrNik, statusSetuju) {
                 showConfirmButton: false,
                 customClass: { popup: 'swal-modern-rounded' }
             });
-            if (typeof window.loadDashboardData === 'function') window.loadDashboardData(true);
+            if (typeof window.loadDashboardData === 'function') window.loadDashboardData(false);
             else location.reload();
         } else {
             const json = await res.json().catch(() => ({}));
@@ -354,7 +724,7 @@ window.setujuiSemuaWargaInstan = async function (e) {
                 method: 'POST', 
                 headers: { 'Authorization': `Bearer ${window.getCleanToken()}` } 
             });
-            if (typeof window.loadDashboardData === 'function') window.loadDashboardData(true);
+            if (typeof window.loadDashboardData === 'function') window.loadDashboardData(false);
         } catch (err) {
             showAdminAlert({ icon: 'error', title: 'Gagal', text: err.message });
         }
@@ -380,7 +750,7 @@ window.batalkanSemuaWargaInstan = async function (e) {
                 method: 'POST', 
                 headers: { 'Authorization': `Bearer ${window.getCleanToken()}` } 
             });
-            if (typeof window.loadDashboardData === 'function') window.loadDashboardData(true);
+            if (typeof window.loadDashboardData === 'function') window.loadDashboardData(false);
         } catch (err) {
             showAdminAlert({ icon: 'error', title: 'Gagal', text: err.message });
         }
@@ -483,7 +853,8 @@ window.hapusSemuaWargaAman = async function (e) {
 };
 
 window.bulkProcess = async function (action) {
-    const checked = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
+    const checkedBoxes = Array.from(document.querySelectorAll('.row-checkbox:checked'));
+    const checked = checkedBoxes.map(cb => cb.value).filter(Boolean);
     if (!checked.length) {
         return showAdminAlert({ icon: 'warning', title: 'Pilih Data', text: 'Pilih minimal satu baris warga terlebih dahulu.' });
     }
@@ -505,12 +876,25 @@ window.bulkProcess = async function (action) {
             showAdminAlert({ title: 'Menghapus Data Terpilih...', customClass: { popup: 'swal-modern-rounded' }, didOpen: () => Swal?.showLoading() });
             try {
                 const base = (window.BASE_API_URL || window.API_BASE_URL || window.BASE_URL || window.location.origin).replace(/\/+$/, '');
-                await fetch(`${base}/api/warga/bulk-delete`, {
+                let res = await fetch(`${base}/api/warga/bulk-delete`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.getCleanToken()}` },
                     body: JSON.stringify({ ids: checked })
                 });
-                await window.loadDashboardData(true);
+                if (!res.ok) {
+                    res = await fetch(`${base}/warga/bulk-delete`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.getCleanToken()}` },
+                        body: JSON.stringify({ ids: checked })
+                    });
+                }
+
+                // Hapus langsung dari state memori frontend
+                if (window.globalDataWarga) {
+                    window.globalDataWarga = window.globalDataWarga.filter(w => !checked.includes(String(w.id)) && !checked.includes(String(w.nik)));
+                }
+
+                await window.loadDashboardData(false);
                 Swal.fire({
                     icon: 'success',
                     title: 'Data Berhasil Dihapus',
@@ -888,7 +1272,7 @@ window.simpanEdit = async function (e) {
         const json = await res.json().catch(() => ({}));
 
         window.closeModal('modalEdit');
-        await window.loadDashboardData(true);
+        await window.loadDashboardData(false);
 
         Swal.fire({
             icon: 'success',
@@ -911,9 +1295,10 @@ window.simpanEdit = async function (e) {
 };
 
 // HAPUS SATU BARIS DATA WARGA DENGAN POPUP OKE MODERN & MEMBULAT
-window.hapusData = async function (id) {
-    const target = (window.globalDataWarga || []).find(w => String(w.id) === String(id));
+window.hapusData = async function (id, nikParam) {
+    const target = (window.globalDataWarga || []).find(w => String(w.id) === String(id) || (nikParam && w.nik === nikParam) || (w.nik === String(id)));
     const namaTarget = target ? target.nama : 'warga terpilih';
+    const targetNik = target ? target.nik : (nikParam || (String(id).length === 16 ? String(id) : ''));
 
     const k = await Swal.fire({
         title: 'Hapus Data Warga Ini?',
@@ -943,14 +1328,33 @@ window.hapusData = async function (id) {
                 }
             });
 
-            if (!res.ok) {
-                res = await fetch(`${base}/warga/${id}`, {
+            if (!res.ok && targetNik) {
+                res = await fetch(`${base}/api/warga/${targetNik}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
                 });
             }
 
-            await window.loadDashboardData(true);
+            if (!res.ok) {
+                res = await fetch(`${base}/api/warga/${id}/delete`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
+                });
+            }
+
+            if (!res.ok && targetNik) {
+                res = await fetch(`${base}/api/warga/${targetNik}/delete`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
+                });
+            }
+
+            // Hapus dari state lokal seketika
+            if (window.globalDataWarga) {
+                window.globalDataWarga = window.globalDataWarga.filter(w => String(w.id) !== String(id) && (!targetNik || w.nik !== targetNik));
+            }
+
+            await window.loadDashboardData(false);
 
             Swal.fire({
                 icon: 'success',
@@ -1128,7 +1532,7 @@ window.simpanBuktiPenyaluranLengkap = async function () {
         window.closeModal('modalBuktiSalur');
 
         // Muat ulang data agar tabel dan kartu warga terupdate
-        await window.loadDashboardData(true);
+        await window.loadDashboardData(false);
 
         Swal.fire({
             icon: 'success',
@@ -1198,7 +1602,7 @@ window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
                 });
             }
 
-            await window.loadDashboardData(true);
+            await window.loadDashboardData(false);
             showAdminAlert({ icon: 'success', title: 'Sengketa Selesai', text: `Status bantuan untuk ${namaWarga} telah diperbarui menjadi Telah Menerima.` });
         } else if (result.isDenied) {
             window.bukaModalEdit(id);

@@ -301,7 +301,7 @@ window.parseWordFile = function (file) {
 
                 if (rows.length === 0) {
                     rows = [
-                        { NIK: '3515011002850001', 'Nama Lengkap': 'SUTRISNO HADI', 'Alamat': 'Kec. Waru', C1: 950000, C2: 2500000, Catatan: 'Impor Dokumen Word Dinas' }
+                        { NIK: '351599******0001', 'Nama Lengkap': 'Warga Contoh (Format Word)', 'Alamat': 'Wilayah Domisili RT 01/RW 01, Sidoarjo', C1: 950000, C2: 2500000, Catatan: 'Impor Dokumen Word Dinas' }
                     ];
                 }
 
@@ -692,10 +692,10 @@ window.parsePdfFile = function (file) {
                 if (rows.length === 0) {
                     rows.push({
                         'No': 1,
-                        'NIK': '3515022507900002',
-                        'Nama Lengkap': 'SITI AMINAH',
-                        'Alamat': 'Kec. Krian',
-                        'NO_WHATSAPP': '081234567890',
+                        'NIK': '351599******0002',
+                        'Nama Lengkap': 'Warga Contoh (Format PDF)',
+                        'Alamat': 'Wilayah Domisili RT 02/RW 01, Sidoarjo',
+                        'NO_WHATSAPP': '0812****0002',
                         'KECAMATAN': 'Krian',
                         'DESA_KELURAHAN': 'Krian',
                         'C01': 1,
@@ -1486,7 +1486,8 @@ window.saveSingleCustomImportRow = async function (index) {
         }
 
         window.closeModal('modalCustomImportRowDetail');
-        await window.loadDashboardData(true);
+        window._lastLocalActionTime = Date.now();
+        await window.loadDashboardData(false);
 
         Swal.fire({
             icon: 'success',
@@ -1549,6 +1550,7 @@ window.executeUnifiedCustomImport = async function () {
         }
     });
 
+    window._isImportProcessing = true;
     try {
         const base = (window.BASE_API_URL || window.API_BASE_URL || window.BASE_URL || window.location.origin).replace(/\/+$/, '');
         
@@ -1564,6 +1566,7 @@ window.executeUnifiedCustomImport = async function () {
             const start = b * BATCH_SIZE;
             const end = Math.min(start + BATCH_SIZE, totalCount);
             const chunk = rawData.slice(start, end);
+            const isLastBatch = (b === totalBatches - 1);
 
             const currentStage = totalBatches > 1
                 ? `Tahap ${b + 1} dari ${totalBatches}: Menyimpan baris data ${start + 1} - ${end}...`
@@ -1586,7 +1589,9 @@ window.executeUnifiedCustomImport = async function () {
                 body: JSON.stringify({
                     data: chunk,
                     overwrite: overwrite,
-                    keep_all_vars: keepAllVars
+                    keep_all_vars: keepAllVars,
+                    silent: !isLastBatch,
+                    is_final: isLastBatch
                 }),
                 signal: abortController.signal
             });
@@ -1602,7 +1607,9 @@ window.executeUnifiedCustomImport = async function () {
                     body: JSON.stringify({
                         data: chunk,
                         overwrite: overwrite,
-                        keep_all_vars: keepAllVars
+                        keep_all_vars: keepAllVars,
+                        silent: !isLastBatch,
+                        is_final: isLastBatch
                     }),
                     signal: abortController.signal
                 });
@@ -1618,7 +1625,7 @@ window.executeUnifiedCustomImport = async function () {
         }
 
         if (isCancelled || loader.isCancelled()) {
-            await window.loadDashboardData(true);
+            await window.loadDashboardData(false);
             return Swal.fire({
                 icon: 'info',
                 title: 'Penginputan Data Dibatalkan',
@@ -1642,9 +1649,10 @@ window.executeUnifiedCustomImport = async function () {
 
         window.closeModal('modalCustomImport');
         window.stagedUnifiedImportData = [];
+        window._lastLocalActionTime = Date.now();
 
         // Refresh data dasbor dan tabel arsip
-        await window.loadDashboardData(true);
+        await window.loadDashboardData(false);
 
         // Pastikan filter aktif adalah "Semua" agar data baru langsung tampak di tabel arsip
         const filterSemuaBtn = document.querySelector('.filter-btn.filter-kategori');
@@ -1653,24 +1661,80 @@ window.executeUnifiedCustomImport = async function () {
         }
 
         Swal.fire({
+            _isRaw: true,
             icon: 'success',
             title: 'Data Berhasil Disimpan ke Arsip Warga!',
             html: `
                 <div style="font-size:0.95rem; color:#334155; margin-bottom:12px;">
                     Berhasil memasukkan <b>${totalCount} data kependudukan</b> ke dalam Arsip Data Warga.
                 </div>
-                <div style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:14px; padding:12px; font-size:0.83rem; color:#166534; text-align:left;">
-                    <div style="font-weight:800; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-                        <i class="fas fa-check-circle" style="color:#16a34a;"></i> Tersimpan Permanen di Arsip
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:12px 16px; font-size:0.84rem; color:#334155; text-align:left;">
+                    <div style="font-weight:700; margin-bottom:6px; color:#1e293b;">
+                        Informasi Pembaruan Arsip:
                     </div>
-                    <div>&bull; Seluruh nama lengkap warga dan variabel kependudukan telah terekam.</div>
+                    <div style="margin-bottom:4px;">&bull; Seluruh nama lengkap warga dan variabel kependudukan telah terekam.</div>
                     <div>&bull; Skor kelayakan SPK BWM-SAW otomatis dikalkulasi dan diperbarui.</div>
                 </div>
             `,
-            confirmButtonText: '<i class="fas fa-folder-open"></i> Lihat Arsip Data Warga',
+            showCloseButton: true,
+            allowOutsideClick: true,
+            allowEscapeKey: true,
+            confirmButtonText: '<i class="fas fa-folder-open" style="margin-right:8px; pointer-events:none;"></i> Lihat Arsip Data Warga',
             buttonsStyling: false,
-            customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-primary' }
-        }).then(() => {
+            customClass: {
+                popup: 'swal-modern-rounded',
+                confirmButton: 'swal-btn-pill-primary',
+                closeButton: 'swal-close-modern'
+            },
+            didOpen: (popup) => {
+                const confirmBtn = popup.querySelector('.swal2-confirm, .swal-btn-pill-primary');
+                if (confirmBtn) {
+                    confirmBtn.style.setProperty('cursor', 'pointer', 'important');
+                    confirmBtn.style.setProperty('pointer-events', 'auto', 'important');
+                    confirmBtn.style.setProperty('z-index', '99999999', 'important');
+                    confirmBtn.removeAttribute('disabled');
+                    confirmBtn.onclick = (e) => {
+                        if (e) {
+                            try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
+                        }
+                        try {
+                            if (typeof Swal !== 'undefined' && typeof Swal.close === 'function') {
+                                Swal.close();
+                            }
+                        } catch (_) {}
+                        const tableCard = document.querySelector('.table-column .card') || document.getElementById('wargaTable');
+                        if (tableCard) {
+                            tableCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    };
+                }
+
+                const closeBtn = popup.querySelector('.swal2-close, .swal-close-modern');
+                if (closeBtn) {
+                    closeBtn.style.setProperty('cursor', 'pointer', 'important');
+                    closeBtn.style.setProperty('pointer-events', 'auto', 'important');
+                    closeBtn.style.setProperty('z-index', '99999999', 'important');
+                    closeBtn.removeAttribute('disabled');
+                    closeBtn.onclick = (e) => {
+                        if (e) {
+                            try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
+                        }
+                        try {
+                            if (typeof Swal !== 'undefined' && typeof Swal.close === 'function') {
+                                Swal.close();
+                            }
+                        } catch (_) {}
+                    };
+                }
+            },
+            preConfirm: () => {
+                const tableCard = document.querySelector('.table-column .card') || document.getElementById('wargaTable');
+                if (tableCard) {
+                    tableCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                return true;
+            }
+        }).then((result) => {
             const tableCard = document.querySelector('.table-column .card') || document.getElementById('wargaTable');
             if (tableCard) {
                 tableCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1679,7 +1743,7 @@ window.executeUnifiedCustomImport = async function () {
 
     } catch (err) {
         if (err.name === 'AbortError' || isCancelled || loader.isCancelled()) {
-            await window.loadDashboardData(true);
+            await window.loadDashboardData(false);
             return Swal.fire({
                 icon: 'info',
                 title: 'Penginputan Data Dibatalkan',
@@ -1695,6 +1759,8 @@ window.executeUnifiedCustomImport = async function () {
             title: 'Gagal Menyimpan Data Arsip',
             text: err.message || 'Terjadi kendala saat menyimpan data ke Arsip Warga.'
         });
+    } finally {
+        window._isImportProcessing = false;
     }
 };
 

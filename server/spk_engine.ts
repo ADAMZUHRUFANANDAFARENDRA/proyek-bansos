@@ -239,7 +239,7 @@ export function seedInitialWarga(force = false) {
     status_salur: r[21],
     status_bansos: r[19] ? 'Layak Bansos' : 'Menunggu Verifikasi',
     prioritas: r[19] ? 'Prioritas Utama' : 'Menunggu',
-    bukti_salur: r[21] === 'Telah Menerima' ? 'bukti_3515706317586051_1786544215.jpg' : '',
+    bukti_salur: r[21] === 'Telah Menerima' ? 'bukti_salur_kpm_sample.jpg' : '',
     catatan: r[22],
     nominal_bantuan: 'Rp 600.000 / Beras 10 Kg',
     tanggal_salur: r[21] === 'Telah Menerima' ? '25/09/2026 10:15' : '-',

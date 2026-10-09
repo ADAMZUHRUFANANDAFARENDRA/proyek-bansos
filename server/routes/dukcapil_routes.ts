@@ -17,38 +17,30 @@ import type { WargaItem } from '../types.js';
 const router = Router();
 
 router.get(['/dukcapil/:nik', '/api/dukcapil/:nik'], (req: Request, res: Response) => {
+  seedInitialWarga();
   const cleanNik = String(req.params.nik || '').trim();
   if (!cleanNik || cleanNik.length !== 16 || !/^\d+$/.test(cleanNik)) {
     return res.status(400).json({ status: 'error', message: 'Format NIK wajib 16 digit angka valid.' });
   }
 
-  const w = wargaStore.find(x => x.nik === cleanNik);
+  const w = wargaStore.find(x => String(x.nik).trim() === cleanNik) ||
+            wargaBackupStore.find(x => String(x.nik).trim() === cleanNik);
   if (w) {
+    const formatted = formatWarga(w);
     return res.json({
       status: 'success',
-      message: 'Data NIK ditemukan pada arsip terpadu daerah.',
+      message: 'Data NIK ditemukan pada arsip data warga.',
       data: {
-        nik: w.nik,
-        nama: w.nama,
-        tempat_lahir: w.tempat_lahir || 'Sidoarjo',
-        tanggal_lahir: w.tanggal_lahir || '1985-05-15',
-        alamat: w.alamat || 'Kabupaten Sidoarjo',
+        ...formatted,
         jenis_kelamin: w.c4 === 2 ? 'Perempuan' : 'Laki-laki'
       }
     });
   }
 
-  return res.json({
-    status: 'success',
-    message: 'Data kependudukan terverifikasi pada Disdukcapil Sidoarjo.',
-    data: {
-      nik: cleanNik,
-      nama: 'WARGA SIDOARJO TERVERIFIKASI',
-      tempat_lahir: 'Sidoarjo',
-      tanggal_lahir: '1988-08-17',
-      alamat: 'Kabupaten Sidoarjo, Jawa Timur',
-      jenis_kelamin: 'Laki-laki'
-    }
+  return res.status(404).json({
+    status: 'error',
+    message: 'Data NIK tidak ditemukan didalam arsip data warga.',
+    data: null
   });
 });
 

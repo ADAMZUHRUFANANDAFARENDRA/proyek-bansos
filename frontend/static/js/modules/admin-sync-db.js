@@ -143,7 +143,7 @@ window.eksekusiPulihkanDariServer = async function () {
         }
 
         window.closeModal('modalSinkronArsip');
-        await window.loadDashboardData(true);
+        await window.loadDashboardData(false);
 
         Swal.fire({
             icon: 'success',
@@ -202,7 +202,7 @@ window.eksekusiPulihkanDariFileJson = function (input) {
             }
 
             window.closeModal('modalSinkronArsip');
-            await window.loadDashboardData(true);
+            await window.loadDashboardData(false);
 
             Swal.fire({
                 icon: 'success',
@@ -267,7 +267,7 @@ window.eksekusiResetMasterWarga = async function () {
 
             const json = await res.json().catch(() => ({}));
             window.closeModal('modalSinkronArsip');
-            await window.loadDashboardData(true);
+            await window.loadDashboardData(false);
 
             Swal.fire({
                 icon: 'success',
@@ -738,7 +738,7 @@ window.muatDariMysql = async function () {
         const json = await res.json().catch(() => ({}));
 
         if (json.success) {
-            await window.loadDashboardData(true);
+            await window.loadDashboardData(false);
             Swal.fire({
                 icon: 'success',
                 title: 'Data Berhasil Dimuat dari MySQL!',

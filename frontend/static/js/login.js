@@ -68,8 +68,8 @@
                 confirmButtonText: 'Lanjut <i class="fas fa-arrow-right"></i>'
             },
             {
-                title: 'Akses Warga / Masyarakat',
-                html: '<div style="font-size:0.92rem; color:#475569; line-height:1.6; text-align:left;">Masyarakat umum <b>tidak perlu login</b>. Klik tombol <b>"Portal Warga"</b> di pojok kanan atas untuk mengecek penetapan desil atau menyampaikan sanggahan bansos.</div>',
+                title: 'Akses Portal Warga (Uji Sistem)',
+                html: '<div style="font-size:0.92rem; color:#475569; line-height:1.6; text-align:left;">Portal Warga dikhususkan bagi <b>Super Admin & Developer</b> untuk menindaklanjuti kendala teknis dan penelusuran eror sistem.</div>',
                 icon: 'question',
                 confirmButtonText: 'Paham <i class="fas fa-arrow-right"></i>'
             },
@@ -175,17 +175,12 @@
                         html: `
                             <div style="text-align:left; font-size:0.9rem; line-height:1.6;">
                                 <p>NIK <b>${nik}</b> aktif di Dukcapil atas nama <b>${duk.nama || 'Warga'}</b>, namun <u>belum masuk</u> daftar penerima bantuan.</p>
-                                <p style="margin-top:10px; color:#059669; font-weight:600;">Warga dapat mengajukan pendaftaran mandiri melalui Portal Warga.</p>
+                                <p style="margin-top:10px; color:#475569; font-size:0.84rem;">Hubungi petugas verifikator bansos di kantor desa/kelurahan atau Dinsos Sidoarjo.</p>
                             </div>
                         `,
-                        showCancelButton: true,
-                        confirmButtonText: 'Buka Portal Warga',
-                        cancelButtonText: 'Tutup',
+                        confirmButtonText: 'Tutup',
                         confirmButtonColor: '#10b981'
                     });
-                    if (confirmRes.isConfirmed) {
-                        window.location.href = 'publik.html';
-                    }
                 } else {
                     showAlert({
                         icon: 'error',
