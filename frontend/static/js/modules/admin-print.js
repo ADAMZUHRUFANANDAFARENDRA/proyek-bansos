@@ -175,6 +175,27 @@
                 const ctx = canvas.getContext('2d');
                 if (!ctx) return '';
 
+                // Helper mandiri menggambar bar dengan sudut atas melengkung
+                // Tidak bergantung pada ctx.roundRect eksternal agar tidak rusak oleh polyfill pustaka pihak ketiga
+                const drawTopRoundedBar = (c, x, y, w, h, r = 4) => {
+                    if (h <= 0 || w <= 0) return;
+                    const rad = Math.max(0, Math.min(r, w / 2, h));
+                    c.beginPath();
+                    c.moveTo(x, y + h);
+                    c.lineTo(x, y + rad);
+                    if (rad > 0) {
+                        c.arcTo(x, y, x + rad, y, rad);
+                        c.lineTo(x + w - rad, y);
+                        c.arcTo(x + w, y, x + w, y + rad, rad);
+                    } else {
+                        c.lineTo(x, y);
+                        c.lineTo(x + w, y);
+                    }
+                    c.lineTo(x + w, y + h);
+                    c.closePath();
+                    c.fill();
+                };
+
                 // Background bersih putih resolusi tinggi
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, width, height);
@@ -184,38 +205,26 @@
                 ctx.lineWidth = 2;
                 ctx.strokeRect(1, 1, width - 2, height - 2);
 
-                // Header Judul Grafik
+                // Header Judul Grafik (ukuran proporsional agar tidak bertabrakan dengan legenda)
                 ctx.fillStyle = '#0f172a';
-                ctx.font = 'bold 22px Arial, Calibri, sans-serif';
+                ctx.font = 'bold 18px Arial, Calibri, sans-serif';
                 ctx.textAlign = 'left';
-                ctx.fillText('VISUALISASI PERBANDINGAN SKOR SAW (BWM) VS WEIGHTED PRODUCT (WP) - TOP 15 ALTERNATIF', 35, 42);
+                ctx.fillText('VISUALISASI PERBANDINGAN SKOR SAW (BWM) VS WEIGHTED PRODUCT (WP) - TOP 15 ALTERNATIF', 35, 38);
 
                 // Legend Terpadu Kanan Atas
                 // Legend SAW
                 ctx.fillStyle = '#009846';
-                if (ctx.roundRect) {
-                    ctx.beginPath();
-                    ctx.roundRect(width - 500, 24, 22, 16, 3);
-                    ctx.fill();
-                } else {
-                    ctx.fillRect(width - 500, 24, 22, 16);
-                }
+                drawTopRoundedBar(ctx, width - 480, 22, 20, 16, 3);
                 ctx.fillStyle = '#1e293b';
-                ctx.font = 'bold 16px Arial, Calibri, sans-serif';
+                ctx.font = 'bold 15px Arial, Calibri, sans-serif';
                 ctx.textAlign = 'left';
-                ctx.fillText('Skor SAW (BWM)', width - 470, 38);
+                ctx.fillText('Skor SAW (BWM)', width - 452, 35);
 
                 // Legend WP
                 ctx.fillStyle = '#0284c7';
-                if (ctx.roundRect) {
-                    ctx.beginPath();
-                    ctx.roundRect(width - 280, 24, 22, 16, 3);
-                    ctx.fill();
-                } else {
-                    ctx.fillRect(width - 280, 24, 22, 16);
-                }
+                drawTopRoundedBar(ctx, width - 260, 22, 20, 16, 3);
                 ctx.fillStyle = '#1e293b';
-                ctx.fillText('Skor Validasi (WP)', width - 250, 38);
+                ctx.fillText('Skor Validasi (WP)', width - 232, 35);
 
                 // Area Plotting
                 const padLeft = 75;
@@ -257,8 +266,8 @@
                     const sawVal = Math.min(1.0, Math.max(0, item.sawScore || 0));
                     const wpVal = Math.min(1.0, Math.max(0, item.wpScore || 0));
 
-                    const sawH = Math.max(2, sawVal * plotHeight);
-                    const wpH = Math.max(2, wpVal * plotHeight);
+                    const sawH = Math.max(4, sawVal * plotHeight);
+                    const wpH = Math.max(4, wpVal * plotHeight);
 
                     const sawX = centerX - barWidth - (barGap / 2);
                     const sawY = padTop + plotHeight - sawH;
@@ -268,13 +277,7 @@
 
                     // Bar SAW (Emerald Green)
                     ctx.fillStyle = '#009846';
-                    if (ctx.roundRect) {
-                        ctx.beginPath();
-                        ctx.roundRect(sawX, sawY, barWidth, sawH, [4, 4, 0, 0]);
-                        ctx.fill();
-                    } else {
-                        ctx.fillRect(sawX, sawY, barWidth, sawH);
-                    }
+                    drawTopRoundedBar(ctx, sawX, sawY, barWidth, sawH, 4);
 
                     // Teks Nilai SAW di Atas Bar
                     ctx.fillStyle = '#065f46';
@@ -284,13 +287,7 @@
 
                     // Bar WP (Sky Blue)
                     ctx.fillStyle = '#0284c7';
-                    if (ctx.roundRect) {
-                        ctx.beginPath();
-                        ctx.roundRect(wpX, wpY, barWidth, wpH, [4, 4, 0, 0]);
-                        ctx.fill();
-                    } else {
-                        ctx.fillRect(wpX, wpY, barWidth, wpH);
-                    }
+                    drawTopRoundedBar(ctx, wpX, wpY, barWidth, wpH, 4);
 
                     // Teks Nilai WP di Atas Bar
                     ctx.fillStyle = '#0369a1';

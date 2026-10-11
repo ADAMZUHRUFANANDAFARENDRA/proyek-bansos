@@ -7,12 +7,13 @@
 // =========================================================================
 window.cekStatusAwal = window.prosesLacakBansos = async function (e) {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
-    const nik = (document.getElementById('cekNik') || document.getElementById('lacakNik'))?.value.trim();
+    const nik = (document.getElementById('inputLacakNik') || document.getElementById('cekNik') || document.getElementById('lacakNik'))?.value.trim();
 
     if (!nik || nik.length !== 16 || !/^\d+$/.test(nik)) {
         return showPortalAlert({ icon: 'warning', title: 'Peringatan', text: 'Masukkan tepat 16 digit NIK.' });
     }
 
+    window.lastLacakInputNik = nik;
     showPortalAlert({ title: 'Melacak Status Bansos...', allowOutsideClick: false, didOpen: () => Swal?.showLoading() });
 
     try {
@@ -21,8 +22,8 @@ window.cekStatusAwal = window.prosesLacakBansos = async function (e) {
         Swal?.close();
 
         const pInput = document.getElementById('panelInputLacak') || document.getElementById('panel-input-nik');
-        const pHasil = document.getElementById('panel-hasil-cek') || document.getElementById('wadahHasilLacak');
-        const kartu = document.getElementById('kartuStatus') || document.getElementById('wadahHasilLacak');
+        const pHasil = document.getElementById('panelHasilLacak') || document.getElementById('panel-hasil-cek') || document.getElementById('wadahHasilLacak');
+        const kartu = document.getElementById('panelHasilLacak') || document.getElementById('kartuStatus') || document.getElementById('wadahHasilLacak');
 
         if (!res.ok || !json.data) {
             if (pHasil) pHasil.style.display = 'none';
@@ -129,9 +130,9 @@ window.cekStatusAwal = window.prosesLacakBansos = async function (e) {
 };
 
 window.resetCekStatus = function () {
-    const pHasil = document.getElementById('panel-hasil-cek') || document.getElementById('wadahHasilLacak');
+    const pHasil = document.getElementById('panelHasilLacak') || document.getElementById('panel-hasil-cek') || document.getElementById('wadahHasilLacak');
     const pInput = document.getElementById('panelInputLacak') || document.getElementById('panel-input-nik');
-    const input = document.getElementById('cekNik') || document.getElementById('lacakNik');
+    const input = document.getElementById('inputLacakNik') || document.getElementById('cekNik') || document.getElementById('lacakNik');
 
     if (pHasil) pHasil.style.display = 'none';
     if (pInput) pInput.style.display = 'block';
@@ -148,9 +149,12 @@ window.lanjutKeDashboardDariCek = function () {
         const namaInp = document.getElementById('loginNama');
         const emailInp = document.getElementById('loginEmail');
 
-        if (nikInp) nikInp.value = d.nik || '';
+        const cleanNik = window.lastLacakInputNik || (d.nik && !d.nik.includes('*') ? d.nik : '');
+        if (nikInp && cleanNik) nikInp.value = cleanNik;
         if (namaInp) namaInp.value = d.nama_lengkap || d.nama || '';
-        if (emailInp) emailInp.value = (d.email && d.email !== '-') ? d.email : 'warga@gmail.com';
+        if (emailInp && d.email && d.email !== '-' && !d.email.includes('*')) {
+            emailInp.value = d.email;
+        }
     }
     window.switchTabPublik('loginWargaSection');
     const target = document.getElementById('panelMasukDashboard') || document.getElementById('loginWargaSection');

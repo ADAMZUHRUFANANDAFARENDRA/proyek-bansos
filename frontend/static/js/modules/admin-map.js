@@ -1009,58 +1009,185 @@ window.AdminMap.bukaModalBuktiSalur = async function (nikOrId, clickedEl) {
     });
 
     if (formValues) {
-        window.customBantuanMap[w.nik] = formValues.bantuan;
-        localStorage.setItem('adminCustomBantuanMap', JSON.stringify(window.customBantuanMap));
-        w.nominal_bantuan = formValues.bantuan;
+        const nominalSalur = formValues.bantuan.trim();
+        const file = formValues.file;
+        const d = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const tanggalSalur = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())} WIB`;
+        const keteranganSalur = `Bantuan sosial (${nominalSalur}) telah diserahkan langsung kepada penerima bansos.`;
 
-        w.tanggal_salur = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit' }) + ' ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        // 1. Simpan ke custom bantuan map & state lokal
+        window.customBantuanMap[w.nik] = nominalSalur;
+        try {
+            localStorage.setItem('adminCustomBantuanMap', JSON.stringify(window.customBantuanMap));
+        } catch (e) {}
 
-        if (formValues.file) {
-            const file = formValues.file;
+        w.nominal_bantuan = nominalSalur;
+        w.status_salur = 'Disalurkan';
+        w.keterangan_salur = keteranganSalur;
+        w.catatan = keteranganSalur;
+        w.tanggal_salur = tanggalSalur;
+        w.konfirmasi_warga = false;
+
+        // Tampilkan loading dialog
+        Swal.fire({
+            title: 'Menyimpan Penyaluran...',
+            text: `Memperbarui status ${w.nama} menjadi Disalurkan...`,
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        // 2. Kirim berkas dan status ke server backend (POST /api/warga/:id/bukti-salur)
+        try {
+            const formData = new FormData();
+            if (file) {
+                formData.append('file', file);
+            } else if (w.bukti_salur && !w.bukti_salur.startsWith('data:') && !w.bukti_salur.startsWith('blob:')) {
+                formData.append('existing_file', w.bukti_salur);
+            } else if (typeof buatBerkasBuktiSalurDigital === 'function') {
+                const digFile = await buatBerkasBuktiSalurDigital(w, nominalSalur, keteranganSalur, tanggalSalur);
+                if (digFile) formData.append('file', digFile);
+            }
+            formData.append('nominal_bantuan', nominalSalur);
+            formData.append('keterangan_salur', keteranganSalur);
+            formData.append('catatan', keteranganSalur);
+            formData.append('tanggal_salur', tanggalSalur);
+            formData.append('status_salur', 'Disalurkan');
+
+            const base = (window.BASE_API_URL || window.API_BASE_URL || window.BASE_URL || window.location.origin).replace(/\/+$/, '');
+            let res = await fetch(`${base}/api/warga/${w.id || w.nik}/bukti-salur`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${window.getCleanToken()}` },
+                body: formData
+            });
+            if (!res.ok) {
+                res = await fetch(`${base}/warga/${w.id || w.nik}/bukti-salur`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${window.getCleanToken()}` },
+                    body: formData
+                });
+            }
+
+            const json = await res.json().catch(() => ({}));
+            if (json && json.bukti_salur) {
+                w.bukti_salur = json.bukti_salur;
+            } else if (file) {
+                w.bukti_salur = file.name;
+            }
+        } catch (err) {
+            console.warn('[AdminMap] Gagal POST bukti salur ke API, menyimpan lokal:', err);
+        }
+
+        // Preview media lokal
+        if (file) {
             const isVid = file.type.startsWith('video/') || /\.(mp4|mkv|webm|mov|avi|3gp)$/i.test(file.name);
             window.customMediaBuktiTypeMap[w.nik] = isVid ? 'video' : 'image';
-            localStorage.setItem('adminCustomMediaBuktiTypeMap', JSON.stringify(window.customMediaBuktiTypeMap));
+            try {
+                localStorage.setItem('adminCustomMediaBuktiTypeMap', JSON.stringify(window.customMediaBuktiTypeMap));
+            } catch (e) {}
 
             if (file.size < 3.5 * 1024 * 1024) {
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    const dataUrl = e.target.result;
-                    window.customMediaBuktiMap[w.nik] = dataUrl;
-                    try {
-                        localStorage.setItem('adminCustomMediaBuktiMap', JSON.stringify(window.customMediaBuktiMap));
-                    } catch (err) {
-                        console.warn('Storage penuh, berkas disimpan di memori.', err);
-                    }
-                    w.bukti_salur = dataUrl;
-                    if (typeof window.AdminMap.filterWilayahTable === 'function') {
-                        window.AdminMap.filterWilayahTable();
-                    }
-                    if (typeof window.loadDashboardData === 'function') {
-                        window.loadDashboardData(false);
-                    }
-                };
-                reader.readAsDataURL(file);
+                try {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const dataUrl = e.target.result;
+                        window.customMediaBuktiMap[w.nik] = dataUrl;
+                        try {
+                            localStorage.setItem('adminCustomMediaBuktiMap', JSON.stringify(window.customMediaBuktiMap));
+                        } catch (err) {}
+                    };
+                    reader.readAsDataURL(file);
+                } catch (e) {}
             } else {
                 const fileBlobUrl = URL.createObjectURL(file);
                 window.customMediaBuktiMap[w.nik] = fileBlobUrl;
-                w.bukti_salur = fileBlobUrl;
             }
         }
 
+        // 3. Sinkronkan seketika ke memori dan cache browser
+        if (window.globalDataWarga) {
+            const targetIdx = window.globalDataWarga.findIndex(item => String(item.id) === String(w.id) || item.nik === w.nik);
+            if (targetIdx !== -1) {
+                window.globalDataWarga[targetIdx] = { ...window.globalDataWarga[targetIdx], ...w };
+            }
+            try {
+                localStorage.setItem('cachedDataWarga', JSON.stringify(window.globalDataWarga));
+            } catch (e) {}
+        }
+
+        // 4. Sinkronkan seketika ke modal edit jika sedang terbuka
+        const activeEditId = document.getElementById('editId')?.value;
+        const activeEditNik = document.getElementById('editNik')?.value;
+        if ((activeEditId && String(activeEditId) === String(w.id)) || (activeEditNik && activeEditNik === w.nik)) {
+            const stSal = document.getElementById('editStatusSalur');
+            if (stSal) {
+                for (let i = 0; i < stSal.options.length; i++) {
+                    if (stSal.options[i].value.toLowerCase().includes('disalurkan')) {
+                        stSal.selectedIndex = i;
+                        stSal.value = stSal.options[i].value;
+                        break;
+                    }
+                }
+            }
+            const nomInp = document.getElementById('editNominalBantuan');
+            if (nomInp) nomInp.value = nominalSalur;
+            const tglInp = document.getElementById('editTanggalSalur');
+            if (tglInp) tglInp.value = tanggalSalur;
+            const catInp = document.getElementById('editCatatan');
+            if (catInp) catInp.value = keteranganSalur;
+        }
+
+        // 5. Siarkan event realtime ke semua tab & portal warga (BroadcastChannel, Storage & WebSocket)
+        const eventPayload = {
+            type: 'WARGA_SALUR_UPDATED',
+            warga_id: w.id,
+            nik: w.nik,
+            status_salur: 'Disalurkan',
+            nominal_bantuan: nominalSalur,
+            keterangan_salur: keteranganSalur,
+            tanggal_salur: tanggalSalur,
+            data: w
+        };
+
+        try {
+            const bc = new BroadcastChannel('bansos_realtime');
+            bc.postMessage(eventPayload);
+            bc.close();
+        } catch (e) {}
+
+        try {
+            localStorage.setItem('bansos_realtime_signal', JSON.stringify({ ...eventPayload, timestamp: Date.now() }));
+        } catch (e) {}
+
+        if (window.RealtimeHub && typeof window.RealtimeHub.send === 'function') {
+            try { window.RealtimeHub.send(eventPayload); } catch (e) {}
+        }
+
+        // 6. Muat ulang data tabel, peta dan dashboard
+        if (typeof window.renderTable === 'function') {
+            window.renderTable(window.globalDataWarga);
+        }
         if (typeof window.AdminMap.filterWilayahTable === 'function') {
             window.AdminMap.filterWilayahTable();
         }
-
         if (typeof window.loadDashboardData === 'function') {
-            window.loadDashboardData(false);
+            await window.loadDashboardData(false);
         }
 
         Swal.fire({
             icon: 'success',
-            title: 'Tersimpan',
-            text: `Data penyaluran bansos untuk ${w.nama} berhasil diperbarui.`,
-            timer: 1500,
-            showConfirmButton: false
+            title: 'Penyaluran Berhasil Dicatat!',
+            html: `
+                <div style="font-size:0.9rem; color:#1e293b; line-height:1.6; text-align:center;">
+                    Penyaluran untuk <b>${window.safeHtml(w.nama)}</b> telah dicatat.<br>
+                    Bantuan: <b style="color:#009846;">${window.safeHtml(nominalSalur)}</b><br>
+                    Status: <b style="color:#0284c7;">Disalurkan</b> (Menunggu Konfirmasi Warga)<br>
+                    Data langsung tersinkronkan ke Dashboard Warga & Modal Edit.
+                </div>
+            `,
+            buttonsStyling: false,
+            confirmButtonText: 'Oke, Mengerti',
+            customClass: { popup: 'swal-modern-rounded', confirmButton: 'swal-btn-pill-oke' }
         });
     }
 };

@@ -11,7 +11,8 @@ import {
   catatNotifikasi,
   nowTimeStr,
   upload,
-  UPLOAD_DIR
+  UPLOAD_DIR,
+  formatWarga
 } from '../store.js';
 import { parseIntSafe, hitungDanSinkronkanSawBwm } from '../spk_engine.js';
 import type { ChatItem, PengaduanItem, LaporanPelanggaranItem } from '../types.js';
@@ -22,7 +23,8 @@ import {
   realtimePutusanSuperAdmin,
   realtimeLaporanPelanggaranNew,
   realtimeLaporanPelanggaranUpdate,
-  realtimeChatMessage
+  realtimeChatMessage,
+  broadcastRealtimeEvent
 } from '../realtime.js';
 
 const router = Router();
@@ -95,6 +97,57 @@ export function createPengaduanHandler(req: Request, res: Response) {
   catatNotifikasi(`🚨 Pengaduan warga baru diterima: ${nama} (NIK: ${nik}) melaporkan kendala.`, 'Warga', 'urgent');
   realtimeAduanNew(newAduan);
 
+  // Buat pesan resmi pengaduan di riwayat percakapan mediasi chat
+  const nextMsgId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
+  const chatMsg: ChatItem = {
+    id: nextMsgId,
+    nik: nik,
+    sender: 'warga',
+    nama: nama,
+    pesan: `🚨 [LAPORAN ADUAN RESMI]\nKategori: ${kategori}\nUraian: ${isi}`,
+    text: `🚨 [LAPORAN ADUAN RESMI]\nKategori: ${kategori}\nUraian: ${isi}`,
+    file_path: null,
+    file_name: null,
+    file_size: null,
+    file_type: null,
+    reply_sender: null,
+    reply_text: null,
+    reply_to_id: null,
+    reaction: '',
+    is_pinned: false,
+    is_deleted_all: false,
+    deleted_for: null,
+    waktu: nowTimeStr().slice(-5),
+    created_at: new Date().toISOString(),
+    is_read: false,
+    read_at: null,
+    delivered_at: new Date().toISOString()
+  };
+  chatStore.push(chatMsg);
+  try { realtimeChatMessage(chatMsg); } catch (e) {}
+
+  // Jika pengaduan berkaitan dengan bansos belum diterima atau sengketa, perbarui status_salur warga
+  const isBansosIssue = kategori.toLowerCase().includes('belum') || kategori.toLowerCase().includes('sengketa') || kategori.toLowerCase().includes('bansos');
+  if (isBansosIssue) {
+    const w = wargaStore.find(x => x.nik === nik);
+    if (w) {
+      w.status_salur = 'Belum Diterima';
+      w.konfirmasi_warga = false;
+      w.waktu_konfirmasi_warga = '';
+      w.catatan = `Sanggahan Warga (${nowTimeStr()}): ${isi}`;
+      try {
+        broadcastRealtimeEvent({
+          type: 'WARGA_SALUR_UPDATED',
+          warga_id: w.id,
+          nik: w.nik,
+          status_salur: w.status_salur,
+          nominal_bantuan: w.nominal_bantuan,
+          data: formatWarga(w)
+        });
+      } catch (e) {}
+    }
+  }
+
   return res.status(201).json({
     status: 'success',
     message: 'Laporan pengaduan berhasil tercatat.',
@@ -116,39 +169,100 @@ router.get('/publik/cek-aduan', (req: Request, res: Response) => {
   return res.json({ status: 'success', data: found });
 });
 
-router.post('/investigasi/tindak-lanjut', (req: Request, res: Response) => {
+router.post(['/investigasi/tindak-lanjut', '/api/investigasi/tindak-lanjut', '/tindak-lanjut', '/api/tindak-lanjut'], (req: Request, res: Response) => {
   const d = req.body || {};
   const nik = String(d.nik || '').trim();
-  const aksi = String(d.aksi || 'tanggapi').trim();
-  const tanggapan = String(d.tanggapan || '').trim();
+  const idStr = String(d.id || '').replace(/\D/g, '').trim();
+  const idNum = parseIntSafe(idStr, 0);
+  const rawAksi = String(d.aksi || '').trim();
+  const rawTahap = String(d.tahap || '').trim();
+  const aksi = (rawTahap && rawTahap.startsWith('step')) ? rawTahap : (rawAksi || 'tanggapi');
+  const tanggapan = String(d.tanggapan || d.catatan || '').trim();
   const petugas = String(d.petugas || 'Petugas Dinsos Sidoarjo').trim();
 
-  const aduan = [...pengaduanStore].reverse().find(a => a.nik === nik);
+  let aduan = pengaduanStore.find(a => idNum > 0 && a.id === idNum);
+  if (!aduan && d.id) {
+    aduan = pengaduanStore.find(a => String(a.id) === String(d.id));
+  }
+  if (!aduan && nik) {
+    aduan = [...pengaduanStore].reverse().find(a => a.nik === nik && a.status !== 'Selesai') || [...pengaduanStore].reverse().find(a => a.nik === nik);
+  }
+
   if (!aduan) {
     return res.status(404).json({ status: 'error', message: 'Pengaduan tidak ditemukan.' });
   }
 
-  if (aksi === 'terima') {
+  if (aksi === 'step1') {
+    aduan.status_step = 1;
+    aduan.status_text = 'Laporan Diterima & Masuk Antrean';
+    aduan.status = 'Diterima';
+  } else if (aksi === 'terima' || aksi === 'step2') {
     aduan.status_step = 2;
-    aduan.status_text = 'Peninjauan Bukti (Step 2)';
+    aduan.status_text = 'Peninjauan Bukti & Dokumen';
     aduan.status = 'Peninjauan';
-  } else if (aksi === 'tanggapi') {
+  } else if (aksi === 'tanggapi' || aksi === 'step3') {
     aduan.status_step = 3;
-    aduan.status_text = 'Investigasi Lapangan (Step 3)';
+    aduan.status_text = 'Investigasi Lapangan & Klarifikasi';
     aduan.status = 'Investigasi';
-  } else if (aksi === 'selesai') {
+  } else if (aksi === 'mediasi' || aksi === 'step4') {
     aduan.status_step = 4;
-    aduan.status_text = 'Selesai & Ditutup (Step 4)';
+    aduan.status_text = 'Mediasi & Musyawarah Dinsos';
+    aduan.status = 'Mediasi';
+  } else if (aksi === 'selesai' || aksi === 'step5') {
+    aduan.status_step = 5;
+    aduan.status_text = 'Putusan Akhir & Selesai';
     aduan.status = 'Selesai';
   }
 
   if (tanggapan) aduan.catatan_petugas = tanggapan;
 
+  // Jika tahap selesai atau step 5, tandai seluruh aduan NIK ini selesai dan update status_salur warga
+  const targetNik = aduan.nik || nik;
+  const w = wargaStore.find(x => x.nik === targetNik);
+  if (w && (aksi === 'selesai' || aksi === 'step5')) {
+    w.status_salur = 'Telah Menerima';
+    w.konfirmasi_warga = true;
+    w.waktu_konfirmasi_warga = nowTimeStr();
+    w.catatan = `Sengketa diselesaikan oleh ${petugas}: ${tanggapan || 'Bantuan fisik telah diterima secara sah.'}`;
+
+    // Tandai semua tiket aduan lain dari NIK ini menjadi selesai
+    pengaduanStore.forEach(otherA => {
+      if (otherA.nik === targetNik && otherA.status !== 'Selesai') {
+        otherA.status = 'Selesai';
+        otherA.status_step = 5;
+        otherA.status_text = 'Putusan Akhir & Selesai';
+        otherA.catatan_petugas = tanggapan || otherA.catatan_petugas;
+      }
+    });
+
+    const formatted = formatWarga(w);
+    (formatted as any).aduan_aktif = aduan;
+    broadcastRealtimeEvent({
+      type: 'WARGA_SALUR_UPDATED',
+      warga_id: w.id,
+      nik: w.nik,
+      status_salur: w.status_salur,
+      nominal_bantuan: w.nominal_bantuan,
+      data: formatted
+    });
+  } else if (w) {
+    const formatted = formatWarga(w);
+    (formatted as any).aduan_aktif = aduan;
+    broadcastRealtimeEvent({
+      type: 'WARGA_SALUR_UPDATED',
+      warga_id: w.id,
+      nik: w.nik,
+      status_salur: w.status_salur,
+      nominal_bantuan: w.nominal_bantuan,
+      data: formatted
+    });
+  }
+
   const nextChatId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
-  const msgText = `📢 [PEMBARUAN INVESTIGASI] Status laporan: ${aduan.status_text}. Catatan Petugas (${petugas}): ${tanggapan || 'Sedang dalam tindak lanjut.'}`;
+  const msgText = `📢 [PEMBARUAN TAHAPAN INVESTIGASI]\nStatus laporan kini berada pada: ${aduan.status_text}.\nCatatan Petugas (${petugas}): ${tanggapan || 'Sedang dalam tindak lanjut investigasi.'}`;
   chatStore.push({
     id: nextChatId,
-    nik,
+    nik: targetNik,
     sender: 'petugas',
     nama: petugas,
     pesan: msgText,
@@ -181,31 +295,83 @@ router.get(['/list', '/inbox', '/conversations'], (_req: Request, res: Response)
   const seen = new Set<string>();
   const daftar: Record<string, unknown>[] = [];
 
+  // 1. Kumpulkan seluruh percakapan aktif dari chatStore (warga terdaftar maupun non-arsip/tamu)
   [...chatStore].reverse().forEach(c => {
+    if (!c.nik) return;
     if (!seen.has(c.nik)) {
       seen.add(c.nik);
       const w = wargaStore.find(x => x.nik === c.nik);
+      const a = [...pengaduanStore].reverse().find(x => x.nik === c.nik);
+      const unreadCount = chatStore.filter(x => x.nik === c.nik && x.sender === 'warga' && !x.is_read).length;
+      
+      const desilVal = w ? (Number(w.desil) || 1) : null;
+      const namaWarga = w?.nama || c.nama || a?.nama || a?.nama_pelapor || `Warga (${c.nik.slice(-4)})`;
+
       daftar.push({
         nik: c.nik,
-        nama: w?.nama || c.nama || `Warga ${c.nik.slice(-4)}`,
-        last_msg: c.pesan || 'Media terlampir',
-        pesan_terakhir: c.pesan || 'Media terlampir',
+        nama: namaWarga,
+        last_msg: c.pesan || c.text || 'Media terlampir',
+        pesan_terakhir: c.pesan || c.text || 'Media terlampir',
         waktu: c.waktu || 'Baru saja',
-        unread_count: 0
+        created_at: c.created_at || new Date().toISOString(),
+        unread_count: unreadCount,
+        desil: desilVal !== null ? desilVal : 'Umum',
+        is_prioritas: desilVal !== null ? (desilVal >= 1 && desilVal <= 4) : false,
+        is_registered: Boolean(w),
+        has_aduan: Boolean(a),
+        aduan_id: a ? `ADUAN-${String(a.id).padStart(3, '0')}` : null,
+        aduan_status: a?.status_text || a?.status || null
       });
     }
   });
 
-  wargaStore.slice(0, 10).forEach(w => {
+  // 2. Kumpulkan warga yang telah melapor di pengaduanStore meskipun belum pernah mengirim teks obrolan
+  [...pengaduanStore].reverse().forEach(a => {
+    if (!a.nik) return;
+    if (!seen.has(a.nik)) {
+      seen.add(a.nik);
+      const w = wargaStore.find(x => x.nik === a.nik);
+      const desilVal = w ? (Number(w.desil) || 1) : null;
+      const namaWarga = w?.nama || a.nama || a.nama_pelapor || `Warga (${a.nik.slice(-4)})`;
+      const pesanLaporan = `[Laporan Aduan: ${a.kategori || 'Sengketa'}] ${a.uraian || a.deskripsi || 'Sanggahan belum menerima bansos'}`;
+
+      daftar.push({
+        nik: a.nik,
+        nama: namaWarga,
+        last_msg: pesanLaporan,
+        pesan_terakhir: pesanLaporan,
+        waktu: a.waktu || 'Hari ini',
+        created_at: new Date().toISOString(),
+        unread_count: 1,
+        desil: desilVal !== null ? desilVal : 'Umum',
+        is_prioritas: desilVal !== null ? (desilVal >= 1 && desilVal <= 4) : false,
+        is_registered: Boolean(w),
+        has_aduan: true,
+        aduan_id: `ADUAN-${String(a.id).padStart(3, '0')}`,
+        aduan_status: a.status_text || a.status
+      });
+    }
+  });
+
+  // 3. Tambahkan warga dari basis data arsip wargaStore agar aparatur dapat langsung menyapa
+  wargaStore.forEach(w => {
     if (!seen.has(w.nik)) {
       seen.add(w.nik);
+      const desilVal = Number(w.desil) || 1;
       daftar.push({
         nik: w.nik,
         nama: w.nama,
-        last_msg: 'Ruang percakapan mediasi siap...',
-        pesan_terakhir: 'Ruang percakapan mediasi siap...',
-        waktu: 'Hari ini',
-        unread_count: 0
+        last_msg: w.catatan || 'Ruang percakapan mediasi siap...',
+        pesan_terakhir: w.catatan || 'Ruang percakapan mediasi siap...',
+        waktu: w.tanggal_salur || 'Hari ini',
+        created_at: '',
+        unread_count: 0,
+        desil: desilVal,
+        is_prioritas: desilVal >= 1 && desilVal <= 4,
+        is_registered: true,
+        has_aduan: false,
+        aduan_id: null,
+        aduan_status: null
       });
     }
   });
@@ -256,10 +422,15 @@ router.post(['/:nik/mark-read', '/mark-read'], (req: Request, res: Response) => 
   return res.json({ status: 'success', updated: updatedCount, read_at: readTime });
 });
 
+const RESERVED_CHAT_ROUTES = new Set([
+  'list', 'inbox', 'conversations', 'messages', 'info', 'download',
+  'laporan-chat', 'investigasi', 'laporan-pelanggaran', 'share-geotag',
+  'geotag', 'publik', 'pengaduan', 'action', 'react', 'mark-read', 'pin'
+]);
+
 router.get('/:nik', (req: Request, res: Response, next: any) => {
   const nik = String(req.params.nik || '').trim();
-  // Hanya proses jika parameter adalah format 16 digit NIK numerik, jika nama file/rute lain lanjutkan ke next()
-  if (!/^\d{16}$/.test(nik)) {
+  if (!/^\d{10,18}$/.test(nik)) {
     return next();
   }
   const messages = chatStore.filter(c => c.nik === nik);
@@ -279,8 +450,7 @@ function parseTimestampSafe(str?: string | null): number {
 
 router.post('/:nik', (req: Request, res: Response, next: any) => {
   const nik = String(req.params.nik || '').trim();
-  // Hanya proses jika parameter adalah format 16 digit NIK numerik, jika nama file/rute lain lanjutkan ke next()
-  if (!/^\d{16}$/.test(nik)) {
+  if (!/^\d{10,18}$/.test(nik)) {
     return next();
   }
   upload.any()(req, res, (err) => {
@@ -473,24 +643,55 @@ router.post('/:nik', (req: Request, res: Response, next: any) => {
   });
 });
 
-router.post(['/investigasi/selesaikan', '/pengaduan/selesaikan'], (req: Request, res: Response) => {
+router.post(['/investigasi/selesaikan', '/api/investigasi/selesaikan', '/pengaduan/selesaikan', '/api/pengaduan/selesaikan', '/selesaikan', '/api/selesaikan'], (req: Request, res: Response) => {
   const d = req.body || {};
-  const idStr = String(d.id || '').replace('ADUAN-', '').trim();
+  const idStr = String(d.id || '').replace(/\D/g, '').trim();
   const idNum = parseIntSafe(idStr, 0);
   const nik = String(d.nik || '').trim();
   const catatan = String(d.catatan || d.catatan_penyelesaian || 'Laporan telah diverifikasi dan diselesaikan oleh tim Dinsos.').trim();
   const petugas = String(d.petugas || 'Admin 1 (Dinas Sosial Sidoarjo)').trim();
 
-  let aduan = pengaduanStore.find(a => (idNum > 0 && a.id === idNum) || (nik && a.nik === nik));
+  let aduan = pengaduanStore.find(a => idNum > 0 && a.id === idNum);
+  if (!aduan && d.id) {
+    aduan = pengaduanStore.find(a => String(a.id) === String(d.id));
+  }
+  if (!aduan && nik) {
+    aduan = [...pengaduanStore].reverse().find(a => a.nik === nik && a.status !== 'Selesai') || [...pengaduanStore].reverse().find(a => a.nik === nik);
+  }
   if (!aduan && pengaduanStore.length > 0) {
     aduan = pengaduanStore.find(a => a.status !== 'Selesai') || pengaduanStore[0];
   }
 
   if (aduan) {
-    aduan.status = 'Selesai';
-    aduan.status_step = 4;
-    aduan.status_text = 'Laporan Selesai & Ditutup';
-    aduan.catatan_petugas = catatan;
+    const targetNik = aduan.nik || nik;
+
+    // Tandai semua tiket aduan aktif milik warga ini menjadi Selesai (Step 5)
+    pengaduanStore.forEach(a => {
+      if ((targetNik && a.nik === targetNik) || a.id === aduan.id) {
+        a.status = 'Selesai';
+        a.status_step = 5;
+        a.status_text = 'Laporan Selesai & Ditutup';
+        a.catatan_petugas = catatan;
+      }
+    });
+
+    const w = wargaStore.find(x => x.nik === targetNik);
+    if (w) {
+      w.status_salur = 'Telah Menerima';
+      w.konfirmasi_warga = true;
+      w.waktu_konfirmasi_warga = nowTimeStr();
+      w.catatan = `Selesai dimediasi oleh ${petugas}: ${catatan}`;
+      const formatted = formatWarga(w);
+      (formatted as any).aduan_aktif = aduan;
+      broadcastRealtimeEvent({
+        type: 'WARGA_SALUR_UPDATED',
+        warga_id: w.id,
+        nik: w.nik,
+        status_salur: w.status_salur,
+        nominal_bantuan: w.nominal_bantuan,
+        data: formatted
+      });
+    }
 
     catatNotifikasi(`✅ Laporan sengketa ${aduan.nama} (NIK: ${aduan.nik}) resmi diselesaikan oleh ${petugas}.`, 'Petugas', 'success');
 
@@ -531,7 +732,7 @@ router.post(['/investigasi/selesaikan', '/pengaduan/selesaikan'], (req: Request,
 // =========================================================================
 
 // 1. Admin Bansos meneruskan / mengeskalasikan aduan ke Super Admin (Developer)
-router.post(['/investigasi/eskalasikan', '/api/investigasi/eskalasikan', '/pengaduan/eskalasikan', '/api/pengaduan/eskalasikan'], (req: Request, res: Response) => {
+router.post(['/investigasi/eskalasikan', '/api/investigasi/eskalasikan', '/pengaduan/eskalasikan', '/api/pengaduan/eskalasikan', '/eskalasikan', '/api/eskalasikan'], (req: Request, res: Response) => {
   const d = req.body || {};
   const idStr = String(d.id || '').replace('ADUAN-', '').trim();
   const idNum = parseIntSafe(idStr, 0);
@@ -599,7 +800,7 @@ router.post(['/investigasi/eskalasikan', '/api/investigasi/eskalasikan', '/penga
 });
 
 // 2. Super Admin memberikan putusan teknis & instruksi perbaikan kepada Admin Bansos
-router.post(['/investigasi/putusan-superadmin', '/api/investigasi/putusan-superadmin', '/pengaduan/putusan-superadmin', '/api/pengaduan/putusan-superadmin'], (req: Request, res: Response) => {
+router.post(['/investigasi/putusan-superadmin', '/api/investigasi/putusan-superadmin', '/pengaduan/putusan-superadmin', '/api/pengaduan/putusan-superadmin', '/putusan-superadmin', '/api/putusan-superadmin'], (req: Request, res: Response) => {
   const d = req.body || {};
   const idStr = String(d.id || '').replace('ADUAN-', '').trim();
   const idNum = parseIntSafe(idStr, 0);

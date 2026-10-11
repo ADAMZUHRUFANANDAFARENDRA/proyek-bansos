@@ -280,9 +280,17 @@
             if (window.activeChatNik && typeof window.updateSelesaikanLaporanVisibility === 'function') {
                 window.updateSelesaikanLaporanVisibility(window.activeChatNik);
             }
+
+            if (typeof window.loadDashboardData === 'function') {
+                window.loadDashboardData(false);
+            }
+
+            if (typeof window.sinkronisasiPesanMasukRealtime === 'function') {
+                window.sinkronisasiPesanMasukRealtime();
+            }
         }
 
-        // 4. PEMBARUAN STATUS ADUAN (STEPPER 1->2->3->4) SECARA REALTIME
+        // 4. PEMBARUAN STATUS ADUAN (STEPPER 1->2->3->4->5) SECARA REALTIME
         if (event.type === 'ADUAN_UPDATE') {
             const aduan = event.data;
             const nik = event.nik;
@@ -296,7 +304,32 @@
                 playChime('info');
             }
 
-            // Di portal aparatur: Sinkronkan daftar tabel investigasi
+            // Di portal warga publik (Dashboard Pribadi Warga Terdaftar):
+            const curWargaNik = (window.sesiWargaAktif && (window.sesiWargaAktif.nik_asli || window.sesiWargaAktif.nik)) || localStorage.getItem('wargaNik') || window.wargaNik;
+            if (curWargaNik && String(curWargaNik).replace(/\D/g, '') === String(nik).replace(/\D/g, '')) {
+                if (window.wargaDataCache) {
+                    window.wargaDataCache.aduan_aktif = aduan;
+                    if (aduan.status === 'Selesai' || aduan.status_step === 5) {
+                        window.wargaDataCache.status_salur = 'Telah Menerima';
+                        window.wargaDataCache.konfirmasi_warga = true;
+                    }
+                }
+                if (window.sesiWargaAktif) {
+                    window.sesiWargaAktif.aduan_aktif = aduan;
+                    if (aduan.status === 'Selesai' || aduan.status_step === 5) {
+                        window.sesiWargaAktif.status_salur = 'Telah Menerima';
+                        window.sesiWargaAktif.konfirmasi_warga = true;
+                    }
+                }
+                if (typeof window.renderDashboardWarga === 'function') {
+                    window.renderDashboardWarga(window.wargaDataCache || window.sesiWargaAktif);
+                }
+                if (typeof window.loadDashboardWarga === 'function') {
+                    window.loadDashboardWarga();
+                }
+            }
+
+            // Di portal aparatur: Sinkronkan daftar tabel investigasi & metrik dasbor
             if (window.allLaporanChatData) {
                 const target = window.allLaporanChatData.find(a => a.nik === nik);
                 if (target) {
@@ -315,6 +348,14 @@
 
             if (window.activeChatNik && typeof window.updateSelesaikanLaporanVisibility === 'function') {
                 window.updateSelesaikanLaporanVisibility(window.activeChatNik);
+            }
+
+            if (typeof window.loadDashboardData === 'function') {
+                window.loadDashboardData(false);
+            }
+
+            if (typeof window.sinkronisasiPesanMasukRealtime === 'function') {
+                window.sinkronisasiPesanMasukRealtime();
             }
         }
 
@@ -383,6 +424,10 @@
             const msg = event.data;
             const nik = event.nik;
 
+            if (typeof window.sinkronisasiPesanMasukRealtime === 'function') {
+                window.sinkronisasiPesanMasukRealtime();
+            }
+
             // Jika warga sedang di dashboard aduan & chat nik cocok:
             if (window.sesiAduanAktif && window.sesiAduanAktif.nik === nik) {
                 if (typeof window.muatPesanAduan === 'function') {
@@ -394,7 +439,7 @@
             const currentWargaNik = window.wargaNik || localStorage.getItem('wargaNik') || localStorage.getItem('lastAduanNik');
             if (currentWargaNik === nik) {
                 if (typeof window.loadChatMessagesWarga === 'function') {
-                    window.loadChatMessagesWarga(true);
+                    window.loadChatMessagesWarga(false);
                 }
             }
 
@@ -449,6 +494,91 @@
         if (event.type === 'CALL_DECLINE' || event.type === 'CALL_END') {
             if (typeof window.handleCallEndedSignal === 'function') {
                 window.handleCallEndedSignal(event);
+            }
+        }
+
+        // 9. PEMBARUAN REAL-TIME PENYALURAN BANSOS & DATA ARSIP WARGA (WARGA_SALUR_UPDATED & WARGA_UPDATED)
+        if (event.type === 'WARGA_SALUR_UPDATED' || event.type === 'WARGA_UPDATED') {
+            const wData = event.data?.warga || event.warga || event.data;
+            const targetNik = event.nik || (wData && wData.nik);
+            const cleanTargetNik = String(targetNik || '').replace(/\D/g, '');
+
+            // Sisi Portal Warga Publik: Sinkronkan seketika jika NIK yang sedang login cocok
+            const myNik = (window.sesiWargaAktif && window.sesiWargaAktif.nik) ||
+                          localStorage.getItem('wargaNik') ||
+                          window.wargaNik;
+            const cleanMyNik = String(myNik || '').replace(/\D/g, '');
+
+            if ((cleanTargetNik && cleanMyNik && cleanTargetNik === cleanMyNik) || (targetNik && myNik && String(targetNik).trim() === String(myNik).trim())) {
+                if (wData) {
+                    window.wargaDataCache = { ...(window.wargaDataCache || {}), ...wData };
+                    if (window.sesiWargaAktif) {
+                        window.sesiWargaAktif = { ...window.sesiWargaAktif, ...wData };
+                    }
+                    if (typeof window.renderDashboardWarga === 'function') {
+                        window.renderDashboardWarga(window.wargaDataCache);
+                    }
+                }
+                if (typeof window.loadDashboardWarga === 'function') {
+                    window.loadDashboardWarga();
+                }
+            }
+
+            // Sisi Portal Aparatur / Admin: Sinkronkan tabel arsip warga tanpa delay
+            if (window.globalDataWarga && Array.isArray(window.globalDataWarga) && (targetNik || wData?.id)) {
+                const idx = window.globalDataWarga.findIndex(item => (targetNik && String(item.nik) === String(targetNik)) || (wData?.id && Number(item.id) === Number(wData.id)));
+                if (idx !== -1 && wData) {
+                    window.globalDataWarga[idx] = { ...window.globalDataWarga[idx], ...wData };
+                    try {
+                        localStorage.setItem('cachedDataWarga', JSON.stringify(window.globalDataWarga));
+                    } catch (e) {}
+                    if (typeof window.renderTable === 'function') {
+                        window.renderTable(window.globalDataWarga);
+                    }
+                }
+            }
+
+            // Sinkronkan seketika ke modal edit jika sedang terbuka untuk warga ini
+            const curEditId = document.getElementById('editId')?.value;
+            const curEditNik = document.getElementById('editNik')?.value;
+            if (wData && (String(curEditId) === String(wData.id) || (targetNik && String(curEditNik) === String(targetNik)))) {
+                const stSal = document.getElementById('editStatusSalur');
+                if (stSal && (wData.status_salur || event.status_salur)) {
+                    const salurVal = String(wData.status_salur || event.status_salur).toLowerCase();
+                    let matched = false;
+                    for (let i = 0; i < stSal.options.length; i++) {
+                        const optVal = String(stSal.options[i].value || '').toLowerCase();
+                        if (optVal === salurVal || 
+                           (salurVal.includes('disalur') && optVal.includes('disalur')) ||
+                           (salurVal.includes('terima') && optVal.includes('terima')) ||
+                           (salurVal.includes('belum') && optVal.includes('belum'))) {
+                            stSal.selectedIndex = i;
+                            stSal.value = stSal.options[i].value;
+                            matched = true;
+                            break;
+                        }
+                    }
+                    if (!matched) {
+                        const realVal = String(wData.status_salur || event.status_salur);
+                        const opt = document.createElement('option');
+                        opt.value = realVal;
+                        opt.text = realVal;
+                        stSal.add(opt);
+                        stSal.value = realVal;
+                    }
+                }
+                const nomInp = document.getElementById('editNominalBantuan');
+                if (nomInp && (wData.nominal_bantuan || event.nominal_bantuan)) {
+                    nomInp.value = wData.nominal_bantuan || event.nominal_bantuan;
+                }
+                const tglInp = document.getElementById('editTanggalSalur');
+                if (tglInp && (wData.tanggal_salur || event.tanggal_salur)) {
+                    tglInp.value = wData.tanggal_salur || event.tanggal_salur;
+                }
+                const catInp = document.getElementById('editCatatan');
+                if (catInp && (wData.catatan || wData.keterangan_salur || event.keterangan_salur)) {
+                    catInp.value = wData.catatan || wData.keterangan_salur || event.keterangan_salur;
+                }
             }
         }
     }
@@ -578,6 +708,27 @@
             } else {
                 syncMissedEvents();
             }
+        }
+    });
+
+    // 10. JALUR GANDA: BROADCAST CHANNEL & STORAGE EVENT (SINKRONISASI ANTAR-TAB TANPA JEDA)
+    try {
+        const bc = new BroadcastChannel('bansos_realtime');
+        bc.onmessage = function (ev) {
+            if (ev.data && ev.data.type) {
+                handleIncomingEvent(ev.data);
+            }
+        };
+    } catch (e) {}
+
+    window.addEventListener('storage', function (ev) {
+        if (ev.key === 'bansos_realtime_signal' && ev.newValue) {
+            try {
+                const signal = JSON.parse(ev.newValue);
+                if (signal && signal.type) {
+                    handleIncomingEvent(signal);
+                }
+            } catch (err) {}
         }
     });
 

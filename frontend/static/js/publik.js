@@ -10,18 +10,21 @@
 // =========================================================================
 // 1. STATE & KONFIGURASI GLOBAL PORTAL WARGA
 // =========================================================================
-const API_URL = (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
+var API_URL = (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
     ? window.CONFIG.BASE_URL.replace(/\/+$/, '')
     : ((typeof window.API_BASE_URL !== 'undefined') ? window.API_BASE_URL.replace(/\/+$/, '') : window.location.origin.replace(/\/+$/, ''));
 
-const BASE_URL = API_URL;
+var BASE_URL = API_URL;
 
-let wargaNik = localStorage.getItem('wargaNik') || '';
-let wargaNama = localStorage.getItem('wargaNama') || '';
+let wargaNik = window.wargaNik || localStorage.getItem('wargaNik') || '';
+let wargaNama = window.wargaNama || localStorage.getItem('wargaNama') || '';
+window.wargaNik = wargaNik;
+window.wargaNama = wargaNama;
 let wargaDataCache = null;
 
-let sesiWargaAktif = null;
-let sesiAduanAktif = null;
+let sesiWargaAktif = window.sesiWargaAktif || null;
+window.sesiWargaAktif = sesiWargaAktif;
+let sesiAduanAktif = window.sesiAduanAktif || null;
 window.lastLacakData = null;
 
 window.editedMediaBlob = null;
@@ -29,7 +32,7 @@ window.editedMediaExt = '';
 window.editedMediaType = '';
 
 let replyToDataWarga = null;
-let lastChatHashWarga = '';
+window.lastChatHashWarga = window.lastChatHashWarga || '';
 let chatIntervalWarga = null;
 let aduanChatInterval = null;
 let lastAduanChatHash = '';
@@ -416,14 +419,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const savedNik = localStorage.getItem('wargaNik');
     const savedNama = localStorage.getItem('wargaNama');
+    const savedEmail = localStorage.getItem('wargaEmail') || '';
 
-    if (savedNik && savedNama) {
+    // Pastikan session yang dipulihkan adalah 16 digit asli (bukan NIK bertanda bintang dari bug lama)
+    if (savedNik && savedNama && savedNik.length === 16 && !savedNik.includes('*') && /^\d+$/.test(savedNik)) {
         wargaNik = savedNik;
         wargaNama = savedNama;
-        sesiWargaAktif = { nik: savedNik, nama_lengkap: savedNama };
+        sesiWargaAktif = { nik: savedNik, nama_lengkap: savedNama, email_login: savedEmail };
         window.switchTabPublik('dashboardWargaSection');
         window.loadDashboardWarga();
     } else {
+        if (savedNik && (savedNik.includes('*') || savedNik.length !== 16)) {
+            localStorage.removeItem('wargaNik');
+            localStorage.removeItem('wargaNama');
+            localStorage.removeItem('wargaEmail');
+        }
         window.switchTabPublik('loginWargaSection');
     }
 

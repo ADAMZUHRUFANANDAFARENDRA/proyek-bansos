@@ -64,7 +64,7 @@ router.post(['/', '/kriteria', '/kriteria/bobot', '/api/kriteria/bobot', '/bobot
 router.put(['/', '/kriteria/bobot', '/api/kriteria/bobot', '/bobot', '/api/bobot'], updateKriteriaBobotHandler);
 
 router.all(
-  ['/', '/hitung-saw', '/api/hitung-saw', '/sinkron-saw', '/api/spk/sinkron-saw', '/api/spk/hitung-saw', '/hitung'],
+  ['/', '/hitung-saw', '/api/hitung-saw', '/sinkron-saw', '/api/sinkron-saw', '/api/spk/sinkron-saw', '/api/spk/hitung-saw', '/hitung'],
   (_req: Request, res: Response) => {
     hitungDanSinkronkanSawBwm();
     const target = wargaStore;
@@ -146,7 +146,7 @@ router.get(['/komparasi', '/api/komparasi'], (_req: Request, res: Response) => {
   return res.json(komparasi);
 });
 
-router.get(['/sk-bupati', '/api/spk/sk-bupati', '/api/export/sk-bupati'], (_req: Request, res: Response) => {
+router.get(['/sk-bupati', '/api/sk-bupati', '/api/spk/sk-bupati', '/api/export/sk-bupati'], (_req: Request, res: Response) => {
   const layak = wargaStore
     .filter(w => w.is_verified && w.desil <= 4)
     .sort((a, b) => b.skor_saw - a.skor_saw);

@@ -576,12 +576,42 @@
                         <div class="form-group"><label class="form-label" id="formUserTitle">Tambah Akun Baru</label></div>
                         <div class="form-group"><label class="form-label">Username</label><input type="text" id="manageUsername" class="form-input" required placeholder="Masukkan username"></div>
                         <div class="form-group" id="groupManagePassword"><label class="form-label">Kata Sandi</label><input type="password" id="managePassword" class="form-input" required placeholder="Masukkan kata sandi"></div>
+                        
+                        <!-- Panel Kredensial Khusus Super Admin & Admin Bansos -->
+                        <div id="credentialDetailsBox" style="display:none; margin-bottom:15px; padding:12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; font-size:0.82rem;">
+                            <div style="font-weight:700; color:#1e40af; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                                <i class="fas fa-shield-alt"></i> Info Kredensial (Super Admin / Admin)
+                            </div>
+                            <div style="margin-bottom:8px;">
+                                <label style="color:#475569; font-weight:600; display:block; margin-bottom:3px;">Kata Sandi Saat Ini:</label>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <input type="password" id="displayCurrentPassword" readonly style="flex:1; background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; padding:6px 8px; font-family:monospace; font-weight:700; font-size:0.85rem; color:#0f172a;">
+                                    <button type="button" onclick="window.toggleShowCurrentPassword()" class="btn btn-sm" style="padding:6px 9px; background:#e2e8f0; color:#334155; border:none; border-radius:6px; cursor:pointer;" title="Lihat/Sembunyikan"><i id="togglePassIcon" class="fas fa-eye"></i></button>
+                                    <button type="button" onclick="window.salinCurrentPassword()" class="btn btn-sm" style="padding:6px 9px; background:#dbeafe; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:6px; cursor:pointer;" title="Salin Kata Sandi"><i class="fas fa-copy"></i></button>
+                                </div>
+                            </div>
+                            <div id="boxPreviousPasswords" style="margin-top:8px;">
+                                <label style="color:#475569; font-weight:600; display:block; margin-bottom:3px;">Riwayat Sandi Sebelumnya:</label>
+                                <div id="listPreviousPasswords" style="max-height:85px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;"></div>
+                            </div>
+                        </div>
+
                         <div class="form-group"><label class="form-label">Level Akses</label><select id="manageRole" class="form-select custom-rounded-select"><option value="petugas">Petugas Lapangan Bansos</option><option value="admin">Admin Bansos</option><option value="super_admin">Super Admin (Akses Penuh Developer & Cyber Shield)</option></select></div>
                         <div style="display:flex; gap:10px; margin-top:20px;"><button type="button" onclick="window.resetFormUser()" class="btn btn-secondary" style="flex:1;">Batal</button><button type="submit" class="btn btn-primary" style="flex:2;"><i class="fas fa-save"></i> Simpan</button></div>
                     </form>
                 </div>
-                <div style="flex:1; padding:20px; overflow-y:auto; background:white;">
-                    <table class="modern-table"><thead><tr><th>ID</th><th>Username</th><th>Role</th><th style="text-align:center;">Aksi</th></tr></thead><tbody id="userTableBody"></tbody></table>
+                <div style="flex:1; overflow-y:auto; background:white; position:relative; padding:0 20px 20px 20px;">
+                    <table class="modern-table" style="width:100%; border-collapse:separate; border-spacing:0;">
+                        <thead style="position:sticky; top:0; z-index:15; background:#f8fafc;">
+                            <tr>
+                                <th style="position:sticky; top:0; background:#f8fafc; z-index:15; padding:12px 8px; border-bottom:2px solid #e2e8f0; font-size:0.85rem; font-weight:700; color:#475569;">ID</th>
+                                <th style="position:sticky; top:0; background:#f8fafc; z-index:15; padding:12px 8px; border-bottom:2px solid #e2e8f0; font-size:0.85rem; font-weight:700; color:#475569;">Username</th>
+                                <th style="position:sticky; top:0; background:#f8fafc; z-index:15; padding:12px 8px; border-bottom:2px solid #e2e8f0; font-size:0.85rem; font-weight:700; color:#475569;">Role</th>
+                                <th style="position:sticky; top:0; background:#f8fafc; z-index:15; text-align:center; padding:12px 8px; border-bottom:2px solid #e2e8f0; font-size:0.85rem; font-weight:700; color:#475569;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -1042,9 +1072,10 @@
                             </div>
                             <select id="editStatusSalur" class="form-select custom-rounded-select" style="border-radius:10px; width:100%;">
                                 <option value="Belum Salur">Belum Salur</option>
-                                <option value="Menunggu Salur">Menunggu Salur</option>
-                                <option value="Telah Menerima">Telah Menerima</option>
-                                <option value="Sengketa Penyaluran">Dalam Sengketa / Komplain</option>
+                                <option value="Disalurkan">Disalurkan (Menunggu Konfirmasi Warga)</option>
+                                <option value="Belum Diterima">Belum Diterima (Sanggahan Dilaporkan)</option>
+                                <option value="Telah Menerima">Telah Menerima (Selesai & Sah)</option>
+                                <option value="Laporan Sengketa">Dalam Mediasi / Sengketa</option>
                             </select>
                         </div>
 
@@ -3307,6 +3338,9 @@
                     <label style="font-size:0.82rem; font-weight:800; color:#334155; display:block; text-align:left; margin-bottom:6px;">Foto Dokumentasi Penyaluran:</label>
                     <div style="position:relative; display:inline-block; max-width:100%; border-radius:14px; overflow:hidden; border:2px solid #cbd5e1; box-shadow:0 4px 15px rgba(0,0,0,0.08);">
                         <img id="buktiSalurImgPreview" src="" alt="Bukti Penyaluran" style="max-width:100%; max-height:220px; object-fit:cover; display:block;">
+                        <button type="button" onclick="window.downloadFotoBuktiSalur()" class="btn btn-sm" style="position:absolute; top:8px; left:8px; background:rgba(15,23,42,0.85); color:white; border:none; border-radius:8px; padding:5px 12px; font-size:0.75rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 6px rgba(0,0,0,0.2);" title="Unduh Foto Bukti Penyaluran">
+                            <i class="fas fa-download"></i> Unduh Foto
+                        </button>
                         <button type="button" onclick="window.hapusFotoBuktiSalur()" class="btn btn-sm" style="position:absolute; top:8px; right:8px; background:rgba(239,68,68,0.9); color:white; border:none; border-radius:8px; padding:4px 8px; font-size:0.75rem; cursor:pointer;" title="Ganti / Hapus Foto">
                             <i class="fas fa-trash"></i> Ganti
                         </button>
@@ -3320,6 +3354,15 @@
                     </label>
                     <input type="file" id="inputFotoBuktiSalur" accept="image/*" capture="environment" class="form-input" style="padding:8px; border-radius:10px;" onchange="window.previewFotoBuktiSalur(this)">
                     <small style="color:#64748b; font-size:0.74rem;">Format: JPG, PNG, WEBP. Dapat difoto langsung menggunakan kamera gawai atau berkas galeri.</small>
+                </div>
+
+                <!-- INPUT JENIS / NOMINAL BANSOS -->
+                <div class="form-group" style="margin-bottom:16px;">
+                    <label class="form-label" style="font-size:0.82rem; font-weight:800; color:#334155;">
+                        <i class="fas fa-hand-holding-usd text-primary"></i> Jenis / Nominal Paket Bantuan:
+                    </label>
+                    <input type="text" id="inputNominalSalur" class="form-input" placeholder="Contoh: Beras 10 Kg / Rp 600.000" style="border-radius:10px; font-size:0.88rem;">
+                    <small style="color:#64748b; font-size:0.74rem;">Rincian paket bantuan sembako fisik atau nominal tunai yang diserahterimakan.</small>
                 </div>
 
                 <!-- INPUT KETERANGAN YANG DISALURKAN -->

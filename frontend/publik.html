@@ -1331,11 +1331,8 @@
                         </div>
 
                         <input type="file" id="wargaChatFile" style="display:none;" multiple accept="image/*,video/*" onchange="window.handleWargaFileSelected(this)">
-                        <input type="file" id="wargaChatDocFile" style="display:none;" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.zip,.rar,application/*" onchange="window.handleWargaFileSelected(this)">
-                        <input type="file" id="wargaChatAudioFile" style="display:none;" multiple accept="audio/*" onchange="window.handleWargaFileSelected(this)">
-
-                        <!-- TOMBOL BAGIKAN LOKASI GEOTAGGING ARSIP RESMI -->
-                        <button type="button" onclick="window.kirimLokasiGeotagWarga()" style="background:none; border:none; font-size:1.15rem; color:#dc2626; cursor:pointer;" title="Bagikan Titik Lokasi Geotagging Resmi Arsip Anda"><i class="fas fa-map-marker-alt"></i></button>
+                        <input type="file" id="wargaChatDocFile" style="display:none;" multiple accept="*/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.zip,.rar,.7z,.tar,.gz,.odt,.ods,.odp,.rtf,application/*" onchange="window.handleWargaFileSelected(this)">
+                        <input type="file" id="wargaChatAudioFile" style="display:none;" multiple accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.weba,.flac" onchange="window.handleWargaFileSelected(this)">
 
                         <input type="text" id="wargaChatInput" placeholder="Ketik pesan koordinasi untuk petugas... (Enter)" class="chat-pill-input" onkeypress="if(event.key==='Enter') window.sendWargaChat()">
 

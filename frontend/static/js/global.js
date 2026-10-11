@@ -14,6 +14,32 @@ const API_BASE_URL = (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE
 window.API_BASE_URL = API_BASE_URL;
 window.BASE_URL = API_BASE_URL;
 window.BASE_API_URL = API_BASE_URL;
+window.API_URL = API_BASE_URL;
+
+window.enc = function (str) {
+    return encodeURIComponent(str || '');
+};
+var enc = window.enc;
+
+window.escapeInlineJS = function (str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '&quot;')
+        .replace(/\n/g, ' ')
+        .replace(/\r/g, '');
+};
+var escapeInlineJS = window.escapeInlineJS;
+
+window.showPortalAlert = function (opts) {
+    if (typeof Swal !== 'undefined') {
+        return Swal.fire(opts);
+    }
+    const msg = (typeof opts === 'string') ? opts : ((opts && (opts.text || opts.title)) || '');
+    if (msg) alert(msg);
+    return Promise.resolve({ isConfirmed: true, value: '' });
+};
 
 // 2. HELPER TOKEN & DECODER JWT
 function isTokenExpired(token) {

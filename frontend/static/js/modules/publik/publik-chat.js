@@ -3,6 +3,74 @@
  * Deskripsi: Obrolan interaktif mediasi aduan warga dan ruang warga terdaftar, picker emoji, lampiran
  */
 
+var API_URL = (typeof window.API_URL !== 'undefined' ? window.API_URL : (typeof window.API_BASE_URL !== 'undefined' ? window.API_BASE_URL : window.location.origin)).replace(/\/+$/, '');
+var BASE_URL = API_URL;
+window.API_URL = API_URL;
+window.BASE_URL = BASE_URL;
+
+function enc(str) {
+    return encodeURIComponent(str || '');
+}
+window.enc = enc;
+
+function escapeInlineJS(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '&quot;')
+        .replace(/\n/g, ' ')
+        .replace(/\r/g, '');
+}
+window.escapeInlineJS = escapeInlineJS;
+
+function safeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+window.safeHtml = safeHtml;
+
+window.lastChatHashWarga = window.lastChatHashWarga || '';
+window.activeOpenChatMenuId = null;
+window.hasScrolledWargaChatOnce = false;
+
+function getActiveNikChat() {
+    let nik = (typeof window.getActiveWargaNik === 'function' && window.getActiveWargaNik()) ||
+              (window.sesiWargaAktif && (window.sesiWargaAktif.nik_asli || window.sesiWargaAktif.nik)) ||
+              (typeof sesiWargaAktif !== 'undefined' && sesiWargaAktif && (sesiWargaAktif.nik_asli || sesiWargaAktif.nik)) ||
+              window.wargaNik ||
+              (typeof wargaNik !== 'undefined' ? wargaNik : '') ||
+              localStorage.getItem('wargaNik') ||
+              sessionStorage.getItem('wargaNik') ||
+              '';
+    if (!nik) {
+        const el = document.getElementById('wNik') || document.getElementById('dashWargaNik');
+        if (el) nik = el.innerText.replace(/\D/g, '');
+    }
+    return String(nik || '').replace(/\D/g, '');
+}
+
+function getActiveNamaChat() {
+    let nama = (typeof window.getActiveWargaNama === 'function' && window.getActiveWargaNama()) ||
+               (window.sesiWargaAktif && (window.sesiWargaAktif.nama_lengkap || window.sesiWargaAktif.nama)) ||
+               (typeof sesiWargaAktif !== 'undefined' && sesiWargaAktif && (sesiWargaAktif.nama_lengkap || sesiWargaAktif.nama)) ||
+               window.wargaNama ||
+               (typeof wargaNama !== 'undefined' ? wargaNama : '') ||
+               localStorage.getItem('wargaNama') ||
+               sessionStorage.getItem('wargaNama') ||
+               '';
+    if (!nama) {
+        const el = document.getElementById('wNama') || document.getElementById('dashWargaNama');
+        if (el) nama = el.innerText.trim();
+    }
+    return String(nama || 'Warga').trim();
+}
+
 // 9. CHAT MULTIMEDIA (TITIK TIGA POJOK KIRI/KANAN, EMOJI FLOAT, LAPORAN MEMBULAT)
 // =========================================================================
 window.downloadDocumentDirect = async function (url, fileName, event) {
@@ -249,8 +317,12 @@ window.startVoiceBubbleScrub = function (audioId, event) {
 };
 
 document.addEventListener('click', function (e) {
-    if (!e.target.closest('.aduan-dropdown-menu') && !e.target.closest('.btn-msg-dots')) {
-        document.querySelectorAll('.aduan-dropdown-menu').forEach(m => m.style.display = 'none');
+    if (!e.target.closest('.aduan-dropdown-menu') && !e.target.closest('.btn-msg-dots') && !e.target.closest('.bubble-corner-btn')) {
+        document.querySelectorAll('.aduan-dropdown-menu').forEach(m => {
+            m.style.display = 'none';
+            m.classList.remove('show');
+        });
+        window.activeOpenChatMenuId = null;
     }
     if (!e.target.closest('.emoji-picker-container') && !e.target.closest('[onclick*="toggleEmojiPicker"]')) {
         const picker = document.getElementById('emojiPickerWarga');
@@ -534,8 +606,8 @@ window.formatGeotagCardHtml = function (rawText) {
 };
 
 window.kirimLokasiGeotagWarga = async function () {
-    const nik = wargaNik || sesiAduanAktif?.nik;
-    const nama = wargaNama || sesiAduanAktif?.nama || 'Warga';
+    const nik = getActiveNikChat();
+    const nama = getActiveNamaChat();
 
     if (!nik) {
         showPortalAlert({ icon: 'warning', title: 'Perhatian', text: 'Silakan verifikasi NIK Anda terlebih dahulu sebelum membagikan lokasi.' });
@@ -1067,7 +1139,7 @@ window.muatPesanAduan = async function (forceScroll = false) {
 // 10. CHAT MULTIMEDIA RUANG WARGA TERDAFTAR (KOMPLET)
 // =========================================================================
 window.loadChatMessagesWarga = async function (forceScroll = false) {
-    const activeNik = wargaNik || (sesiWargaAktif && sesiWargaAktif.nik);
+    const activeNik = getActiveNikChat();
     if (!activeNik) return;
     const box = document.getElementById('wargaChatMessages') || document.getElementById('chatMessagesWarga') || document.getElementById('chatBoxWarga');
     if (!box) return;
@@ -1078,10 +1150,11 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
         if (!Array.isArray(chats)) return;
 
         const currentHash = JSON.stringify(chats);
-        if (!forceScroll && currentHash === lastChatHashWarga) {
+        const hasOpenMenu = Boolean(window.activeOpenChatMenuId || document.querySelector('.aduan-dropdown-menu.show, .aduan-dropdown-menu[style*="display: flex"], .aduan-dropdown-menu[style*="display: block"]'));
+        if (!forceScroll && (currentHash === window.lastChatHashWarga || hasOpenMenu)) {
             return;
         }
-        lastChatHashWarga = currentHash;
+        window.lastChatHashWarga = currentHash;
 
         // Tandai pesan dari admin/petugas sebagai telah dibaca oleh warga secara otomatis
         const unreadFromAdmin = chats.some(c => c.sender !== 'warga' && !c.is_read);
@@ -1125,7 +1198,7 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
             window.lastSeenWargaOfficerMsgId = lastAdminMsg.id;
         }
 
-        const isNearBottom = (box.scrollHeight - box.scrollTop - box.clientHeight < 120);
+        const isNearBottom = (box.scrollHeight - box.scrollTop - box.clientHeight < 90);
 
         if (chats.length === 0) {
             box.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:0.85rem; margin:auto; padding:20px;">Belum ada pesan percakapan. Hubungi petugas jika ada pertanyaan.</div>`;
@@ -1401,15 +1474,12 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
                                         <span onclick="window.submitReactionWarga(${c.id}, '😢')">😢</span>
                                         <span onclick="window.submitReactionWarga(${c.id}, '🙏')">🙏</span>
                                         <span onclick="window.submitReactionWarga(${c.id}, '🔥')">🔥</span>
-                                        <span onclick="window.submitReactionWarga(${c.id}, '👏')">👏</span>
-                                        <span onclick="window.submitReactionWarga(${c.id}, '🎉')">🎉</span>
-                                        <span onclick="window.submitReactionWarga(${c.id}, '💯')">💯</span>
                                     </div>
-                                    <button type="button" onclick="window.bukaInfoPesanChat(${c.id})" style="color:#0284c7;"><i class="fas fa-info-circle text-primary"></i> Info</button>
-                                    <button type="button" onclick="window.setReplyWarga(${c.id}, '${safeHtml(handlerName)}', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'), '${c.file_type || ''}')" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
-                                    <button type="button" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy"></i> Salin Teks</button>
-                                    <button type="button" onclick="window.hapusPesanWarga(${c.id}, 'me')" style="color:#64748b;"><i class="fas fa-trash-alt"></i> Hapus</button>
-                                    <button type="button" onclick="window.laporPesanAdmin(${c.id})" style="color:#dc2626;"><i class="fas fa-flag"></i> Laporkan</button>
+                                    <button type="button" class="aduan-menu-item" onclick="window.bukaInfoPesanChat(${c.id})" style="color:#0284c7;"><i class="fas fa-info-circle text-sky-600"></i> Detail Pesan</button>
+                                    <button type="button" class="aduan-menu-item" onclick="window.setReplyWarga(${c.id}, '${safeHtml(handlerName)}', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'), '${c.file_type || ''}')" style="color:#059669;"><i class="fas fa-reply text-emerald-600"></i> Balas Pesan</button>
+                                    <button type="button" class="aduan-menu-item" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy text-slate-500"></i> Salin Teks</button>
+                                    <button type="button" class="aduan-menu-item" onclick="window.hapusPesanWarga(${c.id}, 'me')" style="color:#d97706;"><i class="fas fa-trash-alt text-amber-600"></i> Hapus untuk Saya</button>
+                                    <button type="button" class="aduan-menu-item" onclick="window.laporPesanAdmin(${c.id})" style="color:#dc2626;"><i class="fas fa-flag text-rose-600"></i> Laporkan Kendala</button>
                                 </div>
                             </div>
                         </div>
@@ -1427,15 +1497,12 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
                                     <span onclick="window.submitReactionWarga(${c.id}, '😢')">😢</span>
                                     <span onclick="window.submitReactionWarga(${c.id}, '🙏')">🙏</span>
                                     <span onclick="window.submitReactionWarga(${c.id}, '🔥')">🔥</span>
-                                    <span onclick="window.submitReactionWarga(${c.id}, '👏')">👏</span>
-                                    <span onclick="window.submitReactionWarga(${c.id}, '🎉')">🎉</span>
-                                    <span onclick="window.submitReactionWarga(${c.id}, '💯')">💯</span>
                                 </div>
-                                <button type="button" onclick="window.bukaInfoPesanChat(${c.id})" style="color:#0284c7;"><i class="fas fa-info-circle text-primary"></i> Info</button>
-                                <button type="button" onclick="window.setReplyWarga(${c.id}, 'Anda', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'), '${c.file_type || ''}')" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
-                                <button type="button" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy"></i> Salin Teks</button>
-                                <button type="button" onclick="window.hapusPesanWarga(${c.id}, 'me')" style="color:#64748b;"><i class="fas fa-trash-alt"></i> Hapus</button>
-                                <button type="button" onclick="window.hapusPesanWarga(${c.id}, 'everyone')" style="color:#dc2626;"><i class="fas fa-undo"></i> Tarik Semua</button>
+                                <button type="button" class="aduan-menu-item" onclick="window.bukaInfoPesanChat(${c.id})" style="color:#0284c7;"><i class="fas fa-info-circle text-sky-600"></i> Detail Pesan</button>
+                                <button type="button" class="aduan-menu-item" onclick="window.setReplyWarga(${c.id}, 'Anda', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'), '${c.file_type || ''}')" style="color:#059669;"><i class="fas fa-reply text-emerald-600"></i> Balas Pesan</button>
+                                <button type="button" class="aduan-menu-item" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy text-slate-500"></i> Salin Teks</button>
+                                <button type="button" class="aduan-menu-item" onclick="window.hapusPesanWarga(${c.id}, 'me')" style="color:#d97706;"><i class="fas fa-trash-alt text-amber-600"></i> Hapus untuk Saya</button>
+                                <button type="button" class="aduan-menu-item" onclick="window.hapusPesanWarga(${c.id}, 'everyone')" style="color:#dc2626;"><i class="fas fa-undo text-rose-600"></i> Tarik Pesan</button>
                             </div>
                         </div>
                     ` : (isMediaBubbleOnlyWarga ? `
@@ -1444,11 +1511,11 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
                                 <i class="fas fa-ellipsis-v"></i>
                             </button>
                             <div id="menu-warga-${c.id}" class="aduan-dropdown-menu menu-right" style="display:none;" onclick="event.stopPropagation()">
-                                <button type="button" onclick="window.bukaInfoPesanChat(${c.id})" style="color:#0284c7;"><i class="fas fa-info-circle text-primary"></i> Info</button>
-                                <button type="button" onclick="window.setReplyWarga(${c.id}, '${safeHtml(handlerName)}', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'), '${c.file_type || ''}')" style="color:#0284c7;"><i class="fas fa-reply"></i> Balas</button>
-                                <button type="button" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy"></i> Salin Teks</button>
-                                <button type="button" onclick="window.hapusPesanWarga(${c.id}, 'me')" style="color:#64748b;"><i class="fas fa-trash-alt"></i> Hapus</button>
-                                <button type="button" onclick="window.laporPesanAdmin(${c.id})" style="color:#dc2626;"><i class="fas fa-flag"></i> Laporkan</button>
+                                <button type="button" class="aduan-menu-item" onclick="window.bukaInfoPesanChat(${c.id})" style="color:#0284c7;"><i class="fas fa-info-circle text-sky-600"></i> Detail Pesan</button>
+                                <button type="button" class="aduan-menu-item" onclick="window.setReplyWarga(${c.id}, '${safeHtml(handlerName)}', decodeURIComponent('${enc(c.pesan || 'Lampiran')}'), '${c.file_type || ''}')" style="color:#059669;"><i class="fas fa-reply text-emerald-600"></i> Balas Pesan</button>
+                                <button type="button" class="aduan-menu-item" onclick="window.salinTeksAduan(decodeURIComponent('${enc(c.pesan)}'))" style="color:#475569;"><i class="fas fa-copy text-slate-500"></i> Salin Teks</button>
+                                <button type="button" class="aduan-menu-item" onclick="window.hapusPesanWarga(${c.id}, 'me')" style="color:#d97706;"><i class="fas fa-trash-alt text-amber-600"></i> Hapus untuk Saya</button>
+                                <button type="button" class="aduan-menu-item" onclick="window.laporPesanAdmin(${c.id})" style="color:#dc2626;"><i class="fas fa-flag text-rose-600"></i> Laporkan Kendala</button>
                             </div>
                         </div>
                     ` : ''))}
@@ -1471,10 +1538,13 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
             });
         }, 100);
 
-        if (forceScroll || isNearBottom) {
+        if (forceScroll || isNearBottom || !window.hasScrolledWargaChatOnce) {
             box.scrollTop = box.scrollHeight;
+            window.hasScrolledWargaChatOnce = true;
         }
-    } catch (e) {}
+    } catch (e) {
+        console.error('[loadChatMessagesWarga Error]', e);
+    }
 };
 
 window.tanyaCepatWarga = function (type) {
@@ -1599,7 +1669,20 @@ window.addWargaChatAttachments = function (files) {
         const fileObj = item.file || item;
         const name = item.name || fileObj.name || 'Berkas';
         const size = item.size || fileObj.size || 0;
-        const type = item.type || (fileObj.type ? (fileObj.type.startsWith('image/') ? 'image' : (fileObj.type.startsWith('video/') ? 'video' : 'document')) : 'document');
+        let type = item.type;
+        if (!type && fileObj.type) {
+            if (fileObj.type.startsWith('image/')) type = 'image';
+            else if (fileObj.type.startsWith('video/')) type = 'video';
+            else if (fileObj.type.startsWith('audio/')) type = 'audio';
+            else type = 'document';
+        }
+        if (!type || type === 'document') {
+            const ext = name.split('.').pop().toLowerCase();
+            if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].includes(ext)) type = 'image';
+            else if (['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp'].includes(ext)) type = 'video';
+            else if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'weba', 'flac'].includes(ext)) type = 'audio';
+            else type = 'document';
+        }
         let previewThumb = null;
         if (type === 'image' && fileObj instanceof Blob) {
             previewThumb = URL.createObjectURL(fileObj);
@@ -1702,9 +1785,23 @@ window.handleWargaFileSelected = function (input) {
 
 window.sendWargaChat = window.kirimPesanWarga = async function () {
     if (window.isSendingWargaChat) return;
-    const currentNik = wargaNik || (sesiWargaAktif && sesiWargaAktif.nik);
-    const currentNama = wargaNama || (sesiWargaAktif && sesiWargaAktif.nama_lengkap) || 'Warga';
-    if (!currentNik) return;
+    const currentNik = getActiveNikChat();
+    const currentNama = getActiveNamaChat();
+
+    if (!currentNik) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'warning',
+                title: 'Sesi Belum Aktif',
+                text: 'Silakan masuk ke portal warga terlebih dahulu.',
+                timer: 3000,
+                showConfirmButton: false
+            });
+        }
+        return;
+    }
 
     // Jika sedang dalam mode pratinjau suara warga, kirim langsung menggunakan tombol kirim utama
     if (tempPreviewWargaBlob) {
@@ -1725,6 +1822,11 @@ window.sendWargaChat = window.kirimPesanWarga = async function () {
     if (!pesan && pendingFiles.length === 0 && !window.editedMediaBlob) return;
 
     window.isSendingWargaChat = true;
+    const btnSend = document.getElementById('btnSendWarga');
+    if (btnSend) {
+        btnSend.disabled = true;
+        btnSend.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:0.9rem;"></i>';
+    }
 
     const nowDevice = new Date();
     const deviceTime = nowDevice.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -1766,16 +1868,23 @@ window.sendWargaChat = window.kirimPesanWarga = async function () {
     window.batalReplyWarga();
 
     try {
-        await fetch(`${API_URL}/api/chat/${encodeURIComponent(currentNik)}`, {
+        const resp = await fetch(`${API_URL}/api/chat/${encodeURIComponent(currentNik)}`, {
             method: 'POST',
             body: formData
         });
+        if (!resp.ok) {
+            console.warn('[Send Chat Response Error]', resp.status);
+        }
         lastChatHashWarga = '';
-        window.loadChatMessagesWarga(false);
+        await window.loadChatMessagesWarga(true);
     } catch (e) {
         console.error('[Send Chat Error]', e);
     } finally {
         window.isSendingWargaChat = false;
+        if (btnSend) {
+            btnSend.disabled = false;
+            btnSend.innerHTML = '<i class="fas fa-paper-plane" style="font-size:0.9rem;"></i>';
+        }
     }
 };
 
@@ -1814,7 +1923,11 @@ window.reactToMessageWarga = async function (msgId) {
 };
 
 window.submitReactionWarga = async function (msgId, emoji) {
-    document.querySelectorAll('[id^="menu-warga-"], .aduan-dropdown-menu').forEach(m => m.style.display = 'none');
+    document.querySelectorAll('[id^="menu-warga-"], .aduan-dropdown-menu').forEach(m => {
+        m.style.display = 'none';
+        m.classList.remove('show');
+    });
+    window.activeOpenChatMenuId = null;
     Swal?.close();
     try {
         await fetch(`${API_URL}/api/chat/react/${msgId}`, {
@@ -1828,6 +1941,11 @@ window.submitReactionWarga = async function (msgId, emoji) {
 };
 
 window.togglePinMessageWarga = async function (msgId) {
+    document.querySelectorAll('[id^="menu-warga-"], .aduan-dropdown-menu').forEach(m => {
+        m.style.display = 'none';
+        m.classList.remove('show');
+    });
+    window.activeOpenChatMenuId = null;
     try {
         await fetch(`${API_URL}/api/chat/pin/${msgId}`, { method: 'PATCH' }).catch(() => null);
         lastChatHashWarga = '';
@@ -1836,6 +1954,11 @@ window.togglePinMessageWarga = async function (msgId) {
 };
 
 window.hapusPesanWarga = async function (id, tipe) {
+    document.querySelectorAll('[id^="menu-warga-"], .aduan-dropdown-menu').forEach(m => {
+        m.style.display = 'none';
+        m.classList.remove('show');
+    });
+    window.activeOpenChatMenuId = null;
     const konfirmasi = confirm(`Yakin ingin ${tipe === 'everyone' ? 'menarik pesan ini' : 'menghapus pesan dari layar Anda'}?`);
     if (konfirmasi) {
         try {
@@ -1851,11 +1974,39 @@ window.hapusPesanWarga = async function (id, tipe) {
 };
 
 window.toggleChatMenuWarga = function (id, event) {
-    if (event && event.stopPropagation) event.stopPropagation();
+    if (event) {
+        if (event.stopPropagation) event.stopPropagation();
+        if (event.preventDefault) event.preventDefault();
+    }
     const menu = document.getElementById(`menu-warga-${id}`);
-    const isShown = menu && (menu.style.display === 'flex' || menu.style.display === 'block');
-    document.querySelectorAll('.aduan-dropdown-menu').forEach(m => m.style.display = 'none');
-    if (!isShown && menu) menu.style.display = 'flex';
+    const isShown = menu && (menu.style.display === 'flex' || menu.style.display === 'block' || menu.classList.contains('show'));
+    
+    document.querySelectorAll('.aduan-dropdown-menu').forEach(m => {
+        m.style.display = 'none';
+        m.classList.remove('show');
+    });
+    window.activeOpenChatMenuId = null;
+
+    if (!isShown && menu) {
+        menu.style.display = 'flex';
+        menu.classList.add('show');
+        window.activeOpenChatMenuId = id;
+
+        // Cek posisi tombol terhadap kontainer chat untuk auto-flip ke atas jika berada di dekat dasar
+        const btn = event ? (event.currentTarget || event.target.closest('button')) : null;
+        const box = document.getElementById('wargaChatMessages') || document.getElementById('chatMessagesWarga') || document.getElementById('chatBoxWarga');
+        if (btn && box) {
+            const bRect = btn.getBoundingClientRect();
+            const cRect = box.getBoundingClientRect();
+            if (cRect.bottom - bRect.bottom < 240) {
+                menu.style.top = 'auto';
+                menu.style.bottom = '28px';
+            } else {
+                menu.style.top = '26px';
+                menu.style.bottom = 'auto';
+            }
+        }
+    }
 };
 
 window.scrollToMessageWarga = function (id) {

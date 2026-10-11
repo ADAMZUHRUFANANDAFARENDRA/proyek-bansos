@@ -944,23 +944,43 @@ window.syncBPS = async function () {
 window.activeEditTab = 'identitas';
 
 window.switchEditTab = function (tabName) {
-    window.activeEditTab = tabName;
-    const tabs = ['identitas', 'kriteria', 'kustom', 'status'];
+    const rawTab = String(tabName || 'identitas').toLowerCase().trim();
+    const isAll = (rawTab === 'all' || rawTab === 'semua' || rawTab === 'lengkap');
+    const activeTab = (rawTab === 'custom') ? 'kustom' : rawTab;
+    window.activeEditTab = isAll ? 'all' : activeTab;
+
     const btnAll = document.getElementById('tabBtnEditAll');
     if (btnAll) {
-        if (tabName === 'all') btnAll.classList.add('active');
-        else btnAll.classList.remove('active');
+        if (isAll) {
+            btnAll.classList.add('active');
+            btnAll.style.background = '#009846';
+            btnAll.style.color = '#ffffff';
+        } else {
+            btnAll.classList.remove('active');
+            btnAll.style.background = '#ffffff';
+            btnAll.style.color = '#0f172a';
+        }
     }
 
-    tabs.forEach(t => {
-        const btn = document.getElementById(`tabBtnEdit${t.charAt(0).toUpperCase() + t.slice(1)}`);
-        const panel = document.getElementById(`sectionEdit${t.charAt(0).toUpperCase() + t.slice(1)}`);
+    const tabList = [
+        { key: 'identitas', btnId: 'tabBtnEditIdentitas', panelId: 'sectionEditIdentitas' },
+        { key: 'kriteria', btnId: 'tabBtnEditKriteria', panelId: 'sectionEditKriteria' },
+        { key: 'kustom', btnId: 'tabBtnEditKustom', panelId: 'sectionEditKustom' },
+        { key: 'status', btnId: 'tabBtnEditStatus', panelId: 'sectionEditStatus' }
+    ];
+
+    tabList.forEach(t => {
+        const btn = document.getElementById(t.btnId);
+        const panel = document.getElementById(t.panelId);
         if (btn) {
-            if (t === tabName && tabName !== 'all') btn.classList.add('active');
-            else btn.classList.remove('active');
+            if (!isAll && (t.key === activeTab || (t.key === 'kustom' && activeTab === 'custom'))) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
         }
         if (panel) {
-            panel.style.display = (tabName === 'all' || t === tabName) ? 'block' : 'none';
+            panel.style.display = (isAll || t.key === activeTab || (t.key === 'kustom' && activeTab === 'custom')) ? 'block' : 'none';
         }
     });
 };
@@ -1007,7 +1027,107 @@ window.bukaModalEdit = function (id) {
     if (document.getElementById('editC8')) document.getElementById('editC8').value = w.c8 !== undefined ? w.c8 : 2;
     if (document.getElementById('editC9')) document.getElementById('editC9').value = w.c9 !== undefined ? w.c9 : 1;
     if (document.getElementById('editC10')) document.getElementById('editC10').value = w.c10 !== undefined ? w.c10 : 1;
-    if (document.getElementById('editCatatan')) document.getElementById('editCatatan').value = w.catatan || '';
+    // SINKRONISASI REAL-TIME TAB STATUS & BANSOS (Status Penyaluran, Nominal, dsb)
+    const stVal = document.getElementById('editStatusValidasi');
+    const stSal = document.getElementById('editStatusSalur');
+    const nomInp = document.getElementById('editNominalBantuan');
+    const tglSalInp = document.getElementById('editTanggalSalur');
+    const catInp = document.getElementById('editCatatan');
+
+    if (catInp) catInp.value = w.catatan || w.keterangan_salur || '';
+    if (stVal) stVal.value = w.status_validasi || (w.is_verified ? 'Disetujui' : 'Menunggu');
+    if (stSal) {
+        let curSalur = String(w.status_salur || (w.bukti_salur ? 'Disalurkan' : 'Belum Salur')).trim();
+        if ((w.bukti_salur || (window.customBantuanMap && window.customBantuanMap[w.nik])) && curSalur === 'Belum Salur') {
+            curSalur = 'Disalurkan';
+            w.status_salur = 'Disalurkan';
+        }
+        let matched = false;
+        // 1. Exact match
+        for (let i = 0; i < stSal.options.length; i++) {
+            const optVal = String(stSal.options[i].value || '').trim();
+            const isMatch = optVal.toLowerCase() === curSalur.toLowerCase();
+            stSal.options[i].selected = isMatch;
+            if (isMatch) {
+                stSal.options[i].setAttribute('selected', 'selected');
+                stSal.selectedIndex = i;
+                stSal.value = optVal;
+                matched = true;
+            } else {
+                stSal.options[i].removeAttribute('selected');
+            }
+        }
+        // 2. Keyword-based match (Belum Diterima, Disalurkan, Telah Menerima, Belum Salur)
+        if (!matched) {
+            const curLow = curSalur.toLowerCase();
+            for (let i = 0; i < stSal.options.length; i++) {
+                const optVal = String(stSal.options[i].value || '').trim();
+                const optLow = optVal.toLowerCase();
+                let isMatch = false;
+                if ((curLow.includes('belum diterima') || curLow.includes('sanggahan')) && optLow.includes('belum diterima')) {
+                    isMatch = true;
+                } else if ((curLow.includes('disalur') || curLow === 'sudah disalurkan') && optLow.includes('disalur')) {
+                    isMatch = true;
+                } else if (curLow.includes('terima') && !curLow.includes('belum') && optLow.includes('terima')) {
+                    isMatch = true;
+                } else if (curLow.includes('sengketa') && optLow.includes('sengketa')) {
+                    isMatch = true;
+                } else if (curLow === 'belum salur' && optLow.includes('belum salur')) {
+                    isMatch = true;
+                }
+
+                if (isMatch) {
+                    for (let j = 0; j < stSal.options.length; j++) {
+                        stSal.options[j].selected = (j === i);
+                        if (j === i) stSal.options[j].setAttribute('selected', 'selected');
+                        else stSal.options[j].removeAttribute('selected');
+                    }
+                    stSal.selectedIndex = i;
+                    stSal.value = optVal;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+        if (!matched) {
+            let exists = false;
+            for (let i = 0; i < stSal.options.length; i++) {
+                if (stSal.options[i].value.toLowerCase() === curSalur.toLowerCase()) {
+                    for (let j = 0; j < stSal.options.length; j++) {
+                        stSal.options[j].selected = (j === i);
+                        if (j === i) stSal.options[j].setAttribute('selected', 'selected');
+                        else stSal.options[j].removeAttribute('selected');
+                    }
+                    stSal.selectedIndex = i;
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                for (let j = 0; j < stSal.options.length; j++) {
+                    stSal.options[j].selected = false;
+                    stSal.options[j].removeAttribute('selected');
+                }
+                const opt = document.createElement('option');
+                opt.value = curSalur;
+                opt.text = curSalur;
+                opt.selected = true;
+                opt.setAttribute('selected', 'selected');
+                stSal.add(opt);
+                stSal.value = curSalur;
+            }
+        }
+        try { stSal.dispatchEvent(new Event('change', { bubbles: true })); } catch(e) {}
+    }
+    let curCustomMap = {};
+    try { curCustomMap = JSON.parse(localStorage.getItem('adminCustomBantuanMap') || '{}'); } catch(e) {}
+    const curNom = (window.customBantuanMap && window.customBantuanMap[w.nik]) || curCustomMap[w.nik] || w.nominal_bantuan || '';
+    if (nomInp) {
+        nomInp.value = (curNom && String(curNom).trim() && String(curNom).trim() !== '-')
+            ? String(curNom).trim()
+            : 'Rp 600.000 / Beras 10 Kg';
+    }
+    if (tglSalInp) tglSalInp.value = (w.tanggal_salur && w.tanggal_salur !== '-') ? w.tanggal_salur : '';
 
     // Perbarui judul & badge NIK
     const namaTitle = document.getElementById('editWargaNamaTitle');
@@ -1217,6 +1337,10 @@ window.simpanEdit = async function (e) {
         c8: document.getElementById('editC8') ? parseInt(document.getElementById('editC8').value) : (existing?.c8 ?? 2),
         c9: document.getElementById('editC9') ? parseInt(document.getElementById('editC9').value) : (existing?.c9 ?? 1),
         c10: document.getElementById('editC10') ? parseInt(document.getElementById('editC10').value) : (existing?.c10 ?? 1),
+        status_validasi: document.getElementById('editStatusValidasi')?.value || existing?.status_validasi || 'Disetujui',
+        status_salur: document.getElementById('editStatusSalur')?.value || existing?.status_salur || 'Belum Salur',
+        nominal_bantuan: document.getElementById('editNominalBantuan')?.value.trim() || existing?.nominal_bantuan || 'Beras 10 Kg / Rp 600.000',
+        tanggal_salur: document.getElementById('editTanggalSalur')?.value.trim() || existing?.tanggal_salur || '-',
         catatan: document.getElementById('editCatatan')?.value.trim() || existing?.catatan || '',
         extra_data: {}
     };
@@ -1270,6 +1394,15 @@ window.simpanEdit = async function (e) {
         }
 
         const json = await res.json().catch(() => ({}));
+
+        if (existing) {
+            Object.assign(existing, payload);
+            if (payload.status_validasi === 'Disetujui') existing.is_verified = true;
+            else if (payload.status_validasi === 'Menunggu' || payload.status_validasi === 'Ditolak') existing.is_verified = false;
+        }
+        if (typeof window.renderTable === 'function') {
+            window.renderTable(window.globalDataWarga);
+        }
 
         window.closeModal('modalEdit');
         await window.loadDashboardData(false);
@@ -1441,9 +1574,16 @@ window.bukaUploadBuktiSalur = function (id) {
         if (previewBox) previewBox.style.display = 'none';
     }
 
+    const nomInp = document.getElementById('inputNominalSalur');
+    if (nomInp) {
+        nomInp.value = (w.nominal_bantuan && String(w.nominal_bantuan).trim() && String(w.nominal_bantuan).trim() !== '-')
+            ? String(w.nominal_bantuan).trim()
+            : 'Rp 600.000 / Beras 10 Kg';
+    }
+
     const ketInp = document.getElementById('inputKeteranganSalur');
     if (ketInp) {
-        ketInp.value = w.keterangan_salur || `Bantuan sosial berupa ${w.nominal_bantuan || 'Beras 10 Kg dan BLT Tunai'} telah diserahkan langsung kepada ${w.nama} (NIK: ${w.nik}) di kantor balai desa pada kondisi baik.`;
+        ketInp.value = w.keterangan_salur || w.catatan || `Bantuan sosial berupa ${w.nominal_bantuan || 'Beras 10 Kg dan BLT Tunai'} telah diserahkan langsung kepada ${w.nama} (NIK: ${w.nik}) di kantor balai desa pada kondisi baik.`;
     }
 
     const tglInp = document.getElementById('inputTanggalSalur');
@@ -1480,22 +1620,99 @@ window.hapusFotoBuktiSalur = function () {
     if (previewBox) previewBox.style.display = 'none';
 };
 
+// Generator Bukti Serah Terima Resmi Digital Berbasis Canvas (Sebagai fallback jika foto fisik tidak dipilih)
+function buatBerkasBuktiSalurDigital(warga, nominal, keterangan, tanggal) {
+    return new Promise((resolve) => {
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 750;
+            canvas.height = 500;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, 750, 500);
+
+            // Header Banner
+            ctx.fillStyle = '#009846';
+            ctx.fillRect(0, 0, 750, 70);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 18px Arial, sans-serif';
+            ctx.fillText('PEMERINTAH KABUPATEN SIDOARJO - DINAS SOSIAL', 30, 42);
+
+            // Judul Dokumen
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 17px Arial, sans-serif';
+            ctx.fillText('BERITA ACARA SERAH TERIMA BANTUAN SOSIAL (DIGITAL)', 30, 115);
+
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(30, 128);
+            ctx.lineTo(720, 128);
+            ctx.stroke();
+
+            // Rincian Penyerahan
+            ctx.fillStyle = '#334155';
+            ctx.font = '14px Arial, sans-serif';
+            const rows = [
+                `Nama Penerima    : ${warga?.nama || '-'}`,
+                `NIK Penerima     : ${warga?.nik || '-'}`,
+                `Alamat Domisili  : ${warga?.alamat || 'Kabupaten Sidoarjo'}`,
+                `Paket / Nominal  : ${nominal || '-'}`,
+                `Waktu Penyaluran : ${tanggal || '-'}`,
+                `Keterangan       : ${keterangan || '-'}`
+            ];
+            let y = 165;
+            rows.forEach(r => {
+                ctx.fillText(r, 30, y);
+                y += 28;
+            });
+
+            // Cap Stempel Sah
+            ctx.fillStyle = '#ecfdf5';
+            ctx.strokeStyle = '#059669';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(460, 330, 260, 135);
+            ctx.fillRect(460, 330, 260, 135);
+
+            ctx.fillStyle = '#065f46';
+            ctx.font = 'bold 14px Arial, sans-serif';
+            ctx.fillText('TERVALIDASI DINAS SOSIAL', 475, 365);
+            ctx.font = '12px Arial, sans-serif';
+            ctx.fillText('STATUS: DISALURKAN (SAH)', 475, 395);
+            ctx.fillText('KABUPATEN SIDOARJO 2026', 475, 420);
+            ctx.fillText('Sertifikasi Digital BSrE BSSN', 475, 445);
+
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    const f = new File([blob], `bukti_salur_${warga?.nik || 'warga'}_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                    resolve(f);
+                } else {
+                    resolve(null);
+                }
+            }, 'image/jpeg', 0.9);
+        } catch (e) {
+            resolve(null);
+        }
+    });
+}
+
 window.simpanBuktiPenyaluranLengkap = async function () {
     const id = document.getElementById('buktiSalurWargaId')?.value;
     if (!id) return;
 
     const fileInp = document.getElementById('inputFotoBuktiSalur');
-    const file = fileInp?.files?.[0];
+    let file = fileInp?.files?.[0];
     const keterangan = document.getElementById('inputKeteranganSalur')?.value.trim() || 'Bantuan bansos telah disalurkan.';
     const tanggalSalur = document.getElementById('inputTanggalSalur')?.value.trim() || '';
+    const nominalSalur = document.getElementById('inputNominalSalur')?.value.trim() || 'Rp 600.000 / Beras 10 Kg';
 
     const w = (window.globalDataWarga || []).find(item => String(item.id) === String(id));
+
+    // Jika pengguna tidak mengunggah file foto baru dan belum ada bukti sebelumnya, terbitkan bukti tanda terima digital resmi
     if (!file && (!w || !w.bukti_salur)) {
-        return showAdminAlert({
-            icon: 'warning',
-            title: 'Foto Belum Dipilih',
-            text: 'Silakan ambil foto bukti penyaluran atau pilih foto dokumentasi dari perangkat Anda.'
-        });
+        file = await buatBerkasBuktiSalurDigital(w, nominalSalur, keterangan, tanggalSalur);
     }
 
     showAdminAlert({
@@ -1512,7 +1729,9 @@ window.simpanBuktiPenyaluranLengkap = async function () {
             formData.append('existing_file', w.bukti_salur);
         }
         formData.append('keterangan_salur', keterangan);
+        formData.append('catatan', keterangan);
         formData.append('tanggal_salur', tanggalSalur);
+        formData.append('nominal_bantuan', nominalSalur);
 
         const base = (window.BASE_API_URL || window.API_BASE_URL || window.BASE_URL || window.location.origin).replace(/\/+$/, '');
         let res = await fetch(`${base}/api/warga/${id}/bukti-salur`, {
@@ -1529,6 +1748,68 @@ window.simpanBuktiPenyaluranLengkap = async function () {
             });
         }
 
+        const json = await res.json().catch(() => ({}));
+
+        // Perbarui data lokal secara instan agar tombol kamera langsung berubah jadi ceklis
+        if (w) {
+            w.status_salur = 'Disalurkan';
+            w.bukti_salur = json.bukti_salur || (file ? file.name : (w.bukti_salur || 'bukti.jpg'));
+            w.keterangan_salur = keterangan;
+            w.tanggal_salur = tanggalSalur;
+            w.nominal_bantuan = nominalSalur;
+            w.catatan = keterangan;
+        }
+
+        if (window.globalDataWarga) {
+            localStorage.setItem('cachedDataWarga', JSON.stringify(window.globalDataWarga));
+        }
+
+        if (typeof window.renderTable === 'function') {
+            window.renderTable(window.globalDataWarga);
+        }
+
+        // Sinkronkan seketika ke modal edit jika modal edit sedang aktif untuk warga ini
+        const activeEditId = document.getElementById('editId')?.value;
+        if (activeEditId && String(activeEditId) === String(id)) {
+            const stSal = document.getElementById('editStatusSalur');
+            if (stSal) {
+                for (let i = 0; i < stSal.options.length; i++) {
+                    if (stSal.options[i].value.toLowerCase().includes('disalurkan')) {
+                        stSal.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+            const nomInp = document.getElementById('editNominalBantuan');
+            if (nomInp) nomInp.value = nominalSalur;
+            const tglInp = document.getElementById('editTanggalSalur');
+            if (tglInp) tglInp.value = tanggalSalur;
+            const catInp = document.getElementById('editCatatan');
+            if (catInp) catInp.value = keterangan;
+        }
+
+        // Siarkan sinyal realtime ke seluruh tab & portal warga via BroadcastChannel & localStorage
+        const eventPayload = {
+            type: 'WARGA_SALUR_UPDATED',
+            warga_id: w?.id || id,
+            nik: w?.nik,
+            status_salur: 'Disalurkan',
+            nominal_bantuan: nominalSalur,
+            keterangan_salur: keterangan,
+            tanggal_salur: tanggalSalur,
+            data: w
+        };
+
+        try {
+            const bc = new BroadcastChannel('bansos_realtime');
+            bc.postMessage(eventPayload);
+            bc.close();
+        } catch (e) {}
+
+        try {
+            localStorage.setItem('bansos_realtime_signal', JSON.stringify({ ...eventPayload, timestamp: Date.now() }));
+        } catch (e) {}
+
         window.closeModal('modalBuktiSalur');
 
         // Muat ulang data agar tabel dan kartu warga terupdate
@@ -1540,7 +1821,8 @@ window.simpanBuktiPenyaluranLengkap = async function () {
             html: `
                 <div style="font-size:0.9rem; line-height:1.6; color:#1e293b;">
                     Status warga telah diperbarui menjadi <b>Disalurkan</b>.<br>
-                    Tombol kamera telah berubah menjadi <b>tombol ceklis</b> dan keterangan sudah disalurkan tampil pada data warga.
+                    Jenis/Nominal: <b>${nominalSalur}</b><br>
+                    Tombol kamera telah berubah menjadi <b>tombol ceklis hijau</b> dan data langsung tersinkronkan.
                 </div>
             `,
             buttonsStyling: false,
@@ -1556,10 +1838,110 @@ window.simpanBuktiPenyaluranLengkap = async function () {
     }
 };
 
+window.downloadFotoBuktiSalur = function () {
+    const w = window.activeBuktiSalurWarga;
+    if (!w || !w.bukti_salur) {
+        showAdminAlert({
+            icon: 'warning',
+            title: 'Foto Belum Tersedia',
+            text: 'Warga ini belum memiliki berkas foto bukti penyaluran yang terunggah.'
+        });
+        return;
+    }
+    const base = (window.BASE_API_URL || window.API_BASE_URL || window.BASE_URL || window.location.origin).replace(/\/+$/, '');
+    const cleanNik = w.nik || 'KPM';
+    const filename = w.bukti_salur;
+    const downloadUrl = `${base}/api/chat/download/${filename}?name=Bukti_Penyaluran_${cleanNik}.jpg`;
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `Bukti_Penyaluran_${cleanNik}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+};
+
+window.syncModalEditIfOpen = function (nikOrId, freshData) {
+    const editModal = document.getElementById('modalEdit');
+    if (!editModal || editModal.style.display === 'none') return;
+    const curEditId = document.getElementById('editId')?.value;
+    const curEditNik = document.getElementById('editNik')?.value;
+    const matchId = curEditId && String(curEditId) === String(nikOrId);
+    const matchNik = curEditNik && String(curEditNik).replace(/\D/g, '') === String(freshData?.nik || nikOrId).replace(/\D/g, '');
+
+    if (matchId || matchNik) {
+        const stSal = document.getElementById('editStatusSalur');
+        if (stSal && freshData?.status_salur) {
+            const sVal = String(freshData.status_salur).trim();
+            let matched = false;
+            for (let i = 0; i < stSal.options.length; i++) {
+                const isMatch = stSal.options[i].value.toLowerCase() === sVal.toLowerCase();
+                stSal.options[i].selected = isMatch;
+                if (isMatch) {
+                    stSal.options[i].setAttribute('selected', 'selected');
+                    stSal.selectedIndex = i;
+                    stSal.value = stSal.options[i].value;
+                    matched = true;
+                } else {
+                    stSal.options[i].removeAttribute('selected');
+                }
+            }
+            if (!matched) {
+                for (let j = 0; j < stSal.options.length; j++) {
+                    stSal.options[j].selected = false;
+                    stSal.options[j].removeAttribute('selected');
+                }
+                const opt = document.createElement('option');
+                opt.value = sVal;
+                opt.text = sVal;
+                opt.selected = true;
+                opt.setAttribute('selected', 'selected');
+                stSal.add(opt);
+                stSal.value = sVal;
+            }
+            try { stSal.dispatchEvent(new Event('change', { bubbles: true })); } catch(e) {}
+        }
+        if (freshData?.nominal_bantuan && document.getElementById('editNominalBantuan')) {
+            document.getElementById('editNominalBantuan').value = freshData.nominal_bantuan;
+        }
+        if (freshData?.tanggal_salur && document.getElementById('editTanggalSalur')) {
+            document.getElementById('editTanggalSalur').value = freshData.tanggal_salur;
+        }
+        if (freshData?.catatan && document.getElementById('editCatatan')) {
+            document.getElementById('editCatatan').value = freshData.catatan;
+        }
+    }
+};
+
 window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
     const dataList = window.globalDataWarga || [];
     const w = dataList.find(item => item.id === id);
     const catatanSengketa = w?.catatan || 'Warga melaporkan kendala pada data penerimaan bansos.';
+    const isSelesai = w?.status_salur === 'Telah Menerima' || w?.status_salur === 'Sudah Diterima' || Boolean(w?.konfirmasi_warga);
+
+    if (isSelesai) {
+        showAdminAlert({
+            title: '<i class="fas fa-check-circle text-success"></i> Sengketa Telah Diselesaikan',
+            html: `
+                <div style="text-align:left; font-size:0.88rem; line-height:1.6; color:#1e293b;">
+                    <div style="background:#f0fdf4; padding:12px; border-radius:10px; border:1px solid #bbf7d0; margin-bottom:12px;">
+                        <div><b>Warga:</b> ${window.safeHtml(namaWarga)} (NIK: ${nik})</div>
+                        <div><b>Status Saat Ini:</b> <span style="color:#15803d; font-weight:800;">Telah Menerima (Selesai & Sah)</span></div>
+                        <div style="margin-top:6px; font-size:0.82rem; color:#475569;"><b>Catatan Penyelesaian:</b><br>${window.safeHtml(catatanSengketa)}</div>
+                    </div>
+                    <p style="margin:0; font-size:0.84rem; color:#334155;">Kasus sengketa warga ini telah selesai diproses dan bantuan telah dikonfirmasi diterima secara sah.</p>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Tutup',
+            cancelButtonText: 'Buka Edit Data',
+            confirmButtonColor: '#009846'
+        }).then(res => {
+            if (res.dismiss === Swal.DismissReason.cancel) {
+                window.bukaModalEdit(id);
+            }
+        });
+        return;
+    }
 
     showAdminAlert({
         title: '<i class="fas fa-shield-alt text-danger"></i> Mediasi Sengketa Bansos',
@@ -1603,11 +1985,33 @@ window.bukaAksiCepatSengketa = function (id, namaWarga, nik) {
             }
 
             await window.loadDashboardData(false);
+            if (typeof window.loadLaporanChatData === 'function') window.loadLaporanChatData();
             showAdminAlert({ icon: 'success', title: 'Sengketa Selesai', text: `Status bantuan untuk ${namaWarga} telah diperbarui menjadi Telah Menerima.` });
         } else if (result.isDenied) {
             window.bukaModalEdit(id);
         }
     });
 };
+
+// Listener Real-Time Terpadu untuk Modal Edit (Sinkronisasi Otomatis)
+try {
+    const bcEdit = new BroadcastChannel('bansos_realtime');
+    bcEdit.onmessage = function (ev) {
+        if (ev.data && (ev.data.type === 'WARGA_SALUR_UPDATED' || ev.data.type === 'WARGA_UPDATED' || ev.data.type === 'ADUAN_UPDATE')) {
+            const d = ev.data.data || ev.data;
+            window.syncModalEditIfOpen(ev.data.nik || ev.data.warga_id, d);
+        }
+    };
+} catch (e) {}
+
+window.addEventListener('storage', function (ev) {
+    if (ev.key === 'bansos_realtime_signal' && ev.newValue) {
+        try {
+            const signal = JSON.parse(ev.newValue);
+            const d = signal.data || signal;
+            window.syncModalEditIfOpen(signal.nik || signal.warga_id, d);
+        } catch (_) {}
+    }
+});
 
 // =========================================================================

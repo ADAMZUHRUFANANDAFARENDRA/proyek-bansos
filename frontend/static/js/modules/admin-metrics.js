@@ -60,6 +60,7 @@ window.loadDashboardData = async function (showToast = false) {
     }
 
     window.globalDataWarga = rawData.map((w, idx) => ({
+        ...w,
         id: w.id || (idx + 1),
         nama: w.nama || w.nama_lengkap || 'Warga Sidoarjo',
         nik: String(w.nik || ''),
@@ -83,11 +84,17 @@ window.loadDashboardData = async function (showToast = false) {
         desil: Number(w.desil) || 5,
         skor_saw: parseFloat(w.skor_saw || 0),
         is_verified: Boolean(w.is_verified == 1 || w.is_verified === true || w.status_validasi === 'Disetujui'),
+        status_validasi: w.status_validasi || (w.is_verified ? 'Disetujui' : 'Menunggu'),
         status_salur: w.status_salur || w.status_penyaluran || 'Belum Salur',
         nominal_bantuan: w.nominal_bantuan || '',
         bukti_salur: w.bukti_salur || '',
+        keterangan_salur: w.keterangan_salur || w.catatan || '',
+        tanggal_salur: w.tanggal_salur || '-',
+        konfirmasi_warga: Boolean(w.konfirmasi_warga),
+        waktu_konfirmasi_warga: w.waktu_konfirmasi_warga || '',
         created_at: w.created_at || w.waktu || 'Hari ini',
-        catatan: w.catatan || ''
+        catatan: w.catatan || w.keterangan_salur || '',
+        extra_data: w.extra_data || {}
     }));
 
     globalDataWarga = window.globalDataWarga;
@@ -97,8 +104,14 @@ window.loadDashboardData = async function (showToast = false) {
     const menunggu = total - disetujui;
     const telahSalur = window.globalDataWarga.filter(w => w.status_salur === 'Telah Menerima').length;
     const belumSalur = total - telahSalur;
-    const sengketa = window.globalDataWarga.filter(w => String(w.status_salur || '').toLowerCase().includes('sengketa')).length;
-    const bebasSengketa = total - sengketa;
+    const sengketa = window.globalDataWarga.filter(w => {
+        const sal = String(w.status_salur || '').toLowerCase();
+        const cat = String(w.catatan || '').toLowerCase();
+        const isDispute = sal.includes('sengketa') || sal.includes('belum diterima') || sal.includes('sanggah') || cat.includes('sanggahan');
+        const isDone = sal === 'telah menerima' || sal === 'sudah diterima' || sal === 'selesai' || Boolean(w.konfirmasi_warga);
+        return isDispute && !isDone;
+    }).length;
+    const bebasSengketa = Math.max(0, total - sengketa);
 
     if (statusText && statusPill) {
         statusText.innerText = total > 0 ? 'Sinkronisasi Aktif' : 'Database Kosong';
@@ -261,8 +274,14 @@ window.render3DashboardCharts = function (data) {
 
     const canvasSengketa = document.getElementById('chartSengketa');
     if (canvasSengketa) {
-        const sengketa = data.filter(w => String(w.status_salur || '').toLowerCase().includes('sengketa')).length;
-        const bebasSengketa = total - sengketa;
+        const sengketa = data.filter(w => {
+            const sal = String(w.status_salur || '').toLowerCase();
+            const cat = String(w.catatan || '').toLowerCase();
+            const isDispute = sal.includes('sengketa') || sal.includes('belum diterima') || sal.includes('sanggah') || cat.includes('sanggahan');
+            const isDone = sal === 'telah menerima' || sal === 'sudah diterima' || sal === 'selesai' || Boolean(w.konfirmasi_warga);
+            return isDispute && !isDone;
+        }).length;
+        const bebasSengketa = Math.max(0, total - sengketa);
         const existing = Chart.getChart(canvasSengketa);
         if (existing) existing.destroy();
 
@@ -286,5 +305,21 @@ window.render3DashboardCharts = function (data) {
         });
     }
 };
+
+// Listener Real-Time Terpadu untuk Metrik & Grafik Dasbor
+try {
+    const bcMetrics = new BroadcastChannel('bansos_realtime');
+    bcMetrics.onmessage = function (ev) {
+        if (ev.data && (ev.data.type === 'WARGA_SALUR_UPDATED' || ev.data.type === 'WARGA_UPDATED' || ev.data.type === 'ADUAN_NEW' || ev.data.type === 'ADUAN_UPDATE')) {
+            window.loadDashboardData(false);
+        }
+    };
+} catch (e) {}
+
+window.addEventListener('storage', function (ev) {
+    if (ev.key === 'bansos_realtime_signal' && ev.newValue) {
+        window.loadDashboardData(false);
+    }
+});
 
 // =========================================================================

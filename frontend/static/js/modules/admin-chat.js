@@ -182,7 +182,15 @@
         try {
             const res = await apiCall('/api/chat/list');
             if (!res || !res.ok) return;
-            window.rawChatListData = await res.json();
+            const raw = await res.json();
+            window.rawChatListData = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
+            
+            const totalUnread = window.rawChatListData.reduce((acc, cur) => acc + (cur.unread_count || 0), 0);
+            const tabInboxBtn = document.getElementById('tabInboxBtn');
+            if (tabInboxBtn) {
+                tabInboxBtn.innerHTML = `<i class="fas fa-inbox"></i> Pesan Masuk ${totalUnread > 0 ? `<span style="background:#dc2626; color:white; border-radius:12px; padding:1px 7px; font-size:0.7rem; margin-left:4px;">${totalUnread}</span>` : ''}`;
+            }
+
             window.renderCategorizedInbox();
         } catch (e) {}
     };
@@ -196,7 +204,7 @@
         if (window.activeChatCategoryFilter === 'desil1-4') {
             list = list.filter(c => {
                 const w = (window.globalDataWarga || []).find(x => String(x.nik) === String(c.nik));
-                const desil = w ? parseInt(w.desil || 5, 10) : 5;
+                const desil = w ? parseInt(w.desil || 5, 10) : (c.desil !== 'Umum' ? parseInt(c.desil || 5, 10) : 5);
                 return desil <= 4;
             });
         } else if (window.activeChatCategoryFilter === 'unread') {
@@ -222,13 +230,29 @@
             const realName = window.getWargaNameByNik(c.nik, c.nama);
             const isActive = String(c.nik) === String(window.activeChatNik);
             const w = (window.globalDataWarga || []).find(x => String(x.nik) === String(c.nik));
-            const desil = w ? (w.desil || 1) : 1;
-            const isPrioritas = desil <= 4;
+            const isRegistered = c.is_registered !== undefined ? Boolean(c.is_registered) : Boolean(w);
+            const hasAduan = Boolean(c.has_aduan || c.aduan_id);
+            const desil = w ? (w.desil || 1) : (c.desil !== undefined && c.desil !== 'Umum' ? c.desil : null);
+            const isPrioritas = desil !== null && desil <= 4;
             const unreadCount = c.unread_count || 0;
+
+            let badgeHtml = '';
+            if (hasAduan) {
+                badgeHtml += `<span style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:1px 6px; border-radius:6px; font-weight:800; font-size:0.68rem; margin-right:4px;"><i class="fas fa-exclamation-circle"></i> ${c.aduan_id || 'Aduan'}</span>`;
+            }
+            if (!isRegistered) {
+                badgeHtml += `<span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; padding:1px 6px; border-radius:6px; font-weight:800; font-size:0.68rem;"><i class="fas fa-user-tag"></i> Warga Konsultasi</span>`;
+            } else if (desil !== null) {
+                badgeHtml += `<span style="background:${isPrioritas ? '#dcfce7' : '#f1f5f9'}; color:${isPrioritas ? '#15803d' : '#64748b'}; padding:1px 6px; border-radius:6px; font-weight:800; font-size:0.68rem;">Desil ${desil}</span>`;
+            } else {
+                badgeHtml += `<span style="background:#f1f5f9; color:#64748b; padding:1px 6px; border-radius:6px; font-weight:800; font-size:0.68rem;">Umum</span>`;
+            }
+
+            const avatarBg = isActive ? '#009846' : (hasAduan ? '#dc2626' : (isPrioritas ? '#0284c7' : '#64748b'));
 
             return `
                 <div class="chat-contact-item ${isActive ? 'active' : ''}" onclick="window.loadChatMessages('${c.nik}', '${window.escapeInlineJS(realName)}')">
-                    <div class="contact-avatar" style="background:${isActive ? '#009846' : (isPrioritas ? '#0284c7' : '#64748b')};">
+                    <div class="contact-avatar" style="background:${avatarBg};">
                         ${(realName || 'W').charAt(0).toUpperCase()}
                         <span class="contact-online-badge"></span>
                     </div>
@@ -239,11 +263,11 @@
                         </div>
                         <div class="contact-nik-chip">
                             <span><i class="fas fa-id-card"></i> ${c.nik}</span>
-                            <span style="background:${isPrioritas ? '#dcfce7' : '#f1f5f9'}; color:${isPrioritas ? '#15803d' : '#64748b'}; padding:1px 6px; border-radius:6px; font-weight:800; font-size:0.68rem;">Desil ${desil}</span>
+                            ${badgeHtml}
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div class="contact-last-msg-txt">${window.safeHtml(c.last_msg || 'Mulai percakapan')}</div>
-                            ${unreadCount > 0 ? `<div class="contact-unread-dot"></div>` : ''}
+                            <div class="contact-last-msg-txt">${window.safeHtml(c.last_msg || c.pesan_terakhir || 'Mulai percakapan')}</div>
+                            ${unreadCount > 0 ? `<div class="contact-unread-dot">${unreadCount > 1 ? unreadCount : ''}</div>` : ''}
                         </div>
                     </div>
                 </div>`;
@@ -1322,28 +1346,51 @@
         const avatarLetter = document.getElementById('chatHeaderAvatarLetter');
         if (avatarLetter) avatarLetter.innerText = (window.activeChatName || 'W').charAt(0).toUpperCase();
 
+        const contactInfo = (window.rawChatListData || []).find(c => String(c.nik) === String(nik));
+        const isRegistered = Boolean(warga || (contactInfo && contactInfo.is_registered));
+        const hasAduan = Boolean(contactInfo?.has_aduan || (window.allLaporanChatData || []).some(a => String(a.nik) === String(nik)));
+
         const desilBadge = document.getElementById('chatActiveDesilBadge');
         if (desilBadge) {
-            const desilVal = warga ? (warga.desil || 1) : 1;
-            desilBadge.innerText = `Desil ${desilVal}`;
-            if (desilVal <= 4) {
-                desilBadge.style.background = '#dcfce7';
-                desilBadge.style.color = '#15803d';
-                desilBadge.style.borderColor = '#86efac';
+            if (!isRegistered) {
+                desilBadge.innerText = 'Warga Konsultasi (Non-Arsip)';
+                desilBadge.style.background = '#fef3c7';
+                desilBadge.style.color = '#b45309';
+                desilBadge.style.borderColor = '#fde68a';
             } else {
-                desilBadge.style.background = '#f1f5f9';
-                desilBadge.style.color = '#64748b';
-                desilBadge.style.borderColor = '#cbd5e1';
+                const desilVal = warga ? (warga.desil || 1) : (contactInfo?.desil || 1);
+                desilBadge.innerText = `Desil ${desilVal}`;
+                if (desilVal <= 4) {
+                    desilBadge.style.background = '#dcfce7';
+                    desilBadge.style.color = '#15803d';
+                    desilBadge.style.borderColor = '#86efac';
+                } else {
+                    desilBadge.style.background = '#f1f5f9';
+                    desilBadge.style.color = '#64748b';
+                    desilBadge.style.borderColor = '#cbd5e1';
+                }
             }
         }
 
         const statusBadge = document.getElementById('chatActiveStatusBadge');
         if (statusBadge) {
-            const isVerified = warga ? (warga.is_verified || false) : true;
-            statusBadge.innerText = isVerified ? 'DITETAPKAN' : 'DIPROSES';
-            statusBadge.style.background = isVerified ? '#e0f2fe' : '#fef3c7';
-            statusBadge.style.color = isVerified ? '#0369a1' : '#b45309';
-            statusBadge.style.borderColor = isVerified ? '#bae6fd' : '#fde68a';
+            if (hasAduan) {
+                statusBadge.innerText = 'ADUAN AKTIF';
+                statusBadge.style.background = '#fee2e2';
+                statusBadge.style.color = '#b91c1c';
+                statusBadge.style.borderColor = '#fca5a5';
+            } else if (!isRegistered) {
+                statusBadge.innerText = 'KONSULTASI';
+                statusBadge.style.background = '#e0f2fe';
+                statusBadge.style.color = '#0369a1';
+                statusBadge.style.borderColor = '#bae6fd';
+            } else {
+                const isVerified = warga ? (warga.is_verified || false) : true;
+                statusBadge.innerText = isVerified ? 'DITETAPKAN' : 'DIPROSES';
+                statusBadge.style.background = isVerified ? '#e0f2fe' : '#fef3c7';
+                statusBadge.style.color = isVerified ? '#0369a1' : '#b45309';
+                statusBadge.style.borderColor = isVerified ? '#bae6fd' : '#fde68a';
+            }
         }
 
         const alamatDisplay = document.getElementById('chatActiveAlamatDisplay');
@@ -3503,33 +3550,19 @@
             });
 
             if (resInbox.ok) {
-                const jsonInbox = await resInbox.json();
-                const inboxContainer = document.getElementById('chatContactList');
+                const rawInbox = await resInbox.json();
+                const items = Array.isArray(rawInbox) ? rawInbox : (Array.isArray(rawInbox?.data) ? rawInbox.data : []);
+                window.rawChatListData = items;
+
+                const totalUnread = items.reduce((acc, cur) => acc + (cur.unread_count || 0), 0);
                 const tabInboxBtn = document.getElementById('tabInboxBtn');
+                if (tabInboxBtn) {
+                    tabInboxBtn.innerHTML = `<i class="fas fa-inbox"></i> Pesan Masuk ${totalUnread > 0 ? `<span style="background:#dc2626; color:white; border-radius:12px; padding:1px 7px; font-size:0.7rem; margin-left:4px;">${totalUnread}</span>` : ''}`;
+                }
 
-                if (inboxContainer && Array.isArray(jsonInbox.data) && jsonInbox.data.length > 0) {
-                    const totalUnread = jsonInbox.data.reduce((acc, cur) => acc + (cur.unread_count || 0), 0);
-                    if (tabInboxBtn) {
-                        tabInboxBtn.innerHTML = `<i class="fas fa-inbox"></i> Pesan Masuk ${totalUnread > 0 ? `<span style="background:#dc2626; color:white; border-radius:12px; padding:1px 7px; font-size:0.7rem; margin-left:4px;">${totalUnread}</span>` : ''}`;
-                    }
-
-                    if (tabInboxBtn && tabInboxBtn.classList.contains('active')) {
-                        inboxContainer.innerHTML = jsonInbox.data.map(item => `
-                            <div onclick="window.selectWargaChat ? window.selectWargaChat('${item.nik}') : window.loadChatMessages('${item.nik}', '${window.escapeInlineJS(item.nama)}') " class="contact-item" style="padding:14px; border-bottom:1px solid #f1f5f9; cursor:pointer; display:flex; gap:12px; align-items:center; transition:background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
-                                <div style="width:42px; height:42px; border-radius:50%; background:#009846; color:white; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                                    ${(item.nama || 'W').charAt(0).toUpperCase()}
-                                </div>
-                                <div style="flex:1; overflow:hidden;">
-                                    <div style="display:flex; justify-content:space-between; align-items:baseline;">
-                                        <div style="font-weight:800; font-size:0.88rem; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.nama}</div>
-                                        <small style="font-size:0.7rem; color:#94a3b8;">${item.waktu || ''}</small>
-                                    </div>
-                                    <div style="font-size:0.78rem; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.pesan_terakhir || 'Membuka pesan baru...'}</div>
-                                </div>
-                                ${item.unread_count > 0 ? `<span style="background:#009846; color:white; border-radius:50%; width:18px; height:18px; font-size:0.68rem; font-weight:800; display:flex; align-items:center; justify-content:center;">${item.unread_count}</span>` : ''}
-                            </div>
-                        `).join('');
-                    }
+                if (window.activeChatTab === 'inbox' || !window.activeChatTab) {
+                    const searchQ = document.getElementById('searchChatInput')?.value.trim() || '';
+                    window.renderCategorizedInbox(searchQ);
                 }
             }
 
@@ -3558,6 +3591,7 @@
             }
         } catch (err) {}
     }
+    window.sinkronisasiPesanMasukRealtime = sinkronisasiPesanMasukRealtime;
 
     window.addReactionToMessage = async function (msgId, emojiChar) {
         document.querySelectorAll('.bubble-action-dropdown').forEach(el => el.classList.remove('show'));

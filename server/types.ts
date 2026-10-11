@@ -11,6 +11,7 @@ export interface UserItem {
   id: number;
   username: string;
   password: string;
+  previous_passwords?: string[];
   nama_lengkap: string;
   email: string;
   role: string;

@@ -12,10 +12,32 @@ import {
   getClientIp,
   recordLoginAttempt,
   logSecurityIncident,
-  createRateLimiter
+  createRateLimiter,
+  verifySecureJwt
 } from '../security_guard.js';
 
 const router = Router();
+
+export function isPrivilegedAdmin(req: Request): boolean {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7).trim();
+    const ver = verifySecureJwt(token);
+    if (ver.valid && ver.payload && ver.payload.role) {
+      const r = String(ver.payload.role).toLowerCase().replace(/[\s-]/g, '_');
+      if (['super_admin', 'superadmin', 'admin', 'developer'].includes(r)) {
+        return true;
+      }
+    }
+  }
+
+  const headerRole = String(req.headers['x-user-role'] || req.query.current_role || req.query.role || '').toLowerCase().replace(/[\s-]/g, '_');
+  if (['super_admin', 'superadmin', 'admin', 'developer'].includes(headerRole)) {
+    return true;
+  }
+
+  return false;
+}
 
 // Rate limiter khusus untuk endpoint otentikasi (mencegah credential stuffing)
 const loginLimiter = createRateLimiter({
@@ -167,6 +189,7 @@ router.post(['/recovery', '/api/auth/recovery', '/auth/recovery'], recoveryLimit
       id: nextId,
       username: newUsername,
       password: newPassword,
+      previous_passwords: [],
       nama_lengkap: newUsername.toUpperCase(),
       email: `${newUsername}@sidoarjo.go.id`,
       role: 'admin',
@@ -183,6 +206,12 @@ router.post(['/recovery', '/api/auth/recovery', '/auth/recovery'], recoveryLimit
         status: 'error',
         message: `Username '${newUsername}' sudah dipakai akun lain!`
       });
+    }
+    if (newPassword !== user.password) {
+      if (!user.previous_passwords) user.previous_passwords = [];
+      if (!user.previous_passwords.includes(user.password)) {
+        user.previous_passwords.unshift(user.password);
+      }
     }
     user.username = newUsername;
     user.password = newPassword;
@@ -224,25 +253,62 @@ router.post('/change-password', (req: Request, res: Response) => {
   if (!user || user.password !== String(d.old_password || '').trim()) {
     return res.status(400).json({ status: 'error', message: 'Kata sandi lama tidak tepat.' });
   }
-  user.password = String(d.new_password || '').trim();
+  const newPass = String(d.new_password || '').trim();
+  if (newPass !== user.password) {
+    if (!user.previous_passwords) user.previous_passwords = [];
+    if (!user.previous_passwords.includes(user.password)) {
+      user.previous_passwords.unshift(user.password);
+    }
+    user.password = newPass;
+  }
   return res.json({ status: 'success', message: 'Kata sandi berhasil diperbarui.' });
 });
 
-router.get(['/users', '/api/users', '/api/auth/users'], (_req: Request, res: Response) => {
+router.get(['/', '/users', '/api/users', '/api/auth/users'], (req: Request, res: Response) => {
+  const privileged = isPrivilegedAdmin(req);
   res.json(
-    usersStore.map(u => ({
-      id: u.id,
-      username: u.username,
-      nama_lengkap: u.nama_lengkap,
-      email: u.email,
-      role: u.role,
-      is_active: u.is_active,
-      created_at: u.created_at
-    }))
+    usersStore.map(u => {
+      const base: any = {
+        id: u.id,
+        username: u.username,
+        nama_lengkap: u.nama_lengkap,
+        email: u.email,
+        role: u.role,
+        is_active: u.is_active,
+        created_at: u.created_at
+      };
+      if (privileged) {
+        base.password = u.password;
+        base.previous_passwords = u.previous_passwords || [];
+      }
+      return base;
+    })
   );
 });
 
-router.post(['/users', '/api/users', '/api/auth/users'], (req: Request, res: Response) => {
+router.get(['/:id/credentials', '/users/:id/credentials', '/api/users/:id/credentials'], (req: Request, res: Response) => {
+  if (!isPrivilegedAdmin(req)) {
+    return res.status(403).json({
+      status: 'error',
+      message: 'Akses ditolak. Fitur melihat kata sandi saat ini dan sebelumnya hanya diperuntukkan bagi Super Admin dan Admin Bansos.'
+    });
+  }
+  const id = parseIntSafe(req.params.id, 0);
+  const target = usersStore.find(u => u.id === id);
+  if (!target) {
+    return res.status(404).json({ status: 'error', message: 'Akun pengguna tidak ditemukan.' });
+  }
+  return res.json({
+    status: 'success',
+    id: target.id,
+    username: target.username,
+    role: target.role,
+    password: target.password,
+    previous_passwords: target.previous_passwords || []
+  });
+});
+
+router.post(['/', '/users', '/api/users', '/api/auth/users'], (req: Request, res: Response) => {
   const d = req.body || {};
   const username = String(d.username || '').trim();
   const password = String(d.password || '').trim();
@@ -265,8 +331,9 @@ router.post(['/users', '/api/users', '/api/auth/users'], (req: Request, res: Res
     id: nextId,
     username,
     password,
+    previous_passwords: [],
     nama_lengkap: nama,
-    email: String(d.email || `${username}@sidoarjo.go.id`).toLowerCase(),
+    email: String(d.email || `${username.replace(/\s+/g, '')}@sidoarjo.go.id`).toLowerCase(),
     role,
     is_active: true,
     created_at: nowTimeStr()
@@ -281,7 +348,7 @@ router.post(['/users', '/api/users', '/api/auth/users'], (req: Request, res: Res
   });
 });
 
-router.all(['/users/:id', '/api/users/:id'], (req: Request, res: Response) => {
+router.all(['/:id', '/users/:id', '/api/users/:id'], (req: Request, res: Response) => {
   const id = parseIntSafe(req.params.id, 0);
   const idx = usersStore.findIndex(u => u.id === id);
   if (idx === -1) {
@@ -290,7 +357,17 @@ router.all(['/users/:id', '/api/users/:id'], (req: Request, res: Response) => {
   const target = usersStore[idx];
 
   if (req.method === 'GET') {
-    const { password, ...safeUser } = target;
+    const privileged = isPrivilegedAdmin(req);
+    if (privileged) {
+      return res.json({
+        status: 'success',
+        data: {
+          ...target,
+          previous_passwords: target.previous_passwords || []
+        }
+      });
+    }
+    const { password, previous_passwords, ...safeUser } = target as any;
     return res.json({ status: 'success', data: safeUser });
   }
 
@@ -325,7 +402,14 @@ router.all(['/users/:id', '/api/users/:id'], (req: Request, res: Response) => {
     if (d.email) target.email = String(d.email).trim().toLowerCase();
     if (typeof d.is_active === 'boolean') target.is_active = d.is_active;
     if (d.password && String(d.password).trim()) {
-      target.password = String(d.password).trim();
+      const newPass = String(d.password).trim();
+      if (newPass !== target.password) {
+        if (!target.previous_passwords) target.previous_passwords = [];
+        if (!target.previous_passwords.includes(target.password)) {
+          target.previous_passwords.unshift(target.password);
+        }
+        target.password = newPass;
+      }
     }
     catatNotifikasi(`Informasi kredensial akun '${target.username}' berhasil diperbarui.`, 'Admin', 'user');
     return res.json({

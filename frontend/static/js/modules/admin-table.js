@@ -187,7 +187,7 @@ window.renderTable = function (data) {
     let html = '';
     data.forEach(w => {
         const isVerified = Boolean(w.is_verified);
-        const desil = w.desil || 5;
+        const desil = Number(w.desil || 5);
         const isEligible = isVerified && desil <= 4;
 
         let verifBadge = isVerified
@@ -201,37 +201,49 @@ window.renderTable = function (data) {
             : '';
 
         let statusSalurBadge = '';
-        const isMenerimaBansosRow = ((w.desil || 5) <= 4 || w.is_layak || w.status_bansos === 'Menerima Bansos' || w.status_bansos === 'Layak Bansos') && w.status_bansos !== 'Tidak Menerima';
-        const isDisalurkan = w.status_salur === 'Disalurkan' || w.status_salur === 'Sedang Proses' || w.status_salur === 'Telah Menerima' || Boolean(w.bukti_salur);
+        const isMenerimaBansosRow = (desil <= 4 || w.is_layak || w.status_bansos === 'Menerima Bansos' || w.status_bansos === 'Layak Bansos') && w.status_bansos !== 'Tidak Menerima';
+        const isDisalurkan = w.status_salur === 'Disalurkan' || w.status_salur === 'Sudah Disalurkan' || w.status_salur === 'Sedang Proses' || w.status_salur === 'Telah Menerima' || Boolean(w.bukti_salur);
 
-        if (w.status_salur === 'Telah Menerima' || w.status_salur === 'Sudah Diterima' || Boolean(w.konfirmasi_warga)) {
+        // Hanya desil 1 hingga 4 yang diprioritaskan menerima bansos. Desil 5 hingga 10 tidak menerima
+        if (desil > 4) {
+            statusSalurBadge = `<span class="badge" style="background:#f1f5f9; color:#64748b; font-size:0.7rem; margin-top:3px;"><i class="fas fa-ban"></i> Tidak Menerima</span>`;
+        } else if (w.status_salur === 'Telah Menerima' || w.status_salur === 'Sudah Diterima' || Boolean(w.konfirmasi_warga)) {
             statusSalurBadge = `<span class="badge badge-blue" style="font-size:0.7rem; margin-top:3px; font-weight:800;"><i class="fas fa-check-double"></i> Telah Menerima (Dikonfirmasi Warga)</span>`;
-        } else if (String(w.status_salur || '').toLowerCase().includes('sengketa')) {
-            statusSalurBadge = `<span class="badge badge-red" style="font-size:0.7rem; margin-top:3px;"><i class="fas fa-exclamation-triangle"></i> Sengketa</span>`;
+        } else if (String(w.status_salur || '').toLowerCase().includes('belum diterima') || String(w.status_salur || '').toLowerCase().includes('sengketa')) {
+            statusSalurBadge = `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:0.7rem; margin-top:3px; font-weight:800;"><i class="fas fa-exclamation-triangle text-rose-600"></i> Belum Diterima / Sengketa</span>`;
         } else if (isDisalurkan) {
-            statusSalurBadge = `<span class="badge" style="background:#ecfdf5; color:#065f46; border:1px solid #6ee7b7; font-size:0.7rem; margin-top:3px; font-weight:800;"><i class="fas fa-truck text-emerald-600"></i> Sedang Proses Penyaluran (Menunggu Konfirmasi Warga)</span>`;
+            statusSalurBadge = `<span class="badge" style="background:#ecfdf5; color:#065f46; border:1px solid #6ee7b7; font-size:0.7rem; margin-top:3px; font-weight:800;"><i class="fas fa-truck text-emerald-600"></i> Sudah Disalurkan (Menunggu Konfirmasi Warga)</span>`;
         } else if (isMenerimaBansosRow) {
             statusSalurBadge = `<span class="badge" style="background:#fffbeb; color:#b45309; border:1px solid #fde68a; font-size:0.7rem; margin-top:3px; font-weight:700;"><i class="fas fa-hourglass-half text-amber-500"></i> Sedang Proses Penyaluran</span>`;
         }
 
-        const isSengketa = String(w.status_salur || '').toLowerCase().includes('sengketa') || 
-                           String(w.catatan || '').toLowerCase().includes('sengketa') ||
-                           String(w.catatan || '').toLowerCase().includes('sanggah');
+        const rawSalur = String(w.status_salur || '').toLowerCase();
+        const rawCat = String(w.catatan || '').toLowerCase();
+        const hasSengketaRecord = rawSalur.includes('sengketa') || rawSalur.includes('belum diterima') || rawSalur.includes('sanggah') || rawCat.includes('sengketa') || rawCat.includes('sanggah');
+        const isSengketaSelesai = hasSengketaRecord && (w.status_salur === 'Telah Menerima' || w.status_salur === 'Sudah Diterima' || Boolean(w.konfirmasi_warga));
+        const isSengketaAktif = hasSengketaRecord && !isSengketaSelesai;
 
-        const btnSengketa = isSengketa
-            ? `<button type="button" onclick="window.bukaAksiCepatSengketa(${w.id}, '${window.escapeInlineJS(w.nama)}', '${w.nik}')" class="btn btn-sm" style="padding:5px 8px; background:#fee2e2; color:#dc2626; font-size:0.8rem; border-radius:6px; margin-right:3px; border:1px solid #fca5a5;" title="Mediasi Sengketa Aktif"><i class="fas fa-shield-alt"></i></button>`
-            : '';
+        let btnSengketa = '';
+        if (isSengketaAktif) {
+            btnSengketa = `<button type="button" onclick="window.bukaAksiCepatSengketa(${w.id}, '${window.escapeInlineJS(w.nama)}', '${w.nik}')" class="btn btn-sm" style="padding:5px 8px; background:#fee2e2; color:#dc2626; font-size:0.8rem; border-radius:6px; margin-right:3px; border:1px solid #fca5a5;" title="Mediasi Sengketa Aktif"><i class="fas fa-shield-alt"></i></button>`;
+        } else if (isSengketaSelesai) {
+            btnSengketa = `<button type="button" onclick="window.bukaAksiCepatSengketa(${w.id}, '${window.escapeInlineJS(w.nama)}', '${w.nik}')" class="btn btn-sm" style="padding:5px 8px; background:#dcfce7; color:#15803d; font-size:0.8rem; border-radius:6px; margin-right:3px; border:1px solid #86efac;" title="Sengketa Selesai / Terverifikasi"><i class="fas fa-check-circle"></i></button>`;
+        }
 
         const btnToggleVerif = isVerified
             ? `<button onclick="window.ubahStatusVerifikasiWarga(${w.id}, false)" class="btn btn-secondary btn-sm" style="border:1px solid #cbd5e1; border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px;"><i class="fas fa-undo"></i> Batal</button>`
             : `<button onclick="window.ubahStatusVerifikasiWarga(${w.id}, true)" class="btn btn-primary btn-sm" style="border-radius:8px; font-weight:700; padding:5px 10px; margin-right:4px;"><i class="fas fa-check"></i> Setujui</button>`;
 
-        // Tombol kamera otomatis berubah menjadi tombol ceklis jika bukti sudah diunggah / disalurkan
+        // HANYA MUNCULKAN TOMBOL KAMERA UNTUK DESIL 1 HINGGA 4 (Penerima Prioritas)
+        // Desil 5 hingga 10 tidak diprioritaskan & tidak menerima bansos, jadi jangan dimunculkan
         let btnKamera = '';
-        if (isDisalurkan) {
-            btnKamera = `<button onclick="window.bukaUploadBuktiSalur(${w.id})" class="btn btn-sm" style="padding:5px 9px; background:#10b981; color:white; border-radius:6px; margin-right:3px; border:none; box-shadow:0 2px 6px rgba(16,185,129,0.3);" title="Bukti Penyaluran Terunggah (Sudah Disalurkan - Klik untuk Lihat/Ubah)"><i class="fas fa-check-circle"></i></button>`;
-        } else {
-            btnKamera = `<button onclick="window.bukaUploadBuktiSalur(${w.id})" class="btn btn-sm" style="padding:5px 9px; background:#dcfce7; color:#15803d; border-radius:6px; margin-right:3px; border:1px solid #86efac;" title="Unggah Bukti & Keterangan Penyaluran"><i class="fas fa-camera"></i></button>`;
+        if (desil <= 4) {
+            if (isDisalurkan) {
+                // Setelah bukti dikirim/tersimpan, tombol otomatis berubah menjadi ceklis hijau
+                btnKamera = `<button onclick="window.bukaUploadBuktiSalur(${w.id})" class="btn btn-sm" style="padding:5px 9px; background:#10b981; color:white; border-radius:6px; margin-right:3px; border:none; box-shadow:0 2px 6px rgba(16,185,129,0.3);" title="Bukti Penyaluran Terunggah (Sudah Disalurkan - Klik untuk Lihat/Ubah)"><i class="fas fa-check-circle"></i></button>`;
+            } else {
+                btnKamera = `<button onclick="window.bukaUploadBuktiSalur(${w.id})" class="btn btn-sm" style="padding:5px 9px; background:#dcfce7; color:#15803d; border-radius:6px; margin-right:3px; border:1px solid #86efac;" title="Unggah Bukti & Keterangan Penyaluran"><i class="fas fa-camera"></i></button>`;
+            }
         }
 
         const currentRole = (localStorage.getItem('role') || (window.currentUser && window.currentUser.role) || user?.role || 'admin').toLowerCase();
@@ -494,7 +506,14 @@ window.renderWargaCards = function (data) {
         const isDisalurkan = w.status_salur === 'Disalurkan' || w.status_salur === 'Sedang Proses' || w.status_salur === 'Telah Menerima' || Boolean(w.bukti_salur);
 
         let statusSalurCard = '';
-        if (w.status_salur === 'Telah Menerima' || w.status_salur === 'Sudah Diterima' || Boolean(w.konfirmasi_warga)) {
+        if (desil > 4) {
+            statusSalurCard = `
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:8px 12px; margin:10px 0; color:#64748b; font-size:0.8rem; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-ban text-slate-400"></i>
+                    <div><b>Status Bansos:</b> Tidak Menerima (Di Luar Prioritas)</div>
+                </div>
+            `;
+        } else if (w.status_salur === 'Telah Menerima' || w.status_salur === 'Sudah Diterima' || Boolean(w.konfirmasi_warga)) {
             statusSalurCard = `
                 <div style="background:#eff6ff; border:1.5px solid #93c5fd; border-radius:12px; padding:10px 14px; margin:10px 0; color:#1e40af; font-size:0.82rem; font-weight:800; display:flex; align-items:center; gap:8px;">
                     <i class="fas fa-check-double text-blue-600" style="font-size:1.1rem;"></i>
@@ -523,20 +542,22 @@ window.renderWargaCards = function (data) {
             `;
         }
 
-        // Checklist button vs camera button
+        // Checklist button vs camera button (Hanya untuk Desil 1 s/d 4)
         let btnSalur = '';
-        if (isDisalurkan) {
-            btnSalur = `
-                <button type="button" onclick="window.bukaUploadBuktiSalur(${w.id})" class="btn" style="background:#10b981; color:white; border-radius:10px; font-weight:700; font-size:0.8rem; padding:7px 12px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(16,185,129,0.3);" title="Bukti Penyaluran Tersimpan (Klik untuk Lihat / Ubah)">
-                    <i class="fas fa-check-circle"></i> Sudah Disalurkan
-                </button>
-            `;
-        } else {
-            btnSalur = `
-                <button type="button" onclick="window.bukaUploadBuktiSalur(${w.id})" class="btn" style="background:#ecfdf5; color:#15803d; border:1.5px solid #86efac; border-radius:10px; font-weight:700; font-size:0.8rem; padding:7px 12px; display:inline-flex; align-items:center; gap:6px;" title="Unggah Bukti Penyaluran">
-                    <i class="fas fa-camera"></i> Salurkan
-                </button>
-            `;
+        if (Number(w.desil || 5) <= 4) {
+            if (isDisalurkan) {
+                btnSalur = `
+                    <button type="button" onclick="window.bukaUploadBuktiSalur(${w.id})" class="btn" style="background:#10b981; color:white; border-radius:10px; font-weight:700; font-size:0.8rem; padding:7px 12px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(16,185,129,0.3);" title="Bukti Penyaluran Tersimpan (Klik untuk Lihat / Ubah)">
+                        <i class="fas fa-check-circle"></i> Sudah Disalurkan
+                    </button>
+                `;
+            } else {
+                btnSalur = `
+                    <button type="button" onclick="window.bukaUploadBuktiSalur(${w.id})" class="btn" style="background:#ecfdf5; color:#15803d; border:1.5px solid #86efac; border-radius:10px; font-weight:700; font-size:0.8rem; padding:7px 12px; display:inline-flex; align-items:center; gap:6px;" title="Unggah Bukti Penyaluran">
+                        <i class="fas fa-camera"></i> Salurkan
+                    </button>
+                `;
+            }
         }
 
         const btnToggleVerif = isVerified

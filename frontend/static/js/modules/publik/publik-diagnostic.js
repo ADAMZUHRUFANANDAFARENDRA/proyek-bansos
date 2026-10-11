@@ -152,6 +152,9 @@
         const gateEl = document.getElementById('superAdminPortalGate');
         const panelEl = document.getElementById('panelDiagnostikDev');
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const isDiagModeRequested = urlParams.get('mode') === 'diagnostik' || urlParams.get('diagnostic') === '1' || window.location.hash === '#diagnostik';
+
         if (isSuperAdminOrDev) {
             // Pengguna sah: Buka portal & tampilkan panel diagnostik
             if (gateEl) gateEl.style.display = 'none';
@@ -164,9 +167,13 @@
 
             // Jalankan cek diagnostik otomatis pertama kali
             jalankanDiagnostikSistem();
-        } else {
-            // Pengguna bukan Super Admin / Developer: Kunci akses portal secara mutlak
+        } else if (isDiagModeRequested) {
+            // Hanya kunci jika secara eksplisit membuka mode diagnostik dev
             if (gateEl) gateEl.style.display = 'flex';
+            if (panelEl) panelEl.style.display = 'none';
+        } else {
+            // Portal Warga Publik dapat diakses oleh warga masyarakat
+            if (gateEl) gateEl.style.display = 'none';
             if (panelEl) panelEl.style.display = 'none';
         }
     }

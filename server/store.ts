@@ -91,13 +91,16 @@ export const kriteriaStore: KriteriaItem[] = [
 ];
 
 export const usersStore: UserItem[] = [
-  { id: 1, username: 'superadmin', password: '123', nama_lengkap: 'Super Administrator (Developer)', email: 'superadmin@sidoarjo.go.id', role: 'super_admin', is_active: true, created_at: '2026-01-01' },
-  { id: 2, username: 'admin', password: 'admin', nama_lengkap: 'Administrator Utama (Super Admin)', email: 'admin@sidoarjo.go.id', role: 'super_admin', is_active: true, created_at: '2026-01-01' },
-  { id: 3, username: 'admin_bansos', password: '123', nama_lengkap: 'Administrator Bansos Wilayah', email: 'bansos@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' },
-  { id: 4, username: 'petugas', password: '123', nama_lengkap: 'Petugas Lapangan Dinsos', email: 'petugas@sidoarjo.go.id', role: 'petugas', is_active: true, created_at: '2026-01-01' },
-  { id: 5, username: 'verifikator', password: '123', nama_lengkap: 'Tim Verifikator Wilayah', email: 'verifikator@sidoarjo.go.id', role: 'petugas', is_active: true, created_at: '2026-01-01' },
-  { id: 6, username: 'kepala_dinsos', password: '123', nama_lengkap: 'Kepala Dinas Sosial Sidoarjo', email: 'kadinsos@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' },
-  { id: 7, username: 'developer', password: '123', nama_lengkap: 'Lead Developer & DevOps Sidoarjo', email: 'developer@sidoarjo.go.id', role: 'developer', is_active: true, created_at: '2026-01-01' }
+  { id: 1, username: 'superadmin', password: '123', previous_passwords: ['admin@2025', 'master@dinsos'], nama_lengkap: 'Super Administrator', email: 'superadmin@sidoarjo.go.id', role: 'super_admin', is_active: true, created_at: '2026-01-01' },
+  { id: 2, username: 'admin', password: 'admin', previous_passwords: ['admin123', 'sidoarjo2024'], nama_lengkap: 'Administrator Utama (Super Admin)', email: 'admin@sidoarjo.go.id', role: 'super_admin', is_active: true, created_at: '2026-01-01' },
+  { id: 3, username: 'super admin', password: '123', previous_passwords: ['super_2025', 'admin#sda'], nama_lengkap: 'Super Administrator Sistem', email: 'super.admin@sidoarjo.go.id', role: 'super_admin', is_active: true, created_at: '2026-01-01' },
+  { id: 4, username: 'admin_bansos', password: '123', previous_passwords: ['wilayah_2025'], nama_lengkap: 'Administrator Bansos Wilayah', email: 'admin_bansos@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' },
+  { id: 5, username: 'admin bansos', password: '123', previous_passwords: ['bansos2025', 'bansos#sda'], nama_lengkap: 'Admin Bansos Sidoarjo', email: 'admin.bansos@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' },
+  { id: 6, username: 'pengguna', password: '123', previous_passwords: ['user@123', 'pengguna2025'], nama_lengkap: 'Pengguna Sistem / Operator', email: 'pengguna@sidoarjo.go.id', role: 'petugas', is_active: true, created_at: '2026-01-01' },
+  { id: 7, username: 'petugas', password: '123', previous_passwords: ['petugas2025'], nama_lengkap: 'Petugas Lapangan Dinsos', email: 'petugas@sidoarjo.go.id', role: 'petugas', is_active: true, created_at: '2026-01-01' },
+  { id: 8, username: 'verifikator', password: '123', previous_passwords: ['verif2025'], nama_lengkap: 'Tim Verifikator Wilayah', email: 'verifikator@sidoarjo.go.id', role: 'petugas', is_active: true, created_at: '2026-01-01' },
+  { id: 9, username: 'kepala_dinsos', password: '123', previous_passwords: ['kadinsos2025'], nama_lengkap: 'Kepala Dinas Sosial Sidoarjo', email: 'kadinsos@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' },
+  { id: 10, username: 'developer', password: '123', previous_passwords: ['dev@sidoarjo2025'], nama_lengkap: 'Lead Developer & DevOps Sidoarjo', email: 'developer@sidoarjo.go.id', role: 'developer', is_active: true, created_at: '2026-01-01' }
 ];
 
 export const DATA_MASTER_SIDOARJO: MasterSeedTuple[] = [
@@ -112,7 +115,8 @@ export const DATA_MASTER_SIDOARJO: MasterSeedTuple[] = [
   ['3515990000000009', 'KPM WILAYAH TANGGULANGIN 09', 'Sidoarjo', '1975-01-01', 'Kawasan Domisili Wilayah Kec. Tanggulangin', '0812****0009', 'kpm.tanggulangin09@dinsos-sda.id', '-7.5089', '112.7121', 900000.0, 2200000.0, 56, 1, 3, 2, 1, 3, 1, 2, true, 'Disetujui', 'Telah Menerima', 'Pengrajin rumahan musiman'],
   ['3515990000000010', 'KPM WILAYAH KRIAN 10', 'Sidoarjo', '1989-08-14', 'Kawasan Domisili Wilayah Kec. Krian', '0812****0010', 'kpm.krian10@dinsos-sda.id', '-7.3995', '112.5921', 750000.0, 1800000.0, 47, 2, 4, 3, 3, 3, 1, 1, true, 'Disetujui', 'Laporan Sengketa', 'Bansos sembako belum diterima padahal status layak.'],
   ['3515990000000011', 'KPM WILAYAH WARU 11', 'Sidoarjo', '1993-04-22', 'Kawasan Domisili Wilayah Kec. Waru', '0812****0011', 'kpm.waru11@dinsos-sda.id', '-7.3456', '112.7612', 1500000.0, 5200000.0, 36, 1, 2, 2, 1, 2, 3, 1, false, 'Menunggu', 'Belum Salur', 'Verifikasi mandiri bansos'],
-  ['3515990000000012', 'KPM WILAYAH SIDOARJO 12', 'Sidoarjo', '1982-06-16', 'Kawasan Domisili Wilayah Kec. Sidoarjo', '0812****0012', 'kpm.sda12@dinsos-sda.id', '-7.4567', '112.6934', 820000.0, 1900000.0, 52, 2, 3, 2, 1, 3, 1, 2, true, 'Disetujui', 'Telah Menerima', 'Keluarga rentan penyakit kronis']
+  ['3515990000000012', 'KPM WILAYAH SIDOARJO 12', 'Sidoarjo', '1982-06-16', 'Kawasan Domisili Wilayah Kec. Sidoarjo', '0812****0012', 'kpm.sda12@dinsos-sda.id', '-7.4567', '112.6934', 820000.0, 1900000.0, 52, 2, 3, 2, 1, 3, 1, 2, true, 'Disetujui', 'Telah Menerima', 'Keluarga rentan penyakit kronis'],
+  ['3515392320524115', 'Evelyn Ningsih', 'Mojokerto', '1983-11-29', 'Jl. Diponegoro No.93, RT 11/RW 6, Desa Cemandi, Kec. Sedati, Kabupaten Sidoarjo', '08170917852', 'evelyn.ningsih98@gmail.com', '-7.427177', '112.735813', 1210550.0, 1295372.0, 43, 1, 5, 2, 2, 2, 2, 1, true, 'Disetujui', 'Belum Salur', 'Pekerja harian lepas, pendapatan tidak menentu.']
 ];
 
 export let wargaStore: WargaItem[] = [];
@@ -390,15 +394,15 @@ export function formatWarga(w: WargaItem) {
     rank_saw: w.rank_saw,
     is_verified: Boolean(w.is_verified),
     status_validasi: w.status_validasi || (w.is_verified ? 'Disetujui' : 'Menunggu'),
-    status_salur: w.status_salur || 'Belum Salur',
-    status_bansos: w.status_bansos || (w.desil <= 4 ? 'Layak Bansos' : 'Tidak Menerima'),
-    prioritas: w.prioritas || (w.desil <= 4 ? 'Prioritas Utama' : 'Tidak Prioritas'),
-    bukti_salur: w.bukti_salur || '',
-    keterangan_salur: w.keterangan_salur || '',
+    status_salur: w.desil <= 4 ? (w.status_salur || 'Belum Salur') : 'Tidak Dialokasikan',
+    status_bansos: w.desil <= 4 ? (w.status_bansos || 'Layak Bansos') : 'Tidak Menerima',
+    prioritas: w.desil <= 4 ? (w.prioritas || 'Prioritas Utama') : 'Tidak Prioritas',
+    bukti_salur: w.desil <= 4 ? (w.bukti_salur || '') : '',
+    keterangan_salur: w.keterangan_salur || w.catatan || '',
     konfirmasi_warga: Boolean(w.konfirmasi_warga),
     waktu_konfirmasi_warga: w.waktu_konfirmasi_warga || '',
-    catatan: w.catatan || '',
-    nominal_bantuan: w.nominal_bantuan || 'Rp 600.000 / Beras 10 Kg',
+    catatan: w.catatan || w.keterangan_salur || '',
+    nominal_bantuan: w.desil <= 4 ? (w.nominal_bantuan || 'Rp 600.000 / Beras 10 Kg') : '-',
     tanggal_salur: w.tanggal_salur || '-',
     created_at: w.created_at || 'Hari ini',
     extra_data: w.extra_data || {}

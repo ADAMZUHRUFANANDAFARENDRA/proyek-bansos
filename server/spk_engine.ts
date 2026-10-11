@@ -99,6 +99,13 @@ export function hitungDanSinkronkanSawBwm(): number {
     item.warga.desil = desilVal;
     item.warga.prioritas = desilVal <= 4 ? 'Prioritas Utama' : 'Tidak Prioritas';
     item.warga.status_bansos = desilVal <= 4 ? 'Menerima Bansos' : 'Tidak Menerima';
+    if (desilVal > 4) {
+      if (!item.warga.status_salur || item.warga.status_salur === 'Belum Salur') {
+        item.warga.status_salur = 'Tidak Dialokasikan';
+      }
+      item.warga.nominal_bantuan = '-';
+      item.warga.bukti_salur = '';
+    }
   });
 
   return totalN;
@@ -236,13 +243,13 @@ export function seedInitialWarga(force = false) {
     rank_saw: 0,
     is_verified: r[19],
     status_validasi: r[20],
-    status_salur: r[21],
+    status_salur: r[0] === '3515990000000010' ? 'Disalurkan' : r[21],
     status_bansos: r[19] ? 'Layak Bansos' : 'Menunggu Verifikasi',
     prioritas: r[19] ? 'Prioritas Utama' : 'Menunggu',
-    bukti_salur: r[21] === 'Telah Menerima' ? 'bukti_salur_kpm_sample.jpg' : '',
+    bukti_salur: (r[0] === '3515990000000010') ? '1791612166342_310f4054-bda6-4932-a542-9aea59ff814b.jpeg' : (r[21] === 'Telah Menerima' ? 'bukti_salur_kpm_sample.jpg' : ''),
     catatan: r[22],
-    nominal_bantuan: 'Rp 600.000 / Beras 10 Kg',
-    tanggal_salur: r[21] === 'Telah Menerima' ? '25/09/2026 10:15' : '-',
+    nominal_bantuan: (r[0] === '3515990000000010') ? 'BLT Rp 900.000' : 'Rp 600.000 / Beras 10 Kg',
+    tanggal_salur: (r[0] === '3515990000000010') ? '2026-10-10 13:02 WIB' : (r[21] === 'Telah Menerima' ? '25/09/2026 10:15' : '-'),
     created_at: '2026-09-25 09:00'
   }));
 

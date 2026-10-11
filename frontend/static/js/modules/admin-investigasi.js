@@ -8,6 +8,14 @@
 window.allLaporanChatData = [];
 window.activeInvestigasiFilter = 'all';
 
+window.bukaModalLaporanChat = function () {
+    const modal = document.getElementById('modalLaporanChat');
+    if (modal) modal.style.display = 'flex';
+    if (typeof window.loadLaporanChatData === 'function') {
+        window.loadLaporanChatData();
+    }
+};
+
 window.loadLaporanChatData = async function () {
     const container = document.getElementById('laporanChatList');
     if (!container) return;
@@ -55,8 +63,8 @@ window.loadLaporanChatData = async function () {
 window.updateInvestigasiKPIMetrics = function (data) {
     if (!Array.isArray(data)) return;
     const total = data.length;
-    const selesai = data.filter(x => (x.status === 'Selesai' || x.status_step === 4 || String(x.status_text || '').toLowerCase().includes('selesai'))).length;
-    const urgent = data.filter(x => (String(x.kategori || '').toLowerCase().includes('urgent') || String(x.uraian || '').toLowerCase().includes('urgent')) && x.status !== 'Selesai').length;
+    const selesai = data.filter(x => (x.status === 'Selesai' || x.status_step === 5 || String(x.status_text || '').toLowerCase().includes('selesai'))).length;
+    const urgent = data.filter(x => (String(x.kategori || '').toLowerCase().includes('urgent') || String(x.uraian || '').toLowerCase().includes('urgent')) && x.status !== 'Selesai' && x.status_step !== 5).length;
     const proses = total - selesai;
 
     const elTotal = document.getElementById('kpiInvestigasiTotal');
@@ -139,9 +147,13 @@ window.selesaikanLaporanAduan = async function (id, nik, nama) {
                     confirmButtonColor: '#009846'
                 });
                 window.loadLaporanChatData();
+                if (typeof window.loadDashboardData === 'function') window.loadDashboardData(false);
+                if (typeof window.loadWargaData === 'function') window.loadWargaData();
             } else {
                 Swal.fire('Informasi', 'Status laporan telah disimpan.', 'info');
                 window.loadLaporanChatData();
+                if (typeof window.loadDashboardData === 'function') window.loadDashboardData(false);
+                if (typeof window.loadWargaData === 'function') window.loadWargaData();
             }
         } catch (e) {
             Swal.fire('Error', 'Gagal memproses penyelesaian laporan.', 'error');
@@ -234,21 +246,66 @@ window.eskalasikanKeSuperAdmin = async function (id, nik, nama) {
 };
 
 window.ubahTahapAduan = async function (id, nik) {
-    const { value: tahap } = await Swal.fire({
-        title: 'Ubah Tahapan Investigasi',
-        input: 'select',
-        inputOptions: {
-            'terima': 'Step 2: Peninjauan Bukti & Dokumen',
-            'tanggapi': 'Step 3: Investigasi Lapangan / Musyawarah',
-            'selesai': 'Step 4: Selesai & Ditutup'
+    const cleanId = String(id || '').replace(/\D/g, '');
+    let item = (window.allLaporanChatData || []).find(x => 
+        String(x.id) === String(id) || 
+        String(x.id).replace(/\D/g, '') === cleanId
+    ) || (window.allLaporanChatData || []).find(x => String(x.nik) === String(nik));
+
+    // Ambil data aduan paling mutakhir langsung dari server agar tahapan dan catatan selalu presisi sesuai perubahan terakhir
+    try {
+        const resAduan = await fetch(`${window.BASE_URL}/api/publik/cek-aduan?nik=${encodeURIComponent(nik)}`);
+        if (resAduan.ok) {
+            const jsonAduan = await resAduan.json();
+            if (jsonAduan.data) {
+                item = { ...(item || {}), ...jsonAduan.data };
+            }
+        }
+    } catch (e) {}
+
+    const currentStepNum = item ? (Number(item.status_step) || 2) : 2;
+    const currentStepCode = `step${currentStepNum}`;
+    const defaultCatatan = (item && item.catatan_petugas) ? item.catatan_petugas : 'Petugas sedang melakukan tindak lanjut investigasi.';
+
+    const { value: formValues } = await Swal.fire({
+        title: 'Ubah Tahapan Investigasi & Mediasi',
+        html: `
+            <div style="text-align:left; font-size:0.85rem; color:#475569; margin-bottom:12px;">
+                Pilih status tahapan investigasi terkini untuk NIK: <b>${nik}</b>:
+            </div>
+            <div style="text-align:left; margin-bottom:12px;">
+                <label style="font-size:0.8rem; font-weight:700; color:#334155; display:block; margin-bottom:4px;">Tahapan Pelaporan:</label>
+                <select id="swalPilihTahap" style="width:100%; padding:9px 12px; border-radius:10px; border:1.5px solid #cbd5e1; font-size:0.85rem;">
+                    <option value="step1" ${currentStepCode === 'step1' ? 'selected' : ''}>Step 1: Laporan Diterima & Masuk Antrean</option>
+                    <option value="step2" ${currentStepCode === 'step2' ? 'selected' : ''}>Step 2: Peninjauan Bukti & Dokumen</option>
+                    <option value="step3" ${currentStepCode === 'step3' ? 'selected' : ''}>Step 3: Investigasi Lapangan & Klarifikasi</option>
+                    <option value="step4" ${currentStepCode === 'step4' ? 'selected' : ''}>Step 4: Mediasi & Musyawarah Dinsos</option>
+                    <option value="step5" ${currentStepCode === 'step5' ? 'selected' : ''}>Step 5: Putusan Akhir & Selesai</option>
+                </select>
+            </div>
+            <div style="text-align:left;">
+                <label style="font-size:0.8rem; font-weight:700; color:#334155; display:block; margin-bottom:4px;">Catatan Perkembangan Petugas:</label>
+                <textarea id="swalCatatanTahap" placeholder="Tulis catatan tindak lanjut..." style="width:100%; height:70px; padding:8px 12px; border-radius:10px; border:1.5px solid #cbd5e1; font-size:0.84rem; font-family:inherit;">${window.escapeInlineJS(defaultCatatan)}</textarea>
+            </div>
+        `,
+        didOpen: () => {
+            const sel = document.getElementById('swalPilihTahap');
+            if (sel) sel.value = currentStepCode;
+            const cat = document.getElementById('swalCatatanTahap');
+            if (cat && defaultCatatan) cat.value = defaultCatatan;
         },
-        inputPlaceholder: 'Pilih tahapan baru...',
         showCancelButton: true,
         confirmButtonText: 'Perbarui Tahap',
-        confirmButtonColor: '#009846'
+        confirmButtonColor: '#009846',
+        cancelButtonText: 'Batal',
+        preConfirm: () => {
+            const tahap = document.getElementById('swalPilihTahap')?.value;
+            const catatan = document.getElementById('swalCatatanTahap')?.value.trim();
+            return { tahap, catatan };
+        }
     });
 
-    if (tahap) {
+    if (formValues && formValues.tahap) {
         try {
             const currentHandler = (localStorage.getItem('username') || 'Petugas Lapangan').toUpperCase();
             await fetch(`${window.BASE_URL}/api/investigasi/tindak-lanjut`, {
@@ -257,14 +314,23 @@ window.ubahTahapAduan = async function (id, nik) {
                 body: JSON.stringify({
                     id,
                     nik,
-                    aksi: tahap,
-                    tanggapan: `Tahapan investigasi diperbarui oleh ${currentHandler}.`,
+                    aksi: formValues.tahap,
+                    tanggapan: formValues.catatan || `Tahapan investigasi diperbarui oleh ${currentHandler}.`,
                     petugas: `Dinsos (${currentHandler})`
                 })
             });
-            Swal.fire('Berhasil', 'Tahapan investigasi berhasil diperbarui.', 'success');
+            Swal.fire({
+                icon: 'success',
+                title: 'Tahapan Diperbarui!',
+                text: 'Perubahan tahapan laporan telah disimpan dan langsung tersinkronkan ke dasbor warga.',
+                timer: 1500,
+                showConfirmButton: false
+            });
             window.loadLaporanChatData();
-        } catch (e) {}
+            if (typeof window.loadDashboardData === 'function') window.loadDashboardData(false);
+        } catch (e) {
+            Swal.fire('Error', 'Gagal memperbarui tahapan investigasi.', 'error');
+        }
     }
 };
 
@@ -280,16 +346,21 @@ function renderLaporanChat(data) {
     }
 
     container.innerHTML = data.map(item => {
-        const isSelesai = item.status === 'Selesai' || item.status_step === 4 || String(item.status_text || '').toLowerCase().includes('selesai');
+        const currentStep = Number(item.status_step) || (item.status === 'Selesai' ? 5 : 2);
+        const isSelesai = item.status === 'Selesai' || currentStep === 5 || String(item.status_text || '').toLowerCase().includes('selesai');
         const isUrgent = String(item.kategori || '').toLowerCase().includes('urgent') || String(item.uraian || '').toLowerCase().includes('urgent');
         
         let statusBadge = '';
         if (isSelesai) {
             statusBadge = `<span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-weight:800; padding:4px 12px; border-radius:14px;"><i class="fas fa-check-circle"></i> SELESAI & DITUTUP</span>`;
-        } else if (item.status_step === 3 || String(item.status_text || '').toLowerCase().includes('lapangan')) {
+        } else if (currentStep === 4) {
+            statusBadge = `<span class="badge" style="background:#f3e8ff; color:#7e22ce; border:1px solid #d8b4fe; font-weight:800; padding:4px 12px; border-radius:14px;"><i class="fas fa-comments"></i> MEDIASI & MUSYAWARAH</span>`;
+        } else if (currentStep === 3) {
             statusBadge = `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:800; padding:4px 12px; border-radius:14px;"><i class="fas fa-walking"></i> INVESTIGASI LAPANGAN</span>`;
+        } else if (currentStep === 2) {
+            statusBadge = `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; padding:4px 12px; border-radius:14px;"><i class="fas fa-search"></i> PENINJAUAN BUKTI</span>`;
         } else {
-            statusBadge = `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:800; padding:4px 12px; border-radius:14px;"><i class="fas fa-hourglass-half"></i> TAHAP MEDIASI</span>`;
+            statusBadge = `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:800; padding:4px 12px; border-radius:14px;"><i class="fas fa-file-invoice"></i> LAPORAN DITERIMA</span>`;
         }
 
         return `

@@ -4,6 +4,7 @@ import {
   setWargaStore,
   wargaBackupStore,
   setWargaBackupStore,
+  pengaduanStore,
   catatNotifikasi,
   formatWarga,
   nowTimeStr,
@@ -15,6 +16,7 @@ import {
   hitungDanSinkronkanSawBwm,
   seedInitialWarga
 } from '../spk_engine.js';
+import { broadcastRealtimeEvent, realtimeAduanUpdate } from '../realtime.js';
 import type { WargaItem } from '../types.js';
 
 const router = Router();
@@ -406,20 +408,40 @@ router.post(['/:warga_id/bukti-salur'], upload.any(), (req: Request, res: Respon
 
   const keterangan = String(req.body?.keterangan_salur || req.body?.keterangan || '').trim() || 'Bantuan telah diserahkan langsung kepada penerima bansos.';
   const tglSalur = String(req.body?.tanggal_salur || '').trim() || nowTimeStr();
+  const nominal = String(req.body?.nominal_bantuan || req.body?.nominal || '').trim();
 
   w.bukti_salur = fname;
   w.keterangan_salur = keterangan;
   w.tanggal_salur = tglSalur;
   w.status_salur = 'Disalurkan';
+  w.catatan = keterangan;
   w.konfirmasi_warga = false;
+  if (nominal) {
+    w.nominal_bantuan = nominal;
+  }
+
   catatNotifikasi(`Penyaluran bansos sukses: Bukti serah terima dan keterangan penyaluran untuk ${w.nama} (NIK: ${w.nik}) telah disimpan. Status: Disalurkan (Menunggu Konfirmasi Warga).`, 'Petugas', 'penyaluran');
+
+  const formatted = formatWarga(w);
+  broadcastRealtimeEvent({
+    type: 'WARGA_SALUR_UPDATED',
+    warga_id: w.id,
+    nik: w.nik,
+    status_salur: w.status_salur,
+    nominal_bantuan: w.nominal_bantuan,
+    keterangan_salur: w.keterangan_salur,
+    tanggal_salur: w.tanggal_salur,
+    data: formatted
+  });
 
   return res.json({
     status: 'success',
     message: 'Bukti penyaluran dan keterangan berhasil disimpan. Status menjadi Disalurkan.',
     bukti_salur: fname,
     keterangan_salur: keterangan,
-    status_salur: w.status_salur
+    status_salur: w.status_salur,
+    nominal_bantuan: w.nominal_bantuan,
+    data: formatted
   });
 });
 
@@ -433,14 +455,52 @@ router.post(['/:warga_id/lapor-sengketa'], (req: Request, res: Response) => {
 
   if (aksi === 'selesai') {
     w.status_salur = 'Telah Menerima';
+    w.konfirmasi_warga = true;
+    w.waktu_konfirmasi_warga = nowTimeStr();
     w.catatan = `Sengketa selesai dimediasi pada ${nowTimeStr()}.`;
+
+    const aduan = pengaduanStore.find(a => a.nik === w.nik && a.status !== 'Selesai');
+    if (aduan) {
+      aduan.status = 'Selesai';
+      aduan.status_step = 5;
+      aduan.status_text = 'Putusan Akhir & Selesai';
+      aduan.catatan_petugas = `Sengketa diselesaikan dan disahkan via Mediasi Kilat.`;
+      try { realtimeAduanUpdate(aduan, 'selesai'); } catch (e) {}
+    }
+
+    const formatted = formatWarga(w);
+    (formatted as any).aduan_aktif = aduan || null;
+    broadcastRealtimeEvent({
+      type: 'WARGA_SALUR_UPDATED',
+      warga_id: w.id,
+      nik: w.nik,
+      status_salur: w.status_salur,
+      nominal_bantuan: w.nominal_bantuan,
+      data: formatted
+    });
   } else if (aksi === 'sanggah') {
     w.status_salur = 'Laporan Sengketa (Peninjauan)';
     w.is_verified = false;
     w.status_validasi = 'Menunggu';
+    const formatted = formatWarga(w);
+    broadcastRealtimeEvent({
+      type: 'WARGA_SALUR_UPDATED',
+      warga_id: w.id,
+      nik: w.nik,
+      status_salur: w.status_salur,
+      data: formatted
+    });
   } else {
     w.status_salur = 'Laporan Sengketa';
     if (d.catatan) w.catatan = String(d.catatan);
+    const formatted = formatWarga(w);
+    broadcastRealtimeEvent({
+      type: 'WARGA_SALUR_UPDATED',
+      warga_id: w.id,
+      nik: w.nik,
+      status_salur: w.status_salur,
+      data: formatted
+    });
   }
 
   return res.json({
@@ -511,10 +571,27 @@ router.all(['/:warga_id'], (req: Request, res: Response) => {
       w.is_verified = Boolean(d.is_verified);
       w.status_validasi = w.is_verified ? 'Disetujui' : 'Menunggu';
     }
-    if (d.status_validasi !== undefined) w.status_validasi = String(d.status_validasi);
-    if (d.status_salur !== undefined) w.status_salur = String(d.status_salur);
-    if (d.catatan !== undefined) w.catatan = String(d.catatan);
+    if (d.status_validasi !== undefined) {
+      w.status_validasi = String(d.status_validasi);
+      if (w.status_validasi === 'Disetujui') w.is_verified = true;
+      else if (w.status_validasi === 'Menunggu' || w.status_validasi === 'Ditolak') w.is_verified = false;
+    }
+    if (d.status_salur !== undefined) {
+      w.status_salur = String(d.status_salur);
+      if (w.status_salur === 'Telah Menerima' || w.status_salur === 'Sudah Diterima') {
+        w.konfirmasi_warga = true;
+        if (!w.waktu_konfirmasi_warga) w.waktu_konfirmasi_warga = nowTimeStr();
+      } else if (w.status_salur === 'Disalurkan' || w.status_salur === 'Sudah Disalurkan') {
+        w.konfirmasi_warga = false;
+      }
+    }
+    if (d.catatan !== undefined) {
+      w.catatan = String(d.catatan);
+      if (d.keterangan_salur === undefined) w.keterangan_salur = String(d.catatan);
+    }
+    if (d.keterangan_salur !== undefined) w.keterangan_salur = String(d.keterangan_salur);
     if (d.nominal_bantuan !== undefined) w.nominal_bantuan = String(d.nominal_bantuan);
+    if (d.tanggal_salur !== undefined) w.tanggal_salur = String(d.tanggal_salur);
 
     if (!w.extra_data) w.extra_data = {};
     if (d.extra_data && typeof d.extra_data === 'object') {
@@ -555,10 +632,20 @@ router.all(['/:warga_id'], (req: Request, res: Response) => {
       catatNotifikasi(`Pembaruan data indikator kelayakan kependudukan warga ${w.nama}.`, 'Petugas', 'edit');
     }
 
+    const formattedWarga = formatWarga(w);
+    broadcastRealtimeEvent({
+      type: 'WARGA_UPDATED',
+      warga_id: w.id,
+      nik: w.nik,
+      status_salur: w.status_salur,
+      nominal_bantuan: w.nominal_bantuan,
+      data: formattedWarga
+    });
+
     return res.json({
       status: 'success',
       message: 'Data berhasil diperbarui.',
-      data: formatWarga(w)
+      data: formattedWarga
     });
   }
 
