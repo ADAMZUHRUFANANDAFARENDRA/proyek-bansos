@@ -3,6 +3,8 @@
  * Deskripsi: Formulir pengaduan mandiri sengketa bansos dan stepper 4 tahapan investigasi
  */
 
+var aduanChatInterval = window.aduanChatInterval || null;
+
 // 8. STATE, RESUME & PANTAU PENGADUAN MANDIRI (TANPA LAPOR ULANG)
 // =========================================================================
 function cekResumeAduanLokal() {
@@ -44,7 +46,12 @@ window.lacakAduanWarga = async function (e) {
 
         if (res.ok && json.data) {
             const d = json.data;
-            window.masukDashboardPengaduan(d.nik, d.nama, d.uraian, false);
+            try {
+                window.masukDashboardPengaduan(d.nik, d.nama, d.uraian, false);
+            } catch (renderErr) {
+                console.error('[LACAK ADUAN] Galat render masukDashboardPengaduan:', renderErr);
+                window.switchTabPublik('sectionDashboardPengaduan');
+            }
             showPortalAlert({ icon: 'success', title: 'Aduan Ditemukan', text: `Selamat datang kembali, ${d.nama}.`, timer: 1200, showConfirmButton: false });
         } else {
             Swal.fire({
@@ -63,14 +70,21 @@ window.lacakAduanWarga = async function (e) {
         }
     } catch (err) {
         Swal?.close();
-        showPortalAlert({ icon: 'error', title: 'Gangguan Jaringan', text: 'Gagal menghubungi server basis data.' });
+        if (err && (err.name === 'TypeError' || String(err.message || '').includes('fetch'))) {
+            showPortalAlert({ icon: 'error', title: 'Gangguan Jaringan', text: 'Gagal menghubungi server basis data.' });
+        } else {
+            console.error('[LACAK ADUAN] Galat koneksi:', err);
+        }
     }
 };
 
 window.masukDashboardPengaduan = function (nik, nama, uraian, isNewReport = false) {
-    sesiAduanAktif = { nik, nama, uraian };
-    localStorage.setItem('lastAduanNik', nik);
-    localStorage.setItem('lastAduanNama', nama);
+    window.sesiAduanAktif = { nik, nama, uraian };
+    sesiAduanAktif = window.sesiAduanAktif;
+    try {
+        localStorage.setItem('lastAduanNik', nik);
+        localStorage.setItem('lastAduanNama', nama);
+    } catch (e) {}
 
     window.switchTabPublik('sectionDashboardPengaduan');
 
@@ -82,7 +96,11 @@ window.masukDashboardPengaduan = function (nik, nama, uraian, isNewReport = fals
     if (dispNik) dispNik.innerText = nik;
     if (dispUraian) dispUraian.innerText = uraian;
 
-    window.initPeerWarga();
+    try {
+        if (typeof window.initPeerWarga === 'function') window.initPeerWarga();
+    } catch (e) {
+        console.warn('initPeerWarga skipped:', e);
+    }
 
     if (isNewReport) {
         fetch(`${API_URL}/api/publik/pengaduan`, {
@@ -104,13 +122,36 @@ window.masukDashboardPengaduan = function (nik, nama, uraian, isNewReport = fals
     // Daftarkan listener real-time instan untuk pembaruan stepper & status aduan
     if (window.RealtimeHub && typeof window.RealtimeHub.on === 'function') {
         window.RealtimeHub.on('ADUAN_UPDATE', (evt) => {
-            if (sesiAduanAktif && evt.nik === sesiAduanAktif.nik) {
+            const cleanTarget = String(evt.nik || '').replace(/\D/g, '');
+            const cleanCur = String(sesiAduanAktif?.nik || '').replace(/\D/g, '');
+            if (cleanTarget && cleanCur && cleanTarget === cleanCur) {
                 window.sinkronStatusStepperAduan();
+                window.muatPesanAduan(true);
             }
         });
         window.RealtimeHub.on('PUTUSAN_SUPERADMIN', (evt) => {
-            if (sesiAduanAktif && evt.nik === sesiAduanAktif.nik) {
+            const cleanTarget = String(evt.nik || '').replace(/\D/g, '');
+            const cleanCur = String(sesiAduanAktif?.nik || '').replace(/\D/g, '');
+            if (cleanTarget && cleanCur && cleanTarget === cleanCur) {
                 window.sinkronStatusStepperAduan();
+                window.muatPesanAduan(true);
+            }
+        });
+        window.RealtimeHub.on('CHAT_MESSAGE', (evt) => {
+            const cleanTarget = String(evt.nik || '').replace(/\D/g, '');
+            const cleanCur = String(sesiAduanAktif?.nik || '').replace(/\D/g, '');
+            if (cleanTarget && cleanCur && cleanTarget === cleanCur) {
+                window.muatPesanAduan(true);
+                window.sinkronStatusStepperAduan();
+            }
+        });
+        window.RealtimeHub.on('CHAT_OFFICER_CHANGED', (evt) => {
+            const cleanTarget = String(evt.nik || '').replace(/\D/g, '');
+            const cleanCur = String(sesiAduanAktif?.nik || '').replace(/\D/g, '');
+            if (cleanTarget && cleanCur && cleanTarget === cleanCur) {
+                const offName = evt.officer_name || (evt.officer && evt.officer.name);
+                const offRole = evt.officer_role || (evt.officer && evt.officer.role);
+                window.handleChatOfficerChangedAduan(offName, offRole);
                 window.muatPesanAduan(true);
             }
         });
@@ -118,13 +159,28 @@ window.masukDashboardPengaduan = function (nik, nama, uraian, isNewReport = fals
 
     if (!aduanChatInterval) {
         aduanChatInterval = setInterval(() => {
-            // Hanya poll jika koneksi realtime terputus untuk menghemat bandwidth & cegah glitch
-            if (window.RealtimeHub && window.RealtimeHub.isConnected()) {
-                return;
-            }
             window.muatPesanAduan(false);
             window.sinkronStatusStepperAduan();
-        }, 5000);
+        }, 2500);
+    }
+};
+
+window.handleChatOfficerChangedAduan = function (officerName, officerRole) {
+    const badge = document.getElementById('aduanOfficerNameBadge');
+    const label = officerName ? `🛡️ ${officerName} (${officerRole || 'Petugas'})` : '🛡️ Petugas Investigasi Dinsos';
+    if (badge) badge.innerText = label;
+
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'info',
+            title: 'Pergantian Respon Resmi',
+            text: `Koordinasi kini ditangani oleh ${officerName || 'Petugas'} (${officerRole || 'Dinsos'})`,
+            timer: 3500,
+            showConfirmButton: false,
+            timerProgressBar: true
+        });
     }
 };
 
@@ -133,8 +189,38 @@ window.keluarDashboardPengaduan = function () {
         clearInterval(aduanChatInterval);
         aduanChatInterval = null;
     }
+    if (typeof window.cancelVoiceRecordAduan === 'function') {
+        try { window.cancelVoiceRecordAduan(); } catch (e) {}
+    }
+    if (typeof window.tutupChatSearchAduan === 'function') {
+        try { window.tutupChatSearchAduan(); } catch (e) {}
+    }
+    const attachPop = document.getElementById('aduanAttachmentMenuPopover');
+    if (attachPop) attachPop.style.display = 'none';
+    const previewAttach = document.getElementById('aduanVoicePreviewAttachMenu');
+    if (previewAttach) previewAttach.style.display = 'none';
+    const emojiPop = document.getElementById('emojiPickerAduan');
+    if (emojiPop) emojiPop.style.display = 'none';
+
+    window.sesiAduanAktif = null;
     sesiAduanAktif = null;
+    try {
+        localStorage.removeItem('lastAduanNik');
+        localStorage.removeItem('lastAduanNama');
+    } catch (e) {}
+
+    document.body.classList.remove('is-warga-dashboard');
+    const heroBanner = document.getElementById('heroBannerPublic') || document.querySelector('.hero-public');
+    if (heroBanner) {
+        heroBanner.classList.remove('hero-hidden');
+        heroBanner.style.removeProperty('display');
+    }
+    const landingView = document.getElementById('landingView') || document.querySelector('.container-public');
+    if (landingView) {
+        landingView.classList.remove('warga-full-mode');
+    }
     window.switchTabPublik('pantauAduanSection');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 // =========================================================================
@@ -143,7 +229,7 @@ window.keluarDashboardPengaduan = function () {
 window.sinkronStatusStepperAduan = async function () {
     if (!sesiAduanAktif) return;
     try {
-        const res = await fetch(`${API_URL}/api/publik/cek-aduan?nik=${encodeURIComponent(sesiAduanAktif.nik)}`);
+        const res = await fetch(`${API_URL}/api/publik/cek-aduan?nik=${encodeURIComponent(sesi.nik)}`);
         const json = await res.json();
         if (json.status === 'success' && json.data) {
             const d = json.data;

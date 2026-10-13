@@ -3944,8 +3944,16 @@ body.page-dashboard {
     word-wrap: break-word !important;
     word-break: break-word !important;
     overflow-wrap: anywhere !important;
-    white-space: pre-wrap !important;
+    white-space: normal !important;
     transition: box-shadow 0.15s ease !important;
+}
+
+.chat-msg-text {
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    display: block !important;
 }
 
 /* KETIKA PESAN TEKS PENDEK (1-15 HURUF SEPERTI 'P', 'YA', 'OK') BUBBLE SANGAT RAMPING DAN MENYESUAIKAN ISI */
@@ -4001,30 +4009,34 @@ body.page-dashboard {
     color: #ffffff !important;
 }
 
-/* EMOJI BUBBLE - BERSIH, SERASI, DAN TANPA KOTAK HITAM PADA JAM & TANDA BACA */
+/* EMOJI BUBBLE - MODERN DENGAN BACKGROUND BUBBLE SESUAI BUBBLE LAINNYA */
 .chat-msg-bubble.is-emoji-only {
     min-width: 0 !important;
-    padding: 6px 12px 4px 12px !important;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
+    padding: 8px 14px 6px 14px !important;
+    border-radius: 18px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
 }
 
 .chat-msg-row.outgoing .chat-msg-bubble.is-emoji-only {
-    background: linear-gradient(135deg, #009846, #007a37) !important;
-    border: none !important;
-    border-radius: 16px 4px 16px 16px !important;
+    background: #e6f9f0 !important;
+    border: 1.5px solid #a7f3d0 !important;
+    padding-right: 28px !important; /* Ruang untuk titik tiga di kanan atas */
+    box-shadow: 0 2px 10px rgba(0, 152, 70, 0.12) !important;
 }
 
 .chat-msg-row.incoming .chat-msg-bubble.is-emoji-only {
     background: #ffffff !important;
     border: 1.5px solid #e2e8f0 !important;
-    border-radius: 4px 16px 16px 16px !important;
+    padding-left: 28px !important; /* Ruang untuk titik tiga di kiri atas */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
 }
 
 .chat-msg-bubble.is-emoji-only .chat-msg-text {
-    font-size: 2.5rem !important;
-    line-height: 1.2 !important;
+    font-size: 2.3rem !important;
+    line-height: 1.25 !important;
     display: block !important;
     text-align: center !important;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12));
 }
 
 /* HILANGKAN KOTAK HITAM DI JAM DAN TANDA BACA EMOJI / BUBBLE SECARA MUTLAK */
@@ -4070,8 +4082,6 @@ body.page-dashboard {
 .bubble-corner-btn {
     position: absolute !important;
     top: 4px !important;
-    right: 4px !important;
-    left: auto !important;
     width: 20px !important;
     height: 20px !important;
     border-radius: 50% !important;
@@ -4087,6 +4097,22 @@ body.page-dashboard {
     transition: opacity 0.15s ease, background 0.15s ease !important;
 }
 
+/* KETIKA ADMIN / PETUGAS YANG CHAT (OUTGOING): TITIK TIGA DI POJOK KANAN ATAS */
+.chat-msg-row.outgoing .bubble-corner-btn {
+    top: 4px !important;
+    right: 4px !important;
+    left: auto !important;
+    color: #ffffff !important;
+}
+
+/* KETIKA WARGA YANG CHAT (INCOMING): TITIK TIGA DI POJOK KIRI ATAS */
+.chat-msg-row.incoming .bubble-corner-btn {
+    top: 4px !important;
+    left: 4px !important;
+    right: auto !important;
+    color: #64748b !important;
+}
+
 .chat-msg-bubble:hover .bubble-corner-btn,
 .bubble-corner-btn.active,
 .bubble-corner-btn:focus {
@@ -4098,52 +4124,55 @@ body.page-dashboard {
     background: rgba(0, 0, 0, 0.12) !important;
 }
 
-.chat-msg-row.incoming .bubble-corner-btn {
-    color: #64748b !important;
-}
-
-.chat-msg-row.outgoing .bubble-corner-btn {
-    color: #ffffff !important;
-}
-
 .chat-msg-row.outgoing .bubble-corner-btn:hover {
     background: rgba(255, 255, 255, 0.25) !important;
 }
 
-/* DROPDOWN MENU TITIK TIGA (RAMPING, ELEGAN, TIDAK BOROS TEMPAT) */
+/* DROPDOWN MENU TITIK TIGA (LEBIH LAPANG, ELEGAN, IKON BERWARNA & SOLID TIDAK TRANSPARAN) */
 .bubble-action-dropdown,
 .aduan-dropdown-menu {
     display: none !important;
     position: absolute !important;
     top: 26px !important;
     background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 12px !important;
-    box-shadow: 0 12px 28px -4px rgba(15, 23, 42, 0.18), 0 4px 8px -2px rgba(15, 23, 42, 0.08) !important;
-    z-index: 99999 !important;
-    width: 170px !important;
-    min-width: 165px !important;
-    max-width: 175px !important;
-    padding: 5px !important;
+    background-color: #ffffff !important;
+    border: 1px solid rgba(226, 232, 240, 0.95) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 20px 45px -8px rgba(15, 23, 42, 0.22), 0 8px 18px -4px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04) !important;
+    z-index: 999999 !important;
+    width: 215px !important;
+    min-width: 205px !important;
+    max-width: 230px !important;
+    height: auto !important;
+    min-height: fit-content !important;
+    padding: 7px !important;
     flex-direction: column !important;
-    gap: 1px !important;
+    gap: 2px !important;
     margin: 0 !important;
-    animation: fadeInDropdown 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    opacity: 1 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    animation: fadeInDropdown 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-sizing: border-box !important;
 }
 
-.aduan-dropdown-menu.menu-left {
-    left: 0 !important;
-    right: auto !important;
-}
-
+/* KETIKA OUTGOING (PETUGAS): TITIK TIGA DI KANAN -> DROPDOWN RATA KANAN AGAR TIDAK KELUAR LAYAR */
+.chat-msg-row.outgoing .bubble-action-dropdown,
 .aduan-dropdown-menu.menu-right {
     right: 0 !important;
     left: auto !important;
 }
 
+/* KETIKA INCOMING (WARGA): TITIK TIGA DI KIRI -> DROPDOWN RATA KIRI AGAR TIDAK KELUAR LAYAR */
+.chat-msg-row.incoming .bubble-action-dropdown,
+.aduan-dropdown-menu.menu-left {
+    left: 0 !important;
+    right: auto !important;
+}
+
 .btn-msg-dots {
-    width: 20px !important;
-    height: 20px !important;
+    width: 22px !important;
+    height: 22px !important;
     border-radius: 50% !important;
     border: none !important;
     background: transparent !important;
@@ -4151,110 +4180,192 @@ body.page-dashboard {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    font-size: 0.72rem !important;
+    font-size: 0.76rem !important;
     color: #64748b !important;
-    opacity: 0.6 !important;
+    opacity: 0.7 !important;
     transition: all 0.15s ease !important;
 }
 
 .btn-msg-dots:hover {
     opacity: 1 !important;
-    background: rgba(0, 0, 0, 0.06) !important;
+    background: rgba(0, 0, 0, 0.08) !important;
     color: #0f172a !important;
 }
 
 @keyframes fadeInDropdown {
-    from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+    from { opacity: 0; transform: translateY(-5px) scale(0.95); }
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.chat-msg-row.incoming .bubble-action-dropdown {
-    right: 2px !important;
-    left: auto !important;
-}
-
-.chat-msg-row.outgoing .bubble-action-dropdown {
-    right: 2px !important;
-    left: auto !important;
-}
-
-.bubble-action-dropdown.show {
+.bubble-action-dropdown.show,
+.aduan-dropdown-menu.show,
+.aduan-dropdown-menu[style*="display: flex"],
+.aduan-dropdown-menu[style*="display: block"] {
     display: flex !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    opacity: 1 !important;
 }
 
 .bubble-action-dropdown .emoji-react-row,
 .aduan-dropdown-menu .emoji-react-row {
     display: flex !important;
-    gap: 4px !important;
-    padding: 4px 4px 6px 4px !important;
-    border-bottom: 1px solid #f1f5f9 !important;
-    margin-bottom: 3px !important;
-    overflow-x: auto !important;
-    scrollbar-width: none !important;
+    align-items: center !important;
     justify-content: flex-start !important;
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    padding: 5px 6px !important;
+    margin-bottom: 6px !important;
+    gap: 5px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: #cbd5e1 transparent !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
 }
+
 .bubble-action-dropdown .emoji-react-row::-webkit-scrollbar,
 .aduan-dropdown-menu .emoji-react-row::-webkit-scrollbar {
-    display: none !important;
+    height: 3px !important;
+}
+.bubble-action-dropdown .emoji-react-row::-webkit-scrollbar-thumb,
+.aduan-dropdown-menu .emoji-react-row::-webkit-scrollbar-thumb {
+    background: #cbd5e1 !important;
+    border-radius: 4px !important;
 }
 
 .bubble-action-dropdown .emoji-react-row span,
 .aduan-dropdown-menu .emoji-react-row span {
-    font-size: 1.15rem !important;
+    font-size: 1.25rem !important;
     cursor: pointer !important;
-    transition: transform 0.15s ease, background 0.15s ease !important;
-    padding: 2px 3px !important;
-    border-radius: 6px !important;
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s ease !important;
+    padding: 2px 4px !important;
+    border-radius: 8px !important;
     line-height: 1 !important;
-    flex-shrink: 0 !important;
     user-select: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
 }
 
 .bubble-action-dropdown .emoji-react-row span:hover,
 .aduan-dropdown-menu .emoji-react-row span:hover {
-    transform: scale(1.35) !important;
-    background: #f1f5f9 !important;
+    transform: scale(1.3) translateY(-2px) !important;
+    background: #e2e8f0 !important;
 }
 
 .bubble-action-dropdown button,
-.aduan-dropdown-menu button {
+.bubble-action-dropdown .aduan-menu-item,
+.aduan-dropdown-menu button,
+.aduan-dropdown-menu .aduan-menu-item {
     width: 100% !important;
-    padding: 6px 9px !important;
+    padding: 7px 9px !important;
     border: none !important;
     background: transparent !important;
-    border-radius: 7px !important;
+    background-color: transparent !important;
+    opacity: 1 !important;
+    border-radius: 9px !important;
     display: flex !important;
     align-items: center !important;
-    gap: 8px !important;
-    font-size: 0.75rem !important;
+    gap: 9px !important;
+    font-size: 0.82rem !important;
     font-weight: 600 !important;
     color: #334155 !important;
     cursor: pointer !important;
-    transition: background 0.15s ease, color 0.15s ease !important;
+    transition: all 0.14s ease !important;
     text-align: left !important;
-    line-height: 1.2 !important;
-    margin: 0 !important;
+    line-height: 1.3 !important;
     box-sizing: border-box !important;
+    margin: 0 !important;
 }
 
 .bubble-action-dropdown button:hover,
-.aduan-dropdown-menu button:hover {
-    background: #f8fafc !important;
-    color: #009846 !important;
+.bubble-action-dropdown .aduan-menu-item:hover,
+.aduan-dropdown-menu button:hover,
+.aduan-dropdown-menu .aduan-menu-item:hover {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    transform: translateX(2px) !important;
 }
 
+.bubble-action-dropdown button.item-amber:hover,
+.bubble-action-dropdown .aduan-menu-item.item-amber:hover,
+.aduan-dropdown-menu button.item-amber:hover,
+.aduan-dropdown-menu .aduan-menu-item.item-amber:hover {
+    background: #fef3c7 !important;
+    color: #b45309 !important;
+}
+
+.bubble-action-dropdown button.item-danger:hover,
 .bubble-action-dropdown button.text-danger:hover,
-.aduan-dropdown-menu button.text-danger:hover {
+.bubble-action-dropdown .aduan-menu-item.item-danger:hover,
+.aduan-dropdown-menu button.item-danger:hover,
+.aduan-dropdown-menu button.text-danger:hover,
+.aduan-dropdown-menu .aduan-menu-item.item-danger:hover {
     background: #fee2e2 !important;
     color: #dc2626 !important;
 }
 
-.bubble-action-dropdown button i,
-.aduan-dropdown-menu button i {
-    width: 14px !important;
+.bubble-action-dropdown .menu-item-icon,
+.aduan-dropdown-menu .menu-item-icon {
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 7px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     font-size: 0.78rem !important;
-    text-align: center !important;
     flex-shrink: 0 !important;
+    transition: transform 0.14s ease !important;
+}
+
+.bubble-action-dropdown button:hover .menu-item-icon,
+.bubble-action-dropdown .aduan-menu-item:hover .menu-item-icon,
+.aduan-dropdown-menu button:hover .menu-item-icon,
+.aduan-dropdown-menu .aduan-menu-item:hover .menu-item-icon {
+    transform: scale(1.1) !important;
+}
+
+.menu-item-icon.icon-sky {
+    background: #e0f2fe !important;
+    color: #0284c7 !important;
+}
+
+.menu-item-icon.icon-emerald {
+    background: #dcfce7 !important;
+    color: #059669 !important;
+}
+
+.menu-item-icon.icon-slate {
+    background: #f1f5f9 !important;
+    color: #64748b !important;
+}
+
+.menu-item-icon.icon-purple {
+    background: #f3e8ff !important;
+    color: #7e22ce !important;
+}
+
+.menu-item-icon.icon-amber {
+    background: #fef3c7 !important;
+    color: #d97706 !important;
+}
+
+.menu-item-icon.icon-rose {
+    background: #ffe4e6 !important;
+    color: #e11d48 !important;
+}
+
+.aduan-menu-divider {
+    height: 1px !important;
+    background: #f1f5f9 !important;
+    margin: 3px 2px !important;
+    width: auto !important;
 }
 
 /* MEDIA GAMBAR TERLAMPIR DALAM BUBBLE CHAT - SEIMBANG, PROPORSIONAL, BORDERLESS TANPA BATAS HITAM */
@@ -4289,17 +4400,40 @@ body.page-dashboard {
     filter: brightness(0.95) !important;
 }
 
-/* TOMBOL UNDUH CEPAT DI SUDUT KANAN ATAS FOTO */
-.chat-media-dl-btn {
+/* BILAH TINDAKAN GAMBAR (LIHAT & UNDUH FOTO LEBIH MODERN) */
+.chat-media-action-overlay {
     position: absolute !important;
     top: 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    opacity: 0 !important;
+    transition: opacity 0.2s ease !important;
+    z-index: 12 !important;
+}
+
+.chat-media-action-overlay.align-right {
     right: 6px !important;
+    left: auto !important;
+}
+
+.chat-media-action-overlay.align-left {
+    left: 6px !important;
+    right: auto !important;
+}
+
+.chat-media-img-wrap:hover .chat-media-action-overlay {
+    opacity: 1 !important;
+}
+
+.chat-media-action-btn,
+.chat-media-dl-btn {
     width: 28px !important;
     height: 28px !important;
     border-radius: 50% !important;
-    background: rgba(15, 23, 42, 0.55) !important;
-    backdrop-filter: blur(4px) !important;
-    -webkit-backdrop-filter: blur(4px) !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    backdrop-filter: blur(5px) !important;
+    -webkit-backdrop-filter: blur(5px) !important;
     color: #ffffff !important;
     border: none !important;
     display: flex !important;
@@ -4307,23 +4441,19 @@ body.page-dashboard {
     justify-content: center !important;
     font-size: 0.72rem !important;
     cursor: pointer !important;
-    opacity: 0 !important;
     transition: opacity 0.2s ease, background 0.15s ease, transform 0.15s ease !important;
-    z-index: 12 !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
     line-height: 1 !important;
 }
 
-.chat-media-img-wrap:hover .chat-media-dl-btn {
-    opacity: 1 !important;
-}
-
+.chat-media-action-btn:hover,
 .chat-media-dl-btn:hover {
     background: #009846 !important;
-    transform: scale(1.1) !important;
+    color: #ffffff !important;
+    transform: scale(1.12) !important;
 }
 
-/* KETIKA BUBBLE HANYA BERISI MEDIA FOTO ATAU VIDEO (BORDER HIJAU ELEGAN DI SISI-SISINYA, TANPA BATAS HITAM) */
+/* KETIKA BUBBLE HANYA BERISI MEDIA FOTO ATAU VIDEO (BORDER ELEGAN DI SISI-SISINYA, TANPA SPACE KOSONG) */
 .chat-msg-row.outgoing .chat-msg-bubble.is-image-only,
 .chat-msg-row.outgoing .chat-msg-bubble.is-video-only,
 .chat-msg-row.outgoing .chat-msg-bubble.is-media-only {
@@ -4336,7 +4466,11 @@ body.page-dashboard {
     width: fit-content !important;
     min-width: 0 !important;
     max-width: fit-content !important;
-    display: inline-block !important;
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    line-height: 0 !important;
+    font-size: 0 !important;
 }
 
 .chat-msg-row.incoming .chat-msg-bubble.is-image-only,
@@ -4351,7 +4485,11 @@ body.page-dashboard {
     width: fit-content !important;
     min-width: 0 !important;
     max-width: fit-content !important;
-    display: inline-block !important;
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    line-height: 0 !important;
+    font-size: 0 !important;
 }
 
 .chat-msg-bubble.is-image-only .chat-media-img-wrap,
@@ -4361,16 +4499,68 @@ body.page-dashboard {
     padding: 0 !important;
     box-shadow: none !important;
     background: transparent !important;
+    line-height: 0 !important;
+    font-size: 0 !important;
 }
 
-/* SUDUT TOMBOL MENU BUBBLE PADA PESAN FOTO & VIDEO (POSISI DI KIRI ATAS AGAR RAPI & TIDAK BERTABRAKAN) */
-.chat-msg-bubble.is-image-only .bubble-corner-btn,
-.chat-msg-bubble.is-video-only .bubble-corner-btn,
-.chat-msg-bubble.is-media-only .bubble-corner-btn {
+/* SUDUT TOMBOL MENU BUBBLE PADA PESAN FOTO & VIDEO */
+/* KETIKA PETUGAS / ADMIN YANG MENGIRIM MEDIA: TITIK TIGA DI KANAN ATAS */
+.chat-msg-row.outgoing .chat-msg-bubble.is-image-only .bubble-corner-btn,
+.chat-msg-row.outgoing .chat-msg-bubble.is-video-only .bubble-corner-btn,
+.chat-msg-row.outgoing .chat-msg-bubble.is-media-only .bubble-corner-btn,
+.chat-msg-row.outgoing .chat-msg-bubble.is-image-card .bubble-corner-btn,
+.chat-msg-row.outgoing .chat-msg-bubble.is-video-card .bubble-corner-btn {
+    top: 8px !important;
+    right: 8px !important;
+    left: auto !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    color: #ffffff !important;
+    border-radius: 50% !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35) !important;
+    z-index: 70 !important;
+    width: 26px !important;
+    height: 26px !important;
+    opacity: 0.9 !important;
+    display: inline-flex !important;
+    pointer-events: auto !important;
+    transition: all 0.15s ease !important;
+}
+
+/* KETIKA WARGA YANG MENGIRIM MEDIA: TITIK TIGA DI KIRI ATAS */
+.chat-msg-row.incoming .chat-msg-bubble.is-image-only .bubble-corner-btn,
+.chat-msg-row.incoming .chat-msg-bubble.is-video-only .bubble-corner-btn,
+.chat-msg-row.incoming .chat-msg-bubble.is-media-only .bubble-corner-btn,
+.chat-msg-row.incoming .chat-msg-bubble.is-image-card .bubble-corner-btn,
+.chat-msg-row.incoming .chat-msg-bubble.is-video-card .bubble-corner-btn {
     top: 8px !important;
     left: 8px !important;
     right: auto !important;
-    background: rgba(15, 23, 42, 0.55) !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    color: #ffffff !important;
+    border-radius: 50% !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35) !important;
+    z-index: 70 !important;
+    width: 26px !important;
+    height: 26px !important;
+    opacity: 0.9 !important;
+    display: inline-flex !important;
+    pointer-events: auto !important;
+    transition: all 0.15s ease !important;
+}
+
+.chat-msg-bubble.is-image-only .bubble-corner-btn:hover,
+.chat-msg-bubble.is-video-only .bubble-corner-btn:hover,
+.chat-msg-bubble.is-media-only .bubble-corner-btn:hover,
+.chat-msg-bubble.is-image-card .bubble-corner-btn:hover,
+.chat-msg-bubble.is-video-card .bubble-corner-btn:hover {
+    background: rgba(15, 23, 42, 0.95) !important;
+    opacity: 1 !important;
+    transform: scale(1.12) !important;
+}
     backdrop-filter: blur(4px) !important;
     -webkit-backdrop-filter: blur(4px) !important;
     color: #ffffff !important;
@@ -4417,6 +4607,21 @@ body.page-dashboard {
     box-shadow: none !important;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 3px rgba(0, 0, 0, 0.95), 0 1px 3px #000000 !important;
     line-height: 1.2 !important;
+}
+
+/* WAKTU DAN CENTANG PADA VIDEO TIDAK BERTABRAKAN DENGAN BILAH KONTROL BAWAH */
+.chat-media-video-wrap .chat-time-stamp-overlay {
+    bottom: 46px !important;
+    right: 10px !important;
+    z-index: 15 !important;
+}
+
+/* RUANG BEBAS BUBBLE AGAR TANDA CENTANG & WAKTU TIDAK MEPET DENGAN TITIK TIGA */
+.chat-msg-row.outgoing .chat-msg-bubble:not(.is-media-only) {
+    padding-right: 26px !important;
+}
+.chat-msg-row.incoming .chat-msg-bubble:not(.is-media-only) {
+    padding-left: 26px !important;
 }
 
 /* INDIKATOR STATUS BACA TANDA CENTANG (ABU-ABU TERKIRIM -> BIRU TERBACA) */
@@ -4482,12 +4687,11 @@ body.page-dashboard {
     transition: opacity 0.25s ease, background 0.2s ease !important;
 }
 
-.video-center-play-overlay.is-playing {
-    opacity: 0 !important;
-}
-
+.video-center-play-overlay.is-playing,
 .chat-media-video-wrap:hover .video-center-play-overlay.is-playing {
-    opacity: 0.9 !important;
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
 }
 
 .center-play-circle {
@@ -4511,73 +4715,278 @@ body.page-dashboard {
     background: #009846 !important;
 }
 
-/* BILAH KONTROL VIDEO MENGAMBANG (HANYA MUNCUL KETIKA KURSOR MENGARAHKAN KE VIDEO / HOVER) */
+/* BILAH KONTROL VIDEO MENGAMBANG DUA BARIS (TIMELINE SCRUBBER + TOMBOL KONTROL LENGKAP) */
 .video-floating-hover-bar {
     position: absolute !important;
-    bottom: 8px !important;
-    left: 8px !important;
-    right: 8px !important;
-    background: rgba(15, 23, 42, 0.88) !important;
+    bottom: 6px !important;
+    left: 6px !important;
+    right: 6px !important;
+    background: rgba(15, 23, 42, 0.9) !important;
     backdrop-filter: blur(12px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.22) !important;
-    border-radius: 20px !important;
-    padding: 6px 12px !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    border-radius: 12px !important;
+    padding: 4px 8px !important;
     display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    z-index: 10 !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+    z-index: 20 !important;
     opacity: 0 !important;
     pointer-events: none !important;
-    transition: opacity 0.25s ease, transform 0.2s ease !important;
+    transition: opacity 0.22s ease, transform 0.2s ease !important;
     transform: translateY(4px) !important;
+    box-sizing: border-box !important;
 }
 
 .chat-media-video-wrap:hover .video-floating-hover-bar,
+.chat-media-video-wrap.is-playing:hover .video-floating-hover-bar,
 .chat-media-video-wrap.show-controls .video-floating-hover-bar {
     opacity: 1 !important;
     pointer-events: auto !important;
     transform: translateY(0) !important;
 }
 
-.btn-video-hover-ctrl {
-    background: rgba(255, 255, 255, 0.12) !important;
-    border: 1px solid rgba(255, 255, 255, 0.25) !important;
-    color: #ffffff !important;
+.video-scrubber-container {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 0 2px 0 !important;
+    pointer-events: auto !important;
+}
+
+.video-scrubber-bar {
+    width: 100% !important;
+    height: 4px !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: rgba(255, 255, 255, 0.35) !important;
+    border-radius: 4px !important;
+    outline: none !important;
     cursor: pointer !important;
-    font-size: 0.85rem !important;
-    padding: 5px 9px !important;
-    border-radius: 8px !important;
-    transition: all 0.15s ease !important;
+    transition: height 0.15s ease, background 0.15s ease !important;
+}
+
+.video-scrubber-bar:hover {
+    height: 6px !important;
+    background: rgba(255, 255, 255, 0.6) !important;
+}
+
+.video-scrubber-bar::-webkit-slider-thumb {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 12px !important;
+    height: 12px !important;
+    border-radius: 50% !important;
+    background: #009846 !important;
+    cursor: pointer !important;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.5) !important;
+    transition: transform 0.1s ease !important;
+}
+
+.video-scrubber-bar:hover::-webkit-slider-thumb {
+    transform: scale(1.25) !important;
+}
+
+.video-controls-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 4px !important;
+    pointer-events: auto !important;
+}
+
+.video-ctrls-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    min-width: 0 !important;
+    flex-shrink: 1 !important;
+    overflow: hidden !important;
+}
+
+.video-ctrls-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    flex-shrink: 0 !important;
+    margin-left: auto !important;
+    z-index: 10 !important;
+}
+
+.btn-video-hover-ctrl {
+    background: transparent !important;
+    border: none !important;
+    color: #ffffff !important;
+    font-size: 0.82rem !important;
+    cursor: pointer !important;
+    padding: 3px 4px !important;
+    border-radius: 4px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 4px !important;
-    text-decoration: none !important;
+    gap: 2px !important;
+    flex-shrink: 0 !important;
+    transition: color 0.15s ease, transform 0.15s ease !important;
 }
 
 .btn-video-hover-ctrl:hover {
-    background: rgba(255, 255, 255, 0.3) !important;
-    transform: scale(1.08) !important;
+    color: #34d399 !important;
+    transform: scale(1.15) !important;
+}
+
+.jump-sec-lbl {
+    font-size: 0.64rem !important;
+    font-weight: 800 !important;
+    font-family: inherit !important;
+    line-height: 1 !important;
+}
+
+.btn-video-speed-pill {
+    background: rgba(255, 255, 255, 0.22) !important;
+    border: 1px solid rgba(255, 255, 255, 0.45) !important;
     color: #ffffff !important;
+    font-size: 0.68rem !important;
+    font-weight: 800 !important;
+    padding: 2px 6px !important;
+    border-radius: 10px !important;
+    cursor: pointer !important;
+    line-height: 1.2 !important;
+    transition: all 0.15s ease !important;
+    user-select: none !important;
+    flex-shrink: 0 !important;
+}
+
+.btn-video-speed-pill:hover,
+.btn-video-speed-pill.speed-active {
+    background: #009846 !important;
+    border-color: #10b981 !important;
+    color: #ffffff !important;
+    transform: scale(1.08) !important;
 }
 
 .video-hover-timer {
-    font-size: 0.7rem !important;
-    color: #cbd5e1 !important;
-    font-family: monospace !important;
+    font-size: 0.65rem !important;
+    color: #ffffff !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
     font-weight: 700 !important;
-    padding: 0 4px !important;
+    white-space: nowrap !important;
+    margin-left: 2px !important;
+    flex-shrink: 1 !important;
+    min-width: 0 !important;
+    max-width: 68px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Tombol hover samping (-10s / +10s) dan Ripple feedback */
+.video-hover-jump-overlay {
+    position: absolute !important;
+    inset: 0 !important;
+    bottom: 52px !important;
+    display: flex !important;
+    pointer-events: none !important;
+    z-index: 12 !important;
+}
+
+.video-jump-side {
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    pointer-events: auto !important;
+    opacity: 0 !important;
+    transition: opacity 0.2s ease !important;
+    cursor: pointer !important;
+}
+
+.video-jump-side.left {
+    justify-content: flex-start !important;
+    padding-left: 12px !important;
+}
+
+.video-jump-side.right {
+    justify-content: flex-end !important;
+    padding-right: 12px !important;
+}
+
+.chat-media-video-wrap:hover .video-jump-side {
+    opacity: 0.75 !important;
+}
+
+.video-jump-side:hover {
+    opacity: 1 !important;
+    background: rgba(0, 0, 0, 0.2) !important;
+}
+
+.btn-side-jump-pill {
+    background: rgba(15, 23, 42, 0.75) !important;
+    backdrop-filter: blur(5px) !important;
+    -webkit-backdrop-filter: blur(5px) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    border-radius: 20px !important;
+    padding: 5px 12px !important;
+    font-size: 0.74rem !important;
+    font-weight: 800 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important;
+    transition: transform 0.15s ease, background 0.15s ease !important;
+}
+
+.btn-side-jump-pill:hover {
+    transform: scale(1.12) !important;
+    background: #009846 !important;
+    border-color: #34d399 !important;
+}
+
+.video-jump-ripple {
+    position: absolute !important;
+    top: 50% !important;
+    transform: translateY(-50%) scale(0.6) !important;
+    background: rgba(15, 23, 42, 0.88) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    color: #ffffff !important;
+    padding: 8px 16px !important;
+    border-radius: 22px !important;
+    font-size: 0.85rem !important;
+    font-weight: 800 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    z-index: 30 !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+.video-jump-ripple.left {
+    left: 20px !important;
+}
+
+.video-jump-ripple.right {
+    right: 20px !important;
+}
+
+.video-jump-ripple.active {
+    opacity: 1 !important;
+    transform: translateY(-50%) scale(1) !important;
 }
 
 /* MEDIA DOKUMEN BERKAS (PDF, WORD, EXCEL DLL) - MODERN, ELEGAN & PREMIUM */
 .chat-doc-card {
     display: flex !important;
     flex-direction: column !important;
-    width: 310px !important;
+    width: 100% !important;
     max-width: 100% !important;
     background: #ffffff !important;
     border-radius: 14px !important;
-    margin: 4px 0 6px 0 !important;
+    margin: 2px 0 4px 0 !important;
     box-sizing: border-box !important;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
     border: 1.5px solid #e2e8f0 !important;
@@ -5293,7 +5702,7 @@ body.page-dashboard {
     border: 1px solid #cbd5e1 !important;
     border-radius: 18px !important;
     box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18) !important;
-    z-index: 100000 !important;
+    z-index: 999999 !important;
     overflow-y: auto !important;
     padding: 12px 14px !important;
     box-sizing: border-box;
@@ -5355,29 +5764,48 @@ body.page-dashboard {
     color: #ffffff !important;
 }
 .voice-play-circle-btn {
-    width: 40px !important;
-    height: 40px !important;
+    width: 42px !important;
+    height: 42px !important;
     border-radius: 50% !important;
-    background: #009846 !important;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
     color: #ffffff !important;
     border: none !important;
     cursor: pointer !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    font-size: 1.05rem !important;
+    font-size: 1.1rem !important;
     flex-shrink: 0 !important;
-    transition: transform 0.15s ease, background 0.15s ease !important;
-    box-shadow: 0 2px 8px rgba(0, 152, 70, 0.35) !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.38) !important;
 }
 .voice-play-circle-btn:hover {
     transform: scale(1.08) !important;
+    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.48) !important;
 }
+.voice-play-circle-btn.playing {
+    animation: playCirclePulse 1.8s infinite !important;
+}
+@keyframes playCirclePulse {
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+    70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
 .chat-msg-row.outgoing .voice-play-circle-btn {
     background: #ffffff !important;
     color: #009846 !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2) !important;
 }
+.chat-msg-row.outgoing .voice-play-circle-btn.playing {
+    animation: playCirclePulseWhite 1.8s infinite !important;
+}
+@keyframes playCirclePulseWhite {
+    0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.8); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+
 .voice-track-info {
     flex: 1 !important;
     min-width: 0 !important;
@@ -5426,6 +5854,7 @@ body.page-dashboard {
     border-radius: 3px !important;
     background: #cbd5e1 !important;
     transition: height 0.12s ease, background 0.15s ease !important;
+    transform-origin: bottom center !important;
 }
 .chat-msg-row.outgoing .voice-freq-bar {
     background: rgba(255, 255, 255, 0.45) !important;
@@ -5436,11 +5865,14 @@ body.page-dashboard {
 .chat-msg-row.outgoing .voice-freq-bar.played {
     background: #ffffff !important;
 }
+
+/* ANIMASI GRAFIK BATANG DINAMIS KETIKA SUARA SEDANG MEMUTAR */
+.voice-freq-visualizer.playing .voice-freq-bar,
 .voice-freq-bar.active-anim {
     animation: soundwaveBounce 0.45s ease-in-out infinite alternate !important;
 }
 @keyframes soundwaveBounce {
-    0% { transform: scaleY(0.4); }
+    0% { transform: scaleY(0.35); }
     100% { transform: scaleY(1.35); }
 }
 
@@ -6791,14 +7223,187 @@ th.import-sticky-nama {
     background: #fef3c7;
 }
 
-/* In-Chat Search Bar */
-.chat-search-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 18px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
+/* =========================================================================
+   BILAH PENCARIAN & FILTER PESAN MODERN (HUBUNGI WARGA)
+   IDENTIK DENGAN DASHBOARD PRIBADI ANDA & DASHBOARD PANTAUAN PENGADUAN
+   ========================================================================= */
+#chatInlineSearchBar,
+.chat-search-panel {
+    background: #ffffff !important;
+    border-bottom: 1.5px solid #e2e8f0 !important;
+    padding: 10px 16px !important;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06) !important;
+    display: none;
+    flex-direction: column !important;
+    gap: 8px !important;
+    z-index: 25 !important;
+    animation: searchPanelSlideDown 0.2s ease-out !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+}
+
+@keyframes searchPanelSlideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.chat-search-input-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+}
+
+.chat-search-input-wrap {
+    flex: 1 !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.chat-search-input-wrap i {
+    position: absolute !important;
+    left: 12px !important;
+    color: #94a3b8 !important;
+    font-size: 0.85rem !important;
+    pointer-events: none !important;
+}
+
+.chat-search-input {
+    width: 100% !important;
+    padding: 7px 32px 7px 34px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 20px !important;
+    font-size: 0.82rem !important;
+    outline: none !important;
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    transition: border-color 0.15s, box-shadow 0.15s !important;
+    box-sizing: border-box !important;
+}
+
+.chat-search-input:focus {
+    background: #ffffff !important;
+    border-color: #009846 !important;
+    box-shadow: 0 0 0 3px rgba(0, 152, 70, 0.14) !important;
+}
+
+.chat-search-filter-pills {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+    padding-bottom: 2px !important;
+    width: 100% !important;
+}
+
+.chat-search-filter-pills::-webkit-scrollbar {
+    display: none !important;
+}
+
+.chat-filter-chip {
+    padding: 3px 10px !important;
+    border-radius: 14px !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #f8fafc !important;
+    color: #475569 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    transition: all 0.15s ease !important;
+    user-select: none !important;
+    box-sizing: border-box !important;
+}
+
+.chat-filter-chip.active {
+    background: #009846 !important;
+    color: #ffffff !important;
+    border-color: #009846 !important;
+}
+
+.chat-filter-chip:hover:not(.active) {
+    background: #e2e8f0 !important;
+    color: #1e293b !important;
+}
+
+.chat-search-date-input {
+    padding: 3px 8px !important;
+    border-radius: 12px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+    background: #ffffff !important;
+    outline: none !important;
+    cursor: pointer !important;
+    box-sizing: border-box !important;
+    height: 26px !important;
+}
+
+.chat-search-date-input:focus {
+    border-color: #009846 !important;
+}
+
+.chat-search-counter-badge {
+    font-size: 0.74rem !important;
+    font-weight: 800 !important;
+    color: #0284c7 !important;
+    white-space: nowrap !important;
+    background: #e0f2fe !important;
+    padding: 3px 8px !important;
+    border-radius: 12px !important;
+    border: 1px solid #bae6fd !important;
+}
+
+.chat-search-btn-icon {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #475569 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    font-size: 0.75rem !important;
+    transition: all 0.15s !important;
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+}
+
+.chat-search-btn-icon:hover {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border-color: #94a3b8 !important;
+}
+
+/* Penanda visual gelembung chat saat pencarian aktif */
+.chat-search-match-active {
+    outline: 2.5px solid #009846 !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 16px rgba(0, 152, 70, 0.3) !important;
+    opacity: 1 !important;
+    transition: outline 0.2s, box-shadow 0.2s !important;
+}
+
+.chat-search-match-active.chat-search-current {
+    outline: 3px solid #0284c7 !important;
+    outline-offset: 3px !important;
+    box-shadow: 0 0 20px rgba(2, 132, 199, 0.45) !important;
+    animation: pulseSearchCurrent 1.5s infinite alternate !important;
+}
+
+@keyframes pulseSearchCurrent {
+    from { box-shadow: 0 0 10px rgba(2, 132, 199, 0.3); }
+    to { box-shadow: 0 0 22px rgba(2, 132, 199, 0.65); }
+}
+
+.chat-search-dimmed {
+    opacity: 0.3 !important;
+    transition: opacity 0.2s !important;
 }
 
 /* Modern Voice Recorder UI */
@@ -7036,5 +7641,79 @@ button.swal2-cancel.swal-btn-hidden-force {
     pointer-events: none !important;
 }
 
+/* =============================================================================
+   STYLING PUSAT UJI SISTEM TERPADU & DIAGNOSTIK (SUPER ADMIN)
+   ============================================================================= */
+.tab-uji-sistem-btn:hover {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+}
 
+.tab-uji-sistem-btn.active {
+    background: #ffffff !important;
+    color: #009846 !important;
+    border-color: #009846 !important;
+    box-shadow: 0 -2px 6px rgba(0, 152, 70, 0.08);
+}
+
+.uji-card-badge {
+    transition: all 0.2s ease;
+}
+
+.uji-card-badge.badge-pass {
+    background: #dcfce7 !important;
+    color: #15803d !important;
+    border: 1px solid #86efac !important;
+}
+
+.uji-card-badge.badge-fail {
+    background: #fee2e2 !important;
+    color: #b91c1c !important;
+    border: 1px solid #fca5a5 !important;
+}
+
+.uji-card-badge.badge-warn {
+    background: #fef3c7 !important;
+    color: #b45309 !important;
+    border: 1px solid #fcd34d !important;
+}
+
+#cardSimulasiRole_super_admin:hover,
+#cardSimulasiRole_admin:hover,
+#cardSimulasiRole_petugas:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* =============================================================================
+   RESPONSIVE ENHANCEMENTS FOR UJI SISTEM & DASHBOARD ACROSS ALL DEVICES
+   ============================================================================= */
+@media (max-width: 640px) {
+    #modalUjiSistemTerpadu {
+        padding: 6px !important;
+    }
+    #modalUjiSistemTerpadu > div {
+        max-height: 96vh !important;
+        border-radius: 14px !important;
+    }
+    #modalUjiSistemTerpadu .uji-header {
+        padding: 12px 14px !important;
+    }
+    .tab-uji-sistem-btn {
+        padding: 8px 12px !important;
+        font-size: 0.74rem !important;
+    }
+}
+
+@media (min-width: 1440px) {
+    #modalUjiSistemTerpadu > div {
+        max-width: 1080px !important;
+    }
+}
+
+@media (min-width: 1920px) {
+    #modalUjiSistemTerpadu > div {
+        max-width: 1200px !important;
+    }
+}
 

@@ -6,15 +6,30 @@ import {
   setWargaBackupStore,
   KECAMATAN_SIDOARJO,
   catatNotifikasi,
-  formatWarga
+  formatWarga,
+  formatWargaSafe
 } from '../store.js';
 import {
   hitungDanSinkronkanSawBwm,
   seedInitialWarga
 } from '../spk_engine.js';
+import { verifySecureJwt } from '../security_guard.js';
 import type { WargaItem } from '../types.js';
 
 const router = Router();
+
+function isStaffAuthenticated(req: Request): boolean {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7).trim();
+    const ver = verifySecureJwt(token);
+    if (ver.valid && ver.payload && ver.payload.role) {
+      return true;
+    }
+  }
+  const headerRole = String(req.headers['x-user-role'] || '').toLowerCase();
+  return ['super_admin', 'superadmin', 'admin', 'developer', 'petugas'].includes(headerRole);
+}
 
 router.get(['/dukcapil/:nik', '/api/dukcapil/:nik'], (req: Request, res: Response) => {
   seedInitialWarga();
@@ -26,7 +41,8 @@ router.get(['/dukcapil/:nik', '/api/dukcapil/:nik'], (req: Request, res: Respons
   const w = wargaStore.find(x => String(x.nik).trim() === cleanNik) ||
             wargaBackupStore.find(x => String(x.nik).trim() === cleanNik);
   if (w) {
-    const formatted = formatWarga(w);
+    const isAuth = isStaffAuthenticated(req);
+    const formatted = isAuth ? formatWarga(w) : formatWargaSafe(w, true);
     return res.json({
       status: 'success',
       message: 'Data NIK ditemukan pada arsip data warga.',

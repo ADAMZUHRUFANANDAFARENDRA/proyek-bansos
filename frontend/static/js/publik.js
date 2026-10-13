@@ -8,90 +8,136 @@
  */
 
 // =========================================================================
-// 1. STATE & KONFIGURASI GLOBAL PORTAL WARGA
+// 1. STATE & KONFIGURASI GLOBAL PORTAL WARGA (SAFE SYNC KE WINDOW)
 // =========================================================================
 var API_URL = (typeof window.CONFIG !== 'undefined' && window.CONFIG.BASE_URL)
     ? window.CONFIG.BASE_URL.replace(/\/+$/, '')
     : ((typeof window.API_BASE_URL !== 'undefined') ? window.API_BASE_URL.replace(/\/+$/, '') : window.location.origin.replace(/\/+$/, ''));
+window.API_URL = API_URL;
 
 var BASE_URL = API_URL;
+window.BASE_URL = BASE_URL;
 
-let wargaNik = window.wargaNik || localStorage.getItem('wargaNik') || '';
-let wargaNama = window.wargaNama || localStorage.getItem('wargaNama') || '';
-window.wargaNik = wargaNik;
-window.wargaNama = wargaNama;
-let wargaDataCache = null;
+window.wargaNik = window.wargaNik || localStorage.getItem('wargaNik') || '';
+var wargaNik = window.wargaNik;
+window.wargaNama = window.wargaNama || localStorage.getItem('wargaNama') || '';
+var wargaNama = window.wargaNama;
+window.wargaDataCache = window.wargaDataCache || null;
+var wargaDataCache = window.wargaDataCache;
 
-let sesiWargaAktif = window.sesiWargaAktif || null;
-window.sesiWargaAktif = sesiWargaAktif;
-let sesiAduanAktif = window.sesiAduanAktif || null;
-window.lastLacakData = null;
+window.sesiWargaAktif = window.sesiWargaAktif || null;
+var sesiWargaAktif = window.sesiWargaAktif;
+window.sesiAduanAktif = window.sesiAduanAktif || null;
+var sesiAduanAktif = window.sesiAduanAktif;
+window.lastLacakData = window.lastLacakData || null;
+var lastLacakData = window.lastLacakData;
 
-window.editedMediaBlob = null;
-window.editedMediaExt = '';
-window.editedMediaType = '';
+window.editedMediaBlob = window.editedMediaBlob || null;
+window.editedMediaExt = window.editedMediaExt || '';
+window.editedMediaType = window.editedMediaType || '';
 
-let replyToDataWarga = null;
+window.replyToDataWarga = window.replyToDataWarga || null;
+var replyToDataWarga = window.replyToDataWarga;
 window.lastChatHashWarga = window.lastChatHashWarga || '';
-let chatIntervalWarga = null;
-let aduanChatInterval = null;
-let lastAduanChatHash = '';
+window.chatIntervalWarga = window.chatIntervalWarga || null;
+var chatIntervalWarga = window.chatIntervalWarga;
+window.aduanChatInterval = window.aduanChatInterval || null;
+var aduanChatInterval = window.aduanChatInterval;
+window.lastAduanChatHash = window.lastAduanChatHash || '';
+var lastAduanChatHash = window.lastAduanChatHash;
 
 // Voice Recording & Preview State (Ruang Warga Terdaftar)
-let mediaRecorderWarga = null;
-let audioChunksWarga = [];
-let voiceTimerIntervalWarga = null;
-let voiceSecondsWarga = 0;
-let recordAudioCtxWarga = null;
-let recordAnalyserWarga = null;
-let recordAnimFrameWarga = null;
-let tempPreviewWargaBlob = null;
-let tempPreviewWargaAudio = null;
-let tempPreviewWargaPCM = null;
-let tempPreviewWargaAnim = null;
+window.mediaRecorderWarga = window.mediaRecorderWarga || null;
+var mediaRecorderWarga = window.mediaRecorderWarga;
+window.audioChunksWarga = window.audioChunksWarga || [];
+var audioChunksWarga = window.audioChunksWarga;
+window.voiceTimerIntervalWarga = window.voiceTimerIntervalWarga || null;
+var voiceTimerIntervalWarga = window.voiceTimerIntervalWarga;
+window.voiceSecondsWarga = window.voiceSecondsWarga || 0;
+var voiceSecondsWarga = window.voiceSecondsWarga;
+window.recordAudioCtxWarga = window.recordAudioCtxWarga || null;
+var recordAudioCtxWarga = window.recordAudioCtxWarga;
+window.recordAnalyserWarga = window.recordAnalyserWarga || null;
+var recordAnalyserWarga = window.recordAnalyserWarga;
+window.recordAnimFrameWarga = window.recordAnimFrameWarga || null;
+var recordAnimFrameWarga = window.recordAnimFrameWarga;
+window.tempPreviewWargaBlob = window.tempPreviewWargaBlob || null;
+var tempPreviewWargaBlob = window.tempPreviewWargaBlob;
+window.tempPreviewWargaAudio = window.tempPreviewWargaAudio || null;
+var tempPreviewWargaAudio = window.tempPreviewWargaAudio;
+window.tempPreviewWargaPCM = window.tempPreviewWargaPCM || null;
+var tempPreviewWargaPCM = window.tempPreviewWargaPCM;
+window.tempPreviewWargaAnim = window.tempPreviewWargaAnim || null;
+var tempPreviewWargaAnim = window.tempPreviewWargaAnim;
 
 // Voice Recording & Preview State (Ruang Pengaduan Khusus)
-let mediaRecorderAduan = null;
-let audioChunksAduan = [];
-let voiceTimerIntervalAduan = null;
-let voiceSecondsAduan = 0;
-let isVoicePausedAduan = false;
-let recordAudioCtxAduan = null;
-let recordAnalyserAduan = null;
-let recordSourceAduan = null;
-let recordAnimFrameAduan = null;
-let tempPreviewAduanBlob = null;
-let tempPreviewAduanAudio = null;
-let tempPreviewAduanPCM = null;
-let tempPreviewAduanAnim = null;
+window.mediaRecorderAduan = window.mediaRecorderAduan || null;
+var mediaRecorderAduan = window.mediaRecorderAduan;
+window.audioChunksAduan = window.audioChunksAduan || [];
+var audioChunksAduan = window.audioChunksAduan;
+window.voiceTimerIntervalAduan = window.voiceTimerIntervalAduan || null;
+var voiceTimerIntervalAduan = window.voiceTimerIntervalAduan;
+window.voiceSecondsAduan = window.voiceSecondsAduan || 0;
+var voiceSecondsAduan = window.voiceSecondsAduan;
+window.isVoicePausedAduan = window.isVoicePausedAduan || false;
+var isVoicePausedAduan = window.isVoicePausedAduan;
+window.recordAudioCtxAduan = window.recordAudioCtxAduan || null;
+var recordAudioCtxAduan = window.recordAudioCtxAduan;
+window.recordAnalyserAduan = window.recordAnalyserAduan || null;
+var recordAnalyserAduan = window.recordAnalyserAduan;
+window.recordSourceAduan = window.recordSourceAduan || null;
+var recordSourceAduan = window.recordSourceAduan;
+window.recordAnimFrameAduan = window.recordAnimFrameAduan || null;
+var recordAnimFrameAduan = window.recordAnimFrameAduan;
+window.tempPreviewAduanBlob = window.tempPreviewAduanBlob || null;
+var tempPreviewAduanBlob = window.tempPreviewAduanBlob;
+window.tempPreviewAduanAudio = window.tempPreviewAduanAudio || null;
+var tempPreviewAduanAudio = window.tempPreviewAduanAudio;
+window.tempPreviewAduanPCM = window.tempPreviewAduanPCM || null;
+var tempPreviewAduanPCM = window.tempPreviewAduanPCM;
+window.tempPreviewAduanAnim = window.tempPreviewAduanAnim || null;
+var tempPreviewAduanAnim = window.tempPreviewAduanAnim;
 
 // State Playback Voice Note PCM Waveform Data
-const audioWaveformDataMap = {};
-const activeAudioAnimators = {};
-const audioWavePhases = {};
+window.audioWaveformDataMap = window.audioWaveformDataMap || {};
+var audioWaveformDataMap = window.audioWaveformDataMap;
+window.activeAudioAnimators = window.activeAudioAnimators || {};
+var activeAudioAnimators = window.activeAudioAnimators;
+window.audioWavePhases = window.audioWavePhases || {};
+var audioWavePhases = window.audioWavePhases;
 
 // WebRTC Call State
-let peerWarga = null;
-let currentCallWarga = null;
-let localStreamWarga = null;
-let callTimerWarga = null;
-let callSecondsWarga = 0;
+window.peerWarga = window.peerWarga || null;
+var peerWarga = window.peerWarga;
+window.currentCallWarga = window.currentCallWarga || null;
+var currentCallWarga = window.currentCallWarga;
+window.localStreamWarga = window.localStreamWarga || null;
+var localStreamWarga = window.localStreamWarga;
+window.callTimerWarga = window.callTimerWarga || null;
+var callTimerWarga = window.callTimerWarga;
+window.callSecondsWarga = window.callSecondsWarga || 0;
+var callSecondsWarga = window.callSecondsWarga;
 
 // Media & Chat State (Ruang Pengaduan)
-window.editedAduanMediaBlob = null;
-window.editedAduanMediaExt = '';
-window.editedAduanMediaType = '';
-let replyToDataAduan = null;
+window.editedAduanMediaBlob = window.editedAduanMediaBlob || null;
+window.editedAduanMediaExt = window.editedAduanMediaExt || '';
+window.editedAduanMediaType = window.editedAduanMediaType || '';
+window.replyToDataAduan = window.replyToDataAduan || null;
+var replyToDataAduan = window.replyToDataAduan;
 
 // Peta Geotagging Mandiri
-let mapGeotaggingInstance = null;
-let markerGeotaggingInstance = null;
+window.mapGeotaggingInstance = window.mapGeotaggingInstance || null;
+var mapGeotaggingInstance = window.mapGeotaggingInstance;
+window.markerGeotaggingInstance = window.markerGeotaggingInstance || null;
+var markerGeotaggingInstance = window.markerGeotaggingInstance;
 
 // Captcha State
-let captchaAnswerPendaftaran = 0;
+window.captchaAnswerPendaftaran = window.captchaAnswerPendaftaran || 0;
+var captchaAnswerPendaftaran = window.captchaAnswerPendaftaran;
 
 // Tour State
-let activeTourIndex = 0;
+window.activeTourIndex = window.activeTourIndex || 0;
+var activeTourIndex = window.activeTourIndex;
 
 // Injeksi CSS Dinamis untuk Animasi Tur, Popover Titik Tiga, Modal Lapor Membulat, & Voice Card
 const portalStyle = document.createElement('style');
@@ -107,75 +153,6 @@ portalStyle.innerHTML = `
         to { opacity: 1; transform: translate(-50%, 0); }
     }
     
-    /* Popover Menu Titik Tiga Ramping & Elegan */
-    .aduan-dropdown-menu {
-        position: absolute;
-        top: 26px;
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.16), 0 4px 6px -2px rgba(15, 23, 42, 0.06);
-        padding: 4px;
-        width: 145px;
-        min-width: 138px;
-        max-width: 155px;
-        z-index: 999999 !important;
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
-        animation: fadeInDownMenu 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    @keyframes fadeInDownMenu {
-        from { opacity: 0; transform: translateY(-4px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    .aduan-dropdown-menu.menu-right {
-        right: 0;
-        left: auto;
-    }
-    .aduan-dropdown-menu.menu-left {
-        left: 0;
-        right: auto;
-    }
-    .aduan-dropdown-menu button {
-        background: none;
-        border: none;
-        padding: 5px 8px;
-        font-size: 0.74rem;
-        font-weight: 600;
-        color: #334155;
-        text-align: left;
-        border-radius: 6px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        transition: all 0.15s ease;
-        line-height: 1.2;
-    }
-    .aduan-dropdown-menu button:hover {
-        background: #f8fafc;
-        color: #009846;
-        transform: none;
-    }
-    .btn-msg-dots {
-        background: rgba(0,0,0,0.04);
-        border: none;
-        color: #64748b;
-        cursor: pointer;
-        width: 28px;
-        height: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.85rem;
-        border-radius: 50%;
-        transition: all 0.15s;
-    }
-    .btn-msg-dots:hover {
-        color: #0f172a;
-        background: rgba(0,0,0,0.1);
-    }
 
     /* Modal Swal Serba Membulat & Modern */
     .swal2-popup.swal-rounded-popup {
@@ -387,10 +364,12 @@ function safeHtml(str) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
 }
+window.safeHtml = safeHtml;
 
 function enc(str) {
     return encodeURIComponent(str || '');
 }
+window.enc = enc;
 
 function formatAudioTime(seconds) {
     if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return '00:00';
@@ -398,6 +377,7 @@ function formatAudioTime(seconds) {
     const s = Math.floor(seconds % 60);
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
+window.formatAudioTime = formatAudioTime;
 
 function showPortalAlert(options) {
     if (typeof Swal !== 'undefined') {
@@ -406,6 +386,7 @@ function showPortalAlert(options) {
     alert(options.text || options.title || 'Pemberitahuan');
     return Promise.resolve({ isConfirmed: true, value: true });
 }
+window.showPortalAlert = showPortalAlert;
 
 // =========================================================================
 
@@ -449,11 +430,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 document.addEventListener('click', (e) => {
-    if (!e.target.closest('[id^="aduan-menu-"]') && !e.target.closest('.btn-msg-dots')) {
-        document.querySelectorAll('[id^="aduan-menu-"]').forEach(m => m.style.display = 'none');
+    if (!e.target.closest('[id^="aduan-menu-"]') && !e.target.closest('.aduan-dropdown-menu') && !e.target.closest('.btn-msg-dots') && !e.target.closest('.bubble-corner-btn')) {
+        document.querySelectorAll('[id^="aduan-menu-"], .aduan-dropdown-menu').forEach(m => {
+            m.style.display = 'none';
+            m.classList.remove('show');
+        });
     }
-    if (!e.target.closest('[id^="menu-warga-"]') && !e.target.closest('.btn-msg-dots')) {
-        document.querySelectorAll('[id^="menu-warga-"]').forEach(m => m.style.display = 'none');
+    if (!e.target.closest('[id^="menu-warga-"]') && !e.target.closest('.aduan-dropdown-menu') && !e.target.closest('.btn-msg-dots') && !e.target.closest('.bubble-corner-btn')) {
+        document.querySelectorAll('[id^="menu-warga-"], .aduan-dropdown-menu').forEach(m => {
+            m.style.display = 'none';
+            m.classList.remove('show');
+        });
     }
     const emojiPicker = document.getElementById('emojiPickerWarga');
     if (emojiPicker && !e.target.closest('#emojiPickerWarga') && !e.target.closest('.emoji-toggle-btn')) {

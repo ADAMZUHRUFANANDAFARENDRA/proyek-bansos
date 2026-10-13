@@ -7,6 +7,7 @@ import {
   pengaduanStore,
   catatNotifikasi,
   formatWarga,
+  formatWargaSafe,
   nowTimeStr,
   upload
 } from '../store.js';
@@ -17,9 +18,23 @@ import {
   seedInitialWarga
 } from '../spk_engine.js';
 import { broadcastRealtimeEvent, realtimeAduanUpdate } from '../realtime.js';
+import { verifySecureJwt } from '../security_guard.js';
 import type { WargaItem } from '../types.js';
 
 const router = Router();
+
+function isStaffAuthenticated(req: Request): boolean {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7).trim();
+    const ver = verifySecureJwt(token);
+    if (ver.valid && ver.payload && ver.payload.role) {
+      return true;
+    }
+  }
+  const headerRole = String(req.headers['x-user-role'] || '').toLowerCase();
+  return ['super_admin', 'superadmin', 'admin', 'developer', 'petugas'].includes(headerRole);
+}
 
 router.get(['/', '/warga', '/api/warga'], (req: Request, res: Response) => {
   seedInitialWarga();
@@ -63,7 +78,8 @@ router.get(['/', '/warga', '/api/warga'], (req: Request, res: Response) => {
     list.sort((a, b) => b.id - a.id);
   }
 
-  res.json(list.map(formatWarga));
+  const isAuth = isStaffAuthenticated(req);
+  res.json(list.map(w => isAuth ? formatWarga(w) : formatWargaSafe(w, true)));
 });
 
 router.post(['/', '/warga', '/api/warga', '/api/publik/daftar'], upload.any(), (req: Request, res: Response) => {
@@ -525,14 +541,16 @@ router.all(['/:warga_id/verify'], (req: Request, res: Response) => {
   });
 });
 
-router.all(['/:warga_id'], (req: Request, res: Response) => {
+router.all(['/:warga_id', '/nik/:warga_id'], (req: Request, res: Response) => {
+  if (wargaStore.length === 0) seedInitialWarga();
   const param = String(req.params.warga_id).trim();
   const idx = wargaStore.findIndex(x => String(x.id) === param || x.nik === param);
   if (idx === -1) return res.status(404).json({ status: 'error', message: 'Warga tidak ditemukan.' });
   const w = wargaStore[idx];
 
   if (req.method === 'GET') {
-    return res.json({ status: 'success', data: formatWarga(w) });
+    const isAuth = isStaffAuthenticated(req);
+    return res.json({ status: 'success', data: isAuth ? formatWarga(w) : formatWargaSafe(w, true) });
   }
 
   if (req.method === 'DELETE') {

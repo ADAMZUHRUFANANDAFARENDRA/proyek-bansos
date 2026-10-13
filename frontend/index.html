@@ -56,18 +56,9 @@
             </a>
             
             <div class="user-profile">
-                <button type="button" id="btnNavCyberShield" onclick="window.bukaModalKeamananSiber ? window.bukaModalKeamananSiber() : null" class="btn-chat-nav" style="background:#090d16; border:1px solid #10b981; color:#34d399; margin-right:6px; display:none;" title="Pusat Keamanan Siber & Deteksi WAF (Super Admin Khusus)">
-                    <i class="fas fa-shield-alt text-emerald-400"></i> Cyber Shield <span id="navWafBadge" class="badge-red" style="display:none; font-size:0.68rem; padding:1px 6px; border-radius:10px; margin-left:4px;">0</span>
-                </button>
-                <button type="button" id="btnNavEskalasiDev" onclick="window.bukaModalEskalasiSuperAdmin ? window.bukaModalEskalasiSuperAdmin() : null" class="btn-chat-nav" style="background:#450a0a; border:1px solid #ef4444; color:#fca5a5; margin-right:6px; display:none;" title="Pusat Eskalasi Aduan & Cek Kode (Super Admin)">
-                    <i class="fas fa-code-branch text-red-400"></i> Eskalasi Aduan <span id="badgeNavEskalasiCount" class="badge-red" style="display:none; font-size:0.68rem; padding:1px 6px; border-radius:10px; margin-left:4px;">0</span>
-                </button>
                 <button onclick="window.openAdminChat ? window.openAdminChat() : null" class="btn-chat-nav">
                     <i class="fas fa-comments"></i> Chat Warga
                 </button>
-                <a href="/publik.html" id="btnNavPortalWarga" target="_blank" class="btn-chat-nav" style="text-decoration:none; color:#334155; background:#ffffff; border:1px solid #cbd5e1; margin-right:6px; display:none;" title="Portal Warga (Khusus Uji Sistem & Penelusuran Eror - Super Admin & Developer)">
-                    <i class="fas fa-stethoscope text-emerald-600"></i> Portal Warga (Uji Sistem)
-                </a>
                 
                 <div class="notif-wrapper" onclick="window.toggleNotifPanel ? window.toggleNotifPanel(event) : null">
                     <i class="fas fa-bell notif-icon"></i>
@@ -96,6 +87,32 @@
                 <div class="user-info">
                     <div class="user-name" id="navUsername">Memuat...</div>
                     <div id="navRoleBadge" class="role-badge">Tamu</div>
+                    <script>
+                        (function() {
+                            try {
+                                const role = (localStorage.getItem('role') || localStorage.getItem('user_role') || localStorage.getItem('bansos_user_role') || '').toLowerCase().replace(/[\s-]/g, '_');
+                                const rawU = localStorage.getItem('user') || localStorage.getItem('current_user') || localStorage.getItem('bansos_user_data');
+                                let uObj = null;
+                                try { uObj = rawU ? JSON.parse(rawU) : null; } catch(_) {}
+                                const uname = localStorage.getItem('username') || uObj?.username || uObj?.nama_lengkap || 'ADMIN';
+                                const nEl = document.getElementById('navUsername');
+                                const rEl = document.getElementById('navRoleBadge');
+                                if (nEl) nEl.textContent = uname.toUpperCase();
+                                if (rEl) {
+                                    if (role === 'super_admin' || role === 'developer') {
+                                        rEl.style.cssText = 'background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
+                                        rEl.innerHTML = '<i class="fas fa-shield-alt"></i> Super Admin';
+                                    } else if (role === 'admin') {
+                                        rEl.style.cssText = 'background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
+                                        rEl.innerHTML = '<i class="fas fa-user-tie"></i> Admin Bansos';
+                                    } else {
+                                        rEl.style.cssText = 'background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
+                                        rEl.innerHTML = '<i class="fas fa-user-edit"></i> Petugas Lapangan';
+                                    }
+                                }
+                            } catch (_) {}
+                        })();
+                    </script>
                 </div>
                 <button onclick="if (window.Auth && typeof window.Auth.logout === 'function') { window.Auth.logout(); } else if (window.logout) { window.logout(); } else { try { localStorage.clear(); sessionStorage.clear(); } catch(e){} window.location.replace('/aparatur?logout=1'); }" class="btn-logout-nav" title="Keluar">
                     <i class="fas fa-sign-out-alt"></i>
@@ -201,6 +218,20 @@
                             <span id="badgeTileEskalasiCount" style="background:#dc2626; color:#ffffff; font-size:0.68rem; padding:1px 6px; border-radius:10px; font-weight:800; display:none;">0</span>
                         </div>
                         <div class="cmd-tile-desc">Audit Aduan & Log Teknis</div>
+                    </div>
+                </div>
+
+                <!-- Tile 8: Pusat Uji Sistem Terpadu (Super Admin Khusus) -->
+                <div class="cmd-tile-item tile-teal" id="tileUjiSistem" onclick="window.bukaModalUjiSistem ? window.bukaModalUjiSistem() : null" style="background:#f0fdf4; border:1px solid #86efac; cursor:pointer; display:none;">
+                    <div class="cmd-tile-icon-box" style="background:#dcfce7; color:#15803d;">
+                        <i class="fas fa-vial"></i>
+                    </div>
+                    <div class="cmd-tile-body">
+                        <div class="cmd-tile-name" style="color:#14532d; display:flex; align-items:center; gap:6px;">
+                            Uji Sistem
+                            <span style="background:#15803d; color:#ffffff; font-size:0.65rem; padding:1px 6px; border-radius:10px; font-weight:800;">3 Opsi</span>
+                        </div>
+                        <div class="cmd-tile-desc">Uji Warga, Login & Admin</div>
                     </div>
                 </div>
             </div>
@@ -577,22 +608,13 @@
                         <div class="form-group"><label class="form-label">Username</label><input type="text" id="manageUsername" class="form-input" required placeholder="Masukkan username"></div>
                         <div class="form-group" id="groupManagePassword"><label class="form-label">Kata Sandi</label><input type="password" id="managePassword" class="form-input" required placeholder="Masukkan kata sandi"></div>
                         
-                        <!-- Panel Kredensial Khusus Super Admin & Admin Bansos -->
-                        <div id="credentialDetailsBox" style="display:none; margin-bottom:15px; padding:12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; font-size:0.82rem;">
-                            <div style="font-weight:700; color:#1e40af; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-                                <i class="fas fa-shield-alt"></i> Info Kredensial (Super Admin / Admin)
+                        <!-- Panel Status Keamanan Kredensial Zero-Knowledge -->
+                        <div id="credentialDetailsBox" style="display:none; margin-bottom:15px; padding:12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; font-size:0.82rem;">
+                            <div style="font-weight:700; color:#166534; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                                <i class="fas fa-shield-alt"></i> Keamanan Kredensial (Zero-Knowledge)
                             </div>
-                            <div style="margin-bottom:8px;">
-                                <label style="color:#475569; font-weight:600; display:block; margin-bottom:3px;">Kata Sandi Saat Ini:</label>
-                                <div style="display:flex; align-items:center; gap:6px;">
-                                    <input type="password" id="displayCurrentPassword" readonly style="flex:1; background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; padding:6px 8px; font-family:monospace; font-weight:700; font-size:0.85rem; color:#0f172a;">
-                                    <button type="button" onclick="window.toggleShowCurrentPassword()" class="btn btn-sm" style="padding:6px 9px; background:#e2e8f0; color:#334155; border:none; border-radius:6px; cursor:pointer;" title="Lihat/Sembunyikan"><i id="togglePassIcon" class="fas fa-eye"></i></button>
-                                    <button type="button" onclick="window.salinCurrentPassword()" class="btn btn-sm" style="padding:6px 9px; background:#dbeafe; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:6px; cursor:pointer;" title="Salin Kata Sandi"><i class="fas fa-copy"></i></button>
-                                </div>
-                            </div>
-                            <div id="boxPreviousPasswords" style="margin-top:8px;">
-                                <label style="color:#475569; font-weight:600; display:block; margin-bottom:3px;">Riwayat Sandi Sebelumnya:</label>
-                                <div id="listPreviousPasswords" style="max-height:85px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;"></div>
+                            <div style="color:#475569; font-size:0.78rem;">
+                                Seluruh kata sandi tersimpan dalam enkripsi satu arah yang aman. Untuk mengubah kata sandi, masukkan kata sandi baru pada formulir.
                             </div>
                         </div>
 
@@ -1976,11 +1998,13 @@
                         </button>
                     </div>
 
-                    <!-- FILTER CEPAT (SEMUA, PRIORITAS DESIL 1 HINGGA 4, PESAN BARU) -->
-                    <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; margin-bottom:10px; background:#f1f5f9; padding:4px; border-radius:12px; width:100%; box-sizing:border-box;">
-                        <button type="button" class="chat-filter-chip active" id="chipFilterSemua" onclick="window.filterChatKategori('semua')" style="width:100%;" title="Tampilkan Semua Pesan">Semua</button>
-                        <button type="button" class="chat-filter-chip" id="chipFilterDesil" onclick="window.filterChatKategori('desil1-4')" style="width:100%; font-size:0.71rem; letter-spacing:-0.2px;" title="Filter Prioritas Desil 1 hingga 4">Prioritas Desil 1–4</button>
-                        <button type="button" class="chat-filter-chip" id="chipFilterUnread" onclick="window.filterChatKategori('unread')" style="width:100%;" title="Pesan Baru & Belum Terbaca">Pesan Baru</button>
+                    <!-- FILTER CEPAT (SEMUA, PRIORITAS DESIL 1 HINGGA 4, DESIL 5 HINGGA 10, PESAN BARU, PELAPORAN) -->
+                    <div style="display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:3px; margin-bottom:10px; background:#f1f5f9; padding:4px; border-radius:12px; width:100%; box-sizing:border-box;">
+                        <button type="button" class="chat-filter-chip active" id="chipFilterSemua" onclick="window.filterChatKategori('semua')" style="width:100%; font-size:0.7rem; padding:6px 1px;" title="Tampilkan Semua">Semua</button>
+                        <button type="button" class="chat-filter-chip" id="chipFilterDesil" onclick="window.filterChatKategori('desil1-4')" style="width:100%; font-size:0.64rem; padding:6px 1px; letter-spacing:-0.2px;" title="Prioritas Desil 1 hingga 4">Desil 1–4</button>
+                        <button type="button" class="chat-filter-chip" id="chipFilterDesil5_10" onclick="window.filterChatKategori('desil5-10')" style="width:100%; font-size:0.64rem; padding:6px 1px; letter-spacing:-0.2px;" title="Desil 5 hingga 10">Desil 5–10</button>
+                        <button type="button" class="chat-filter-chip" id="chipFilterUnread" onclick="window.filterChatKategori('unread')" style="width:100%; font-size:0.64rem; padding:6px 1px;" title="Pesan Baru & Belum Terbaca">Pesan Baru</button>
+                        <button type="button" class="chat-filter-chip" id="chipFilterPelaporan" onclick="window.filterChatKategori('pelaporan')" style="width:100%; font-size:0.64rem; padding:6px 1px;" title="Khusus Pesan Laporan Aduan / Sanggahan">Pelaporan</button>
                     </div>
 
                     <!-- PENCARIAN NAMA / NIK / ALAMAT -->
@@ -2080,9 +2104,9 @@
                                 <i class="fas fa-check-circle text-success"></i> <span>Selesaikan Laporan</span>
                             </button>
 
-                            <!-- TOMBOL CARI DALAM CHAT -->
-                            <button type="button" onclick="window.toggleChatInlineSearch()" class="btn btn-sm" style="background:#f8fafc; color:#475569; border:1px solid #cbd5e1; border-radius:50%; width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; font-size:0.78rem; cursor:pointer; flex-shrink:0;" title="Cari Pesan dalam Obrolan Ini">
-                                <i class="fas fa-search"></i>
+                            <!-- TOMBOL CARI DALAM CHAT (PILL MODERN PERSIS DASHBOARD PRIBADI ANDA) -->
+                            <button type="button" id="btnToggleChatSearchAdmin" onclick="window.toggleChatInlineSearch()" class="btn btn-sm" style="background:#f8fafc; color:#1e293b; border:1.5px solid #cbd5e1; border-radius:20px; font-weight:700; padding:5px 12px; font-size:0.76rem; display:inline-flex; align-items:center; gap:5px; cursor:pointer; flex-shrink:0; box-shadow:0 1px 3px rgba(0,0,0,0.05);" title="Cari Pesan dalam Obrolan Ini">
+                                <i class="fas fa-search text-muted"></i> <span>Cari</span>
                             </button>
 
                             <!-- MENU TITIK TIGA HEADER (OPSI LENGKAP: PROFIL, PELANGGARAN, GEOTAG, DLL) -->
@@ -2103,12 +2127,35 @@
                         </div>
                     </div>
 
-                    <!-- BILAH PENCARIAN PESAN INLINE (TERSEMBUNYI SECARA DEFAULT) -->
-                    <div id="chatInlineSearchBar" class="chat-search-bar" style="display:none;">
-                        <i class="fas fa-search text-muted" style="font-size:0.8rem;"></i>
-                        <input type="text" id="chatSearchMessageInput" placeholder="Ketik kata kunci untuk mencari pesan..." oninput="window.filterInlineChatMessages()" style="flex:1; border:none; background:transparent; outline:none; font-size:0.82rem;">
-                        <span id="chatSearchCount" style="font-size:0.72rem; color:#64748b; font-weight:700;"></span>
-                        <button type="button" onclick="window.toggleChatInlineSearch()" style="background:none; border:none; color:#64748b; cursor:pointer; font-size:0.85rem;"><i class="fas fa-times"></i></button>
+                    <!-- BILAH PENCARIAN & FILTER PESAN CEPAT MODERN (PERSIS DASHBOARD PRIBADI ANDA) -->
+                    <div id="chatInlineSearchBar" class="chat-search-panel" style="display:none;">
+                        <!-- BARIS 1: INPUT PENCARIAN, COUNTER, DAN TOMBOL NAVIGASI NAIK/TURUN/TUTUP -->
+                        <div class="chat-search-input-row">
+                            <div class="chat-search-input-wrap">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="chatSearchMessageInput" class="chat-search-input" placeholder="Cari pesan teks, suara, atau berkas..." oninput="window.filterInlineChatMessages()">
+                            </div>
+                            <span id="chatSearchCount" class="chat-search-counter-badge" style="display:none;">0 hasil</span>
+                            <button type="button" class="chat-search-btn-icon" onclick="window.navigasiHasilCariAdminChat('prev')" title="Pesan Sebelumnya (Naik)"><i class="fas fa-chevron-up"></i></button>
+                            <button type="button" class="chat-search-btn-icon" onclick="window.navigasiHasilCariAdminChat('next')" title="Pesan Berikutnya (Turun)"><i class="fas fa-chevron-down"></i></button>
+                            <button type="button" class="chat-search-btn-icon" onclick="window.toggleChatInlineSearch()" title="Tutup Pencarian"><i class="fas fa-times"></i></button>
+                        </div>
+                        <!-- BARIS 2: CHIP FILTER MULTIMODA & KALENDER TANGGAL -->
+                        <div class="chat-search-filter-pills">
+                            <span style="font-size:0.7rem; font-weight:800; color:#64748b; margin-right:2px;">Tipe:</span>
+                            <button type="button" class="chat-filter-chip active" id="chipFilterAdminTypeAll" onclick="window.setAdminChatFilterType('all')">Semua</button>
+                            <button type="button" class="chat-filter-chip" id="chipFilterAdminTypeText" onclick="window.setAdminChatFilterType('text')">💬 Teks</button>
+                            <button type="button" class="chat-filter-chip" id="chipFilterAdminTypeMedia" onclick="window.setAdminChatFilterType('media')">🖼️ Media</button>
+                            <button type="button" class="chat-filter-chip" id="chipFilterAdminTypeFile" onclick="window.setAdminChatFilterType('file')">📄 Dokumen</button>
+                            <button type="button" class="chat-filter-chip" id="chipFilterAdminTypeAudio" onclick="window.setAdminChatFilterType('audio')">🎤 Suara</button>
+                            <button type="button" class="chat-filter-chip" id="chipFilterAdminTypeStarred" onclick="window.setAdminChatFilterType('starred')">⭐ Bintang</button>
+                            <button type="button" class="chat-filter-chip" id="chipFilterAdminTypeEmoji" onclick="window.setAdminChatFilterType('emoji')">😊 Emoji</button>
+                            <div style="display:inline-flex; align-items:center; gap:4px; margin-left:auto;">
+                                <label for="adminChatSearchDate" style="font-size:0.7rem; font-weight:800; color:#64748b;"><i class="fas fa-calendar-alt text-primary"></i> Tgl:</label>
+                                <input type="date" id="adminChatSearchDate" class="chat-search-date-input" onchange="window.filterInlineChatMessages()" title="Filter tanggal, bulan, tahun">
+                                <button type="button" class="chat-filter-chip" onclick="document.getElementById('adminChatSearchDate').value=''; window.filterInlineChatMessages();" title="Reset filter tanggal" style="padding:2px 6px;">✕</button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- BILAH PESAN DISEMATKAN (PINNED BANNER) -->
@@ -3853,6 +3900,350 @@
             </div>
         </div>
     </div>
+
+    <!-- =========================================================================
+         MODAL PUSAT UJI SISTEM TERPADU & DIAGNOSTIK (SUPER ADMIN KHUSUS)
+         Mencakup 3 Opsi: Uji Portal Warga, Uji Portal Login, Uji Portal Admin
+         ========================================================================= -->
+    <div id="modalUjiSistemTerpadu" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); backdrop-filter:blur(5px); z-index:99999; justify-content:center; align-items:center; padding:16px;">
+        <div style="background:#ffffff; width:100%; max-width:960px; max-height:92vh; border-radius:20px; box-shadow:0 25px 60px rgba(0,0,0,0.3); display:flex; flex-direction:column; overflow:hidden; border:1px solid #cbd5e1; animation:cardFade 0.25s ease;">
+            
+            <!-- HEADER MODAL -->
+            <div style="padding:18px 24px; background:linear-gradient(135deg, #064e3b 0%, #047857 50%, #009846 100%); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:42px; height:42px; border-radius:12px; background:rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; font-size:1.25rem;">
+                        <i class="fas fa-vial text-white"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1.15rem; font-weight:800; letter-spacing:-0.2px;">Pusat Uji Sistem Terpadu &amp; Diagnostik</div>
+                        <div style="font-size:0.75rem; opacity:0.9; font-weight:600;">Pengujian Menyeluruh 3 Portal: Portal Warga, Portal Login, &amp; Portal Admin (Super Admin)</div>
+                    </div>
+                </div>
+                <button type="button" onclick="window.tutupModalUjiSistem()" style="background:rgba(255,255,255,0.15); border:none; color:#ffffff; width:36px; height:36px; border-radius:50%; font-size:1.2rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+                    &times;
+                </button>
+            </div>
+
+            <!-- STATUS BAR RINGKAS -->
+            <div style="padding:10px 24px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; flex-wrap:wrap; gap:14px; align-items:center; justify-content:space-between; font-size:0.75rem; font-weight:700;">
+                <div style="display:flex; gap:12px; align-items:center;">
+                    <span style="display:inline-flex; align-items:center; gap:6px; color:#15803d; background:#dcfce7; padding:3px 10px; border-radius:12px; border:1px solid #86efac;">
+                        <span style="width:7px; height:7px; border-radius:50%; background:#22c55e;"></span> API Gateway: 3000 Online
+                    </span>
+                    <span style="display:inline-flex; align-items:center; gap:6px; color:#0369a1; background:#e0f2fe; padding:3px 10px; border-radius:12px; border:1px solid #bae6fd;">
+                        <span style="width:7px; height:7px; border-radius:50%; background:#0284c7;"></span> DB Store: In-Memory Sync
+                    </span>
+                    <span style="display:inline-flex; align-items:center; gap:6px; color:#7c3aed; background:#ede9fe; padding:3px 10px; border-radius:12px; border:1px solid #ddd6fe;">
+                        <span style="width:7px; height:7px; border-radius:50%; background:#8b5cf6;"></span> Realtime: Connected
+                    </span>
+                </div>
+                <div style="color:#64748b; font-size:0.73rem;">
+                    Lingkungan Pengujian Resmi &bull; Kab. Sidoarjo
+                </div>
+            </div>
+
+            <!-- TAB NAVIGASI 3 OPSI -->
+            <div style="padding:10px 18px 0 18px; background:#ffffff; border-bottom:1px solid #e2e8f0; display:flex; gap:8px; overflow-x:auto; flex-wrap:nowrap; -webkit-overflow-scrolling:touch; scrollbar-width:none;">
+                <button type="button" id="btnTabUji_portal_warga" onclick="window.pilihTabUjiSistem('portal_warga')" class="tab-uji-sistem-btn active" style="padding:10px 18px; border-radius:12px 12px 0 0; border:1.5px solid #009846; border-bottom:none; background:#ffffff; font-size:0.82rem; font-weight:800; color:#009846; cursor:pointer; display:flex; align-items:center; gap:8px; white-space:nowrap; flex-shrink:0; transition:all 0.2s;">
+                    <i class="fas fa-users"></i> 1. Uji Portal Warga (Publik)
+                </button>
+                <button type="button" id="btnTabUji_portal_login" onclick="window.pilihTabUjiSistem('portal_login')" class="tab-uji-sistem-btn" style="padding:10px 18px; border-radius:12px 12px 0 0; border:1.5px solid #e2e8f0; border-bottom:none; background:#f8fafc; font-size:0.82rem; font-weight:800; color:#475569; cursor:pointer; display:flex; align-items:center; gap:8px; white-space:nowrap; flex-shrink:0; transition:all 0.2s;">
+                    <i class="fas fa-shield-alt"></i> 2. Uji Portal Login (Autentikasi)
+                </button>
+                <button type="button" id="btnTabUji_portal_admin" onclick="window.pilihTabUjiSistem('portal_admin')" class="tab-uji-sistem-btn" style="padding:10px 18px; border-radius:12px 12px 0 0; border:1.5px solid #e2e8f0; border-bottom:none; background:#f8fafc; font-size:0.82rem; font-weight:800; color:#475569; cursor:pointer; display:flex; align-items:center; gap:8px; white-space:nowrap; flex-shrink:0; transition:all 0.2s;">
+                    <i class="fas fa-user-shield"></i> 3. Uji Portal Admin &amp; Hak Akses
+                </button>
+            </div>
+
+            <!-- BODY CONTENT (SCROLLABLE) -->
+            <div style="flex:1; overflow-y:auto; padding:20px 24px; background:#f8fafc;">
+                
+                <!-- TAB 1: UJI PORTAL WARGA -->
+                <div id="tabContentUjiWarga">
+                    <div style="background:#ffffff; border-radius:16px; padding:18px; border:1px solid #e2e8f0; margin-bottom:16px; box-shadow:0 2px 6px rgba(0,0,0,0.02);">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                            <div>
+                                <div style="font-size:0.95rem; font-weight:800; color:#0f172a; margin-bottom:4px;">
+                                    <i class="fas fa-stethoscope text-emerald-600"></i> Pengujian Menyeluruh Portal Layanan Warga
+                                </div>
+                                <div style="font-size:0.78rem; color:#64748b; line-height:1.5;">
+                                    Uji alur publik: formulir pencarian NIK bansos, sanggahan, chat mediasi (audio &amp; video), pin &amp; bintang pesan, serta modal profil lengkap 10 kriteria warga.
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <button type="button" onclick="window.bukaPortalWargaDiagnostik()" style="background:#0f172a; color:#34d399; border:1px solid #10b981; padding:8px 14px; border-radius:10px; font-size:0.76rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                                    <i class="fas fa-stethoscope"></i> Buka Mode Diagnostik
+                                </button>
+                                <button type="button" onclick="window.bukaPortalWargaNormal()" style="background:#ffffff; color:#334155; border:1px solid #cbd5e1; padding:8px 14px; border-radius:10px; font-size:0.76rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                                    <i class="fas fa-external-link-alt"></i> Tampilan Warga Asli
+                                </button>
+                                <button type="button" id="btnRunTesWarga" onclick="window.jalankanTesPortalWarga()" style="background:linear-gradient(135deg, #009846, #007a37); color:#ffffff; border:none; padding:8px 16px; border-radius:10px; font-size:0.76rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 3px 8px rgba(0,152,70,0.25);">
+                                    <i class="fas fa-play-circle"></i> Jalankan Uji Portal Warga
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- GRID KARTU PENGUJIAN PORTAL WARGA -->
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px;">
+                            <div id="cardTesWarga_CekBansos" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.8rem; font-weight:800; color:#1e293b;"><i class="fas fa-search text-primary"></i> API Cek Bansos NIK</span>
+                                    <span class="uji-card-badge" style="font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:8px; background:#e2e8f0; color:#64748b;">MENUNGGU</span>
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b; margin-bottom:4px;">Endpoint: <code>/api/publik/cek-bansos</code></div>
+                                <div class="uji-card-detail" style="font-size:0.72rem; color:#475569; font-weight:600;">Validasi pencocokan 16 digit NIK</div>
+                                <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">Latensi: <span class="uji-card-latency">-</span></div>
+                            </div>
+
+                            <div id="cardTesWarga_10Kriteria" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.8rem; font-weight:800; color:#1e293b;"><i class="fas fa-id-card text-blue-600"></i> Profil 10 Kriteria Warga</span>
+                                    <span class="uji-card-badge" style="font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:8px; background:#e2e8f0; color:#64748b;">MENUNGGU</span>
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b; margin-bottom:4px;">Endpoint: <code>/api/publik/dashboard-warga</code></div>
+                                <div class="uji-card-detail" style="font-size:0.72rem; color:#475569; font-weight:600;">Integritas data 10 kriteria kemiskinan</div>
+                                <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">Latensi: <span class="uji-card-latency">-</span></div>
+                            </div>
+
+                            <div id="cardTesWarga_Chat" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.8rem; font-weight:800; color:#1e293b;"><i class="fas fa-comments text-emerald-600"></i> API Chat Mediasi Warga</span>
+                                    <span class="uji-card-badge" style="font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:8px; background:#e2e8f0; color:#64748b;">MENUNGGU</span>
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b; margin-bottom:4px;">Endpoint: <code>/api/chat/:nik</code></div>
+                                <div class="uji-card-detail" style="font-size:0.72rem; color:#475569; font-weight:600;">Sinkronisasi respon resmi &amp; riwayat pesan</div>
+                                <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">Latensi: <span class="uji-card-latency">-</span></div>
+                            </div>
+
+                            <div id="cardTesWarga_Komponen" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.8rem; font-weight:800; color:#1e293b;"><i class="fas fa-play text-purple-600"></i> Komponen Media &amp; Aksi</span>
+                                    <span class="uji-card-badge" style="font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:8px; background:#e2e8f0; color:#64748b;">MENUNGGU</span>
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b; margin-bottom:4px;">UI Komponen Interaktif</div>
+                                <div class="uji-card-detail" style="font-size:0.72rem; color:#475569; font-weight:600;">Audio bubble, Video speed 0.5x-2x, Pin/Star</div>
+                                <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">Latensi: <span class="uji-card-latency">-</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: UJI PORTAL LOGIN -->
+                <div id="tabContentUjiLogin" style="display:none;">
+                    <div style="background:#ffffff; border-radius:16px; padding:18px; border:1px solid #e2e8f0; margin-bottom:16px; box-shadow:0 2px 6px rgba(0,0,0,0.02);">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                            <div>
+                                <div style="font-size:0.95rem; font-weight:800; color:#0f172a; margin-bottom:4px;">
+                                    <i class="fas fa-shield-alt text-amber-600"></i> Pengujian Portal Login &amp; Autentikasi Pegawai
+                                </div>
+                                <div style="font-size:0.78rem; color:#64748b; line-height:1.5;">
+                                    Uji verifikasi kredensial untuk ketiga kategori akun (Super Admin, Admin Bansos, Petugas), proteksi brute force rate limiter, serta validasi captcha.
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <button type="button" onclick="window.bukaPortalLoginTest()" style="background:#ffffff; color:#334155; border:1px solid #cbd5e1; padding:8px 14px; border-radius:10px; font-size:0.76rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                                    <i class="fas fa-sign-in-alt"></i> Buka Halaman Login
+                                </button>
+                                <button type="button" id="btnRunTesLogin" onclick="window.jalankanTesPortalLogin()" style="background:linear-gradient(135deg, #009846, #007a37); color:#ffffff; border:none; padding:8px 16px; border-radius:10px; font-size:0.76rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 3px 8px rgba(0,152,70,0.25);">
+                                    <i class="fas fa-play-circle"></i> Jalankan Uji Portal Login
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- GRID KARTU PENGUJIAN PORTAL LOGIN -->
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px;">
+                            <div id="cardTesLogin_SuperAdmin" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.8rem; font-weight:800; color:#1e293b;"><i class="fas fa-user-shield text-red-600"></i> Akun Super Admin</span>
+                                    <span class="uji-card-badge" style="font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:8px; background:#e2e8f0; color:#64748b;">MENUNGGU</span>
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b; margin-bottom:4px;">Otentikasi: <code>Otoritas Super Admin (Privileged)</code></div>
+                                <div class="uji-card-detail" style="font-size:0.72rem; color:#475569; font-weight:600;">Validasi token &amp; hak akses penuh</div>
+                                <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">Latensi: <span class="uji-card-latency">-</span></div>
+                            </div>
+
+                            <div id="cardTesLogin_AdminBansos" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.8rem; font-weight:800; color:#1e293b;"><i class="fas fa-user-tie text-indigo-600"></i> Akun Admin Bansos</span>
+                                    <span class="uji-card-badge" style="font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:8px; background:#e2e8f0; color:#64748b;">MENUNGGU</span>
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b; margin-bottom:4px;">Otentikasi: <code>Otoritas Admin Bansos (Operasional)</code></div>
+                                <div class="uji-card-detail" style="font-size:0.72rem; color:#475569; font-weight:600;">Verifikasi role 'admin' (bukan super_admin)</div>
+                                <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">Latensi: <span class="uji-card-latency">-</span></div>
+                            </div>
+
+                            <div id="cardTesLogin_Petugas" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.8rem; font-weight:800; color:#1e293b;"><i class="fas fa-user-edit text-sky-600"></i> Akun Petugas Lapangan</span>
+                                    <span class="uji-card-badge" style="font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:8px; background:#e2e8f0; color:#64748b;">MENUNGGU</span>
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b; margin-bottom:4px;">Otentikasi: <code>Otoritas Petugas Lapangan (Verifikator)</code></div>
+                                <div class="uji-card-detail" style="font-size:0.72rem; color:#475569; font-weight:600;">Verifikasi role 'petugas'</div>
+                                <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">Latensi: <span class="uji-card-latency">-</span></div>
+                            </div>
+
+                            <div id="cardTesLogin_BruteForce" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.8rem; font-weight:800; color:#1e293b;"><i class="fas fa-lock text-emerald-600"></i> Brute-Force &amp; Security Guard</span>
+                                    <span class="uji-card-badge" style="font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:8px; background:#e2e8f0; color:#64748b;">MENUNGGU</span>
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b; margin-bottom:4px;">Proteksi Credential Stuffing</div>
+                                <div class="uji-card-detail" style="font-size:0.72rem; color:#475569; font-weight:600;">Penolakan tepat HTTP 401/403</div>
+                                <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">Latensi: <span class="uji-card-latency">-</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: UJI PORTAL ADMIN & HAK AKSES -->
+                <div id="tabContentUjiAdmin" style="display:none;">
+                    <div style="background:#ffffff; border-radius:16px; padding:18px; border:1px solid #e2e8f0; margin-bottom:16px; box-shadow:0 2px 6px rgba(0,0,0,0.02);">
+                        <div style="margin-bottom:14px;">
+                            <div style="font-size:0.95rem; font-weight:800; color:#0f172a; margin-bottom:4px;">
+                                <i class="fas fa-sliders-h text-primary"></i> Alat Simulasi Ganti Role (1-Click Switcher)
+                            </div>
+                            <div style="font-size:0.78rem; color:#64748b; line-height:1.5;">
+                                Pindah peran secara langsung untuk menguji batasan hak akses dan tampilan visual antarmuka:
+                            </div>
+                        </div>
+
+                        <!-- 3 KARTU SIMULASI ROLE -->
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; margin-bottom:18px;">
+                            <!-- Card Simulasi Super Admin -->
+                            <div id="cardSimulasiRole_super_admin" style="border:1.5px solid #e2e8f0; border-radius:14px; padding:14px; background:#ffffff; cursor:pointer; transition:all 0.2s;" onclick="window.simulasiGantiRole('super_admin')">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.85rem; font-weight:800; color:#b91c1c;"><i class="fas fa-shield-alt"></i> Super Admin</span>
+                                    <span class="badge-simulasi-aktif" style="display:none; font-size:0.68rem; background:#fee2e2; color:#dc2626; padding:2px 8px; border-radius:10px; font-weight:800;">AKTIF</span>
+                                </div>
+                                <div style="font-size:0.73rem; color:#475569; line-height:1.45; margin-bottom:10px;">
+                                    Akses penuh: Pusat Kendali, Keamanan Siber, Eskalasi Aduan, &amp; Uji Sistem.
+                                </div>
+                                <button type="button" style="width:100%; padding:6px; border-radius:8px; border:1px solid #fca5a5; background:#fef2f2; color:#b91c1c; font-size:0.73rem; font-weight:800; cursor:pointer;">
+                                    Simulasikan Super Admin
+                                </button>
+                            </div>
+
+                            <!-- Card Simulasi Admin Bansos -->
+                            <div id="cardSimulasiRole_admin" style="border:1.5px solid #e2e8f0; border-radius:14px; padding:14px; background:#ffffff; cursor:pointer; transition:all 0.2s;" onclick="window.simulasiGantiRole('admin')">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.85rem; font-weight:800; color:#4338ca;"><i class="fas fa-user-tie"></i> Admin Bansos</span>
+                                    <span class="badge-simulasi-aktif" style="display:none; font-size:0.68rem; background:#e0e7ff; color:#4338ca; padding:2px 8px; border-radius:10px; font-weight:800;">AKTIF</span>
+                                </div>
+                                <div style="font-size:0.73rem; color:#475569; line-height:1.45; margin-bottom:10px;">
+                                    Pusat Kendali operasional. Keamanan Siber, Eskalasi, &amp; Uji Sistem <b>disembunyikan</b>.
+                                </div>
+                                <button type="button" style="width:100%; padding:6px; border-radius:8px; border:1px solid #c7d2fe; background:#e0e7ff; color:#4338ca; font-size:0.73rem; font-weight:800; cursor:pointer;">
+                                    Simulasikan Admin Bansos
+                                </button>
+                            </div>
+
+                            <!-- Card Simulasi Petugas Lapangan -->
+                            <div id="cardSimulasiRole_petugas" style="border:1.5px solid #e2e8f0; border-radius:14px; padding:14px; background:#ffffff; cursor:pointer; transition:all 0.2s;" onclick="window.simulasiGantiRole('petugas')">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.85rem; font-weight:800; color:#0369a1;"><i class="fas fa-user-edit"></i> Petugas Lapangan</span>
+                                    <span class="badge-simulasi-aktif" style="display:none; font-size:0.68rem; background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:10px; font-weight:800;">AKTIF</span>
+                                </div>
+                                <div style="font-size:0.73rem; color:#475569; line-height:1.45; margin-bottom:10px;">
+                                    Operasional lapangan: verifikasi data &amp; chat warga (Pusat Kendali disembunyikan).
+                                </div>
+                                <button type="button" style="width:100%; padding:6px; border-radius:8px; border:1px solid #bae6fd; background:#e0f2fe; color:#0369a1; font-size:0.73rem; font-weight:800; cursor:pointer;">
+                                    Simulasikan Petugas
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ALAT UJI PORTAL ADMIN -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                            <div style="font-size:0.9rem; font-weight:800; color:#0f172a;">
+                                <i class="fas fa-calculator text-emerald-600"></i> Alat Uji Engine SPK, GIS &amp; Sinkronisasi
+                            </div>
+                            <button type="button" id="btnRunTesAdmin" onclick="window.jalankanTesPortalAdmin()" style="background:linear-gradient(135deg, #009846, #007a37); color:#ffffff; border:none; padding:8px 16px; border-radius:10px; font-size:0.76rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 3px 8px rgba(0,152,70,0.25);">
+                                <i class="fas fa-play-circle"></i> Jalankan Uji Portal Admin
+                            </button>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px;">
+                            <div id="cardTesAdmin_BWM" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.8rem; font-weight:800; color:#1e293b;"><i class="fas fa-balance-scale text-primary"></i> Konsistensi BWM (CR &le; 0.1)</span>
+                                    <span class="uji-card-badge" style="font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:8px; background:#e2e8f0; color:#64748b;">MENUNGGU</span>
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b; margin-bottom:4px;">Endpoint: <code>/api/bobot</code></div>
+                                <div class="uji-card-detail" style="font-size:0.72rem; color:#475569; font-weight:600;">Validasi 10 kriteria &amp; bobot konsisten</div>
+                                <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">Latensi: <span class="uji-card-latency">-</span></div>
+                            </div>
+
+                            <div id="cardTesAdmin_SAW" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.8rem; font-weight:800; color:#1e293b;"><i class="fas fa-sort-amount-down text-blue-600"></i> SPK SAW Ranking</span>
+                                    <span class="uji-card-badge" style="font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:8px; background:#e2e8f0; color:#64748b;">MENUNGGU</span>
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b; margin-bottom:4px;">Endpoint: <code>/api/spk/hitung-saw</code></div>
+                                <div class="uji-card-detail" style="font-size:0.72rem; color:#475569; font-weight:600;">Perankingan desil bansos terdata</div>
+                                <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">Latensi: <span class="uji-card-latency">-</span></div>
+                            </div>
+
+                            <div id="cardTesAdmin_GIS" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.8rem; font-weight:800; color:#1e293b;"><i class="fas fa-map-marked-alt text-emerald-600"></i> Peta Kerentanan GIS</span>
+                                    <span class="uji-card-badge" style="font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:8px; background:#e2e8f0; color:#64748b;">MENUNGGU</span>
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b; margin-bottom:4px;">Layer Wilayah Sidoarjo</div>
+                                <div class="uji-card-detail" style="font-size:0.72rem; color:#475569; font-weight:600;">18 Kecamatan, 31 Kelurahan, 318 Desa</div>
+                                <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">Latensi: <span class="uji-card-latency">-</span></div>
+                            </div>
+
+                            <div id="cardTesAdmin_Realtime" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:0.8rem; font-weight:800; color:#1e293b;"><i class="fas fa-sync text-amber-600"></i> Sinkronisasi Store &amp; Ping</span>
+                                    <span class="uji-card-badge" style="font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:8px; background:#e2e8f0; color:#64748b;">MENUNGGU</span>
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b; margin-bottom:4px;">Koneksi DB &amp; WebSocket</div>
+                                <div class="uji-card-detail" style="font-size:0.72rem; color:#475569; font-weight:600;">Respons saluran store data master</div>
+                                <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">Latensi: <span class="uji-card-latency">-</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TERMINAL DIAGNOSTIK LIVE REAL-TIME -->
+                <div style="background:#0f172a; border-radius:16px; border:1px solid #334155; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
+                    <div style="padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                        <div style="display:flex; align-items:center; gap:8px; color:#f8fafc; font-size:0.82rem; font-weight:800;">
+                            <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#10b981;"></span>
+                            <i class="fas fa-terminal text-emerald-400"></i> Terminal Diagnostik Sistem (Live Log)
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" id="btnRunAllUjiSistem" onclick="window.jalankanSemuaUjiSistem()" style="background:linear-gradient(135deg, #10b981, #059669); color:#ffffff; border:none; padding:6px 12px; border-radius:8px; font-size:0.74rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:5px;">
+                                <i class="fas fa-bolt"></i> Jalankan Semua Pengujian Sistem
+                            </button>
+                            <button type="button" onclick="window.salinLogTerminal()" style="background:#334155; color:#f1f5f9; border:none; padding:6px 10px; border-radius:8px; font-size:0.74rem; font-weight:700; cursor:pointer;">
+                                <i class="fas fa-copy"></i> Salin
+                            </button>
+                            <button type="button" onclick="window.bersihkanLogTerminal()" style="background:#475569; color:#f1f5f9; border:none; padding:6px 10px; border-radius:8px; font-size:0.74rem; font-weight:700; cursor:pointer;">
+                                <i class="fas fa-trash-alt"></i> Bersihkan
+                            </button>
+                        </div>
+                    </div>
+                    <div id="terminalUjiLogBody" style="padding:14px 16px; max-height:190px; overflow-y:auto; color:#f8fafc; font-size:0.76rem; line-height:1.6;">
+                        <div style="color:#64748b; font-style:italic;">Siap menjalankan pengujian terpadu 3 portal...</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FOOTER MODAL -->
+            <div style="padding:12px 24px; background:#ffffff; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:0.75rem; color:#64748b;">
+                    <i class="fas fa-info-circle text-primary"></i> Super Admin dapat memeriksa status seluruh portal atau beralih simulasi role secara langsung.
+                </div>
+                <button type="button" onclick="window.tutupModalUjiSistem()" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:10px; padding:8px 18px; font-size:0.8rem; font-weight:700; cursor:pointer;">
+                    Tutup
+                </button>
+            </div>
+
+        </div>
+    </div>
     <audio id="ringtoneAudio" src="https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg" loop style="display:none;"></audio>
 
     <!-- =========================================================================
@@ -3886,6 +4277,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <!-- Global & Core State -->
+    <script src="static/js/core/config.js"></script>
+    <script src="static/js/core/auth.js"></script>
     <script src="static/js/global.js"></script>
     <script src="static/js/core/logo-base64.js"></script>
     <script src="static/js/core/realtime-client.js"></script>
@@ -3908,6 +4301,7 @@
     <script src="static/js/modules/google-workspace.js"></script>
     <script src="static/js/modules/admin-security.js"></script>
     <script src="static/js/modules/admin-eskalasi-superadmin.js"></script>
+    <script src="static/js/modules/admin-uji-sistem.js"></script>
 
     <!-- Orchestrator Utama Dasbor -->
     <script src="static/js/admin.js"></script>

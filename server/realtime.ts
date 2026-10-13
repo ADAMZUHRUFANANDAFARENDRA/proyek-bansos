@@ -152,9 +152,13 @@ export function broadcastRealtimeEvent(event: { type: string; id?: string; times
     ...event
   };
 
-  // Simpan ke circular buffer
-  recentEvents.unshift(fullEvent);
-  if (recentEvents.length > MAX_BUFFER) recentEvents.pop();
+  // Simpan ke circular buffer HANYA jika bukan event panggilan suara/video (CALL_* atau WEBRTC_*)
+  // Event panggilan adalah sinyal langsung (live ephemeral) dan tidak boleh diulang saat user baru login / reconnect
+  const isCallSignal = event.type.startsWith('CALL_') || event.type.startsWith('WEBRTC_');
+  if (!isCallSignal) {
+    recentEvents.unshift(fullEvent);
+    if (recentEvents.length > MAX_BUFFER) recentEvents.pop();
+  }
 
   const serialized = JSON.stringify(fullEvent);
 
@@ -209,10 +213,11 @@ export function handleSseConnection(req: Request, res: Response) {
  * Endpoint mengambil riwayat event terbaru (misal setelah tab aktif kembali)
  */
 export function getRecentEventsHandler(_req: Request, res: Response) {
+  const safeEvents = recentEvents.filter(e => !e.type.startsWith('CALL_') && !e.type.startsWith('WEBRTC_'));
   res.json({
     status: 'success',
-    total: recentEvents.length,
-    events: recentEvents
+    total: safeEvents.length,
+    events: safeEvents
   });
 }
 

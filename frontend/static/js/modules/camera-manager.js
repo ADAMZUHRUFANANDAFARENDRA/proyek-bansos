@@ -599,9 +599,17 @@
             if (typeof window.addWargaVoicePreviewAttachments === 'function') {
                 window.addWargaVoicePreviewAttachments(fileList);
             }
+        } else if (cameraTargetContext === 'aduan-voice-preview') {
+            if (typeof window.addAduanVoicePreviewAttachments === 'function') {
+                window.addAduanVoicePreviewAttachments(fileList);
+            }
         } else if (cameraTargetContext === 'warga-chat') {
             if (typeof window.addWargaChatAttachments === 'function') {
                 window.addWargaChatAttachments(fileList);
+            }
+        } else if (cameraTargetContext === 'aduan-chat') {
+            if (typeof window.addAduanChatAttachments === 'function') {
+                window.addAduanChatAttachments(fileList);
             }
         } else {
             // Default: admin-chat

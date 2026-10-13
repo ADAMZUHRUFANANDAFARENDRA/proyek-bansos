@@ -289,75 +289,85 @@ document.addEventListener('DOMContentLoaded', async () => {
         f.addEventListener('submit', (e) => e.preventDefault());
     });
 
-    let cleanRole = (
-        localStorage.getItem('role') || 
-        localStorage.getItem('user_role') || 
-        localStorage.getItem('bansos_user_role') || 
-        user?.role || 
-        'petugas'
-    ).toLowerCase().replace(/[\s-]/g, '_');
-    if (cleanRole === 'operator') cleanRole = 'petugas';
-    if (cleanRole === 'superadmin') cleanRole = 'super_admin';
+    window.initAdminRole = function () {
+        let storedUser = null;
+        try {
+            storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        } catch (_) {}
 
-    const nameEl = document.getElementById('navUsername');
-    const roleEl = document.getElementById('navRoleBadge');
-    const cmdEl = document.getElementById('adminCommandCenter');
-    const currentUsername = localStorage.getItem('username') || user?.username || 'ADMIN';
+        let cleanRole = (
+            localStorage.getItem('role') || 
+            localStorage.getItem('user_role') || 
+            localStorage.getItem('bansos_user_role') || 
+            storedUser?.role || 
+            'petugas'
+        ).toLowerCase().replace(/[\s-]/g, '_');
+        if (cleanRole === 'operator') cleanRole = 'petugas';
+        if (cleanRole === 'superadmin') cleanRole = 'super_admin';
 
-    if (nameEl) nameEl.innerText = currentUsername.toUpperCase();
+        const nameEl = document.getElementById('navUsername');
+        const roleEl = document.getElementById('navRoleBadge');
+        const cmdEl = document.getElementById('adminCommandCenter');
+        const currentUsername = localStorage.getItem('username') || storedUser?.username || 'ADMIN';
 
-    const isSuperAdmin = (cleanRole === 'super_admin' || cleanRole === 'developer');
-    const isAdmin = (cleanRole === 'admin' || isSuperAdmin);
+        if (nameEl) nameEl.innerText = currentUsername.toUpperCase();
 
-    if (roleEl) {
-        if (isSuperAdmin) {
-            roleEl.className = 'role-badge';
-            roleEl.style.cssText = 'background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
-            roleEl.innerHTML = '<i class="fas fa-shield-alt"></i> Super Admin';
-        } else if (cleanRole === 'admin') {
-            roleEl.className = 'role-badge';
-            roleEl.style.cssText = 'background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
-            roleEl.innerHTML = '<i class="fas fa-user-tie"></i> Admin Bansos';
-        } else {
-            roleEl.className = 'role-badge';
-            roleEl.style.cssText = 'background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
-            roleEl.innerHTML = '<i class="fas fa-user-edit"></i> Petugas Lapangan';
+        const isSuperAdmin = (cleanRole === 'super_admin' || cleanRole === 'developer');
+        const isAdmin = (cleanRole === 'admin' || isSuperAdmin);
+
+        if (roleEl) {
+            if (isSuperAdmin) {
+                roleEl.className = 'role-badge';
+                roleEl.style.cssText = 'background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
+                roleEl.innerHTML = '<i class="fas fa-shield-alt"></i> Super Admin';
+            } else if (cleanRole === 'admin') {
+                roleEl.className = 'role-badge';
+                roleEl.style.cssText = 'background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
+                roleEl.innerHTML = '<i class="fas fa-user-tie"></i> Admin Bansos';
+            } else {
+                roleEl.className = 'role-badge';
+                roleEl.style.cssText = 'background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
+                roleEl.innerHTML = '<i class="fas fa-user-edit"></i> Petugas Lapangan';
+            }
         }
-    }
 
-    // Hak Akses Cyber Shield & Eskalasi: HANYA untuk Super Admin / Developer
-    const navCyberBtn = document.getElementById('btnNavCyberShield');
-    if (navCyberBtn) {
-        navCyberBtn.style.display = isSuperAdmin ? 'inline-flex' : 'none';
-    }
-    const tileCyber = document.getElementById('tileCyberShield');
-    if (tileCyber) {
-        tileCyber.style.display = isSuperAdmin ? 'block' : 'none';
-    }
+        // HAK AKSES KHUSUS SUPER ADMIN & DEVELOPER:
+        // "Keamanan Siber & WAF", "Eskalasi & Cek Kode", dan "Uji Sistem"
+        // Ketiga fitur ini HANYA boleh muncul di Pusat Kendali Admin bagi SUPER ADMIN.
+        // Untuk Admin Bansos ('admin') dan Petugas Lapangan ('petugas'), modul ini disembunyikan secara ketat.
+        const tileCyber = document.getElementById('tileCyberShield');
+        if (tileCyber) {
+            tileCyber.style.setProperty('display', isSuperAdmin ? 'flex' : 'none', 'important');
+        }
 
-    // Hak Akses Pusat Eskalasi & Inspeksi Kode
-    const navEskalasiBtn = document.getElementById('btnNavEskalasiDev');
-    if (navEskalasiBtn) {
-        navEskalasiBtn.style.display = isSuperAdmin ? 'inline-flex' : 'none';
-    }
-    const tileEskalasi = document.getElementById('tileEskalasiSuperAdmin');
-    if (tileEskalasi) {
-        tileEskalasi.style.display = isSuperAdmin ? 'block' : 'none';
-    }
+        const tileEskalasi = document.getElementById('tileEskalasiSuperAdmin');
+        if (tileEskalasi) {
+            tileEskalasi.style.setProperty('display', isSuperAdmin ? 'flex' : 'none', 'important');
+        }
 
-    // Hak Akses Uji Portal Warga: HANYA untuk Super Admin & Developer
-    const navPortalBtn = document.getElementById('btnNavPortalWarga');
-    if (navPortalBtn) {
-        navPortalBtn.style.display = isSuperAdmin ? 'inline-flex' : 'none';
-    }
+        const tileUji = document.getElementById('tileUjiSistem');
+        if (tileUji) {
+            tileUji.style.setProperty('display', isSuperAdmin ? 'flex' : 'none', 'important');
+        }
 
-    if (isSuperAdmin && typeof window.muatDataEskalasiSuperAdmin === 'function') {
-        window.muatDataEskalasiSuperAdmin();
-    }
+        // Fail-safe tombol navbar (selalu disembunyikan agar navbar tetap rapi dan tidak duplikat)
+        const navCyberBtn = document.getElementById('btnNavCyberShield');
+        if (navCyberBtn) navCyberBtn.style.display = 'none';
+        const navEskalasiBtn = document.getElementById('btnNavEskalasiDev');
+        if (navEskalasiBtn) navEskalasiBtn.style.display = 'none';
+        const navPortalBtn = document.getElementById('btnNavPortalWarga');
+        if (navPortalBtn) navPortalBtn.style.display = 'none';
 
-    if (cmdEl) {
-        cmdEl.style.display = isAdmin ? 'block' : 'none';
-    }
+        if (isSuperAdmin && typeof window.muatDataEskalasiSuperAdmin === 'function') {
+            window.muatDataEskalasiSuperAdmin();
+        }
+
+        if (cmdEl) {
+            cmdEl.style.display = isAdmin ? 'block' : 'none';
+        }
+    };
+
+    window.initAdminRole();
 
     const btnPengguna = document.querySelector('.cmd-tile-item.tile-purple') || 
                         document.querySelector('[onclick*="modalPengguna"]') || 

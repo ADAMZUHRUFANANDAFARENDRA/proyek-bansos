@@ -12,7 +12,8 @@ import {
   nowTimeStr,
   upload,
   UPLOAD_DIR,
-  formatWarga
+  formatWarga,
+  chatOfficerMap
 } from '../store.js';
 import { parseIntSafe, hitungDanSinkronkanSawBwm } from '../spk_engine.js';
 import type { ChatItem, PengaduanItem, LaporanPelanggaranItem } from '../types.js';
@@ -353,29 +354,8 @@ router.get(['/list', '/inbox', '/conversations'], (_req: Request, res: Response)
     }
   });
 
-  // 3. Tambahkan warga dari basis data arsip wargaStore agar aparatur dapat langsung menyapa
-  wargaStore.forEach(w => {
-    if (!seen.has(w.nik)) {
-      seen.add(w.nik);
-      const desilVal = Number(w.desil) || 1;
-      daftar.push({
-        nik: w.nik,
-        nama: w.nama,
-        last_msg: w.catatan || 'Ruang percakapan mediasi siap...',
-        pesan_terakhir: w.catatan || 'Ruang percakapan mediasi siap...',
-        waktu: w.tanggal_salur || 'Hari ini',
-        created_at: '',
-        unread_count: 0,
-        desil: desilVal,
-        is_prioritas: desilVal >= 1 && desilVal <= 4,
-        is_registered: true,
-        has_aduan: false,
-        aduan_id: null,
-        aduan_status: null
-      });
-    }
-  });
-
+  // Catatan: Hanya warga yang memiliki riwayat pesan masuk atau laporan yang tampil di Pesan Masuk.
+  // Warga terdaftar lainnya tetap dapat dihubungi melalui tab "Buku Kontak".
   res.json(daftar);
 });
 
@@ -425,8 +405,103 @@ router.post(['/:nik/mark-read', '/mark-read'], (req: Request, res: Response) => 
 const RESERVED_CHAT_ROUTES = new Set([
   'list', 'inbox', 'conversations', 'messages', 'info', 'download',
   'laporan-chat', 'investigasi', 'laporan-pelanggaran', 'share-geotag',
-  'geotag', 'publik', 'pengaduan', 'action', 'react', 'mark-read', 'pin'
+  'geotag', 'publik', 'pengaduan', 'action', 'react', 'mark-read', 'pin', 'star',
+  'handover', 'active-officer', 'assign-officer'
 ]);
+
+// ENDPOINT INFORMASI PETUGAS RESMI AKTIF PENANGAN WARGA
+router.get(['/:nik/active-officer', '/active-officer/:nik'], (req: Request, res: Response) => {
+  const nik = String(req.params.nik || '').trim();
+  let officer = chatOfficerMap[nik] || null;
+
+  if (!officer) {
+    const lastOfficer = [...chatStore].reverse().find(c => c.nik === nik && (c.sender === 'petugas' || c.sender === 'admin' || c.is_handover));
+    if (lastOfficer) {
+      officer = {
+        name: lastOfficer.nama || '🛡️ Admin 1 / Petugas Dinsos',
+        role: 'Petugas Dinsos',
+        updated_at: lastOfficer.created_at || new Date().toISOString()
+      };
+      chatOfficerMap[nik] = officer;
+    }
+  }
+
+  return res.json({
+    status: 'success',
+    officer: officer || {
+      name: '🛡️ Admin 1 / Petugas Dinsos',
+      role: 'Petugas Dinsos',
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// ENDPOINT PENGALIHAN RESMI PETUGAS (HANDOVER RESMI OLEH ADMIN / PETUGAS)
+router.post(['/:nik/handover', '/:nik/assign-officer', '/handover/:nik'], (req: Request, res: Response) => {
+  const nik = String(req.params.nik || '').trim();
+  const d = req.body || {};
+  const officerName = String(d.officer_name || d.nama || 'Petugas Dinsos Sidoarjo').trim();
+  const officerRole = String(d.officer_role || d.role || 'Petugas Layanan').trim();
+  const prevOfficer = chatOfficerMap[nik]?.name || 'Petugas Sebelumnya';
+
+  const nowIso = new Date().toISOString();
+  const nowClock = nowTimeStr().slice(-5);
+
+  chatOfficerMap[nik] = {
+    name: officerName,
+    role: officerRole,
+    username: String(d.username || ''),
+    updated_at: nowIso
+  };
+
+  const nextId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
+  const handoverMsg = `🔄 [PENGALIHAN RESMI] Pelayanan percakapan resmi telah dialihkan. Sekarang ditangani oleh: ${officerName} (${officerRole}).`;
+
+  const handoverChat: ChatItem = {
+    id: nextId,
+    nik,
+    sender: 'system',
+    nama: officerName,
+    pesan: handoverMsg,
+    text: handoverMsg,
+    file_path: null,
+    file_name: null,
+    file_size: null,
+    file_type: 'system',
+    reply_sender: null,
+    reply_text: null,
+    reply_to_id: null,
+    reaction: '',
+    is_pinned: false,
+    is_deleted_all: false,
+    deleted_for: null,
+    waktu: nowClock,
+    created_at: nowIso,
+    is_read: true,
+    read_at: nowIso,
+    delivered_at: nowIso,
+    is_handover: true
+  };
+
+  chatStore.push(handoverChat);
+
+  try { realtimeChatMessage(handoverChat); } catch(e) {}
+
+  broadcastRealtimeEvent({
+    type: 'CHAT_OFFICER_CHANGED',
+    nik,
+    officer_name: officerName,
+    officer_role: officerRole,
+    chat: handoverChat
+  });
+
+  return res.json({
+    status: 'success',
+    message: `Petugas penangan resmi berhasil dialihkan ke ${officerName}.`,
+    officer: chatOfficerMap[nik],
+    chat: handoverChat
+  });
+});
 
 router.get('/:nik', (req: Request, res: Response, next: any) => {
   const nik = String(req.params.nik || '').trim();
@@ -466,6 +541,65 @@ router.post('/:nik', (req: Request, res: Response, next: any) => {
     const files = (req.files as Express.Multer.File[]) || [];
     const createdChats: ChatItem[] = [];
 
+    const nowIso = new Date().toISOString();
+    const msgWaktu = String(d.waktu || '').trim() || nowTimeStr().slice(-5);
+    const msgCreatedAt = d.created_at && !isNaN(new Date(d.created_at).getTime()) ? String(d.created_at) : nowIso;
+
+    // OTOMATIS: Deteksi jika petugas yang membalas berbeda dari petugas sebelumnya
+    if (isOfficer) {
+      const currentOfficerName = nama;
+      const currentOfficerRole = String(d.officer_role || (sender === 'admin' ? 'Super Admin' : 'Petugas Dinsos'));
+      const prevOfficer = chatOfficerMap[nik]?.name;
+
+      if (prevOfficer && prevOfficer.trim() !== '' && prevOfficer !== currentOfficerName) {
+        // Terdapat petugas lain yang membalas tanpa peralihan manual -> catat pesan sistem dan beritahukan warga
+        const nextId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
+        const handoverText = `🔄 [PETUGAS BERUBAH] Petugas respon resmi telah beralih. Percakapan ini sekarang ditangani oleh: ${currentOfficerName} (${currentOfficerRole}).`;
+        const handoverChat: ChatItem = {
+          id: nextId,
+          nik,
+          sender: 'system',
+          nama: currentOfficerName,
+          pesan: handoverText,
+          text: handoverText,
+          file_path: null,
+          file_name: null,
+          file_size: null,
+          file_type: 'system',
+          reply_sender: null,
+          reply_text: null,
+          reply_to_id: null,
+          reaction: '',
+          is_pinned: false,
+          is_deleted_all: false,
+          deleted_for: null,
+          waktu: msgWaktu,
+          created_at: msgCreatedAt,
+          is_read: true,
+          read_at: msgCreatedAt,
+          delivered_at: msgCreatedAt,
+          is_handover: true
+        };
+        chatStore.push(handoverChat);
+        try { realtimeChatMessage(handoverChat); } catch(e) {}
+        broadcastRealtimeEvent({
+          type: 'CHAT_OFFICER_CHANGED',
+          nik,
+          officer_name: currentOfficerName,
+          officer_role: currentOfficerRole,
+          chat: handoverChat
+        });
+      }
+
+      // Perbarui peta petugas aktif untuk NIK warga ini
+      chatOfficerMap[nik] = {
+        name: currentOfficerName,
+        role: currentOfficerRole,
+        username: String(d.username || ''),
+        updated_at: nowIso
+      };
+    }
+
     const resolveFileType = (f: Express.Multer.File, pText: string): string => {
       const ext = path.extname(f.originalname || f.filename).toLowerCase().replace('.', '');
       if (f.filename.startsWith('voice_') || (f.originalname && f.originalname.startsWith('voice_')) || (f.mimetype && f.mimetype.startsWith('audio/'))) {
@@ -478,10 +612,6 @@ router.post('/:nik', (req: Request, res: Response, next: any) => {
       if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'txt', 'json', 'zip', 'rar', '7z', 'tar', 'gz', 'xml'].includes(ext)) return 'document';
       return customType || 'document';
     };
-
-    const nowIso = new Date().toISOString();
-    const msgWaktu = String(d.waktu || '').trim() || nowTimeStr().slice(-5);
-    const msgCreatedAt = d.created_at && !isNaN(new Date(d.created_at).getTime()) ? String(d.created_at) : nowIso;
 
     if (files.length > 0) {
       files.forEach((f, idx) => {
@@ -956,7 +1086,35 @@ router.all(['/pin/:msg_id', '/api/chat/pin/:msg_id'], (req: Request, res: Respon
   } else {
     chat.is_pinned = !chat.is_pinned;
   }
+  try {
+    broadcastRealtimeEvent({
+      type: 'CHAT_MESSAGE_PINNED',
+      msg_id: chat.id,
+      is_pinned: chat.is_pinned,
+      data: chat
+    });
+  } catch (e) {}
   return res.json({ status: 'success', is_pinned: chat.is_pinned, id: chat.id, pesan: chat.pesan, text: chat.text });
+});
+
+router.all(['/star/:msg_id', '/api/chat/star/:msg_id'], (req: Request, res: Response) => {
+  const id = parseIntSafe(req.params.msg_id, 0);
+  const chat = chatStore.find(c => c.id === id);
+  if (!chat) return res.status(404).json({ status: 'error', message: 'Pesan tidak ditemukan.' });
+  if (req.body && typeof req.body.is_starred !== 'undefined') {
+    chat.is_starred = Boolean(req.body.is_starred);
+  } else {
+    chat.is_starred = !chat.is_starred;
+  }
+  try {
+    broadcastRealtimeEvent({
+      type: 'CHAT_MESSAGE_STARRED',
+      msg_id: chat.id,
+      is_starred: chat.is_starred,
+      data: chat
+    });
+  } catch (e) {}
+  return res.json({ status: 'success', is_starred: chat.is_starred, id: chat.id, pesan: chat.pesan, text: chat.text });
 });
 
 router.delete('/action/:msg_id', (req: Request, res: Response) => {
@@ -966,11 +1124,34 @@ router.delete('/action/:msg_id', (req: Request, res: Response) => {
 
   const tipe = String(req.body?.type || 'everyone');
   if (tipe === 'everyone') {
-    chatStore.splice(idx, 1);
+    chatStore[idx].is_deleted_all = true;
+    chatStore[idx].pesan = '🚫 Pesan telah dihapus';
+    chatStore[idx].text = '🚫 Pesan telah dihapus';
+    chatStore[idx].file_path = null;
+    chatStore[idx].file_name = null;
+    chatStore[idx].file_size = null;
+    chatStore[idx].file_type = null;
+    chatStore[idx].reaction = '';
+    try {
+      broadcastRealtimeEvent({
+        type: 'CHAT_MESSAGE_DELETED',
+        msg_id: id,
+        delete_type: 'everyone',
+        data: chatStore[idx]
+      });
+    } catch (e) {}
   } else {
     chatStore[idx].deleted_for = `me_${req.body?.requester || 'warga'}`;
+    try {
+      broadcastRealtimeEvent({
+        type: 'CHAT_MESSAGE_DELETED',
+        msg_id: id,
+        delete_type: 'me',
+        requester: req.body?.requester || 'warga'
+      });
+    } catch (e) {}
   }
-  return res.json({ status: 'success', message: 'Pesan berhasil dihapus.' });
+  return res.json({ status: 'success', message: 'Pesan berhasil dihapus.', data: chatStore[idx] });
 });
 
 // =========================================================================
@@ -994,11 +1175,19 @@ router.post(['/laporan-pelanggaran', '/lapor-pesan', '/api/chat/lapor-pesan', '/
   const d = req.body || {};
   const msgId = parseIntSafe(d.msg_id, 0);
   const nik = String(d.nik || '').trim();
-  const pesanKutipan = String(d.pesan || d.pesan_kutipan || '').trim();
-  const namaTerlapor = String(d.nama_terlapor || (d.sender_terlapor === 'warga' ? 'Warga' : 'Petugas Dinsos')).trim();
-  const senderTerlapor = String(d.sender_terlapor || 'petugas').trim();
-  const alasan = String(d.alasan || 'Pelanggaran Norma Komunikasi').trim();
-  const kategori = String(d.kategori || 'Kata-kata Kasar / Pelecehan').trim();
+  const tipeLaporan = (d.tipe_laporan === 'keseluruhan_obrolan' || !msgId) ? 'keseluruhan_obrolan' : 'pesan_tunggal';
+  const transkrip = Array.isArray(d.transkrip) ? d.transkrip : [];
+  const totalPesan = transkrip.length || parseIntSafe(d.total_pesan, 0);
+
+  let pesanKutipan = String(d.pesan || d.pesan_kutipan || '').trim();
+  if (tipeLaporan === 'keseluruhan_obrolan') {
+    pesanKutipan = `📋 [KESELURUHAN OBROLAN] Transkrip obrolan terlampir (${totalPesan} pesan). ${pesanKutipan ? `Ringkasan: "${pesanKutipan.slice(0, 150)}"` : ''}`;
+  }
+
+  const namaTerlapor = String(d.nama_terlapor || (tipeLaporan === 'keseluruhan_obrolan' ? 'Pihak Terkait (Seluruh Obrolan)' : (d.sender_terlapor === 'warga' ? 'Warga' : 'Petugas Dinsos'))).trim();
+  const senderTerlapor = String(d.sender_terlapor || (d.pelapor_role === 'warga' ? 'petugas' : 'warga')).trim();
+  const alasan = String(d.alasan || (tipeLaporan === 'keseluruhan_obrolan' ? 'Pelaporan Keseluruhan Percakapan' : 'Pelanggaran Norma Komunikasi')).trim();
+  const kategori = String(d.kategori || 'Pelanggaran Etika / Ujaran Kebencian').trim();
   const deskripsi = String(d.deskripsi || d.rincian || alasan).trim();
   const pelaporRole = (String(d.pelapor_role || 'warga').toLowerCase()) as 'warga' | 'petugas' | 'admin';
   const pelaporNama = String(d.pelapor_nama || (pelaporRole === 'warga' ? 'Warga' : 'Petugas Dinsos')).trim();
@@ -1018,6 +1207,9 @@ router.post(['/laporan-pelanggaran', '/lapor-pesan', '/api/chat/lapor-pesan', '/
     alasan,
     kategori,
     deskripsi,
+    tipe_laporan: tipeLaporan,
+    transkrip,
+    total_pesan: totalPesan,
     pelapor_role: pelaporRole,
     pelapor_nama: pelaporNama,
     pelapor_nik: pelaporNik,
@@ -1027,13 +1219,47 @@ router.post(['/laporan-pelanggaran', '/lapor-pesan', '/api/chat/lapor-pesan', '/
   };
 
   laporanPelanggaranStore.unshift(newReport);
-  catatNotifikasi(`🚩 Laporan Pelanggaran Chat Baru (${kodeLaporan}) diajukan oleh ${pelaporNama} terkait "${alasan}".`, 'Pengawas', 'urgent');
+  const notifLabel = tipeLaporan === 'keseluruhan_obrolan' ? 'Laporan Keseluruhan Obrolan' : 'Laporan Pelanggaran Chat';
+  catatNotifikasi(`🚩 ${notifLabel} Baru (${kodeLaporan}) diajukan oleh ${pelaporNama} terkait "${alasan}".`, 'Pengawas', 'urgent');
   realtimeLaporanPelanggaranNew(newReport);
+
+  // SINKRONISASI OTOMATIS KE pengaduanStore AGAR LANGSUNG MUNCUL DI PUSAT INVESTIGASI ADUAN ADMIN & PETUGAS
+  const nextPengaduanId = pengaduanStore.length > 0 ? Math.max(...pengaduanStore.map(p => p.id)) + 1 : 1;
+  const newPengaduan: PengaduanItem = {
+    id: nextPengaduanId,
+    nik: pelaporNik || nik || '3515990000000010',
+    nama: pelaporNama,
+    nama_pelapor: pelaporNama,
+    kategori: `Pelanggaran Chat: ${kategori}`,
+    uraian: tipeLaporan === 'keseluruhan_obrolan'
+      ? `[LAPORAN KESELURUHAN OBROLAN - ${kodeLaporan}] Dilaporkan oleh ${pelaporNama} (NIK: ${pelaporNik || nik}). Total ${totalPesan} pesan riwayat dilampirkan. Kategori: ${kategori}. Kronologi/Alasan: ${deskripsi}`
+      : `[LAPORAN PELANGGARAN PESAN - ${kodeLaporan}] Pesan terlapor: "${pesanKutipan}". Kategori: ${kategori}. Kronologi/Alasan: ${deskripsi}`,
+    deskripsi: deskripsi,
+    isi_laporan: deskripsi,
+    status: 'Tahap Mediasi',
+    status_step: 2,
+    catatan_petugas: `Laporan masuk dari portal warga (${kodeLaporan}). Menunggu investigasi etik dan moderasi tim pengawas.`,
+    waktu: nowTimeStr(),
+    created_at: nowTimeStr(),
+    riwayat_penanganan: [
+      {
+        tahap: 'Laporan Diterima',
+        oleh: pelaporNama,
+        waktu: nowTimeStr(),
+        catatan: `Laporan ${notifLabel} (${kodeLaporan}) diajukan ke Tim Investigasi & Pengawas Dinas Sosial.`
+      }
+    ]
+  };
+  pengaduanStore.unshift(newPengaduan);
+  realtimeAduanNew(newPengaduan);
 
   return res.status(201).json({
     status: 'success',
-    message: 'Laporan pelanggaran berhasil dicatat dan masuk ke antrean moderasi.',
-    data: newReport
+    message: tipeLaporan === 'keseluruhan_obrolan' 
+      ? 'Seluruh rekaman percakapan berhasil dilaporkan ke Pengawas Dinsos.'
+      : 'Laporan pelanggaran berhasil dicatat dan masuk ke antrean moderasi.',
+    data: newReport,
+    aduan: newPengaduan
   });
 });
 

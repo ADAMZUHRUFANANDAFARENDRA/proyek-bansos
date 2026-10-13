@@ -196,6 +196,7 @@ export async function migrateMysqlSchema(targetCfg?: Partial<MysqlConfig>): Prom
         \`id\` INT AUTO_INCREMENT PRIMARY KEY,
         \`username\` VARCHAR(50) NOT NULL UNIQUE,
         \`password\` VARCHAR(255) NOT NULL,
+        \`previous_passwords\` TEXT NULL,
         \`nama_lengkap\` VARCHAR(150) NOT NULL,
         \`email\` VARCHAR(100) NOT NULL,
         \`role\` VARCHAR(30) NOT NULL DEFAULT 'operator',
@@ -404,10 +405,10 @@ export async function syncAllDataToMysql(
     // 3. Simpan Users
     for (const u of users) {
       await pool.query(
-        `INSERT INTO \`users\` (username, password, nama_lengkap, email, role, is_active, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE nama_lengkap = VALUES(nama_lengkap), email = VALUES(email), role = VALUES(role), is_active = VALUES(is_active)`,
-        [u.username, u.password, u.nama_lengkap, u.email, u.role, u.is_active ? 1 : 0, u.created_at]
+        `INSERT INTO \`users\` (username, password, previous_passwords, nama_lengkap, email, role, is_active, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE password = VALUES(password), previous_passwords = VALUES(previous_passwords), nama_lengkap = VALUES(nama_lengkap), email = VALUES(email), role = VALUES(role), is_active = VALUES(is_active)`,
+        [u.username, u.password, JSON.stringify(u.previous_passwords || []), u.nama_lengkap, u.email, u.role, u.is_active ? 1 : 0, u.created_at]
       );
       counts.users++;
     }

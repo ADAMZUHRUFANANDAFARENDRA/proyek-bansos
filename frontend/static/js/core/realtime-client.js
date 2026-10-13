@@ -294,11 +294,16 @@
         if (event.type === 'ADUAN_UPDATE') {
             const aduan = event.data;
             const nik = event.nik;
+            const cleanTarget = String(nik || '').replace(/\D/g, '');
+            const cleanAduan = String((window.sesiAduanAktif && window.sesiAduanAktif.nik) || localStorage.getItem('lastAduanNik') || '').replace(/\D/g, '');
 
             // Di portal warga publik: Jika warga sedang membuka dashboard pelaporan
-            if (window.sesiAduanAktif && window.sesiAduanAktif.nik === nik) {
+            if (cleanTarget && cleanAduan && cleanTarget === cleanAduan) {
                 if (typeof window.sinkronStatusStepperAduan === 'function') {
                     window.sinkronStatusStepperAduan();
+                }
+                if (typeof window.muatPesanAduan === 'function') {
+                    window.muatPesanAduan(true);
                 }
                 showRealtimeToast('Status Aduan Diperbarui', `Laporan Anda kini berada pada: ${aduan.status_text || 'Tahap Lanjutan'}`, 'success');
                 playChime('info');
@@ -306,7 +311,7 @@
 
             // Di portal warga publik (Dashboard Pribadi Warga Terdaftar):
             const curWargaNik = (window.sesiWargaAktif && (window.sesiWargaAktif.nik_asli || window.sesiWargaAktif.nik)) || localStorage.getItem('wargaNik') || window.wargaNik;
-            if (curWargaNik && String(curWargaNik).replace(/\D/g, '') === String(nik).replace(/\D/g, '')) {
+            if (curWargaNik && String(curWargaNik).replace(/\D/g, '') === cleanTarget) {
                 if (window.wargaDataCache) {
                     window.wargaDataCache.aduan_aktif = aduan;
                     if (aduan.status === 'Selesai' || aduan.status_step === 5) {
@@ -331,7 +336,7 @@
 
             // Di portal aparatur: Sinkronkan daftar tabel investigasi & metrik dasbor
             if (window.allLaporanChatData) {
-                const target = window.allLaporanChatData.find(a => a.nik === nik);
+                const target = window.allLaporanChatData.find(a => String(a.nik || '').replace(/\D/g, '') === cleanTarget);
                 if (target) {
                     target.status_text = aduan.status_text;
                     target.status_step = aduan.status_step;
@@ -386,9 +391,11 @@
         if (event.type === 'PUTUSAN_SUPERADMIN') {
             const aduan = event.data;
             const nik = event.nik;
+            const cleanTarget = String(nik || '').replace(/\D/g, '');
+            const cleanAduan = String((window.sesiAduanAktif && window.sesiAduanAktif.nik) || localStorage.getItem('lastAduanNik') || '').replace(/\D/g, '');
 
             // Di portal warga:
-            if (window.sesiAduanAktif && window.sesiAduanAktif.nik === nik) {
+            if (cleanTarget && cleanAduan && cleanTarget === cleanAduan) {
                 if (typeof window.sinkronStatusStepperAduan === 'function') {
                     window.sinkronStatusStepperAduan();
                 }
@@ -401,7 +408,7 @@
 
             // Di portal aparatur / Admin Bansos:
             if (window.allLaporanChatData) {
-                const target = window.allLaporanChatData.find(a => a.nik === nik);
+                const target = window.allLaporanChatData.find(a => String(a.nik || '').replace(/\D/g, '') === cleanTarget);
                 if (target) {
                     target.status_text = aduan.status_text;
                     target.status_step = aduan.status_step;
@@ -419,32 +426,71 @@
             showRealtimeToast('⚖️ Putusan Super Admin', `Aduan ${aduan.nama} telah diputuskan dan selesai.`, 'info');
         }
 
+        // 6.1 PERGANTIAN PETUGAS RESPON RESMI REALTIME (CHAT_OFFICER_CHANGED)
+        if (event.type === 'CHAT_OFFICER_CHANGED') {
+            const nik = event.nik;
+            const officerName = event.officer_name || (event.officer && event.officer.name);
+            const officerRole = event.officer_role || (event.officer && event.officer.role);
+
+            const curWargaNik = (window.sesiWargaAktif && (window.sesiWargaAktif.nik_asli || window.sesiWargaAktif.nik)) || localStorage.getItem('wargaNik') || window.wargaNik;
+            const curAduanNik = (window.sesiAduanAktif && window.sesiAduanAktif.nik) || localStorage.getItem('lastAduanNik');
+            const cleanTarget = String(nik || '').replace(/\D/g, '');
+            const cleanCur = String(curWargaNik || '').replace(/\D/g, '');
+            const cleanAduan = String(curAduanNik || '').replace(/\D/g, '');
+
+            if (cleanTarget && cleanCur && cleanTarget === cleanCur) {
+                if (typeof window.handleChatOfficerChanged === 'function') {
+                    window.handleChatOfficerChanged(officerName, officerRole);
+                }
+                if (typeof window.loadChatMessagesWarga === 'function') {
+                    window.loadChatMessagesWarga(true);
+                }
+            }
+
+            if (cleanTarget && cleanAduan && cleanTarget === cleanAduan) {
+                if (typeof window.handleChatOfficerChangedAduan === 'function') {
+                    window.handleChatOfficerChangedAduan(officerName, officerRole);
+                }
+                if (typeof window.muatPesanAduan === 'function') {
+                    window.muatPesanAduan(true);
+                }
+            }
+        }
+
         // 7. PESAN CHAT MEDIASI BARU (CHAT_MESSAGE)
         if (event.type === 'CHAT_MESSAGE') {
             const msg = event.data;
             const nik = event.nik;
+            const cleanTarget = String(nik || '').replace(/\D/g, '');
 
             if (typeof window.sinkronisasiPesanMasukRealtime === 'function') {
                 window.sinkronisasiPesanMasukRealtime();
             }
 
             // Jika warga sedang di dashboard aduan & chat nik cocok:
-            if (window.sesiAduanAktif && window.sesiAduanAktif.nik === nik) {
+            const curAduanNik = (window.sesiAduanAktif && window.sesiAduanAktif.nik) || localStorage.getItem('lastAduanNik');
+            const cleanAduan = String(curAduanNik || '').replace(/\D/g, '');
+            if (cleanTarget && cleanAduan && cleanTarget === cleanAduan) {
                 if (typeof window.muatPesanAduan === 'function') {
-                    window.muatPesanAduan(false);
+                    window.muatPesanAduan(true);
+                }
+                if (typeof window.sinkronStatusStepperAduan === 'function') {
+                    window.sinkronStatusStepperAduan();
                 }
             }
 
             // Jika warga sedang di tab Live Chat portal publik:
-            const currentWargaNik = window.wargaNik || localStorage.getItem('wargaNik') || localStorage.getItem('lastAduanNik');
-            if (currentWargaNik === nik) {
+            const currentWargaNik = (window.sesiWargaAktif && (window.sesiWargaAktif.nik_asli || window.sesiWargaAktif.nik)) || window.wargaNik || localStorage.getItem('wargaNik');
+            const cleanWarga = String(currentWargaNik || '').replace(/\D/g, '');
+            if (cleanTarget && cleanWarga && cleanTarget === cleanWarga) {
                 if (typeof window.loadChatMessagesWarga === 'function') {
-                    window.loadChatMessagesWarga(false);
+                    window.loadChatMessagesWarga(true);
                 }
             }
 
             // Jika admin sedang membuka chat dengan warga ini:
-            if (window.activeChatNik === nik) {
+            const cleanAdminActive = String(window.activeChatNik || '').replace(/\D/g, '');
+            if (cleanTarget && cleanAdminActive && cleanTarget === cleanAdminActive) {
                 if (typeof window.loadChatMessages === 'function') {
                     window.loadChatMessages(window.activeChatNik, window.activeChatName);
                 }
@@ -453,6 +499,15 @@
 
         // 8. SINYAL PANGGILAN AUDIO & VIDEO WEBRTC REAL-TIME
         if (event.type === 'CALL_INVITE') {
+            // Validasi apakah sinyal panggilan masih aktif (< 20 detik)
+            if (event.timestamp) {
+                const diffMs = Math.abs(Date.now() - new Date(event.timestamp).getTime());
+                if (diffMs > 20000) {
+                    console.log('[REALTIME] Mengabaikan panggilan masuk usang/stale:', diffMs, 'ms');
+                    return;
+                }
+            }
+
             const isWargaPortal = Boolean(document.getElementById('wargaIncomingCallUI') || window.sesiAduanAktif || window.wargaNik);
             const myNik = (window.sesiAduanAktif && window.sesiAduanAktif.nik) || 
                           localStorage.getItem('lastAduanNik') || 
@@ -695,7 +750,11 @@
             if (res.ok) {
                 const json = await res.json();
                 const list = (json.events || []).reverse();
-                list.forEach(evt => handleIncomingEvent(evt));
+                list.forEach(evt => {
+                    // Jangan pernah replay sinyal panggilan suara/video dari riwayat koneksi
+                    if (evt && (String(evt.type).startsWith('CALL_') || String(evt.type).startsWith('WEBRTC_'))) return;
+                    handleIncomingEvent(evt);
+                });
             }
         } catch (e) {}
     }

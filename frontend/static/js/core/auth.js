@@ -237,16 +237,22 @@
             for (const k of ROLE_KEYS) {
                 const r = Storage.get(k);
                 if (r) {
-                    return r.toLowerCase().replace('petugas', 'operator');
+                    let clean = r.toLowerCase().replace(/[\s-]/g, '_');
+                    if (clean === 'operator') clean = 'petugas';
+                    if (clean === 'superadmin') clean = 'super_admin';
+                    return clean;
                 }
             }
 
             const payload = this.getPayload();
             if (payload?.role) {
-                return payload.role.toLowerCase().replace('petugas', 'operator');
+                let clean = String(payload.role).toLowerCase().replace(/[\s-]/g, '_');
+                if (clean === 'operator') clean = 'petugas';
+                if (clean === 'superadmin') clean = 'super_admin';
+                return clean;
             }
 
-            return 'admin';
+            return 'petugas';
         },
 
         /**
@@ -287,23 +293,37 @@
         },
 
         /**
-         * Memeriksa apakah pengguna memiliki hak akses penuh sebagai Administrator
+         * Memeriksa apakah pengguna memiliki hak akses Administrator (Admin Bansos atau Super Admin)
          * @returns {boolean} True jika akun memiliki tingkatan admin
          */
         isAdmin() {
-            return this.getRole() === 'admin';
+            const r = this.getRole();
+            return ['admin', 'super_admin', 'superadmin', 'developer'].includes(r);
+        },
+
+        isSuperAdmin() {
+            const r = this.getRole();
+            return ['super_admin', 'superadmin', 'developer'].includes(r);
         },
 
         /**
          * Menyimpan seluruh variasi token dan profil ke localStorage dan sessionStorage
          * Memastikan data terbaca secara redundan di semua modul dasbor
          * @param {string} token - Token otentikasi dari backend
-         * @param {string} role - Tingkat hak akses akun
-         * @param {Object} userObj - Objek identitas profil akun
+         * @param {string|Object} role - Tingkat hak akses akun (atau userObj jika 2 parameter)
+         * @param {Object} [userObj] - Objek identitas profil akun
          */
         setSession(token, role, userObj) {
+            // Dukung pemanggilan dengan 2 argumen: setSession(token, userObj)
+            if (typeof role === 'object' && role !== null && !userObj) {
+                userObj = role;
+                role = userObj.role || 'petugas';
+            }
+
             const cleanToken = String(token || '').replace(/^["']+|["']+$/g, '').trim();
-            const userRole = (role || 'admin').toLowerCase().replace('petugas', 'operator');
+            let userRole = String(role || userObj?.role || 'petugas').toLowerCase().replace(/[\s-]/g, '_');
+            if (userRole === 'operator') userRole = 'petugas';
+            if (userRole === 'superadmin') userRole = 'super_admin';
             const username = userObj?.username || userObj?.nama || 'Aparatur';
 
             // Sinkronisasi menyeluruh ke seluruh daftar kunci token penyimpanan
@@ -331,6 +351,8 @@
                 sessionStorage.setItem('token', cleanToken);
                 sessionStorage.setItem('access_token', cleanToken);
                 sessionStorage.setItem('role', userRole);
+                sessionStorage.setItem('user_role', userRole);
+                sessionStorage.setItem('bansos_user_role', userRole);
                 sessionStorage.setItem('user', JSON.stringify(userData));
             } catch (e) {
                 console.warn('[Auth] Penulisan data cadangan sessionStorage dibatasi oleh peramban.');
@@ -552,7 +574,13 @@
          */
         applyRBACRules() {
             const user = this.getUser();
-            const role = this.getRole();
+            const rawRole = (Storage.get('role') || Storage.get('user_role') || this.getRole() || 'petugas').toLowerCase().replace(/[\s-]/g, '_');
+            let role = rawRole;
+            if (role === 'operator') role = 'petugas';
+            if (role === 'superadmin') role = 'super_admin';
+
+            const isSuperAdmin = (role === 'super_admin' || role === 'developer');
+            const isAdmin = (role === 'admin' || isSuperAdmin);
 
             const navUser = document.getElementById('navUsername') ||
                             document.getElementById('userProfileLabel');
@@ -563,23 +591,43 @@
                 navUser.textContent = (user.nama_lengkap || user.username || 'ADMIN').toUpperCase();
             }
             if (navRole) {
-                navRole.textContent = role === 'admin' ? 'Administrator' : 'Petugas Lapangan';
-                navRole.className = `role-badge ${role === 'admin' ? 'role-admin' : 'role-petugas'}`;
+                if (isSuperAdmin) {
+                    navRole.className = 'role-badge';
+                    navRole.style.cssText = 'background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
+                    navRole.innerHTML = '<i class="fas fa-shield-alt"></i> Super Admin';
+                } else if (role === 'admin') {
+                    navRole.className = 'role-badge';
+                    navRole.style.cssText = 'background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
+                    navRole.innerHTML = '<i class="fas fa-user-tie"></i> Admin Bansos';
+                } else {
+                    navRole.className = 'role-badge';
+                    navRole.style.cssText = 'background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
+                    navRole.innerHTML = '<i class="fas fa-user-edit"></i> Petugas Lapangan';
+                }
             }
 
             const cmdCenter = document.getElementById('adminCommandCenter');
             if (cmdCenter) {
-                cmdCenter.style.display = (role === 'admin') ? 'block' : 'none';
+                cmdCenter.style.display = isAdmin ? 'block' : 'none';
             }
+
+            const tileCyber = document.getElementById('tileCyberShield');
+            if (tileCyber) tileCyber.style.setProperty('display', isSuperAdmin ? 'flex' : 'none', 'important');
+
+            const tileEskalasi = document.getElementById('tileEskalasiSuperAdmin');
+            if (tileEskalasi) tileEskalasi.style.setProperty('display', isSuperAdmin ? 'flex' : 'none', 'important');
+
+            const tileUji = document.getElementById('tileUjiSistem');
+            if (tileUji) tileUji.style.setProperty('display', isSuperAdmin ? 'flex' : 'none', 'important');
 
             // Memeriksa seluruh elemen antarmuka yang memiliki pembatasan data-role
             document.querySelectorAll('[data-role]').forEach(el => {
                 const allowed = el.getAttribute('data-role')
                     .toLowerCase()
                     .split(',')
-                    .map(r => r.trim().replace('petugas', 'operator'));
+                    .map(r => r.trim());
 
-                if (!allowed.includes(role)) {
+                if (!allowed.includes(role) && !isSuperAdmin) {
                     el.style.display = 'none';
                     el.setAttribute('aria-hidden', 'true');
                 } else {

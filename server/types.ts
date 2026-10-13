@@ -112,6 +112,7 @@ export interface ChatItem {
   reply_to_id: number | null;
   reaction: string;
   is_pinned: boolean;
+  is_starred?: boolean;
   is_deleted_all: boolean;
   deleted_for: string | null;
   waktu: string;
@@ -119,6 +120,8 @@ export interface ChatItem {
   is_read?: boolean;
   read_at?: string | null;
   delivered_at?: string | null;
+  is_handover?: boolean;
+  [key: string]: unknown;
 }
 
 export interface LaporanPelanggaranItem {
@@ -132,6 +135,9 @@ export interface LaporanPelanggaranItem {
   alasan: string;
   kategori: string;
   deskripsi: string;
+  tipe_laporan?: 'pesan_tunggal' | 'keseluruhan_obrolan';
+  transkrip?: any[];
+  total_pesan?: number;
   pelapor_role: 'warga' | 'petugas' | 'admin';
   pelapor_nama: string;
   pelapor_nik: string;

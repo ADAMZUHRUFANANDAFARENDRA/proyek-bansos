@@ -92,7 +92,7 @@ export const kriteriaStore: KriteriaItem[] = [
 
 export const usersStore: UserItem[] = [
   { id: 1, username: 'superadmin', password: '123', previous_passwords: ['admin@2025', 'master@dinsos'], nama_lengkap: 'Super Administrator', email: 'superadmin@sidoarjo.go.id', role: 'super_admin', is_active: true, created_at: '2026-01-01' },
-  { id: 2, username: 'admin', password: 'admin', previous_passwords: ['admin123', 'sidoarjo2024'], nama_lengkap: 'Administrator Utama (Super Admin)', email: 'admin@sidoarjo.go.id', role: 'super_admin', is_active: true, created_at: '2026-01-01' },
+  { id: 2, username: 'admin', password: 'admin', previous_passwords: ['admin123', 'sidoarjo2024'], nama_lengkap: 'Admin Bansos Sidoarjo', email: 'admin@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' },
   { id: 3, username: 'super admin', password: '123', previous_passwords: ['super_2025', 'admin#sda'], nama_lengkap: 'Super Administrator Sistem', email: 'super.admin@sidoarjo.go.id', role: 'super_admin', is_active: true, created_at: '2026-01-01' },
   { id: 4, username: 'admin_bansos', password: '123', previous_passwords: ['wilayah_2025'], nama_lengkap: 'Administrator Bansos Wilayah', email: 'admin_bansos@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' },
   { id: 5, username: 'admin bansos', password: '123', previous_passwords: ['bansos2025', 'bansos#sda'], nama_lengkap: 'Admin Bansos Sidoarjo', email: 'admin.bansos@sidoarjo.go.id', role: 'admin', is_active: true, created_at: '2026-01-01' },
@@ -115,9 +115,17 @@ export const DATA_MASTER_SIDOARJO: MasterSeedTuple[] = [
   ['3515990000000009', 'KPM WILAYAH TANGGULANGIN 09', 'Sidoarjo', '1975-01-01', 'Kawasan Domisili Wilayah Kec. Tanggulangin', '0812****0009', 'kpm.tanggulangin09@dinsos-sda.id', '-7.5089', '112.7121', 900000.0, 2200000.0, 56, 1, 3, 2, 1, 3, 1, 2, true, 'Disetujui', 'Telah Menerima', 'Pengrajin rumahan musiman'],
   ['3515990000000010', 'KPM WILAYAH KRIAN 10', 'Sidoarjo', '1989-08-14', 'Kawasan Domisili Wilayah Kec. Krian', '0812****0010', 'kpm.krian10@dinsos-sda.id', '-7.3995', '112.5921', 750000.0, 1800000.0, 47, 2, 4, 3, 3, 3, 1, 1, true, 'Disetujui', 'Laporan Sengketa', 'Bansos sembako belum diterima padahal status layak.'],
   ['3515990000000011', 'KPM WILAYAH WARU 11', 'Sidoarjo', '1993-04-22', 'Kawasan Domisili Wilayah Kec. Waru', '0812****0011', 'kpm.waru11@dinsos-sda.id', '-7.3456', '112.7612', 1500000.0, 5200000.0, 36, 1, 2, 2, 1, 2, 3, 1, false, 'Menunggu', 'Belum Salur', 'Verifikasi mandiri bansos'],
-  ['3515990000000012', 'KPM WILAYAH SIDOARJO 12', 'Sidoarjo', '1982-06-16', 'Kawasan Domisili Wilayah Kec. Sidoarjo', '0812****0012', 'kpm.sda12@dinsos-sda.id', '-7.4567', '112.6934', 820000.0, 1900000.0, 52, 2, 3, 2, 1, 3, 1, 2, true, 'Disetujui', 'Telah Menerima', 'Keluarga rentan penyakit kronis'],
-  ['3515392320524115', 'Evelyn Ningsih', 'Mojokerto', '1983-11-29', 'Jl. Diponegoro No.93, RT 11/RW 6, Desa Cemandi, Kec. Sedati, Kabupaten Sidoarjo', '08170917852', 'evelyn.ningsih98@gmail.com', '-7.427177', '112.735813', 1210550.0, 1295372.0, 43, 1, 5, 2, 2, 2, 2, 1, true, 'Disetujui', 'Belum Salur', 'Pekerja harian lepas, pendapatan tidak menentu.']
+  ['3515990000000013', 'KPM WILAYAH SEDATI 13', 'Sidoarjo', '1985-01-01', 'Kawasan Domisili Wilayah Kec. Sedati', '0812****0013', 'kpm.sedati13@dinsos-sda.id', '-7.4272', '112.7358', 1210550.0, 1295372.0, 43, 2, 5, 2, 2, 2, 2, 1, true, 'Disetujui', 'Belum Salur', 'Keluarga rentan prasejahtera terdata']
 ];
+
+export interface ChatOfficerInfo {
+  name: string;
+  role: string;
+  username?: string;
+  updated_at: string;
+}
+
+export const chatOfficerMap: Record<string, ChatOfficerInfo> = {};
 
 export let wargaStore: WargaItem[] = [];
 export let wargaBackupStore: WargaItem[] = [];
@@ -276,6 +284,134 @@ export const chatStore: ChatItem[] = [
     deleted_for: null,
     waktu: '08:45',
     created_at: '2026-09-27 08:45'
+  },
+  {
+    id: 6,
+    nik: '3515990000000010',
+    sender: 'warga',
+    nama: 'Warga Terdata Wilayah',
+    pesan: 'Pesan Suara (00:08)',
+    text: 'Pesan Suara (00:08)',
+    file_path: '/uploads/sample_voice.webm',
+    file_name: 'voice_note_keluarga.webm',
+    file_size: 64512,
+    file_type: 'audio',
+    reply_sender: null,
+    reply_text: null,
+    reply_to_id: null,
+    reaction: '',
+    is_pinned: false,
+    is_starred: false,
+    is_deleted_all: false,
+    deleted_for: null,
+    waktu: '08:50',
+    created_at: '2026-10-11 08:50'
+  },
+  {
+    id: 7,
+    nik: '3515990000000010',
+    sender: 'petugas',
+    nama: 'Petugas Dinsos Sidoarjo',
+    pesan: 'Berikut video panduan verifikasi lapangan dan pencairan bansos:',
+    text: 'Berikut video panduan verifikasi lapangan dan pencairan bansos:',
+    file_path: '/uploads/sample_video.mp4',
+    file_name: 'video_panduan_bansos.mp4',
+    file_size: 2048000,
+    file_type: 'video',
+    reply_sender: null,
+    reply_text: null,
+    reply_to_id: null,
+    reaction: '',
+    is_pinned: false,
+    is_starred: false,
+    is_deleted_all: false,
+    deleted_for: null,
+    waktu: '08:55',
+    created_at: '2026-10-11 08:55'
+  },
+  {
+    id: 8,
+    nik: '1234563728394856',
+    sender: 'warga',
+    nama: 'SULIS',
+    pesan: 'Selamat siang petugas Dinsos, saya ingin menanyakan proses pencairan bantuan sembako dan PKH saya.',
+    text: 'Selamat siang petugas Dinsos, saya ingin menanyakan proses pencairan bantuan sembako dan PKH saya.',
+    file_path: null,
+    file_type: null,
+    reply_sender: null,
+    reply_text: null,
+    reply_to_id: null,
+    reaction: '',
+    is_pinned: false,
+    is_starred: false,
+    is_deleted_all: false,
+    deleted_for: null,
+    waktu: '11:15',
+    created_at: '2026-10-12 11:15'
+  },
+  {
+    id: 9,
+    nik: '1234563728394856',
+    sender: 'petugas',
+    nama: 'Petugas Investigasi Dinsos',
+    pesan: 'Selamat siang Ibu SULIS, berkas pengaduan Anda telah kami terima dan masuk tahap peninjauan verifikator.',
+    text: 'Selamat siang Ibu SULIS, berkas pengaduan Anda telah kami terima dan masuk tahap peninjauan verifikator.',
+    file_path: null,
+    file_type: null,
+    reply_sender: null,
+    reply_text: null,
+    reply_to_id: null,
+    reaction: '',
+    is_pinned: false,
+    is_starred: false,
+    is_deleted_all: false,
+    deleted_for: null,
+    waktu: '11:20',
+    created_at: '2026-10-12 11:20'
+  },
+  {
+    id: 10,
+    nik: '1234563728394856',
+    sender: 'warga',
+    nama: 'SULIS',
+    pesan: '🎤 Pesan Suara (Voice Note)',
+    text: '🎤 Pesan Suara (Voice Note)',
+    file_path: '/uploads/sample_voice.webm',
+    file_name: 'voice_aduan_1234563728394856.webm',
+    file_size: 45056,
+    file_type: 'audio',
+    reply_sender: null,
+    reply_text: null,
+    reply_to_id: null,
+    reaction: '❤️',
+    is_pinned: false,
+    is_starred: true,
+    is_deleted_all: false,
+    deleted_for: null,
+    waktu: '11:25',
+    created_at: '2026-10-12 11:25'
+  },
+  {
+    id: 11,
+    nik: '1234563728394856',
+    sender: 'petugas',
+    nama: 'Petugas Investigasi Dinsos',
+    pesan: 'Berikut berkas panduan jadwal penyaluran resmi:',
+    text: 'Berikut berkas panduan jadwal penyaluran resmi:',
+    file_path: '/uploads/1790940052691_data_hasil_saw.pdf',
+    file_name: 'Surat_Panduan_Jadwal_Penyaluran.pdf',
+    file_size: 245760,
+    file_type: 'document',
+    reply_sender: null,
+    reply_text: null,
+    reply_to_id: null,
+    reaction: '👍',
+    is_pinned: true,
+    is_starred: false,
+    is_deleted_all: false,
+    deleted_for: null,
+    waktu: '11:30',
+    created_at: '2026-10-12 11:30'
   }
 ];
 
@@ -449,14 +585,28 @@ export function maskEmail(email?: string | null): string {
   return `${maskedName}@${parts[1]}`;
 }
 
+export function maskName(name?: string | null): string {
+  if (!name) return 'Warga Terdaftar';
+  const s = String(name).trim();
+  if (s.toUpperCase().startsWith('KPM WILAYAH')) return s;
+  const words = s.split(/\s+/);
+  return words.map(w => w.length <= 2 ? w : `${w[0]}${'*'.repeat(Math.max(1, w.length - 2))}${w[w.length - 1]}`).join(' ');
+}
+
 export function formatWargaSafe(w: WargaItem, maskPrivacy = true) {
   const formatted = formatWarga(w);
   if (maskPrivacy) {
     formatted.nik = maskNik(w.nik);
+    formatted.nama = maskName(w.nama);
+    formatted.nama_lengkap = formatted.nama;
     formatted.no_hp = maskPhone(w.no_hp);
     formatted.email = maskEmail(w.email);
+    formatted.tempat_lahir = 'Kabupaten Sidoarjo';
+    formatted.tanggal_lahir = w.tanggal_lahir ? `**/**/${String(w.tanggal_lahir).slice(0, 4)}` : '**/**/****';
+    if (w.lat) formatted.lat = Number(Number(w.lat).toFixed(2));
+    if (w.lng) formatted.lng = Number(Number(w.lng).toFixed(2));
     if (w.alamat) {
-      formatted.alamat = `Wilayah Terdaftar (${w.alamat.includes('Kec.') ? w.alamat.slice(w.alamat.indexOf('Kec.')) : 'Kabupaten Sidoarjo'})`;
+      formatted.alamat = `Kawasan Wilayah (${w.alamat.includes('Kec.') ? w.alamat.slice(w.alamat.indexOf('Kec.')) : 'Kabupaten Sidoarjo'})`;
     }
   }
   return formatted;

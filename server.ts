@@ -157,9 +157,11 @@ app.use(express.static(path.resolve(process.cwd(), 'frontend')));
 app.use('/api/security', securityRoutes);
 app.use('/security', securityRoutes);
 
-// Rute Otentikasi
+// Rute Otentikasi & Manajemen Pengguna
 app.use('/api/auth', authRoutes);
 app.use('/auth', authRoutes);
+app.use('/api/users', authRoutes);
+app.use('/users', authRoutes);
 
 // Rute Warga
 app.use('/api/warga', wargaRoutes);
@@ -168,7 +170,21 @@ app.use('/warga', wargaRoutes);
 // Rute SPK & Algoritma Keputusan
 app.use('/api/spk', spkRoutes);
 app.use('/spk', spkRoutes);
-app.use(['/api/hitung-saw', '/hitung-saw', '/api/sinkron-saw', '/sinkron-saw', '/api/kriteria', '/kriteria', '/api/bobot', '/bobot', '/api/bobot-bwm', '/bobot-bwm', '/api/komparasi', '/komparasi', '/api/sk-bupati', '/sk-bupati'], spkRoutes);
+// Alias rute SPK di tingkat root.
+// PENTING: jangan gunakan app.use(['/komparasi', ...], spkRoutes) karena Express memotong prefix
+// sehingga req.path menjadi '/' dan semua alias jatuh ke handler GET '/' (daftar kriteria).
+// Path diteruskan utuh ke router agar cocok dengan definisi rute di spk_routes.ts.
+const SPK_ROOT_ALIASES = new Set([
+  '/api/hitung-saw', '/hitung-saw', '/api/sinkron-saw', '/sinkron-saw',
+  '/api/kriteria', '/kriteria', '/api/kriteria/bobot', '/kriteria/bobot',
+  '/api/bobot', '/bobot', '/api/bobot-bwm', '/bobot-bwm',
+  '/api/komparasi', '/komparasi', '/api/sk-bupati', '/sk-bupati',
+  '/api/init-kriteria', '/init-kriteria'
+]);
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (SPK_ROOT_ALIASES.has(req.path)) return spkRoutes(req, res, next);
+  next();
+});
 
 // Rute Dukcapil
 app.use('/api', dukcapilRoutes);
@@ -181,6 +197,10 @@ app.use('/mysql', mysqlRoutes);
 app.use('/api/notifikasi', notifRoutes);
 app.use('/notifikasi', notifRoutes);
 
+// Rute Publik (Cek Bansos Warga)
+app.use('/api/publik', publicRoutes);
+app.use('/api/public', publicRoutes);
+
 // Rute Obrolan, Mediasi & Investigasi Aduan Warga
 app.use('/api/chat', chatRoutes);
 app.use('/chat', chatRoutes);
@@ -189,10 +209,6 @@ app.use('/investigasi', chatRoutes);
 app.use('/api/pengaduan', chatRoutes);
 app.use('/pengaduan', chatRoutes);
 app.use('/api', chatRoutes);
-
-// Rute Publik (Cek Bansos Warga)
-app.use('/api/publik', publicRoutes);
-app.use('/api/public', publicRoutes);
 
 // Rute Real-Time Engine (SSE Streaming, History Buffer, & Panggilan WebRTC Signal)
 app.get(['/api/realtime/stream', '/api/realtime/events'], handleSseConnection);

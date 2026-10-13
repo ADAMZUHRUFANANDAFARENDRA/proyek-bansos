@@ -954,9 +954,15 @@
     }
 
     function deliverToAttachmentQueue(preparedFiles) {
+        const isAduan = currentPickerContext === 'aduan-chat' || currentPickerContext === 'aduan-voice-preview';
         const isWarga = currentPickerContext === 'warga-chat' || currentPickerContext === 'warga-voice-preview';
 
-        if (isWarga) {
+        if (isAduan) {
+            const rawFiles = preparedFiles.filter(p => p.file instanceof Blob).map(p => p.file);
+            if (rawFiles.length > 0 && typeof window.addAduanChatAttachments === 'function') {
+                window.addAduanChatAttachments(rawFiles);
+            }
+        } else if (isWarga) {
             const rawFiles = preparedFiles.filter(p => p.file instanceof Blob).map(p => p.file);
             if (rawFiles.length > 0 && typeof window.addWargaChatAttachments === 'function') {
                 window.addWargaChatAttachments(rawFiles);
@@ -985,9 +991,9 @@
     async function executeDirectSendToChat(files) {
         if (!files || files.length === 0) return;
 
-        const isWargaContext = currentPickerContext === 'warga-chat' || currentPickerContext === 'warga-voice-preview' || (typeof window.activeChatNik === 'undefined' && typeof window.wargaNik !== 'undefined');
+        const isWargaContext = currentPickerContext === 'warga-chat' || currentPickerContext === 'warga-voice-preview' || currentPickerContext === 'aduan-chat' || currentPickerContext === 'aduan-voice-preview' || (typeof window.activeChatNik === 'undefined' && typeof window.wargaNik !== 'undefined');
         const targetNik = isWargaContext 
-            ? (window.wargaNik || (window.sesiWargaAktif && window.sesiWargaAktif.nik)) 
+            ? ((window.sesiAduanAktif && window.sesiAduanAktif.nik) || window.wargaNik || (window.sesiWargaAktif && window.sesiWargaAktif.nik) || localStorage.getItem('lastAduanNik')) 
             : window.activeChatNik;
 
         if (!targetNik) {
@@ -1001,7 +1007,7 @@
         const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
         const sender = isWargaContext ? 'warga' : 'petugas';
         const handler = isWargaContext 
-            ? ((window.sesiWargaAktif && window.sesiWargaAktif.nama_lengkap) || window.wargaNama || 'Warga') 
+            ? ((window.sesiAduanAktif && window.sesiAduanAktif.nama) || (window.sesiWargaAktif && window.sesiWargaAktif.nama_lengkap) || window.wargaNama || 'Warga') 
             : `Dinsos Sidoarjo (${((window.chatHandlersMap && window.chatHandlersMap[targetNik]) || 'Petugas').toUpperCase()})`;
 
         let successCount = 0;
@@ -1038,6 +1044,9 @@
         if (isWargaContext) {
             if (typeof window.loadChatMessagesWarga === 'function') {
                 window.loadChatMessagesWarga(false);
+            }
+            if (typeof window.muatPesanAduan === 'function' && (window.sesiAduanAktif || currentPickerContext === 'aduan-chat')) {
+                window.muatPesanAduan(true);
             }
         } else {
             if (typeof window.loadChatMessages === 'function') {

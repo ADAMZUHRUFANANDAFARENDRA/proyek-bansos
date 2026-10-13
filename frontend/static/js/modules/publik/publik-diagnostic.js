@@ -153,28 +153,71 @@
         const panelEl = document.getElementById('panelDiagnostikDev');
 
         const urlParams = new URLSearchParams(window.location.search);
-        const isDiagModeRequested = urlParams.get('mode') === 'diagnostik' || urlParams.get('diagnostic') === '1' || window.location.hash === '#diagnostik';
+        const isDiagModeRequested = urlParams.get('mode') === 'diagnostik' || 
+                                    urlParams.get('diagnostic') === '1' || 
+                                    window.location.hash === '#diagnostik' || 
+                                    Boolean(window._forceShowDevDiagnostic);
+
+        // Periksa apakah sedang dalam konteks warga (warga login, ada NIK warga di sesi, atau membuka dashboard warga)
+        const isWargaAccess = Boolean(
+            localStorage.getItem('wargaNik') ||
+            window.wargaNik ||
+            window.sesiWargaAktif ||
+            document.body.classList.contains('is-warga-dashboard') ||
+            (document.getElementById('dashboardWargaSection') && 
+             document.getElementById('dashboardWargaSection').style.display !== 'none' && 
+             document.getElementById('dashboardWargaSection').style.display !== '')
+        );
+
+        // Jika warga mengakses (atau berada dalam dashboard warga):
+        // Panel diagnostik HARUS DISEMBUNYIKAN secara mutlak agar tidak mengganggu warga,
+        // KECUALI Super Admin sengaja mengaktifkan mode diagnostik untuk menginvestigasi / menganalisis eror warga
+        if (isWargaAccess && !isDiagModeRequested) {
+            if (gateEl) gateEl.style.display = 'none';
+            if (panelEl) {
+                panelEl.style.setProperty('display', 'none', 'important');
+                panelEl.classList.remove('force-show-diagnostic');
+            }
+            return;
+        }
 
         if (isSuperAdminOrDev) {
-            // Pengguna sah: Buka portal & tampilkan panel diagnostik
-            if (gateEl) gateEl.style.display = 'none';
-            if (panelEl) panelEl.style.display = 'flex';
-            
-            const userLabel = document.getElementById('devAuthUser');
-            if (userLabel) {
-                userLabel.innerHTML = `<span class="text-emerald-400 font-bold">${diagnosticState.currentUser}</span> <span style="font-size:0.75rem; background:#334155; padding:2px 8px; border-radius:8px; margin-left:4px; text-transform:uppercase;">${diagnosticState.currentRole}</span>`;
-            }
+            // Mode diagnostik hanya muncul jika secara eksplisit diminta (misal via URL param atau toggle Super Admin)
+            if (isDiagModeRequested) {
+                if (gateEl) gateEl.style.display = 'none';
+                if (panelEl) {
+                    panelEl.style.setProperty('display', 'flex', 'important');
+                    panelEl.classList.add('force-show-diagnostic');
+                }
+                
+                const userLabel = document.getElementById('devAuthUser');
+                if (userLabel) {
+                    userLabel.innerHTML = `<span class="text-emerald-400 font-bold">${diagnosticState.currentUser}</span> <span style="font-size:0.75rem; background:#334155; padding:2px 8px; border-radius:8px; margin-left:4px; text-transform:uppercase;">${diagnosticState.currentRole}</span>`;
+                }
 
-            // Jalankan cek diagnostik otomatis pertama kali
-            jalankanDiagnostikSistem();
+                // Jalankan cek diagnostik otomatis pertama kali
+                jalankanDiagnostikSistem();
+            } else {
+                if (gateEl) gateEl.style.display = 'none';
+                if (panelEl) {
+                    panelEl.style.setProperty('display', 'none', 'important');
+                    panelEl.classList.remove('force-show-diagnostic');
+                }
+            }
         } else if (isDiagModeRequested) {
-            // Hanya kunci jika secara eksplisit membuka mode diagnostik dev
+            // Pengguna umum meminta mode diagnostik dev eksplisit tapi belum berwenang: tampilkan form gerbang otorisasi
             if (gateEl) gateEl.style.display = 'flex';
-            if (panelEl) panelEl.style.display = 'none';
+            if (panelEl) {
+                panelEl.style.setProperty('display', 'none', 'important');
+                panelEl.classList.remove('force-show-diagnostic');
+            }
         } else {
-            // Portal Warga Publik dapat diakses oleh warga masyarakat
+            // Portal Warga Publik diakses oleh warga masyarakat normal
             if (gateEl) gateEl.style.display = 'none';
-            if (panelEl) panelEl.style.display = 'none';
+            if (panelEl) {
+                panelEl.style.setProperty('display', 'none', 'important');
+                panelEl.classList.remove('force-show-diagnostic');
+            }
         }
     }
 
@@ -546,9 +589,37 @@
         window.location.reload();
     }
 
-    // 8. EKSPOS GLOBAL KE WINDOW
+    // 8. KONTROL TOGGLE DIAGNOSTIK & SHORTCUT SUPER ADMIN
+    window.toggleDiagnostikPanel = function (forceState) {
+        const panelEl = document.getElementById('panelDiagnostikDev');
+        const isCurrentlyVisible = panelEl && (panelEl.style.display === 'flex' || panelEl.style.display === 'block');
+        window._forceShowDevDiagnostic = (typeof forceState === 'boolean') ? forceState : !isCurrentlyVisible;
+        periksaIzinAkses();
+        return window._forceShowDevDiagnostic;
+    };
+
+    // Shortcut Super Admin: Tekan Ctrl + Alt + D untuk menyalakan/mematikan Mode Diagnostik saat menganalisis error warga
+    window.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'd' || e.key === 'D')) {
+            e.preventDefault();
+            const newState = window.toggleDiagnostikPanel();
+            if (window.Swal) {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: newState ? 'info' : 'success',
+                    title: newState ? 'Mode Diagnostik Diaktifkan' : 'Mode Diagnostik Disembunyikan',
+                    showConfirmButton: false,
+                    timer: 2000
+                });
+            }
+        }
+    });
+
+    // 9. EKSPOS GLOBAL KE WINDOW
     window.PublikDiagnostic = {
         checkAccess: periksaIzinAkses,
+        togglePanel: window.toggleDiagnostikPanel,
         loginFromGate: loginDariGateDiagnostik,
         runDiagnostic: jalankanDiagnostikSistem,
         openModal: bukaModalDiagnostik,

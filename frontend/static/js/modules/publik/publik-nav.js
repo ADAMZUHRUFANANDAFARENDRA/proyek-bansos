@@ -13,6 +13,8 @@ window.switchTabPublik = window.switchTab = function (targetSectionId, btnEl) {
     const aduanView = document.getElementById('sectionDashboardPengaduan');
     const chatbotBtn = document.getElementById('chatbotFabBtn') || document.getElementById('chatbotTriggerBtn');
 
+    const heroBanner = document.getElementById('heroBannerPublic') || document.querySelector('.hero-public');
+
     if (landingView) {
         landingView.style.display = 'block';
         landingView.style.opacity = '1';
@@ -20,6 +22,22 @@ window.switchTabPublik = window.switchTab = function (targetSectionId, btnEl) {
     }
 
     if (targetSectionId === 'dashboardWargaSection') {
+        document.body.classList.add('is-warga-dashboard');
+        if (heroBanner) {
+            heroBanner.classList.add('hero-hidden');
+            heroBanner.style.setProperty('display', 'none', 'important');
+        }
+        if (landingView) {
+            landingView.classList.add('warga-full-mode');
+        }
+
+        // Sembunyikan panel diagnostik otomatis pada akses dashboard warga
+        const panelDiag = document.getElementById('panelDiagnostikDev');
+        if (panelDiag && !window._forceShowDevDiagnostic) {
+            panelDiag.style.setProperty('display', 'none', 'important');
+            panelDiag.classList.remove('force-show-diagnostic');
+        }
+
         if (shell && dashboardView && shell.contains(dashboardView)) {
             shell.style.display = 'block';
             if (tabsBar) tabsBar.style.display = 'none';
@@ -36,13 +54,29 @@ window.switchTabPublik = window.switchTab = function (targetSectionId, btnEl) {
             dashboardView.style.display = 'block';
             dashboardView.style.opacity = '1';
             dashboardView.style.visibility = 'visible';
-            dashboardView.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         if (chatbotBtn) chatbotBtn.style.display = 'none';
         return;
     }
 
     if (targetSectionId === 'sectionDashboardPengaduan') {
+        document.body.classList.add('is-warga-dashboard');
+        if (heroBanner) {
+            heroBanner.classList.add('hero-hidden');
+            heroBanner.style.setProperty('display', 'none', 'important');
+        }
+        if (landingView) {
+            landingView.classList.add('warga-full-mode');
+        }
+
+        // Sembunyikan panel diagnostik otomatis pada akses dasbor pengaduan warga
+        const panelDiag = document.getElementById('panelDiagnostikDev');
+        if (panelDiag && !window._forceShowDevDiagnostic) {
+            panelDiag.style.setProperty('display', 'none', 'important');
+            panelDiag.classList.remove('force-show-diagnostic');
+        }
+
         if (shell && aduanView && shell.contains(aduanView)) {
             shell.style.display = 'block';
             if (tabsBar) tabsBar.style.display = 'none';
@@ -59,10 +93,25 @@ window.switchTabPublik = window.switchTab = function (targetSectionId, btnEl) {
             aduanView.style.display = 'block';
             aduanView.style.opacity = '1';
             aduanView.style.visibility = 'visible';
-            aduanView.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         if (chatbotBtn) chatbotBtn.style.display = 'none';
         return;
+    }
+
+    // Keluar dari mode dashboard warga/pengaduan: Pulihkan banner hero & mode kontainer
+    document.body.classList.remove('is-warga-dashboard');
+    if (heroBanner) {
+        heroBanner.classList.remove('hero-hidden');
+        heroBanner.style.display = '';
+    }
+    if (landingView) {
+        landingView.classList.remove('warga-full-mode');
+    }
+
+    // Periksa ulang visibilitas panel diagnostik jika Super Admin
+    if (window.PublikDiagnostic && typeof window.PublikDiagnostic.checkAccess === 'function') {
+        window.PublikDiagnostic.checkAccess();
     }
 
     if (shell) shell.style.display = 'block';

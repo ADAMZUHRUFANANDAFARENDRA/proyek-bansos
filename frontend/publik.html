@@ -13,9 +13,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     
     <!-- CSS INTERNAL RESMI -->
-    <link rel="stylesheet" href="static/css/style.css">
-    <link rel="stylesheet" href="static/css/publik.css">
-    <link rel="stylesheet" href="static/css/modern-notifications.css">
+    <link rel="stylesheet" href="static/css/style.css?v=20261011">
+    <link rel="stylesheet" href="static/css/publik.css?v=20261012_v1">
+    <link rel="stylesheet" href="static/css/modern-notifications.css?v=20261011">
 
     <!-- GOOGLE IDENTITY SERVICES SDK (OAUTH 2.0 GOOGLE DRIVE & GOOGLE FOTO) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -37,6 +37,176 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
+        /* DROPDOWN MENU TITIK TIGA SOLID (TIDAK TRANSPARAN) */
+        .aduan-dropdown-menu {
+            position: absolute !important;
+            top: 24px;
+            background: #ffffff !important;
+            background-color: #ffffff !important;
+            border: 1px solid rgba(226, 232, 240, 0.95) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 20px 45px -8px rgba(15, 23, 42, 0.22), 0 8px 18px -4px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04) !important;
+            z-index: 999999 !important;
+            width: 215px !important;
+            min-width: 205px !important;
+            max-width: 230px !important;
+            height: auto !important;
+            min-height: fit-content !important;
+            padding: 7px !important;
+            display: none;
+            flex-direction: column !important;
+            gap: 2px !important;
+            opacity: 1 !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            isolation: isolate !important;
+            box-sizing: border-box !important;
+        }
+
+        .aduan-dropdown-menu.show,
+        .aduan-dropdown-menu[style*="display: flex"],
+        .aduan-dropdown-menu[style*="display: block"] {
+            display: flex !important;
+            background: #ffffff !important;
+            background-color: #ffffff !important;
+            opacity: 1 !important;
+        }
+
+        .aduan-dropdown-menu .emoji-react-row {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            background: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 12px !important;
+            padding: 5px 6px !important;
+            margin-bottom: 6px !important;
+            gap: 5px !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            scrollbar-width: thin !important;
+            scrollbar-color: #cbd5e1 transparent !important;
+            -webkit-overflow-scrolling: touch !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        .aduan-dropdown-menu .emoji-react-row::-webkit-scrollbar {
+            height: 3px !important;
+        }
+
+        .aduan-dropdown-menu .emoji-react-row::-webkit-scrollbar-track {
+            background: transparent !important;
+        }
+
+        .aduan-dropdown-menu .emoji-react-row::-webkit-scrollbar-thumb {
+            background: #cbd5e1 !important;
+            border-radius: 4px !important;
+        }
+
+        .aduan-dropdown-menu .emoji-react-row span {
+            font-size: 1.25rem !important;
+            cursor: pointer !important;
+            transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s ease !important;
+            padding: 2px 4px !important;
+            border-radius: 8px !important;
+            line-height: 1 !important;
+            user-select: none !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex-shrink: 0 !important;
+        }
+
+        .aduan-dropdown-menu .emoji-react-row span:hover {
+            transform: scale(1.3) translateY(-2px) !important;
+            background: #e2e8f0 !important;
+        }
+
+        /* KUNCI LEBAR KARTU MEDIA & BUBBLE CHAT AGAR TIDAK MELEBAR / BERGESER KETIKA DIBERI TEKS KETERANGAN PANJANG */
+        .chat-doc-card {
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            background: #ffffff !important;
+            border-radius: 14px !important;
+            margin: 2px 0 4px 0 !important;
+            box-sizing: border-box !important;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+            border: 1.5px solid #e2e8f0 !important;
+            overflow: hidden !important;
+            transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+            cursor: default !important;
+            text-align: left !important;
+        }
+
+        .chat-media-img-wrap {
+            display: block !important;
+            position: relative !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            border-radius: 14px !important;
+            overflow: hidden !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            cursor: pointer !important;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12) !important;
+            background: transparent !important;
+            line-height: 0 !important;
+            box-sizing: border-box !important;
+        }
+
+        .chat-media-img {
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            max-width: 100% !important;
+            max-height: 270px !important;
+            object-fit: cover !important;
+            border-radius: 14px !important;
+            background: transparent !important;
+            transition: transform 0.2s ease, filter 0.2s ease !important;
+        }
+
+        .chat-media-video-wrap {
+            display: block !important;
+            position: relative !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            border-radius: 14px !important;
+            overflow: hidden !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15) !important;
+            background: #000000 !important;
+            line-height: 0 !important;
+            box-sizing: border-box !important;
+        }
+
+        .chat-media-video {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            max-height: 280px !important;
+            object-fit: cover !important;
+            border-radius: 14px !important;
+            background: #000000 !important;
+            cursor: pointer !important;
+        }
+
+        .chat-caption-text {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+            white-space: normal !important;
+            line-height: 1.45 !important;
+            margin-top: 4px !important;
+        }
+
         html, body {
             width: 100%;
             min-height: 100vh;
@@ -813,7 +983,7 @@
                     <div style="background:#0c1427; border:1px solid #1e293b; border-radius:16px; padding:16px; margin-bottom:14px;">
                         <label style="display:block; font-size:0.78rem; font-weight:700; color:#cbd5e1; margin-bottom:6px;">Uji Permintaan Cek Bansos (NIK)</label>
                         <div style="display:flex; gap:8px;">
-                            <input type="text" id="devTestNikInput" class="gate-input-field" placeholder="Masukkan 16 digit NIK pelapor..." style="margin-bottom:0; flex:1;" value="3515990000000001">
+                            <input type="text" id="devTestNikInput" class="gate-input-field" placeholder="Masukkan 16 digit NIK pelapor..." style="margin-bottom:0; flex:1;" value="">
                             <button type="button" onclick="window.PublikDiagnostic?.testNik()" class="btn-dev-action primary" style="padding:10px 18px; border-radius:12px;">
                                 <i class="fas fa-play"></i> Uji Coba Lacak
                             </button>
@@ -845,15 +1015,11 @@
                 <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,0.2);"></span>
                 Layanan Publik Aktif 24 Jam
             </div>
-
-            <button type="button" onclick="window.switchTabPortal ? window.switchTabPortal('pengaduan') : null" style="background:#f8fafc; color:#334155; border:1px solid #cbd5e1; padding:7px 16px; border-radius:20px; font-size:0.78rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s;" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='#f8fafc;'">
-                <i class="fas fa-headset text-emerald-600"></i> Bantuan & Kontak
-            </button>
         </div>
     </header>
 
     <!-- HERO BANNER PORTAL WARGA -->
-    <div class="hero-public">
+    <div class="hero-public" id="heroBannerPublic">
         <h1>Portal Layanan Bantuan Sosial</h1>
         <p>Platform pendaftaran mandiri dan pemantauan transparan Bantuan Sosial Terpadu Pemerintah Kabupaten Sidoarjo.</p>
         <button type="button" onclick="window.mulaiTurInteraktif()" class="btn-tour-nav" id="btnTourNav">
@@ -1189,16 +1355,19 @@
                         <div style="font-size:0.85rem; opacity:0.9;">Pusat Layanan Terpadu Warga Sidoarjo</div>
                     </div>
                 </div>
-                <button type="button" onclick="window.logoutWarga()" class="btn-tour-nav" style="background: #ef4444; border: none; padding: 8px 18px; font-size: 0.85rem; cursor:pointer;"><i class="fas fa-sign-out-alt"></i> Keluar Aman</button>
+                <button type="button" onclick="window.logoutWarga()" class="btn-tour-nav" style="background: #ef4444; border: none; padding: 8px 18px; font-size: 0.85rem; cursor:pointer;" title="Keluar dari Dashboard Pribadi"><i class="fas fa-sign-out-alt"></i> Keluar</button>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 24px;" class="grid-layout">
+            <div style="display: grid; grid-template-columns: 360px 1fr; gap: 24px;" class="grid-layout dashboard-warga-grid" id="dashboardWargaGridLayout">
                 <!-- PANEL KIRI: INFO & PROGRES -->
                 <div>
                     <div style="background: #f8fafc; padding: 18px; border-radius: 14px; border: 1px solid #e2e8f0; margin-bottom: 18px; border-left: 6px solid #009846;">
                         <h3 id="wNama" style="font-weight: 800; font-size: 1.25rem; color: #0f172a; margin-bottom: 6px;">-</h3>
                         <p style="font-size: 0.88rem; color: #64748b; margin-top: 4px;"><i class="fas fa-id-card text-primary"></i> NIK: <b id="wNik" class="font-mono" style="color: #0f172a;">-</b></p>
                         <p style="font-size: 0.88rem; color: #64748b; margin-top: 4px;"><i class="fas fa-map-marker-alt text-danger"></i> Alamat: <span id="wAlamat">-</span></p>
+                        <button type="button" onclick="window.bukaProfilLengkapWarga()" class="btn btn-sm" style="margin-top:12px; background:#009846; color:#ffffff; border:none; border-radius:10px; padding:7px 15px; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(0,152,70,0.22); transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" title="Lihat profil data warga dan bansos secara menyeluruh">
+                            <i class="fas fa-id-badge"></i> Lihat Profil Lengkap Warga
+                        </button>
                     </div>
 
                     <div style="border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 18px; background: #ffffff;">
@@ -1220,7 +1389,7 @@
                 </div>
 
                 <!-- PANEL KANAN: LIVE CHAT DENGAN VOICE NOTE & WEBRTC CALL -->
-                <div style="display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; height: 500px; background: #ffffff;">
+                <div class="warga-chat-card-wrap" id="wargaChatCardContainer" style="display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 18px; overflow: hidden; height: 720px; background: #ffffff;">
                     <div style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
                         <div style="display:flex; align-items:center; gap:10px;">
                             <div style="width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg, #0284c7, #1d4ed8); color:white; display:flex; align-items:center; justify-content:center; font-size:1.1rem;"><i class="fas fa-headset"></i></div>
@@ -1229,9 +1398,11 @@
                                 <small style="color:#009846; font-weight:700;"><i class="fas fa-circle" style="font-size:0.5rem;"></i> Petugas Online</small>
                             </div>
                         </div>
-                        <div style="display:flex; gap:6px; align-items:center;">
-                            <button type="button" onclick="window.startCallAdmin('audio')" class="btn btn-sm" style="background:#009846; color:#ffffff; border:none; border-radius:20px; padding:6px 14px; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 6px rgba(0,152,70,0.25);" title="Telepon Langsung Petugas Dinsos"><i class="fas fa-phone-alt"></i> Telepon</button>
-                            <button type="button" onclick="window.startCallAdmin('video')" class="btn btn-sm" style="background:#0284c7; color:#ffffff; border:none; border-radius:20px; padding:6px 14px; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 6px rgba(2,132,199,0.25);" title="Video Call Langsung Petugas Dinsos"><i class="fas fa-video"></i> Video Call</button>
+                        <div style="display:flex; gap:5px; align-items:center;">
+                            <button type="button" id="btnToggleChatSearchWarga" onclick="window.toggleChatSearchWarga()" class="btn btn-sm" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:20px; padding:6px 12px; font-weight:800; font-size:0.76rem; cursor:pointer; display:inline-flex; align-items:center; gap:5px;" title="Cari Pesan Teks, Suara, atau Berkas"><i class="fas fa-search"></i> Cari</button>
+                            <button type="button" id="btnLaporkanSeluruhObrolanWarga" onclick="window.laporkanSeluruhObrolanWarga()" class="btn btn-sm" style="background:#fee2e2; color:#dc2626; border:1px solid #fecdd3; border-radius:20px; padding:6px 12px; font-weight:800; font-size:0.76rem; cursor:pointer; display:inline-flex; align-items:center; gap:5px;" title="Laporkan Seluruh Obrolan ke Pengawas Dinsos"><i class="fas fa-flag"></i> Lapor Obrolan</button>
+                            <button type="button" onclick="window.startCallAdmin('audio')" class="btn btn-sm" style="background:#009846; color:#ffffff; border:none; border-radius:20px; padding:6px 12px; font-weight:800; font-size:0.76rem; cursor:pointer; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 6px rgba(0,152,70,0.25);" title="Telepon Langsung Petugas Dinsos"><i class="fas fa-phone-alt"></i> Telepon</button>
+                            <button type="button" onclick="window.startCallAdmin('video')" class="btn btn-sm" style="background:#0284c7; color:#ffffff; border:none; border-radius:20px; padding:6px 12px; font-weight:800; font-size:0.76rem; cursor:pointer; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 6px rgba(2,132,199,0.25);" title="Video Call Langsung Petugas Dinsos"><i class="fas fa-video"></i> Video Call</button>
                         </div>
                     </div>
 
@@ -1242,6 +1413,46 @@
                             <span>Respon Resmi: <b id="wargaOfficerNameBadge">🛡️ Admin 1 / Petugas Dinsos</b></span>
                         </div>
                         <span style="background:#2563eb; color:white; border-radius:12px; padding:1px 8px; font-size:0.68rem; font-weight:800;">SIAP MELAYANI</span>
+                    </div>
+
+                    <!-- BANNER PESAN DISEMATKAN (PINNED MESSAGE) -->
+                    <div id="wargaChatPinnedBanner" class="warga-pinned-chat-banner" style="display:none;" onclick="window.scrollKePesanDisematkan()">
+                        <div class="warga-pinned-content">
+                            <span style="font-weight:800;"><i class="fas fa-thumbtack text-purple"></i> Disematkan:</span>
+                            <span id="wargaPinnedTextSnippet" style="opacity:0.9; font-style:italic; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">-</span>
+                        </div>
+                        <button type="button" class="warga-pinned-unpin-btn" onclick="window.lepasSematanPesanWarga(event)" title="Lepas Sematan Pesan">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <!-- BILAH PENCARIAN & FILTER PESAN CEPAT -->
+                    <div id="wargaChatSearchPanel">
+                        <div class="chat-search-input-row">
+                            <div class="chat-search-input-wrap">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="wargaChatSearchInput" class="chat-search-input" placeholder="Cari pesan teks, suara, atau berkas..." oninput="window.jalankanPencarianChatWarga()">
+                            </div>
+                            <span id="wargaChatSearchMatchCount" class="chat-search-counter-badge" style="display:none;">0 hasil</span>
+                            <button type="button" class="chat-search-btn-icon" onclick="window.navigasiHasilCariChat('prev')" title="Pesan Sebelumnya (Naik)"><i class="fas fa-chevron-up"></i></button>
+                            <button type="button" class="chat-search-btn-icon" onclick="window.navigasiHasilCariChat('next')" title="Pesan Berikutnya (Turun)"><i class="fas fa-chevron-down"></i></button>
+                            <button type="button" class="chat-search-btn-icon" onclick="window.tutupChatSearchWarga()" title="Tutup Pencarian"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="chat-search-filter-pills">
+                            <span style="font-size:0.7rem; font-weight:800; color:#64748b; margin-right:2px;">Tipe:</span>
+                            <button type="button" class="chat-filter-chip active" id="chipFilterTypeAll" onclick="window.setChatFilterType('all')">Semua</button>
+                            <button type="button" class="chat-filter-chip" id="chipFilterTypeText" onclick="window.setChatFilterType('text')">💬 Teks</button>
+                            <button type="button" class="chat-filter-chip" id="chipFilterTypeMedia" onclick="window.setChatFilterType('media')">🖼️ Media</button>
+                            <button type="button" class="chat-filter-chip" id="chipFilterTypeFile" onclick="window.setChatFilterType('file')">📄 Dokumen</button>
+                            <button type="button" class="chat-filter-chip" id="chipFilterTypeAudio" onclick="window.setChatFilterType('audio')">🎤 Suara</button>
+                            <button type="button" class="chat-filter-chip" id="chipFilterTypeStarred" onclick="window.setChatFilterType('starred')">⭐ Bintang</button>
+                            <button type="button" class="chat-filter-chip" id="chipFilterTypeEmoji" onclick="window.setChatFilterType('emoji')">😊 Emoji</button>
+                            <div style="display:inline-flex; align-items:center; gap:4px; margin-left:auto;">
+                                <label for="wargaChatSearchDate" style="font-size:0.7rem; font-weight:800; color:#64748b;"><i class="fas fa-calendar-alt text-primary"></i> Tgl:</label>
+                                <input type="date" id="wargaChatSearchDate" class="chat-search-date-input" onchange="window.jalankanPencarianChatWarga()" title="Filter tanggal, bulan, tahun">
+                                <button type="button" class="chat-filter-chip" onclick="document.getElementById('wargaChatSearchDate').value=''; window.jalankanPencarianChatWarga();" title="Reset filter tanggal" style="padding:2px 6px;">✕</button>
+                            </div>
+                        </div>
                     </div>
 
                     <div id="wargaChatMessages" style="flex:1; padding:16px; overflow-y:auto; background:#f8fafc; display:flex; flex-direction:column; gap:10px;"></div>
@@ -1276,16 +1487,10 @@
 
                     <!-- BILAH INPUT WARGA TERPADU -->
                     <div style="padding: 12px 16px; border-top: 1px solid #e2e8f0; background:white; display:flex; align-items:center; gap:8px; position:relative;">
-                        <button type="button" onclick="window.toggleEmojiPickerWarga(event)" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer;"><i class="far fa-smile"></i></button>
-                        
                         <!-- EMOJI PICKER POPOVER WARGA -->
-                        <div id="emojiPickerWarga" class="emoji-picker-container" style="bottom:65px; left:12px;" onclick="event.stopPropagation()">
-                            <div style="padding-bottom:6px; margin-bottom:6px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center;">
-                                <span style="font-size:0.72rem; font-weight:800; color:#64748b; text-transform:uppercase;">Pilih Emoji</span>
-                                <button type="button" onclick="document.getElementById('emojiPickerWarga').style.display='none'" style="background:none; border:none; color:#94a3b8; cursor:pointer;"><i class="fas fa-times"></i></button>
-                            </div>
-                            <div class="emoji-grid-cells" id="emojiGridListWarga"></div>
-                        </div>
+                        <div id="emojiPickerWarga" style="display:none; position:absolute; bottom:64px; left:16px; background:#ffffff; border:1px solid #cbd5e1; border-radius:14px; box-shadow:0 10px 25px rgba(0,0,0,0.15); padding:10px; z-index:1000;" onclick="event.stopPropagation()"></div>
+
+                        <button type="button" id="btnEmojiWarga" class="emoji-toggle-btn" onclick="window.toggleEmojiPickerWarga(event)" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer;" title="Pilih Emoji"><i class="far fa-smile"></i></button>
 
                         <!-- TOMBOL LAMPIRKAN TERPADU WARGA (FOTO, VIDEO, DOKUMEN, KAMERA, GOOGLE DRIVE, GOOGLE FOTO, LOKASI) -->
                         <button type="button" id="btnWargaAttachMenu" onclick="window.toggleWargaAttachmentMenu(event)" style="background:none; border:none; font-size:1.15rem; color:#64748b; cursor:pointer; transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" title="Lampirkan Berkas">
@@ -1411,17 +1616,17 @@
                                     </button>
                                 </div>
 
-                                <!-- Input Keterangan & Tombol Lampiran Media -->
+                                <!-- SATU PIN LAMPIRAN + KETERANGAN & EMOJI MENYATU RAPI -->
                                 <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:220px; position:relative;">
-                                    <!-- Tombol Menu Lampiran Media untuk Pesan Suara Warga (Foto, Video, Dokumen, Lokasi, Google Drive, Google Foto) -->
-                                    <button type="button" id="btnWargaVoicePreviewAttach" onclick="window.toggleWargaVoicePreviewAttachMenu(event)" style="background:none; border:none; font-size:1.15rem; color:#64748b; cursor:pointer; padding:4px 6px; border-radius:50%; transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" title="Lampirkan Foto, Video, Dokumen, Google Drive, atau Google Foto">
+                                    <!-- SATU TOMBOL LAMPIRAN PIN/CLIP RAPI UNTUK PRATINJAU -->
+                                    <button type="button" id="btnWargaVoicePreviewAttach" onclick="window.toggleWargaVoicePreviewAttachMenu(event)" style="background:#f1f5f9; border:1px solid #cbd5e1; font-size:1.1rem; color:#475569; cursor:pointer; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all 0.15s;" title="Lampirkan Dokumen, Foto/Video, Google Drive, Google Foto, atau Lokasi">
                                         <i class="fas fa-paperclip"></i>
                                     </button>
 
-                                    <!-- POPOVER MENU LAMPIRAN MEDIA DALAM PREVIEW PESAN SUARA WARGA (GOOGLE SERVICES & KAMERA) -->
-                                    <div id="wargaVoicePreviewAttachMenu" class="chat-attachment-menu-popover" style="display:none; bottom:48px; left:0; min-width:270px;" onclick="event.stopPropagation()">
+                                    <!-- POPOVER MENU LAMPIRAN DALAM PREVIEW SUARA WARGA -->
+                                    <div id="wargaVoicePreviewAttachMenu" class="chat-attachment-menu-popover" style="display:none;" onclick="event.stopPropagation()">
                                         <div style="font-size:0.75rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-                                            <span><i class="fas fa-paperclip text-primary"></i> Tambah Media</span>
+                                            <span><i class="fas fa-paperclip text-primary"></i> Tambah Berkas</span>
                                             <button type="button" onclick="document.getElementById('wargaVoicePreviewAttachMenu').style.display='none'" style="background:none; border:none; color:#94a3b8; cursor:pointer;">&times;</button>
                                         </div>
                                         <div class="attachment-menu-grid" style="grid-template-columns: repeat(3, 1fr); gap:10px 6px;">
@@ -1437,27 +1642,32 @@
                                                 <div class="attach-icon-circle" style="background:linear-gradient(135deg, #7c3aed, #6d28d9);"><i class="fas fa-file-alt"></i></div>
                                                 <span class="attach-option-label">Dokumen</span>
                                             </button>
-                                            <button type="button" class="attach-option-btn" onclick="window.triggerWargaVoicePreviewAttach('gdrive')" title="Buka & Tautkan Berkas Google Drive Pribadi">
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerWargaVoicePreviewAttach('gdrive')" title="Buka & Tautkan Berkas Google Drive">
                                                 <div class="attach-icon-circle" style="background:linear-gradient(135deg, #f59e0b, #d97706);"><i class="fab fa-google-drive"></i></div>
                                                 <span class="attach-option-label">Google Drive</span>
                                             </button>
-                                            <button type="button" class="attach-option-btn" onclick="window.triggerWargaVoicePreviewAttach('gphotos')" title="Buka & Tautkan Foto dari Google Foto Pribadi">
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerWargaVoicePreviewAttach('gphotos')" title="Buka & Tautkan Foto dari Google Foto">
                                                 <div class="attach-icon-circle" style="background:linear-gradient(135deg, #ea4335, #c5221f);"><i class="fas fa-photo-video"></i></div>
                                                 <span class="attach-option-label">Google Foto</span>
                                             </button>
-                                            <button type="button" class="attach-option-btn" onclick="window.triggerWargaVoicePreviewAttach('location')" title="Bagikan Titik Lokasi Koordinat Resmi">
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerWargaVoicePreviewAttach('location')" title="Bagikan Titik Lokasi Koordinat (GPS atau Terdaftar)">
                                                 <div class="attach-icon-circle" style="background:linear-gradient(135deg, #10b981, #047857);"><i class="fas fa-map-marked-alt"></i></div>
                                                 <span class="attach-option-label">Lokasi</span>
                                             </button>
                                         </div>
                                     </div>
 
-                                    <input type="file" id="wargaVoicePreviewGalleryInput" style="display:none;" multiple accept="image/*,video/*" onchange="window.handleWargaVoicePreviewFileSelected(this, 'media')">
+                                    <input type="file" id="wargaVoicePreviewGalleryInput" style="display:none;" multiple accept="image/*,video/*,*/*" onchange="window.handleWargaVoicePreviewFileSelected(this, 'media')">
                                     <input type="file" id="wargaVoicePreviewCameraInput" style="display:none;" accept="image/*,video/*" onchange="window.handleWargaVoicePreviewFileSelected(this, 'image')">
-                                    <input type="file" id="wargaVoicePreviewDocInput" style="display:none;" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,application/*" onchange="window.handleWargaVoicePreviewFileSelected(this, 'doc')">
+                                    <input type="file" id="wargaVoicePreviewDocInput" style="display:none;" multiple accept="*/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,application/*" onchange="window.handleWargaVoicePreviewFileSelected(this, 'doc')">
 
-                                    <input type="text" id="wargaVoiceCaptionInput" placeholder="Tambah keterangan teks (opsional)..." style="flex:1; min-width:120px; border:1px solid #cbd5e1; background:#f8fafc; padding:7px 14px; border-radius:20px; font-size:0.82rem; outline:none;" onkeypress="if(event.key==='Enter') window.sendConfirmedVoiceWarga()">
-                                    <button type="button" id="btnSendConfirmedVoiceWarga" onclick="window.sendConfirmedVoiceWarga()" style="background:linear-gradient(135deg, #009846, #047857); color:white; border:none; border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; box-shadow:0 3px 8px rgba(0,152,70,0.3);" title="Kirim Pesan Suara">
+                                    <!-- KETERANGAN & EMOJI TERPADU MENYATU RAPI -->
+                                    <div class="voice-preview-caption-wrap" style="display:flex; align-items:center; flex:1; min-width:160px; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:22px; padding:2px 8px; transition:border-color 0.2s; box-shadow:inset 0 1px 2px rgba(0,0,0,0.03);">
+                                        <button type="button" id="btnEmojiWargaPreview" onclick="window.toggleEmojiPickerWarga(event)" style="background:none; border:none; color:#64748b; font-size:1.15rem; cursor:pointer; padding:3px 6px; display:flex; align-items:center; justify-content:center; border-radius:50%;" title="Pilih Emoji untuk Keterangan"><i class="far fa-smile"></i></button>
+                                        <input type="text" id="wargaVoiceCaptionInput" placeholder="Tambah keterangan teks / emoji..." style="flex:1; border:none; background:transparent; padding:6px 6px; font-size:0.82rem; color:#1e293b; outline:none;" onkeypress="if(event.key==='Enter') window.sendConfirmedVoiceWarga()">
+                                    </div>
+
+                                    <button type="button" id="btnSendConfirmedVoiceWarga" onclick="window.sendConfirmedVoiceWarga()" style="background:linear-gradient(135deg, #009846, #047857); color:white; border:none; border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; box-shadow:0 3px 8px rgba(0,152,70,0.3);" title="Kirim Pesan Suara beserta Keterangan & Berkas">
                                         <i class="fas fa-paper-plane" style="font-size:0.85rem;"></i>
                                     </button>
                                 </div>
@@ -1472,7 +1682,7 @@
         </div>
 
         <!-- DASHBOARD KHUSUS PENGADUAN (FULL-WIDTH MODERN & FITUR KOMPLET) -->
-        <div id="sectionDashboardPengaduan" style="display: none; width: 100%; max-width: 1350px; margin: 0 auto 30px auto; background: #ffffff; border-radius: 24px; padding: 2.2rem; box-shadow: 0 10px 35px rgba(0,0,0,0.06); border: 1.5px solid #e2e8f0;">
+        <div id="sectionDashboardPengaduan" class="dashboard-pengaduan-full-view" style="display: none; width: 100%; max-width: 100%; margin: 0 auto 30px auto; background: #ffffff; border-radius: 24px; padding: 1.8rem; box-shadow: 0 10px 35px rgba(0,0,0,0.06); border: 1.5px solid #e2e8f0;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 18px; margin-bottom: 24px; flex-wrap:wrap; gap:12px;">
                 <div>
                     <div style="display: flex; align-items: center; gap: 12px;">
@@ -1529,10 +1739,54 @@
                 </div>
 
                 <!-- PANEL KANAN: RUANG CHAT MULTIMEDIA LENGKAP -->
-                <div style="display: flex; flex-direction: column; border: 1.5px solid #e2e8f0; border-radius: 18px; overflow: hidden; height: 530px; background: #ffffff;">
-                    <div style="background: #f8fafc; padding: 14px 18px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                <div id="aduanChatCardWrap" style="display: flex; flex-direction: column; border: 1.5px solid #e2e8f0; border-radius: 18px; overflow: hidden; height: 640px; background: #ffffff;">
+                    <div style="background: #f8fafc; padding: 12px 18px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
                         <span style="font-weight: 800; font-size: 0.92rem; color: #dc2626;"><i class="fas fa-comments"></i> Ruang Koordinasi Khusus Pengaduan</span>
-                        <span style="background: #fee2e2; color: #dc2626; font-size: 0.72rem; font-weight: 800; padding: 3px 10px; border-radius: 12px;">LIVE ENCRYPTED</span>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <button type="button" id="btnToggleChatSearchAduan" onclick="window.toggleChatSearchAduan()" class="btn btn-sm" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:20px; padding:6px 12px; font-weight:800; font-size:0.76rem; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:all 0.15s;" title="Cari Pesan Teks, Suara, atau Berkas"><i class="fas fa-search"></i> Cari</button>
+                            <button type="button" id="btnLaporPelanggaranMenyeluruhAduan" onclick="window.laporkanSeluruhPelanggaranAduan()" title="Laporkan seluruh percakapan atau pelanggaran aparat/petugas ke Tim Pengawas & Inspektorat Dinsos" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-size:0.75rem; font-weight:800; padding:5px 12px; border-radius:14px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.15s; box-shadow:0 1px 3px rgba(220,38,38,0.1);">
+                                <i class="fas fa-flag"></i> Lapor Pelanggaran
+                            </button>
+                            <span style="background: #f1f5f9; color: #0284c7; border: 1px solid #bae6fd; font-size: 0.72rem; font-weight: 800; padding: 4px 10px; border-radius: 12px;">LIVE ENCRYPTED</span>
+                        </div>
+                    </div>
+
+                    <!-- BANNER IDENTITAS PETUGAS / ADMIN YANG MERESPON DI ADUAN -->
+                    <div id="aduanOfficerActiveBanner" style="display:flex; padding:6px 18px; background:linear-gradient(135deg, #eff6ff, #dbeafe); border-bottom:1px solid #bfdbfe; font-size:0.78rem; color:#1e40af; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-user-shield" style="color:#2563eb;"></i>
+                            <span>Respon Resmi: <b id="aduanOfficerNameBadge">🛡️ Tim Investigasi & Aparatur Dinsos</b></span>
+                        </div>
+                        <span id="aduanOfficerStatusBadge" style="background:#2563eb; color:white; border-radius:12px; padding:1px 8px; font-size:0.68rem; font-weight:800;">SIAP MELAYANI</span>
+                    </div>
+
+                    <!-- BILAH PENCARIAN & FILTER PESAN ADUAN (TEKS, MEDIA, DOKUMEN, SUARA, BINTANG, EMOJI) -->
+                    <div id="aduanChatSearchPanel">
+                        <div class="chat-search-input-row">
+                            <div class="chat-search-input-wrap">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="aduanChatSearchInput" class="chat-search-input" placeholder="Cari pesan teks, suara, atau berkas..." oninput="window.jalankanPencarianChatAduan()">
+                            </div>
+                            <span id="aduanChatSearchMatchCount" class="chat-search-counter-badge" style="display:none;">0 hasil</span>
+                            <button type="button" class="chat-search-btn-icon" onclick="window.navigasiHasilCariChatAduan('prev')" title="Pesan Sebelumnya (Naik)"><i class="fas fa-chevron-up"></i></button>
+                            <button type="button" class="chat-search-btn-icon" onclick="window.navigasiHasilCariChatAduan('next')" title="Pesan Berikutnya (Turun)"><i class="fas fa-chevron-down"></i></button>
+                            <button type="button" class="chat-search-btn-icon" onclick="window.tutupChatSearchAduan()" title="Tutup Pencarian"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="chat-search-filter-pills">
+                            <span style="font-size:0.7rem; font-weight:800; color:#64748b; margin-right:2px;">Tipe:</span>
+                            <button type="button" class="chat-filter-chip active" id="chipAduanFilterAll" onclick="window.setChatFilterTypeAduan('all')">Semua</button>
+                            <button type="button" class="chat-filter-chip" id="chipAduanFilterText" onclick="window.setChatFilterTypeAduan('text')">💬 Teks</button>
+                            <button type="button" class="chat-filter-chip" id="chipAduanFilterMedia" onclick="window.setChatFilterTypeAduan('media')">🖼️ Media</button>
+                            <button type="button" class="chat-filter-chip" id="chipAduanFilterFile" onclick="window.setChatFilterTypeAduan('file')">📄 Dokumen</button>
+                            <button type="button" class="chat-filter-chip" id="chipAduanFilterAudio" onclick="window.setChatFilterTypeAduan('audio')">🎤 Suara</button>
+                            <button type="button" class="chat-filter-chip" id="chipAduanFilterStarred" onclick="window.setChatFilterTypeAduan('starred')">⭐ Bintang</button>
+                            <button type="button" class="chat-filter-chip" id="chipAduanFilterEmoji" onclick="window.setChatFilterTypeAduan('emoji')">😊 Emoji</button>
+                            <div style="display:inline-flex; align-items:center; gap:4px; margin-left:auto;">
+                                <label for="aduanChatSearchDate" style="font-size:0.7rem; font-weight:800; color:#64748b;"><i class="fas fa-calendar-alt text-primary"></i> Tgl:</label>
+                                <input type="date" id="aduanChatSearchDate" class="chat-search-date-input" onchange="window.jalankanPencarianChatAduan()" title="Filter tanggal, bulan, tahun">
+                                <button type="button" class="chat-filter-chip" onclick="document.getElementById('aduanChatSearchDate').value=''; window.jalankanPencarianChatAduan();" title="Reset filter tanggal" style="padding:2px 6px;">✕</button>
+                            </div>
+                        </div>
                     </div>
 
                     <div id="aduanChatMessages" style="flex: 1; padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #f8fafc;"></div>
@@ -1546,37 +1800,198 @@
                         <button type="button" onclick="window.batalReplyAduan()" style="background:none; border:none; color:#94a3b8; font-size:1.1rem; cursor:pointer;"><i class="fas fa-times"></i></button>
                     </div>
 
-                    <!-- PREVIEW MEDIA PRA-KIRIM ADUAN -->
-                    <div id="preSendPreviewAduan" style="display:none; padding:8px 16px; background:#e0f2fe; border-top:1px solid #bae6fd; align-items:center; justify-content:space-between;">
-                        <div id="previewMediaContainerAduan" style="display:flex; align-items:center; gap:8px;"></div>
-                        <button type="button" onclick="window.batalLampiranAduan()" style="background:none; border:none; color:#dc2626; font-size:1.2rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+                    <!-- PREVIEW MEDIA PRA-KIRIM ADUAN (HINGGA 50 BERKAS SEKALIGUS) -->
+                    <div id="preSendPreviewAduan" style="display:none; padding:8px 14px; background:#f0f9ff; border-top:1.5px solid #bae6fd; flex-direction:column; gap:6px;">
+                        <div id="previewMediaContainerAduan" style="width:100%;"></div>
                     </div>
 
-                    <!-- BILAH INPUT LENGKAP DENGAN VOICE RECORDER -->
+                    <!-- BILAH INPUT LENGKAP DENGAN VOICE RECORDER HARMONIS & POPOVER LAMPIRAN -->
                     <div style="padding: 12px 16px; border-top: 1px solid #e2e8f0; display: flex; align-items:center; gap: 8px; background: #ffffff; position:relative;">
                         <!-- EMOJI PICKER ADUAN -->
-                        <div id="emojiPickerAduan" style="display:none; position:absolute; bottom:64px; left:16px; background:#ffffff; border:1px solid #cbd5e1; border-radius:14px; box-shadow:0 10px 25px rgba(0,0,0,0.15); padding:10px; grid-template-columns:repeat(6, 1fr); gap:6px; z-index:1000;"></div>
+                        <div id="emojiPickerAduan" style="display:none; position:absolute; bottom:64px; left:16px; background:#ffffff; border:1px solid #cbd5e1; border-radius:14px; box-shadow:0 10px 25px rgba(0,0,0,0.15); padding:10px; grid-template-columns:repeat(6, 1fr); gap:6px; z-index:1000;" onclick="event.stopPropagation()"></div>
 
-                        <button type="button" class="emoji-toggle-btn" onclick="window.toggleEmojiPickerAduan(event)" style="background:none; border:none; font-size:1.3rem; color:#64748b; cursor:pointer;"><i class="fas fa-smile"></i></button>
+                        <button type="button" id="btnEmojiAduan" class="emoji-toggle-btn" onclick="window.toggleEmojiPickerAduan(event)" style="background:none; border:none; font-size:1.3rem; color:#64748b; cursor:pointer;" title="Pilih Emoji"><i class="far fa-smile"></i></button>
                         
-                        <!-- File Input Lengkap (Foto, Video, Audio, Dokumen, PPT, PPTX, XLS, XLSX) -->
-                        <input type="file" id="aduanChatFile" style="display:none;" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.zip" onchange="window.handleAduanFileSelected(this)">
-                        <button type="button" onclick="document.getElementById('aduanChatFile').click()" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer;" title="Kirim Berkas / Foto / Video / PPT / Excel"><i class="fas fa-paperclip"></i></button>
+                        <!-- TOMBOL MENU LAMPIRAN LENGKAP ADUAN (PAPERCLIP / PIN TERPADU TERMASUK LOKASI) -->
+                        <button type="button" id="btnAttachAduan" onclick="window.toggleAduanAttachmentMenu(event)" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer; padding:4px;" title="Lampirkan Dokumen, Foto/Video, Google Drive, Google Foto, Kamera, atau Lokasi">
+                            <i class="fas fa-paperclip"></i>
+                        </button>
 
-                        <!-- TOMBOL BAGIKAN LOKASI GEOTAGGING -->
-                        <button type="button" onclick="window.kirimLokasiGeotagWarga()" style="background:none; border:none; font-size:1.2rem; color:#dc2626; cursor:pointer;" title="Bagikan Titik Lokasi Geotagging Resmi Anda"><i class="fas fa-map-marker-alt"></i></button>
+                        <!-- POPOVER MENU LAMPIRAN ADUAN (DOKUMEN, GALERI, KAMERA, DRIVE, GOOGLE FOTO, LOKASI) -->
+                        <div id="aduanAttachmentMenuPopover" class="chat-attachment-menu-popover" style="display:none; bottom:64px; left:50px; min-width:270px; z-index:1050;" onclick="event.stopPropagation()">
+                            <div style="font-size:0.75rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                                <span><i class="fas fa-paperclip text-primary"></i> Lampirkan Berkas</span>
+                                <button type="button" onclick="document.getElementById('aduanAttachmentMenuPopover').style.display='none'" style="background:none; border:none; color:#94a3b8; cursor:pointer;">&times;</button>
+                            </div>
+                            <div class="attachment-menu-grid" style="grid-template-columns: repeat(3, 1fr); gap:10px 6px;">
+                                <button type="button" class="attach-option-btn" onclick="document.getElementById('aduanAttachmentMenuPopover').style.display='none'; document.getElementById('aduanChatDocFile').click()" title="Kirim Berkas Dokumen (PDF, Word, Excel, CSV, PPT, JSON, ZIP, dll)">
+                                    <div class="attach-icon-circle" style="background:linear-gradient(135deg, #7c3aed, #6d28d9);"><i class="fas fa-file-alt"></i></div>
+                                    <span class="attach-option-label">Dokumen</span>
+                                </button>
+                                <button type="button" class="attach-option-btn" onclick="document.getElementById('aduanAttachmentMenuPopover').style.display='none'; document.getElementById('aduanChatFile').click()" title="Buka Galeri Foto & Video Perangkat">
+                                    <div class="attach-icon-circle" style="background:linear-gradient(135deg, #0284c7, #0369a1);"><i class="fas fa-images"></i></div>
+                                    <span class="attach-option-label">Galeri</span>
+                                </button>
+                                <button type="button" class="attach-option-btn" onclick="document.getElementById('aduanAttachmentMenuPopover').style.display='none'; window.openLiveCameraModal('aduan-chat')" title="Buka Kamera Perangkat Langsung">
+                                    <div class="attach-icon-circle" style="background:linear-gradient(135deg, #ec4899, #db2777);"><i class="fas fa-camera"></i></div>
+                                    <span class="attach-option-label">Kamera</span>
+                                </button>
+                                <button type="button" class="attach-option-btn" onclick="document.getElementById('aduanAttachmentMenuPopover').style.display='none'; document.getElementById('aduanChatAudioFile').click()" title="Kirim Musik atau Audio dari Perangkat">
+                                    <div class="attach-icon-circle" style="background:linear-gradient(135deg, #f59e0b, #d97706);"><i class="fas fa-headphones"></i></div>
+                                    <span class="attach-option-label">Audio</span>
+                                </button>
+                                <button type="button" class="attach-option-btn" onclick="document.getElementById('aduanAttachmentMenuPopover').style.display='none'; window.openGoogleDrivePicker('aduan-chat')" title="Lampirkan Dokumen dari Google Drive">
+                                    <div class="attach-icon-circle" style="background:linear-gradient(135deg, #009846, #059669);"><i class="fab fa-google-drive"></i></div>
+                                    <span class="attach-option-label">Drive</span>
+                                </button>
+                                <button type="button" class="attach-option-btn" onclick="document.getElementById('aduanAttachmentMenuPopover').style.display='none'; window.openGooglePhotosPicker('aduan-chat')" title="Lampirkan Foto dari Google Foto">
+                                    <div class="attach-icon-circle" style="background:linear-gradient(135deg, #ea4335, #c5221f);"><i class="fas fa-photo-video"></i></div>
+                                    <span class="attach-option-label">Google Foto</span>
+                                </button>
+                                <button type="button" class="attach-option-btn" onclick="document.getElementById('aduanAttachmentMenuPopover').style.display='none'; window.kirimLokasiGeotagWarga()" title="Bagikan Titik Lokasi Koordinat (GPS atau Terdaftar)">
+                                    <div class="attach-icon-circle" style="background:linear-gradient(135deg, #10b981, #047857);"><i class="fas fa-map-marked-alt"></i></div>
+                                    <span class="attach-option-label">Lokasi</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- INPUT FILE TERSEMBUNYI UNTUK ADUAN (SEMUA FORMAT DOKUMEN, FOTO, VIDEO & AUDIO) -->
+                        <input type="file" id="aduanChatFile" style="display:none;" multiple accept="image/*,video/*,.jpg,.jpeg,.png,.webp,.gif,.bmp,.svg,.heic,.heif,.mp4,.webm,.mkv,.avi,.mov,.3gp,.wmv,.flv,*/*" onchange="window.handleAduanFileSelected(this)">
+                        <input type="file" id="aduanChatDocFile" style="display:none;" multiple accept="*/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.zip,.rar,.7z,.tar,.gz,.odt,.ods,.odp,.rtf,application/*" onchange="window.handleAduanFileSelected(this)">
+                        <input type="file" id="aduanChatAudioFile" style="display:none;" multiple accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.weba,.flac" onchange="window.handleAduanFileSelected(this)">
 
                         <input type="text" id="aduanChatInput" placeholder="Ketik pesan atau tanggapan..." class="chat-pill-input" onkeypress="if(event.key==='Enter') window.kirimPesanAduan()">
 
-                        <!-- CONTROLLER VOICE RECORD ADUAN -->
-                        <div id="aduanRecordingUI" style="display:none; flex:1; align-items:center; gap:10px; background:#fff1f2; border:1px solid #fecdd3; padding:4px 14px; border-radius:25px;">
-                            <span id="aduanRecordTime" style="font-weight:800; font-family:monospace; color:#e11d48;">00:00</span>
-                            <div style="flex:1; height:4px; background:#fca5a5; border-radius:2px;"></div>
-                            <button type="button" onclick="window.cancelVoiceRecordAduan()" style="background:none; border:none; color:#e11d48; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
+                        <!-- CONTROLLER VOICE RECORD ADUAN HARMONIS & ELEGAN (DENGAN JEDA, LANJUTKAN, PUTAR ULANG SEMENTARA & SELESAI) -->
+                        <div id="aduanRecordingUI" style="display:none; flex:1; flex-direction:column; gap:6px;">
+                            <!-- Baris 1: Saat Merekam Aktif (Warna Hijau/Emerald Selaras Portal) -->
+                            <div id="aduanVoiceActiveRow" style="display:flex; align-items:center; gap:8px; background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 14px; border-radius:25px; box-shadow:0 2px 8px rgba(0,152,70,0.08);">
+                                <div class="chat-record-pulse-dot" id="aduanVoicePulseDot"></div>
+                                <span id="aduanRecordTime" style="font-weight:800; font-family:monospace; color:#009846; font-size:0.85rem; min-width:40px;">00:00</span>
+                                <canvas id="aduanRecordWaveCanvas" width="160" height="24" style="flex:1; max-width:200px; height:24px; display:block; border-radius:4px; background:rgba(0,152,70,0.05);"></canvas>
+                                <span id="aduanRecordStatus" style="font-size:0.72rem; color:#047857; font-weight:700; white-space:nowrap;"><i class="fas fa-wave-square"></i> Merekam...</span>
+                                <button type="button" id="btnPauseResumeAduan" onclick="window.togglePauseVoiceAduan()" style="background:none; border:none; color:#009846; cursor:pointer; font-size:1rem; padding:3px;" title="Jeda Rekaman"><i class="fas fa-pause"></i></button>
+                                <button type="button" onclick="window.cancelVoiceRecordAduan()" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:0.9rem; padding:3px;" title="Batalkan"><i class="fas fa-trash-alt"></i></button>
+                                <button type="button" onclick="window.stopAndPreviewVoiceAduan()" style="background:linear-gradient(135deg, #009846, #047857); color:white; border:none; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; box-shadow:0 2px 6px rgba(0,152,70,0.25);" title="Selesai & Dengarkan Pratinjau"><i class="fas fa-check" style="font-size:0.8rem;"></i></button>
+                            </div>
+
+                            <!-- Baris 2: Saat Dijeda: Dengarkan Audio Sementara, Seeking, Kecepatan & Lanjutkan Rekaman -->
+                            <div id="aduanVoicePausedReviewRow" style="display:none; align-items:center; gap:8px; width:100%; flex-wrap:wrap; background:#f0fdf4; border:1.5px solid #86efac; border-radius:20px; padding:6px 12px; box-shadow:0 2px 8px rgba(0,152,70,0.08);">
+                                <button type="button" id="btnPlayWhileRecordingAduan" onclick="window.togglePlayWhileRecordingAduan()" style="background:#009846; color:white; border:none; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:0.82rem; flex-shrink:0; box-shadow:0 2px 6px rgba(0,152,70,0.3);" title="Putar / Jeda rekaman yang sudah ada">
+                                    <i class="fas fa-play" style="margin-left:2px;"></i>
+                                </button>
+                                <div style="flex:1; min-width:140px; display:flex; flex-direction:column; gap:2px;">
+                                    <div style="display:flex; justify-content:space-between; font-size:0.68rem; font-weight:800; color:#065f46;">
+                                        <span><i class="fas fa-pause-circle text-amber-500"></i> Dijeda • Cek Suara</span>
+                                        <span id="aduanVoicePauseTimer" style="font-family:monospace; color:#047857;">00:00 / 00:00</span>
+                                    </div>
+                                    <input type="range" id="aduanVoicePauseSeek" min="0" max="100" value="0" step="0.1" oninput="window.seekAduanVoicePause(this.value)" style="width:100%; height:5px; cursor:pointer; accent-color:#009846; border-radius:3px; outline:none;" title="Geser ke detik atau menit tertentu">
+                                </div>
+                                <button type="button" id="btnAduanVoicePauseSpeed" onclick="window.changeAduanVoicePauseSpeed()" class="audio-speed-btn" style="background:#dcfce7; border:1px solid #86efac; color:#15803d; border-radius:10px; font-size:0.72rem; font-weight:800; padding:2px 7px; cursor:pointer;" title="Atur Kecepatan (0.5x, 1x, 1.5x, 2x)">1x</button>
+                                <button type="button" onclick="window.togglePauseVoiceAduan()" style="background:#009846; color:white; border:none; border-radius:14px; padding:5px 12px; font-size:0.75rem; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px;" title="Lanjutkan Rekaman Suara">
+                                    <i class="fas fa-microphone"></i> Lanjutkan
+                                </button>
+                                <button type="button" onclick="window.stopAndPreviewVoiceAduan()" style="background:#047857; color:white; border:none; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;" title="Selesai & Pratinjau">
+                                    <i class="fas fa-check" style="font-size:0.75rem;"></i>
+                                </button>
+                                <button type="button" onclick="window.cancelVoiceRecordAduan()" style="background:#fee2e2; color:#dc2626; border:none; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;" title="Batal Rekam">
+                                    <i class="fas fa-trash-alt" style="font-size:0.75rem;"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- BILAH PRATINJAU SUARA ADUAN SEBELUM DIKIRIM (DENGAN BATANG FREKUENSI, TEKS KETERANGAN & LAMPIRAN BERKAS) -->
+                        <div id="aduanVoicePreviewBar" style="display:none; width:100%; flex-direction:column; gap:8px;">
+                            <div id="aduanVoicePreviewAttachmentList" style="display:none; width:100%; flex-direction:column; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:6px 12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; font-weight:800; color:#1e40af;">
+                                    <span id="aduanVoiceAttachmentCountLabel"><i class="fas fa-paperclip"></i> Lampiran Berkas</span>
+                                    <button type="button" onclick="window.clearAllAduanVoicePreviewAttachments()" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:0.72rem; font-weight:700;"><i class="fas fa-trash-alt"></i> Hapus Semua</button>
+                                </div>
+                                <div id="aduanVoicePreviewAttachmentChipsContainer" style="display:flex; align-items:center; gap:8px; overflow-x:auto; padding-bottom:4px; max-width:100%;"></div>
+                            </div>
+
+                            <div style="display:flex; align-items:center; gap:8px; width:100%; flex-wrap:wrap;">
+                                <!-- PLAYER MINI PRATINJAU -->
+                                <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:240px; background:#ffffff; border:1.5px solid #009846; border-radius:24px; padding:5px 12px; box-shadow:0 3px 10px rgba(0,152,70,0.12);">
+                                    <button type="button" id="btnPlayAduanVoicePreview" onclick="window.togglePlayPreviewAduan(this)" style="background:#009846; color:white; border:none; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">
+                                        <i class="fas fa-play" style="margin-left:2px; font-size:0.82rem;"></i>
+                                    </button>
+                                    <div style="flex:1; min-width:110px; display:flex; flex-direction:column; gap:2px;">
+                                        <div style="display:flex; justify-content:space-between; font-size:0.7rem; font-weight:800; color:#0f172a;">
+                                            <span style="color:#009846;"><i class="fas fa-headphones"></i> Pratinjau Suara</span>
+                                            <span id="aduanPreviewTimer" style="font-family:monospace; color:#047857;">00:00 / 00:08</span>
+                                        </div>
+                                        <div style="position:relative; width:100%; height:20px; display:flex; align-items:center;">
+                                            <canvas id="aduanPreviewCanvas" width="180" height="20" style="width:100%; height:20px; display:block; border-radius:4px; cursor:pointer;"></canvas>
+                                            <input type="range" id="aduanPreviewSeek" min="0" max="100" value="0" step="0.1" oninput="window.seekPreviewAduan(this.value)" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; margin:0; z-index:5;">
+                                        </div>
+                                    </div>
+                                    <button type="button" id="btnAduanPreviewSpeed" class="audio-speed-btn" onclick="window.changePreviewAudioSpeedAduan(this)" title="Atur Kecepatan Suara">1x</button>
+                                    <button type="button" onclick="window.cancelVoiceRecordAduan()" style="background:#fee2e2; color:#dc2626; border:none; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;" title="Hapus / Batal">
+                                        <i class="fas fa-trash-alt" style="font-size:0.75rem;"></i>
+                                    </button>
+                                </div>
+
+                                <!-- SATU PIN LAMPIRAN + KETERANGAN & EMOJI MENYATU RAPI -->
+                                <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:220px; position:relative;">
+                                    <!-- SATU TOMBOL LAMPIRAN PIN/CLIP RAPI UNTUK PRATINJAU -->
+                                    <button type="button" id="btnAduanVoicePreviewAttach" onclick="window.toggleAduanVoicePreviewAttachMenu(event)" style="background:#f1f5f9; border:1px solid #cbd5e1; font-size:1.1rem; color:#475569; cursor:pointer; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all 0.15s;" title="Lampirkan Dokumen, Foto/Video, Google Drive, Google Foto, atau Lokasi">
+                                        <i class="fas fa-paperclip"></i>
+                                    </button>
+
+                                    <!-- POPOVER MENU LAMPIRAN DALAM PREVIEW SUARA ADUAN -->
+                                    <div id="aduanVoicePreviewAttachMenu" class="chat-attachment-menu-popover" style="display:none;" onclick="event.stopPropagation()">
+                                        <div style="font-size:0.75rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                                            <span><i class="fas fa-paperclip text-primary"></i> Tambah Berkas</span>
+                                            <button type="button" onclick="document.getElementById('aduanVoicePreviewAttachMenu').style.display='none'" style="background:none; border:none; color:#94a3b8; cursor:pointer;">&times;</button>
+                                        </div>
+                                        <div class="attachment-menu-grid" style="grid-template-columns: repeat(3, 1fr); gap:10px 6px;">
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerAduanVoicePreviewAttach('gallery')" title="Pilih Foto & Video dari Galeri Perangkat">
+                                                <div class="attach-icon-circle" style="background:linear-gradient(135deg, #0284c7, #0369a1);"><i class="fas fa-images"></i></div>
+                                                <span class="attach-option-label">Foto & Video</span>
+                                            </button>
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerAduanVoicePreviewAttach('camera')" title="Akses Kamera Perangkat Langsung">
+                                                <div class="attach-icon-circle" style="background:linear-gradient(135deg, #ec4899, #db2777);"><i class="fas fa-camera"></i></div>
+                                                <span class="attach-option-label">Kamera</span>
+                                            </button>
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerAduanVoicePreviewAttach('doc')" title="Lampirkan Dokumen (PDF, Word, Excel, CSV, dsb)">
+                                                <div class="attach-icon-circle" style="background:linear-gradient(135deg, #7c3aed, #6d28d9);"><i class="fas fa-file-alt"></i></div>
+                                                <span class="attach-option-label">Dokumen</span>
+                                            </button>
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerAduanVoicePreviewAttach('gdrive')" title="Buka & Tautkan Berkas Google Drive">
+                                                <div class="attach-icon-circle" style="background:linear-gradient(135deg, #f59e0b, #d97706);"><i class="fab fa-google-drive"></i></div>
+                                                <span class="attach-option-label">Google Drive</span>
+                                            </button>
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerAduanVoicePreviewAttach('gphotos')" title="Buka & Tautkan Foto dari Google Foto">
+                                                <div class="attach-icon-circle" style="background:linear-gradient(135deg, #ea4335, #c5221f);"><i class="fas fa-photo-video"></i></div>
+                                                <span class="attach-option-label">Google Foto</span>
+                                            </button>
+                                            <button type="button" class="attach-option-btn" onclick="window.triggerAduanVoicePreviewAttach('location')" title="Bagikan Titik Lokasi Koordinat (GPS atau Terdaftar)">
+                                                <div class="attach-icon-circle" style="background:linear-gradient(135deg, #10b981, #047857);"><i class="fas fa-map-marked-alt"></i></div>
+                                                <span class="attach-option-label">Lokasi</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <input type="file" id="aduanVoicePreviewGalleryInput" style="display:none;" multiple accept="image/*,video/*,*/*" onchange="window.handleAduanVoicePreviewFileSelected(this, 'media')">
+                                    <input type="file" id="aduanVoicePreviewCameraInput" style="display:none;" accept="image/*,video/*" onchange="window.handleAduanVoicePreviewFileSelected(this, 'image')">
+                                    <input type="file" id="aduanVoicePreviewDocInput" style="display:none;" multiple accept="*/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,application/*" onchange="window.handleAduanVoicePreviewFileSelected(this, 'doc')">
+
+                                    <!-- KETERANGAN & EMOJI TERPADU MENYATU RAPI -->
+                                    <div class="voice-preview-caption-wrap" style="display:flex; align-items:center; flex:1; min-width:160px; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:22px; padding:2px 8px; transition:border-color 0.2s; box-shadow:inset 0 1px 2px rgba(0,0,0,0.03);">
+                                        <button type="button" id="btnEmojiAduanPreview" onclick="window.toggleEmojiPickerAduan(event)" style="background:none; border:none; color:#64748b; font-size:1.15rem; cursor:pointer; padding:3px 6px; display:flex; align-items:center; justify-content:center; border-radius:50%;" title="Pilih Emoji untuk Keterangan"><i class="far fa-smile"></i></button>
+                                        <input type="text" id="aduanVoiceCaptionInput" placeholder="Tambah keterangan teks / emoji..." style="flex:1; border:none; background:transparent; padding:6px 6px; font-size:0.82rem; color:#1e293b; outline:none;" onkeypress="if(event.key==='Enter') window.sendConfirmedVoiceAduan()">
+                                    </div>
+
+                                    <button type="button" id="btnSendConfirmedVoiceAduan" onclick="window.sendConfirmedVoiceAduan()" style="background:linear-gradient(135deg, #009846, #047857); color:white; border:none; border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; box-shadow:0 3px 8px rgba(0,152,70,0.3);" title="Kirim Pesan Suara beserta Keterangan & Berkas">
+                                        <i class="fas fa-paper-plane" style="font-size:0.85rem;"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <button type="button" id="btnRecordAduan" onclick="window.toggleVoiceRecordAduan()" style="background:none; border:none; font-size:1.25rem; color:#64748b; cursor:pointer;" title="Rekam Pesan Suara"><i class="fas fa-microphone"></i></button>
-                        <button type="button" onclick="window.kirimPesanAduan()" style="background: #dc2626; color: white; border: none; width: 42px; height: 42px; border-radius: 50%; cursor: pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><i class="fas fa-paper-plane"></i></button>
+                        <button type="button" id="btnSendAduan" onclick="window.kirimPesanAduan()" style="background:linear-gradient(135deg, #009846, #047857); color:white; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 3px 8px rgba(0,152,70,0.25);" title="Kirim Pesan"><i class="fas fa-paper-plane" style="font-size:0.9rem;"></i></button>
                     </div>
                 </div>
             </div>
@@ -1868,18 +2283,18 @@
     <!-- MODUL FITUR PORTAL WARGA -->
     <script src="static/js/modules/camera-manager.js"></script>
     <script src="static/js/modules/google-workspace.js"></script>
-    <script src="static/js/modules/publik/publik-nav.js"></script>
+    <script src="static/js/modules/publik/publik-nav.js?v=20261012_v1"></script>
     <script src="static/js/modules/publik/publik-dashboard.js"></script>
     <script src="static/js/modules/publik/publik-lacak.js"></script>
     <script src="static/js/modules/publik/publik-daftar.js"></script>
     <script src="static/js/modules/publik/publik-aduan.js"></script>
     <script src="static/js/modules/publik/publik-audio.js"></script>
     <script src="static/js/modules/publik/publik-webrtc.js"></script>
-    <script src="static/js/modules/publik/publik-chat.js"></script>
+    <script src="static/js/modules/publik/publik-chat.js?v=20261011_v6"></script>
     <script src="static/js/modules/publik/publik-chatbot.js"></script>
 
     <!-- Modul Diagnostik & Pengawasan Khusus Super Admin & Developer -->
-    <script src="static/js/modules/publik/publik-diagnostic.js"></script>
+    <script src="static/js/modules/publik/publik-diagnostic.js?v=20261012_v1"></script>
 
     <!-- Orchestrator Utama Portal Warga -->
     <script src="static/js/publik.js"></script>
@@ -2118,5 +2533,89 @@
             });
         }
     </script>
+
+    <!-- MODAL PEMUTAR VIDEO LAYAR PENUH (THEATER FULLSCREEN) -->
+    <div id="videoTheaterModal" class="video-theater-modal" style="display:none;" onclick="if(event.target === this) window.closeVideoTheaterModal()">
+        <div class="video-theater-dialog">
+            <div class="video-theater-header">
+                <div class="video-theater-title">
+                    <i class="fas fa-play-circle text-success" style="font-size:1.1rem;"></i>
+                    <span id="theaterVideoTitle">Video Pemutar Layar Penuh</span>
+                </div>
+                <button type="button" class="btn-theater-close" onclick="window.closeVideoTheaterModal()" title="Tutup Layar Penuh (Esc)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="video-theater-stage" id="theaterVideoStage">
+                <video id="theaterVideoEl" playsinline preload="auto"
+                       onclick="window.toggleTheaterPlay(event)"
+                       ondblclick="window.handleTheaterDblClick(event)"
+                       ontimeupdate="window.updateTheaterProgress()"
+                       onended="window.resetTheaterPlay()"></video>
+
+                <!-- Center Big Play Overlay -->
+                <div class="video-center-play-overlay" id="theaterCenterPlayOverlay" onclick="window.toggleTheaterPlay(event)" title="Putar Video">
+                    <div class="center-play-circle" id="theaterCenterPlayIcon">
+                        <i class="fas fa-play" style="margin-left:4px;"></i>
+                    </div>
+                </div>
+
+                <!-- Left & Right Jump Flanks (-10s / +10s) -->
+                <div class="video-hover-jump-overlay">
+                    <div class="video-jump-side left" onclick="window.jumpTheaterTime(-10, event)" ondblclick="window.handleTheaterDblClick(event)" title="Mundur 10 Detik">
+                        <button type="button" class="btn-side-jump-pill" onclick="window.jumpTheaterTime(-10, event)">
+                            <i class="fas fa-rotate-left"></i><span>-10s</span>
+                        </button>
+                    </div>
+                    <div class="video-jump-side right" onclick="window.jumpTheaterTime(10, event)" ondblclick="window.handleTheaterDblClick(event)" title="Maju 10 Detik">
+                        <button type="button" class="btn-side-jump-pill" onclick="window.jumpTheaterTime(10, event)">
+                            <span>+10s</span><i class="fas fa-rotate-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Jump Feedback Ripple -->
+                <div id="theaterJumpRipple" class="video-jump-ripple" style="display:none;"></div>
+
+                <!-- Floating Bottom Control Bar -->
+                <div class="video-floating-hover-bar theater-bottom-bar" id="theaterBottomBar">
+                    <!-- Scrubber Bar -->
+                    <div class="video-scrubber-container">
+                        <input type="range" class="video-scrubber-bar theater-scrubber" id="theaterScrubber" min="0" max="100" value="0" step="0.1"
+                               oninput="window.seekTheaterTime(this.value)">
+                    </div>
+                    <!-- Controls Row -->
+                    <div class="video-controls-row">
+                        <div class="video-ctrls-left">
+                            <button type="button" class="btn-video-hover-ctrl" id="theaterBtnPlay" onclick="window.toggleTheaterPlay(event)" title="Putar / Jeda">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <button type="button" class="btn-video-hover-ctrl" onclick="window.jumpTheaterTime(-10, event)" title="Mundur 10 Detik">
+                                <i class="fas fa-rotate-left"></i><span class="jump-sec-lbl">10</span>
+                            </button>
+                            <button type="button" class="btn-video-hover-ctrl" onclick="window.jumpTheaterTime(10, event)" title="Maju 10 Detik">
+                                <i class="fas fa-rotate-right"></i><span class="jump-sec-lbl">10</span>
+                            </button>
+                            <button type="button" class="btn-video-hover-ctrl" id="theaterBtnMute" onclick="window.toggleTheaterMute(event)" title="Bisukan / Suara">
+                                <i class="fas fa-volume-up"></i>
+                            </button>
+                            <span class="video-hover-timer" id="theaterTimer">00:00 / 00:00</span>
+                        </div>
+                        <div class="video-ctrls-right">
+                            <button type="button" class="btn-video-speed-pill" id="theaterSpeedPill" onclick="window.cycleTheaterSpeed(event)" title="Atur Kecepatan (0.5x, 1x, 1.5x, 2x)">
+                                1x
+                            </button>
+                            <button type="button" class="btn-video-hover-ctrl" onclick="window.toggleNativeFullscreenTheater(event)" title="Layar Penuh Monitor">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                            <a id="theaterDownloadLink" href="#" download="video.mp4" class="btn-video-hover-ctrl" title="Unduh Video" style="color:white; text-decoration:none;">
+                                <i class="fas fa-download"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

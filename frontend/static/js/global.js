@@ -93,7 +93,7 @@ function getAuthUser() {
 
 function setAuthSession(token, userData) {
     if (window.Auth && typeof window.Auth.setSession === 'function') {
-        window.Auth.setSession(token, userData?.role || 'operator', userData);
+        window.Auth.setSession(token, userData?.role || 'petugas', userData);
         return;
     }
     const tokenKey = window.CONFIG?.AUTH?.TOKEN_KEY || 'bansos_jwt_token';
@@ -237,18 +237,51 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const userNameEl = document.querySelector('.user-name') || document.getElementById('userProfileLabel');
-        const roleBadgeEl = document.querySelector('.role-badge') || document.getElementById('userRoleBadge');
+        const userNameEl = document.querySelector('.user-name') || document.getElementById('userProfileLabel') || document.getElementById('navUsername');
+        const roleBadgeEl = document.querySelector('.role-badge') || document.getElementById('userRoleBadge') || document.getElementById('navRoleBadge');
 
-        if (user && userNameEl) {
-            userNameEl.textContent = (user.nama_lengkap || user.username || 'ADMIN').toUpperCase();
+        const cleanRole = (
+            user?.role || 
+            localStorage.getItem('role') || 
+            localStorage.getItem('user_role') || 
+            localStorage.getItem('bansos_user_role') || 
+            'petugas'
+        ).toLowerCase().replace(/[\s-]/g, '_');
+        const isSuperAdmin = (cleanRole === 'super_admin' || cleanRole === 'developer');
+        const isAdmin = (cleanRole === 'admin' || isSuperAdmin);
+
+        if (userNameEl) {
+            const currentName = user?.nama_lengkap || user?.username || localStorage.getItem('username') || 'ADMIN';
+            userNameEl.textContent = currentName.toUpperCase();
         }
-        if (user && roleBadgeEl) {
-            const role = (user.role || 'admin').toLowerCase();
-            const isAdmin = role === 'admin';
-            roleBadgeEl.textContent = isAdmin ? 'Super Admin' : 'Operator Wilayah';
-            roleBadgeEl.className = `role-badge ${isAdmin ? 'role-admin' : 'role-petugas'}`;
+
+        if (roleBadgeEl) {
+            roleBadgeEl.className = 'role-badge';
+            if (isSuperAdmin) {
+                roleBadgeEl.style.cssText = 'background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
+                roleBadgeEl.innerHTML = '<i class="fas fa-shield-alt"></i> Super Admin';
+            } else if (cleanRole === 'admin') {
+                roleBadgeEl.style.cssText = 'background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
+                roleBadgeEl.innerHTML = '<i class="fas fa-user-tie"></i> Admin Bansos';
+            } else {
+                roleBadgeEl.style.cssText = 'background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; padding:4px 12px; border-radius:12px; font-size:0.75rem;';
+                roleBadgeEl.innerHTML = '<i class="fas fa-user-edit"></i> Petugas Lapangan';
+            }
         }
+
+        const cmdCenter = document.getElementById('adminCommandCenter');
+        if (cmdCenter) {
+            cmdCenter.style.display = isAdmin ? 'block' : 'none';
+        }
+
+        const tileCyber = document.getElementById('tileCyberShield');
+        if (tileCyber) tileCyber.style.setProperty('display', isSuperAdmin ? 'flex' : 'none', 'important');
+
+        const tileEskalasi = document.getElementById('tileEskalasiSuperAdmin');
+        if (tileEskalasi) tileEskalasi.style.setProperty('display', isSuperAdmin ? 'flex' : 'none', 'important');
+
+        const tileUji = document.getElementById('tileUjiSistem');
+        if (tileUji) tileUji.style.setProperty('display', isSuperAdmin ? 'flex' : 'none', 'important');
     }
 
     if (currentPath.includes('login.html') && tokenValid) {

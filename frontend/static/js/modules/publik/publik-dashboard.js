@@ -121,7 +121,12 @@ window.loginWarga = window.prosesMasukDashboard = async function (e) {
 
         if (ok) {
             const w = json.data;
-            window.masukKePortal(nik, w.nama_lengkap || w.nama || nama, email, w);
+            try {
+                window.masukKePortal(nik, w.nama_lengkap || w.nama || nama, email, w);
+            } catch (renderErr) {
+                console.error('[PORTAL WARGA] Peringatan rendering dasbor:', renderErr);
+                window.switchTabPublik('dashboardWargaSection');
+            }
             showPortalAlert({
                 icon: 'success',
                 title: 'Akses Diberikan!',
@@ -160,11 +165,21 @@ window.loginWarga = window.prosesMasukDashboard = async function (e) {
         }
     } catch (err) {
         Swal?.close();
-        showPortalAlert({
-            icon: 'error',
-            title: 'Koneksi Peladen Terputus',
-            html: `<p style="font-size:0.9rem;">Gagal menghubungi peladen di <b>${safeHtml(API_URL || window.location.origin)}</b>.<br>Pastikan server Node (<code>npm run dev</code>) dan servis <b>MySQL</b> sedang berjalan.</p>`
-        });
+        console.error('[PORTAL WARGA] Kesalahan autentikasi:', err);
+        const isNetworkErr = err && (err.name === 'TypeError' || String(err.message || '').toLowerCase().includes('fetch') || String(err.message || '').toLowerCase().includes('network'));
+        if (isNetworkErr) {
+            showPortalAlert({
+                icon: 'error',
+                title: 'Koneksi Peladen Terputus',
+                html: `<p style="font-size:0.9rem;">Gagal menghubungi peladen di <b>${safeHtml(API_URL || window.location.origin)}</b>.<br>Pastikan server Node (<code>npm run dev</code>) dan servis <b>MySQL</b> sedang berjalan.</p>`
+            });
+        } else {
+            showPortalAlert({
+                icon: 'error',
+                title: 'Gangguan Pemrosesan',
+                text: 'Terjadi kendala saat memproses permohonan akses: ' + (err.message || 'Silakan coba beberapa saat lagi.')
+            });
+        }
     }
 };
 
@@ -172,24 +187,40 @@ window.loginWarga = window.prosesMasukDashboard = async function (e) {
 // 4. LOGOUT WARGA
 // =========================================================================
 window.logoutWarga = function () {
-    if (window.chatIntervalWarga) {
-        clearInterval(window.chatIntervalWarga);
-        window.chatIntervalWarga = null;
-    }
-    if (window.dashboardIntervalWarga) {
-        clearInterval(window.dashboardIntervalWarga);
-        window.dashboardIntervalWarga = null;
-    }
-    if (currentCallWarga) {
-        window.endCallWarga();
-    }
-    localStorage.removeItem('wargaNik');
-    localStorage.removeItem('wargaNama');
-    localStorage.removeItem('wargaEmail');
-    wargaNik = '';
-    wargaNama = '';
-    wargaDataCache = null;
-    sesiWargaAktif = null;
+    try {
+        if (window.chatIntervalWarga) {
+            clearInterval(window.chatIntervalWarga);
+            window.chatIntervalWarga = null;
+        }
+        if (window.dashboardIntervalWarga) {
+            clearInterval(window.dashboardIntervalWarga);
+            window.dashboardIntervalWarga = null;
+        }
+        if (typeof window.endCallWarga === 'function') {
+            window.endCallWarga();
+        }
+    } catch (e) {}
+
+    try {
+        localStorage.removeItem('wargaNik');
+        localStorage.removeItem('wargaNama');
+        localStorage.removeItem('wargaEmail');
+        sessionStorage.removeItem('wargaNik');
+        sessionStorage.removeItem('wargaNama');
+    } catch (e) {}
+
+    try {
+        if (typeof wargaNik !== 'undefined') wargaNik = '';
+        if (typeof wargaNama !== 'undefined') wargaNama = '';
+        if (typeof wargaDataCache !== 'undefined') wargaDataCache = null;
+        if (typeof sesiWargaAktif !== 'undefined') sesiWargaAktif = null;
+    } catch (e) {}
+
+    window.wargaNik = '';
+    window.wargaNama = '';
+    window.wargaDataCache = null;
+    window.sesiWargaAktif = null;
+
     window.location.reload();
 };
 
@@ -219,7 +250,8 @@ window.renderDashboardWarga = function (w) {
     const desilNum = Number(w.desil) || 0;
     const isPrioritas = desilNum >= 1 && desilNum <= 4;
     const rawSalur = String(w.status_salur || '').trim();
-    const isBelumDiterima = rawSalur === 'Belum Diterima' || rawSalur.toLowerCase().includes('belum diterima') || rawSalur.toLowerCase().includes('sengketa');
+    const isSengketa = rawSalur === 'Laporan Sengketa' || rawSalur.toLowerCase().includes('sengketa');
+    const isBelumDiterima = rawSalur === 'Belum Diterima' || rawSalur.toLowerCase().includes('belum diterima') || isSengketa;
     const isTelahMenerima = (rawSalur === 'Telah Menerima' || rawSalur === 'Selesai' || rawSalur === 'Sudah Diterima' || Boolean(w.konfirmasi_warga)) && !isBelumDiterima;
     const isSudahSalur = !isBelumDiterima && !isTelahMenerima && (rawSalur === 'Disalurkan' || rawSalur === 'Sudah Disalurkan' || rawSalur === 'Menunggu Konfirmasi Warga' || Boolean(w.bukti_salur));
 
@@ -667,6 +699,17 @@ try {
                 sesiWargaAktif = { ...sesiWargaAktif, ...wargaDataCache };
                 window.renderDashboardWarga(wargaDataCache);
                 window.loadDashboardWarga();
+            }
+        } else if (ev.data.type === 'CHAT_OFFICER_CHANGED') {
+            if (cTarget && cCur && cTarget === cCur) {
+                const offName = ev.data.officer_name || (ev.data.officer && ev.data.officer.name);
+                const offRole = ev.data.officer_role || (ev.data.officer && ev.data.officer.role);
+                if (typeof window.handleChatOfficerChanged === 'function') {
+                    window.handleChatOfficerChanged(offName, offRole);
+                }
+                if (typeof window.loadChatMessagesWarga === 'function') {
+                    window.loadChatMessagesWarga(true);
+                }
             }
         } else if (ev.data.type === 'ADUAN_UPDATE' || ev.data.type === 'ADUAN_NEW') {
             if (cTarget && cCur && cTarget === cCur) {

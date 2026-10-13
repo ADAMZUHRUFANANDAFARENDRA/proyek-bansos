@@ -247,8 +247,8 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* --- GLOBAL POP-UP / MODAL --- */
 .swal2-container { z-index: 9999999 !important; }
-.swal2-container.swal2-backdrop-show,
-.swal2-container.swal-no-dark-backdrop {
+.swal2-container.swal2-backdrop-show:not(.swal2-container-profil-warga),
+.swal2-container.swal-no-dark-backdrop:not(.swal2-container-profil-warga) {
     background: transparent !important;
     background-color: transparent !important;
     backdrop-filter: none !important;
