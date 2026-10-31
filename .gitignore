@@ -130,3 +130,12 @@ scratch/
 # Folder unggahan media lokal
 uploads/*
 !uploads/.gitkeep
+
+# 14. Dokumen Pribadi Skripsi (Khusus Lokal Komputer C:, Jangan Diunggah ke Git/GitHub)
+skripsi/
+dokumen-skripsi/
+naskah-skripsi/
+*.docx
+*.doc
+*.pptx
+*.ppt
