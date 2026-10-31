@@ -31,9 +31,40 @@ export function isPrivilegedAdmin(req: Request): boolean {
     }
   }
 
-  const headerRole = String(req.headers['x-user-role'] || req.query.current_role || req.query.role || '').toLowerCase().replace(/[\s-]/g, '_');
-  if (['super_admin', 'superadmin', 'admin', 'developer'].includes(headerRole)) {
-    return true;
+  if (req.query.token) {
+    const ver = verifySecureJwt(String(req.query.token).trim());
+    if (ver.valid && ver.payload && ver.payload.role) {
+      const r = String(ver.payload.role).toLowerCase().replace(/[\s-]/g, '_');
+      if (['super_admin', 'superadmin', 'admin', 'developer'].includes(r)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+export function isStaffAuthenticated(req: Request): boolean {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7).trim();
+    const ver = verifySecureJwt(token);
+    if (ver.valid && ver.payload && ver.payload.role) {
+      const r = String(ver.payload.role).toLowerCase().replace(/[\s-]/g, '_');
+      if (['super_admin', 'superadmin', 'admin', 'developer', 'petugas'].includes(r)) {
+        return true;
+      }
+    }
+  }
+
+  if (req.query.token) {
+    const ver = verifySecureJwt(String(req.query.token).trim());
+    if (ver.valid && ver.payload && ver.payload.role) {
+      const r = String(ver.payload.role).toLowerCase().replace(/[\s-]/g, '_');
+      if (['super_admin', 'superadmin', 'admin', 'developer', 'petugas'].includes(r)) {
+        return true;
+      }
+    }
   }
 
   return false;
@@ -265,6 +296,14 @@ router.post('/change-password', (req: Request, res: Response) => {
 });
 
 router.get(['/', '/users', '/api/users', '/api/auth/users'], (req: Request, res: Response) => {
+  if (!isStaffAuthenticated(req) && !isPrivilegedAdmin(req)) {
+    return res.status(401).json({
+      status: 'error',
+      code: 'AUTH_REQUIRED',
+      message: 'Akses ditolak: Data pengguna sistem aparatur hanya dapat diakses oleh petugas yang terotentikasi.'
+    });
+  }
+
   res.json(
     usersStore.map(u => ({
       id: u.id,
@@ -320,6 +359,13 @@ router.all(['/diagnostic-verify', '/api/auth/diagnostic-verify'], (req: Request,
 });
 
 router.post(['/', '/users', '/api/users', '/api/auth/users'], (req: Request, res: Response) => {
+  if (!isPrivilegedAdmin(req)) {
+    return res.status(403).json({
+      status: 'error',
+      code: 'FORBIDDEN',
+      message: 'Akses ditolak: Hanya Administrator / Super Admin yang dapat menambahkan akun pengguna baru.'
+    });
+  }
   const d = req.body || {};
   const username = String(d.username || '').trim();
   const password = String(d.password || '').trim();
@@ -368,11 +414,17 @@ router.all(['/:id', '/users/:id', '/api/users/:id'], (req: Request, res: Respons
   const target = usersStore[idx];
 
   if (req.method === 'GET') {
+    if (!isStaffAuthenticated(req) && !isPrivilegedAdmin(req)) {
+      return res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'Akses ditolak: Autentikasi diperlukan.' });
+    }
     const { password, previous_passwords, ...safeUser } = target as any;
     return res.json({ status: 'success', data: { ...safeUser, has_password: Boolean(target.password) } });
   }
 
   if (req.method === 'DELETE') {
+    if (!isPrivilegedAdmin(req)) {
+      return res.status(403).json({ status: 'error', code: 'FORBIDDEN', message: 'Akses ditolak: Hanya Administrator / Super Admin yang dapat menghapus akun.' });
+    }
     if (target.username.toLowerCase() === 'admin' || target.id === 1 || target.role === 'super_admin') {
       return res.status(400).json({ status: 'error', message: 'Akun Super Administrator Utama tidak boleh dihapus.' });
     }
@@ -382,6 +434,9 @@ router.all(['/:id', '/users/:id', '/api/users/:id'], (req: Request, res: Respons
   }
 
   if (req.method === 'PUT' || req.method === 'PATCH') {
+    if (!isPrivilegedAdmin(req)) {
+      return res.status(403).json({ status: 'error', code: 'FORBIDDEN', message: 'Akses ditolak: Hanya Administrator / Super Admin yang dapat mengubah kredensial pengguna.' });
+    }
     const d = req.body || {};
     if (d.username && String(d.username).trim()) {
       const nextU = String(d.username).trim();
@@ -428,6 +483,9 @@ router.all(['/:id', '/users/:id', '/api/users/:id'], (req: Request, res: Respons
 });
 
 router.patch('/users/:id/toggle-status', (req: Request, res: Response) => {
+  if (!isPrivilegedAdmin(req)) {
+    return res.status(403).json({ status: 'error', code: 'FORBIDDEN', message: 'Akses ditolak: Hanya Administrator / Super Admin yang dapat mengubah status akun.' });
+  }
   const id = parseIntSafe(req.params.id, 0);
   const target = usersStore.find(u => u.id === id);
   if (!target) return res.status(404).json({ status: 'error', message: 'Akun tidak ditemukan.' });

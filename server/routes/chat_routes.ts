@@ -28,6 +28,25 @@ import {
   realtimeChatMessage,
   broadcastRealtimeEvent
 } from '../realtime.js';
+import { verifySecureJwt } from '../security_guard.js';
+
+function isPrivilegedDeveloperOrAdmin(req: Request): boolean {
+  const authHeader = req.headers.authorization;
+  let token = '';
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7).trim();
+  } else if (req.query.token) {
+    token = String(req.query.token).trim();
+  }
+
+  if (!token) return false;
+
+  const ver = verifySecureJwt(token);
+  if (!ver.valid || !ver.payload || !ver.payload.role) return false;
+
+  const r = String(ver.payload.role).toLowerCase().replace(/[\s-]/g, '_');
+  return ['super_admin', 'superadmin', 'admin', 'developer'].includes(r);
+}
 
 const router = Router();
 
@@ -1177,7 +1196,14 @@ function getProjectEditableFiles(dir: string, baseDir: string = dir): Array<{ pa
 }
 
 // 1. Get Code Files Tree / List
-router.get(['/investigasi/code-files', '/api/investigasi/code-files', '/code-files', '/api/chat/code-files'], (_req: Request, res: Response) => {
+router.get(['/investigasi/code-files', '/api/investigasi/code-files', '/code-files', '/api/chat/code-files'], (req: Request, res: Response) => {
+  if (!isPrivilegedDeveloperOrAdmin(req)) {
+    return res.status(401).json({
+      status: 'error',
+      code: 'AUTH_REQUIRED',
+      message: 'Akses ditolak: Fitur inspeksi kode hanya dapat diakses oleh Super Admin / Developer terotentikasi.'
+    });
+  }
   const rootDir = process.cwd();
   const files = getProjectEditableFiles(rootDir);
   // Sort files nicely by folder then name
@@ -1192,6 +1218,13 @@ router.get(['/investigasi/code-files', '/api/investigasi/code-files', '/code-fil
 
 // 2. Get Code File Content
 router.get(['/investigasi/code-content', '/api/investigasi/code-content', '/code-content', '/api/chat/code-content'], (req: Request, res: Response) => {
+  if (!isPrivilegedDeveloperOrAdmin(req)) {
+    return res.status(401).json({
+      status: 'error',
+      code: 'AUTH_REQUIRED',
+      message: 'Akses ditolak: Pembacaan berkas kode hanya dapat diakses oleh Super Admin / Developer terotentikasi.'
+    });
+  }
   const relFile = String(req.query.file || '').trim();
   if (!relFile) {
     return res.status(400).json({ status: 'error', message: 'Parameter file wajib disertakan.' });
@@ -1199,6 +1232,11 @@ router.get(['/investigasi/code-content', '/api/investigasi/code-content', '/code
 
   const rootDir = process.cwd();
   const safeRelPath = path.normalize(relFile).replace(/^(..(\/|\\|$))+/, '');
+  const blockedSecretFiles = ['.env', 'mysql-config.json', 'valid_token.txt', 'package-lock.json', '.git'];
+  if (blockedSecretFiles.some(b => safeRelPath.toLowerCase().includes(b))) {
+    return res.status(403).json({ status: 'error', message: 'Akses ke berkas kredensial rahasia diblokir oleh Cyber Shield.' });
+  }
+
   const fullPath = path.resolve(rootDir, safeRelPath);
 
   if (!fullPath.startsWith(rootDir)) {
@@ -1238,6 +1276,13 @@ router.get(['/investigasi/code-content', '/api/investigasi/code-content', '/code
 
 // 3. Save Code File Content
 router.post(['/investigasi/code-save', '/api/investigasi/code-save', '/code-save', '/api/chat/code-save'], (req: Request, res: Response) => {
+  if (!isPrivilegedDeveloperOrAdmin(req)) {
+    return res.status(401).json({
+      status: 'error',
+      code: 'AUTH_REQUIRED',
+      message: 'Akses ditolak: Penyuntingan berkas kode hanya dapat diakses oleh Super Admin / Developer terotentikasi.'
+    });
+  }
   const relFile = String(req.body?.file || '').trim();
   const newContent = typeof req.body?.content === 'string' ? req.body.content : null;
 
@@ -1247,6 +1292,11 @@ router.post(['/investigasi/code-save', '/api/investigasi/code-save', '/code-save
 
   const rootDir = process.cwd();
   const safeRelPath = path.normalize(relFile).replace(/^(..(\/|\\|$))+/, '');
+  const blockedSecretFiles = ['.env', 'mysql-config.json', 'valid_token.txt', 'package-lock.json', '.git'];
+  if (blockedSecretFiles.some(b => safeRelPath.toLowerCase().includes(b))) {
+    return res.status(403).json({ status: 'error', message: 'Penyuntingan berkas konfigurasi rahasia dilarang.' });
+  }
+
   const fullPath = path.resolve(rootDir, safeRelPath);
 
   if (!fullPath.startsWith(rootDir)) {

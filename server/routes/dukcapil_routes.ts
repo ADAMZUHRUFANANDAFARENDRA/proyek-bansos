@@ -11,7 +11,8 @@ import {
   notifikasiStore,
   KECAMATAN_SIDOARJO,
   catatNotifikasi,
-  formatWarga
+  formatWarga,
+  formatWargaSafe
 } from '../store.js';
 import {
   hitungDanSinkronkanSawBwm,
@@ -57,11 +58,22 @@ function isStaffAuthenticated(req: Request): boolean {
     const token = authHeader.substring(7).trim();
     const ver = verifySecureJwt(token);
     if (ver.valid && ver.payload && ver.payload.role) {
-      return true;
+      const r = String(ver.payload.role).toLowerCase().replace(/[\s-]/g, '_');
+      if (['super_admin', 'superadmin', 'admin', 'developer', 'petugas'].includes(r)) {
+        return true;
+      }
     }
   }
-  const headerRole = String(req.headers['x-user-role'] || '').toLowerCase();
-  return ['super_admin', 'superadmin', 'admin', 'developer', 'petugas'].includes(headerRole);
+  if (req.query.token) {
+    const ver = verifySecureJwt(String(req.query.token).trim());
+    if (ver.valid && ver.payload && ver.payload.role) {
+      const r = String(ver.payload.role).toLowerCase().replace(/[\s-]/g, '_');
+      if (['super_admin', 'superadmin', 'admin', 'developer', 'petugas'].includes(r)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 // Inisialisasi snapshot historis saat startup
@@ -78,7 +90,7 @@ router.get(['/dukcapil/:nik', '/api/dukcapil/:nik'], (req: Request, res: Respons
             wargaBackupStore.find(x => String(x.nik).trim() === cleanNik);
   if (w) {
     const isAuth = isStaffAuthenticated(req);
-    const formatted = isAuth ? formatWarga(w) : formatWarga(w);
+    const formatted = isAuth ? formatWarga(w) : formatWargaSafe(w, true);
     return res.json({
       status: 'success',
       message: 'Data NIK ditemukan pada arsip data warga.',

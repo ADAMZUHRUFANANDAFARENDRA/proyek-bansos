@@ -110,6 +110,10 @@ window.cekStatusAwal = window.prosesLacakBansos = async function (e) {
                         ` : ''}
                     </div>
                 </div>
+                <div style="margin: 0 24px 20px 24px; padding: 10px 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; font-size: 0.8rem; color: #166534; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-user-shield" style="font-size: 1rem; color: #15803d;"></i>
+                    <span><b>Perlindungan Data Pribadi (UU No. 27/2022):</b> NIK, nama, dan kontak pada pencarian umum disamarkan demi keamanan warga. Untuk membuka profil lengkap & SK penetapan, klik <b>Lanjut ke Dashboard Pribadi</b> dengan verifikasi nama KTP Anda.</span>
+                </div>
             </div>
             <div style="display:flex; gap:12px; margin-top:20px; justify-content:center;">
                 <button type="button" onclick="window.resetCekStatus()" class="btn btn-secondary" style="padding:12px 24px; border-radius:30px; font-weight:700; cursor:pointer; background:#f1f5f9; border:1px solid #cbd5e1; color:#475569;">

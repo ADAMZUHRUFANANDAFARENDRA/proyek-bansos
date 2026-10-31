@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import http from 'http';
 import cors from 'cors';
 import path from 'path';
+import compression from 'compression';
 
 import { UPLOAD_DIR, skBupatiStore, getStatusPublikasiSkBupati, setStatusPublikasiSkBupati, catatNotifikasi } from './server/store.js';
 import { saveSkBupatiRealtimeToMysql } from './mysql_storage.js';
@@ -43,14 +44,27 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
 });
 
 // ============================================================================
-// 2. PARSING REQUEST & CORS
+// 2. HTTP COMPRESSION & CACHING PERFORMANCE ENGINE
+// Mempercepat pemuatan halaman web, skrip, dan stylesheet hingga 70% lebih ringan
+// ============================================================================
+app.use(compression({
+  threshold: 1024,
+  level: 6,
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  }
+}));
+
+// ============================================================================
+// 3. PARSING REQUEST & CORS
 // ============================================================================
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ============================================================================
-// 3. WAF CYBER SHIELD ENGINE (INSPEKSI SERANGAN SECARA REAL-TIME)
+// 4. WAF CYBER SHIELD ENGINE (INSPEKSI SERANGAN SECARA REAL-TIME)
 // Memeriksa 6 Kategori Model Serangan Siber & Penetrasi Berbahaya
 // ============================================================================
 app.use(cyberShieldWaf);
@@ -151,8 +165,12 @@ app.get(['/admin', '/dashboard', '/index.html'], (_req: Request, res: Response) 
   res.sendFile(path.resolve(process.cwd(), 'frontend', 'index.html'));
 });
 
-// Static Assets (CSS, JS, Gambar)
-app.use(express.static(path.resolve(process.cwd(), 'frontend')));
+// Static Assets (CSS, JS, Gambar) dengan Cache-Control 1 Hari & ETag untuk Kecepatan Ekstrem
+app.use(express.static(path.resolve(process.cwd(), 'frontend'), {
+  maxAge: '1d',
+  etag: true,
+  lastModified: true
+}));
 
 // ============================================================================
 // 6. RUTE MODULAR API SISTEM (TERLINDUNGI)

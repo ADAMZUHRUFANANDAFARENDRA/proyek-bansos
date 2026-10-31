@@ -16,12 +16,14 @@ import {
 import type { ChatItem, PengaduanItem } from '../types.js';
 import { broadcastRealtimeEvent, realtimeAduanNew, realtimeAduanUpdate, realtimeChatMessage } from '../realtime.js';
 import { createPengaduanHandler } from './chat_routes.js';
+import { seedInitialWarga } from '../spk_engine.js';
 
 const router = Router();
 
 router.post(['/pengaduan', '/api/publik/pengaduan', '/api/public/pengaduan', '/laporan'], createPengaduanHandler);
 
 router.get(['/cek-bansos', '/api/publik/cek-bansos', '/api/public/cek-bansos'], (req: Request, res: Response) => {
+  if (wargaStore.length === 0) seedInitialWarga();
   const nik = String(req.query.nik || '').trim();
   if (!nik || nik.length !== 16) {
     return res.status(400).json({ status: 'error', message: 'Masukkan tepat 16 digit NIK.' });
@@ -30,9 +32,9 @@ router.get(['/cek-bansos', '/api/publik/cek-bansos', '/api/public/cek-bansos'], 
   if (!w) {
     return res.status(404).json({ status: 'error', message: 'Data NIK belum terdaftar pada sistem kependudukan.' });
   }
-  // Lindungi privasi data pribadi warga dari scraping publik
+  // Lindungi privasi data pribadi warga dari scraping publik (UU PDP No. 27/2022)
   const aduanAktif = [...pengaduanStore].reverse().find(a => a.nik === w.nik && a.status !== 'Selesai') || [...pengaduanStore].reverse().find(a => a.nik === w.nik);
-  const formatted = formatWarga(w);
+  const formatted = formatWargaSafe(w, true);
   (formatted as any).aduan_aktif = aduanAktif || null;
   return res.json({ status: 'success', data: formatted });
 });
@@ -72,6 +74,7 @@ function isNamaCocok(dbNama: unknown, inputNama: unknown): boolean {
 // Berbeda dengan /cek-bansos (publik & tersamarkan), endpoint ini hanya membuka data
 // jika pemohon membuktikan identitasnya dengan pasangan NIK + nama lengkap yang cocok.
 router.all(['/dashboard-warga', '/api/publik/dashboard-warga', '/api/public/dashboard-warga'], (req: Request, res: Response) => {
+  if (wargaStore.length === 0) seedInitialWarga();
   const src: any = req.method === 'GET' ? req.query : (req.body || {});
   const nik = String(src.nik || '').replace(/\D/g, '');
   const nama = String(src.nama || src.nama_lengkap || '').trim();
@@ -85,7 +88,10 @@ router.all(['/dashboard-warga', '/api/publik/dashboard-warga', '/api/public/dash
   if (!w) {
     return res.status(404).json({ status: 'error', code: 'NIK_NOT_FOUND', message: 'NIK Anda belum terdaftar dalam pangkalan data penetapan bantuan sosial.' });
   }
-  if (nama && !isNamaCocok(w.nama, nama)) {
+  if (!nama) {
+    return res.status(400).json({ status: 'error', code: 'NAMA_REQUIRED', message: 'Nama lengkap KTP wajib dimasukkan untuk verifikasi identitas resmi.' });
+  }
+  if (!isNamaCocok(w.nama, nama)) {
     return res.status(401).json({ status: 'error', code: 'NAMA_MISMATCH', message: 'Nama lengkap yang dimasukkan tidak cocok dengan NIK terdaftar di sistem.' });
   }
 
@@ -288,6 +294,7 @@ router.get(['/verifikasi-dokumen', '/api/publik/verifikasi-dokumen', '/api/publi
 // AKSES WARGA: METRIK PERHITUNGAN SPK & SK BUPATI (VERIFIKASI NAMA, NIK, EMAIL)
 // =========================================================================
 router.post(['/spk-sk-warga', '/api/publik/spk-sk-warga', '/api/public/spk-sk-warga', '/metrik-sk-warga'], (req: Request, res: Response) => {
+  if (wargaStore.length === 0) seedInitialWarga();
   const b = req.body || {};
   const nik = String(b.nik || '').replace(/\D/g, '');
   const nama = String(b.nama || b.nama_lengkap || '').trim().toLowerCase();
@@ -308,16 +315,20 @@ router.post(['/spk-sk-warga', '/api/publik/spk-sk-warga', '/api/public/spk-sk-wa
     });
   }
 
-  // Verifikasi nama (fuzzy / substring matching)
-  const wNama = String(w.nama || '').trim().toLowerCase();
-  const wEmail = String(w.email || '').trim().toLowerCase();
+  if (!nama) {
+    return res.status(400).json({
+      status: 'error',
+      code: 'NAMA_REQUIRED',
+      message: 'Nama lengkap sesuai KTP wajib diisi untuk verifikasi identitas dan perlindungan privasi data warga.'
+    });
+  }
 
-  const namaCocok = !nama || wNama.includes(nama) || nama.includes(wNama);
-  const emailCocok = !email || !wEmail || wEmail === email;
+  const namaCocok = isNamaCocok(w.nama, nama);
 
   if (!namaCocok) {
     return res.status(403).json({
       status: 'error',
+      code: 'NAMA_MISMATCH',
       message: 'Nama lengkap yang dimasukkan tidak cocok dengan data KTP atas NIK ' + nik + '.'
     });
   }

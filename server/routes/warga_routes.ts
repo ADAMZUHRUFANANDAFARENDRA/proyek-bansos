@@ -65,11 +65,22 @@ function isStaffAuthenticated(req: Request): boolean {
     const token = authHeader.substring(7).trim();
     const ver = verifySecureJwt(token);
     if (ver.valid && ver.payload && ver.payload.role) {
-      return true;
+      const r = String(ver.payload.role).toLowerCase().replace(/[\s-]/g, '_');
+      if (['super_admin', 'superadmin', 'admin', 'developer', 'petugas'].includes(r)) {
+        return true;
+      }
     }
   }
-  const headerRole = String(req.headers['x-user-role'] || '').toLowerCase();
-  return ['super_admin', 'superadmin', 'admin', 'developer', 'petugas'].includes(headerRole);
+  if (req.query.token) {
+    const ver = verifySecureJwt(String(req.query.token).trim());
+    if (ver.valid && ver.payload && ver.payload.role) {
+      const r = String(ver.payload.role).toLowerCase().replace(/[\s-]/g, '_');
+      if (['super_admin', 'superadmin', 'admin', 'developer', 'petugas'].includes(r)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 router.get(['/', '/warga', '/api/warga'], (req: Request, res: Response) => {
@@ -116,7 +127,10 @@ router.get(['/', '/warga', '/api/warga'], (req: Request, res: Response) => {
   }
 
   const isAuth = isStaffAuthenticated(req);
-  res.json(list.map(w => isAuth ? formatWarga(w) : formatWarga(w)));
+  if (!isAuth) {
+    return res.json(list.map(w => formatWargaSafe(w, true)));
+  }
+  res.json(list.map(w => formatWarga(w)));
 });
 
 router.post(['/', '/warga', '/api/warga', '/api/publik/daftar'], upload.any(), (req: Request, res: Response) => {
@@ -1137,10 +1151,13 @@ router.all(['/:warga_id', '/nik/:warga_id'], (req: Request, res: Response) => {
 
   if (req.method === 'GET') {
     const isAuth = isStaffAuthenticated(req);
-    return res.json({ status: 'success', data: isAuth ? formatWarga(w) : formatWarga(w) });
+    return res.json({ status: 'success', data: isAuth ? formatWarga(w) : formatWargaSafe(w, true) });
   }
 
   if (req.method === 'DELETE') {
+    if (!isStaffAuthenticated(req)) {
+      return res.status(401).json({ status: 'error', message: 'Akses ditolak: Hanya petugas berwenang yang dapat menghapus data kependudukan.' });
+    }
     wargaStore.splice(idx, 1);
     hitungDanSinkronkanSawBwm();
     triggerAutoSyncMysql();
@@ -1149,6 +1166,9 @@ router.all(['/:warga_id', '/nik/:warga_id'], (req: Request, res: Response) => {
   }
 
   if (req.method === 'PUT' || req.method === 'PATCH') {
+    if (!isStaffAuthenticated(req)) {
+      return res.status(401).json({ status: 'error', message: 'Akses ditolak: Pembaharuan data warga memerlukan hak akses petugas.' });
+    }
     const d = req.body || {};
     const oldVerif = w.is_verified;
 

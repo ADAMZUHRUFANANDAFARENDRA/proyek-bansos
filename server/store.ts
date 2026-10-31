@@ -616,10 +616,17 @@ export function maskName(name?: string | null): string {
   return words.map(w => w.length <= 2 ? w : `${w[0]}${'*'.repeat(Math.max(1, w.length - 2))}${w[w.length - 1]}`).join(' ');
 }
 
-export function formatWargaSafe(w: WargaItem, _maskPrivacy = false) {
-  // Kebijakan data profil: tidak ada sensor bintang (*) agar warga maupun aparatur (petugas, admin, superadmin)
-  // dapat memeriksa profil kependudukan, bansos, dan variabel SPK secara lengkap dan akurat.
-  return formatWarga(w);
+export function formatWargaSafe(w: WargaItem, maskPrivacy = true) {
+  const formatted = formatWarga(w);
+  if (!maskPrivacy) return formatted;
+  return {
+    ...formatted,
+    nik: maskNik(formatted.nik),
+    nama: maskName(formatted.nama),
+    no_hp: maskPhone(formatted.no_hp),
+    email: maskEmail(formatted.email),
+    alamat: formatted.kecamatan ? `Kecamatan ${formatted.kecamatan}, Desa ${formatted.desa || '-'}` : 'Kabupaten Sidoarjo'
+  };
 }
 
 export function makeJwtToken(user: { id: number; username: string; role: string }) {

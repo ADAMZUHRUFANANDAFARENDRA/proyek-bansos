@@ -156,9 +156,10 @@
                         <div style="text-align:left; font-size:0.9rem; background:#f8fafc; padding:15px; border-radius:12px; border:1px solid #e2e8f0; line-height:1.7;">
                             <div><b>Nama:</b> ${namaWarga}</div>
                             <div><b>NIK:</b> ${d.nik}</div>
-                            <div><b>Alamat:</b> ${d.alamat || 'Kabupaten Sidoarjo'}</div>
+                            <div><b>Wilayah:</b> ${d.alamat || 'Kabupaten Sidoarjo'}</div>
                             <div style="margin-top:4px;"><b>Kelompok Desil:</b> Desil ${desil}</div>
                             <div><b>Status Kelayakan:</b> <span style="background:${isLayak ? '#dcfce7' : '#e0f2fe'}; color:${isLayak ? '#15803d' : '#0369a1'}; padding:3px 10px; border-radius:20px; font-weight:700;">${statusBansos}</span></div>
+                            <div style="margin-top:8px; font-size:0.75rem; color:#64748b;"><i class="fas fa-user-shield"></i> Data kependudukan disamarkan sesuai UU Perlindungan Data Pribadi (UU PDP).</div>
                         </div>
                     `,
                     confirmButtonColor: '#10b981'
