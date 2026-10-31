@@ -243,3 +243,6 @@ const CONFIG = {
 
 // Bekukan seluruh tingkatan objek konfigurasi agar aman dari mutasi data di browser
 window.CONFIG = Object.freeze(CONFIG);
+window.BASE_URL = CONFIG.BASE_URL;
+window.API_BASE_URL = CONFIG.API_BASE_URL;
+window.BASE_API_URL = CONFIG.API_BASE_URL;

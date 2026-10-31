@@ -3,7 +3,9 @@ import http from 'http';
 import cors from 'cors';
 import path from 'path';
 
-import { UPLOAD_DIR } from './server/store.js';
+import { UPLOAD_DIR, skBupatiStore, getStatusPublikasiSkBupati, setStatusPublikasiSkBupati, catatNotifikasi } from './server/store.js';
+import { saveSkBupatiRealtimeToMysql } from './mysql_storage.js';
+import { broadcastRealtimeEvent } from './server/realtime.js';
 import { initRealtime, handleSseConnection, getRecentEventsHandler, handleCallSignal } from './server/realtime.js';
 import { cyberShieldWaf } from './server/security_guard.js';
 import securityRoutes from './server/routes/security_routes.js';
@@ -15,6 +17,8 @@ import mysqlRoutes from './server/routes/mysql_routes.js';
 import notifRoutes from './server/routes/notif_routes.js';
 import chatRoutes from './server/routes/chat_routes.js';
 import publicRoutes from './server/routes/public_routes.js';
+import rekapRoutes from './server/routes/rekap_routes.js';
+import callRoutes from './server/routes/call_routes.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -167,9 +171,64 @@ app.use('/users', authRoutes);
 app.use('/api/warga', wargaRoutes);
 app.use('/warga', wargaRoutes);
 
+// Rute Rekapitulasi Penyaluran 3 Bulan Sekali (Triwulanan) & Evaluasi Mutasi/Desil Otomatis
+app.use('/api/rekap-penyaluran', rekapRoutes);
+app.use('/rekap-penyaluran', rekapRoutes);
+app.use('/api/rekap-triwulan', rekapRoutes);
+app.use('/rekap-triwulan', rekapRoutes);
+
 // Rute SPK & Algoritma Keputusan
 app.use('/api/spk', spkRoutes);
 app.use('/spk', spkRoutes);
+// =========================================================================
+// ENDPOINTS EKSPLISIT SK BUPATI (PUBLIKASI REALTIME ADMIN & WARGA)
+// =========================================================================
+app.get(['/api/sk-bupati/status-publikasi', '/sk-bupati/status-publikasi', '/api/sk-bupati/status'], (_req, res) => {
+  const status = getStatusPublikasiSkBupati();
+  res.json({
+    status: 'success',
+    is_published: status.is_published,
+    published_at: status.published_at,
+    published_by: status.published_by,
+    decree: skBupatiStore[0] || null
+  });
+});
+
+app.post(['/api/sk-bupati/publish', '/sk-bupati/publish'], async (req, res) => {
+  const isPub = Boolean(req.body.is_published);
+  const actor = String(req.body.actor || 'Super Administrator');
+
+  const updated = setStatusPublikasiSkBupati(isPub, actor);
+  try {
+    if (skBupatiStore[0]) {
+      await saveSkBupatiRealtimeToMysql(skBupatiStore[0]);
+    }
+  } catch (err: any) {
+    console.error('Gagal simpan status SK Bupati ke MySQL:', err.message);
+  }
+
+  broadcastRealtimeEvent({
+    type: 'SK_BUPATI_PUBLISHED',
+    is_published: isPub,
+    published_by: actor,
+    nomor_sk: skBupatiStore[0]?.nomor_sk,
+    timestamp: new Date().toISOString()
+  });
+
+  catatNotifikasi(
+    isPub ? 'success' : 'warning',
+    isPub ? 'SK Bupati Diterbitkan Resmi' : 'Publikasi SK Bupati Ditarik',
+    `${actor} ${isPub ? 'menerbitkan secara resmi' : 'menarik status publikasi'} Keputusan Bupati Sidoarjo TA 2026 ke portal publik.`
+  );
+
+  res.json({
+    status: 'success',
+    message: isPub ? 'Surat Keputusan Bupati Sidoarjo resmi berhasil diterbitkan ke Portal Warga.' : 'Publikasi Surat Keputusan Bupati Sidoarjo berhasil ditarik menjadi arsip internal.',
+    data: updated
+  });
+});
+
+app.use(['/api/sk-bupati', '/sk-bupati'], spkRoutes);
 // Alias rute SPK di tingkat root.
 // PENTING: jangan gunakan app.use(['/komparasi', ...], spkRoutes) karena Express memotong prefix
 // sehingga req.path menjadi '/' dan semua alias jatuh ke handler GET '/' (daftar kriteria).
@@ -186,8 +245,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Rute Dukcapil
+// Rute Dukcapil & Sinkronisasi Cadangan Arsip
 app.use('/api', dukcapilRoutes);
+app.use('/', dukcapilRoutes);
 
 // Rute MySQL Database
 app.use('/api/mysql', mysqlRoutes);
@@ -200,6 +260,11 @@ app.use('/notifikasi', notifRoutes);
 // Rute Publik (Cek Bansos Warga)
 app.use('/api/publik', publicRoutes);
 app.use('/api/public', publicRoutes);
+
+// Rute Log Panggilan Real-Time (Aparatur & Warga)
+app.use('/api/panggilan', callRoutes);
+app.use('/panggilan', callRoutes);
+app.use('/api/calls', callRoutes);
 
 // Rute Obrolan, Mediasi & Investigasi Aduan Warga
 app.use('/api/chat', chatRoutes);

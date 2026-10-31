@@ -82,11 +82,11 @@ export function initRealtime(server: http.Server) {
         } else if (parsed.type === 'IDENTIFY') {
           if (parsed.role) meta.role = String(parsed.role).trim();
           if (parsed.nik) meta.nik = String(parsed.nik).trim();
-        } else if (['CALL_INVITE', 'CALL_ACCEPT', 'CALL_DECLINE', 'CALL_END', 'CALL_SIGNAL', 'CALL_RINGING'].includes(parsed.type)) {
+        } else if (['CALL_INVITE', 'CALL_ACCEPT', 'CALL_DECLINE', 'CALL_END', 'CALL_SIGNAL', 'CALL_RINGING', 'CALL_SWITCH_MODE', 'CALL_MEDIA_STATE', 'CALL_SWITCH_REQUEST', 'CALL_SWITCH_RESPONSE'].includes(parsed.type)) {
           // Siarkan sinyal panggilan audio/video secara real-time
           broadcastRealtimeEvent({
             ...parsed,
-            sender_id: meta.nik || meta.role
+            sender_id: parsed.sender_id || meta.nik || meta.role
           });
         }
       } catch (err) {}

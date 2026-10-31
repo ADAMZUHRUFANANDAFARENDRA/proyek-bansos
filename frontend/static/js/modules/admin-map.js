@@ -404,7 +404,7 @@ window.renderChoroplethKerentanan = function () {
 
             poly.on('mouseover', function (e) { e.target.setStyle({ weight: 3, fillOpacity: 0.7 }); });
             poly.on('mouseout', function (e) { e.target.setStyle({ weight: 1.5, fillOpacity: style.opacity }); });
-            poly.on('click', () => window.bukaRincianWilayah(k.kec));
+            poly.on('click', () => window.bukaRincianWilayah(k.kec, { mode: 'kelurahan', namaSub: k.nama }));
 
             poly.bindTooltip(`<b>${k.nama}</b><br>Kec. ${k.kec}<br>Tingkat: ${style.label}<br>Rata-rata: ${isNaN(desilVal) ? 'Tidak ada data' : 'Desil ' + desilVal} (${wargaKel.length} Warga)`, {
                 sticky: true
@@ -438,7 +438,7 @@ window.renderChoroplethKerentanan = function () {
 
             poly.on('mouseover', function (e) { e.target.setStyle({ weight: 2.5, fillOpacity: 0.65 }); });
             poly.on('mouseout', function (e) { e.target.setStyle({ weight: 1, fillOpacity: style.opacity }); });
-            poly.on('click', () => window.bukaRincianWilayah(d.kec));
+            poly.on('click', () => window.bukaRincianWilayah(d.kec, { mode: 'desa', namaSub: d.nama }));
 
             poly.bindTooltip(`<b>${d.nama}</b><br>Kec. ${d.kec}<br>Tingkat: ${style.label}<br>Rata-rata: ${isNaN(desilVal) ? 'Tidak ada data' : 'Desil ' + desilVal} (${wargaDesa.length} Warga)`, {
                 sticky: true
@@ -479,26 +479,106 @@ window.renderChoroplethKerentanan = function () {
     });
 };
 
-// 7. MODAL RINCIAN SELURUH DATA WARGA PER WILAYAH
-window.bukaRincianWilayah = function (namaWilayah) {
+// 7. MODAL RINCIAN SELURUH DATA WARGA PER WILAYAH (KECAMATAN, KELURAHAN & DESA + PENYALURAN AWAL S/D AKHIR)
+window.AdminMap.computePenyaluranAwalAkhirWarga = function (w) {
+    const fmtRp = (n) => `Rp ${Math.max(0, Math.round(Number(n) || 0)).toLocaleString('id-ID')}`;
+    const currentDesil = Number(w.desil) || 5;
+    const isMeninggal = String(w.nama || '').toUpperCase().includes('ALM.') || Number(w.is_deceased) === 1 || String(w.status_kependudukan || '').toLowerCase() === 'meninggal';
+    const isPindahKota = String(w.kota_domisili || 'Sidoarjo').toLowerCase() !== 'sidoarjo';
+
+    let prevDesil = Number(w.desil_sebelumnya || w.prev_desil || (window.adminDesilHistoryMap && window.adminDesilHistoryMap[w.nik]));
+    if (!prevDesil || isNaN(prevDesil)) {
+        prevDesil = (isMeninggal || isPindahKota || currentDesil > 4) ? 2 : currentDesil;
+    }
+
+    const getNominalByDesil = (d) => {
+        if (d <= 1) return 900000;
+        if (d === 2) return 750000;
+        if (d <= 4) return 600000;
+        return 0;
+    };
+    const getBentukByDesil = (d) => {
+        if (d <= 1) return 'Uang Tunai PKH/BLT (Bank Himbara) + Pangan Sembako (Beras 10 Kg)';
+        if (d === 2) return 'Uang Tunai PKH (Bank Himbara) + BPNT Kartu Sembako';
+        if (d <= 4) return 'Bantuan Pangan Non-Tunai (BPNT / Sembako Beras 10 Kg & Tunai)';
+        return 'Graduasi Mandiri / Non-Penerima Prioritas';
+    };
+
+    const nomAwal = Number(w.nominal_penyaluran_awal) > 0
+        ? Number(w.nominal_penyaluran_awal)
+        : (prevDesil <= 4 ? getNominalByDesil(prevDesil) : 600000);
+    const nomAkhir = typeof w.nominal_penyaluran_akhir === 'number'
+        ? w.nominal_penyaluran_akhir
+        : ((!isMeninggal && !isPindahKota && currentDesil <= 4) ? getNominalByDesil(currentDesil) : 0);
+
+    const nomTw2 = nomAwal;
+    const nomTw3 = nomAkhir > 0 ? nomAkhir : nomAwal;
+    const totalAkumulasi = Number(w.total_nominal_awal_sampai_akhir) > 0
+        ? Number(w.total_nominal_awal_sampai_akhir)
+        : (nomAwal + nomTw2 + nomTw3 + nomAkhir);
+
+    const bentukAwal = w.bentuk_bantuan_awal || getBentukByDesil(prevDesil <= 4 ? prevDesil : 2);
+    const bentukAkhir = w.bentuk_bantuan_akhir || (
+        isMeninggal
+            ? 'Dihentikan pada Tahap Akhir (Warga Meninggal Dunia — Riwayat Tahap I–III Tercatat)'
+            : isPindahKota
+            ? 'Dihentikan pada Tahap Akhir (Mutasi Pindah Luar Kab. Sidoarjo)'
+            : (nomAkhir > 0 ? getBentukByDesil(currentDesil) : 'Graduasi Desil > 4 (Riwayat Penyaluran Awal Tercatat)')
+    );
+
+    return {
+        periodeAwal: w.penyaluran_awal_periode || 'Tahap I (Jan–Mar 2026)',
+        tanggalAwal: '15 Feb 2026',
+        nomAwal,
+        nomAwalLabel: w.nominal_penyaluran_awal_label || fmtRp(nomAwal),
+        bentukAwal,
+        periodeAkhir: w.penyaluran_akhir_periode || 'Tahap IV (Okt–Des 2026)',
+        tanggalAkhir: nomAkhir > 0 ? (w.tanggal_salur && w.tanggal_salur !== '-' ? w.tanggal_salur : '15 Nov 2026') : 'Dihentikan di Tahap IV',
+        nomAkhir,
+        nomAkhirLabel: w.nominal_penyaluran_akhir_label || (nomAkhir > 0 ? fmtRp(nomAkhir) : 'Rp 0 (Non-Aktif Tahap IV)'),
+        bentukAkhir,
+        bentukTampilUtama: nomAkhir > 0 ? bentukAkhir : `${bentukAwal} (Tahap I–III) → ${bentukAkhir}`,
+        totalAkumulasi,
+        totalAkumulasiLabel: w.total_nominal_awal_sampai_akhir_label || fmtRp(totalAkumulasi),
+        rincianTahap: [
+            { tahap: 'Tahap I (Awal)', nominalLabel: fmtRp(nomAwal), status: 'Tersalurkan' },
+            { tahap: 'Tahap II', nominalLabel: fmtRp(nomTw2), status: 'Tersalurkan' },
+            { tahap: 'Tahap III', nominalLabel: fmtRp(nomTw3), status: 'Tersalurkan' },
+            { tahap: 'Tahap IV (Akhir)', nominalLabel: fmtRp(nomAkhir), status: nomAkhir > 0 ? 'Tersalurkan' : 'Dihentikan' }
+        ]
+    };
+};
+
+window.bukaRincianWilayah = function (namaWilayah, subWilayahOpt) {
     const modal = document.getElementById('modalWilayahDetail');
     if (!modal) return;
 
     window.currentActiveWilayahNama = namaWilayah;
+    window.currentActiveSubWilayah = subWilayahOpt || null;
 
-    const cardTitleEl = modal.querySelector('.card-title');
-    if (cardTitleEl) {
-        cardTitleEl.innerHTML = `Rincian Seluruh Penerima Bansos Wilayah: <span id="modalWilayahTitle" style="color:#0f172a; font-weight:800;">Kecamatan ${namaWilayah}</span>`;
-    }
-
-    const targetWil = WILAYAH_SIDOARJO.find(w => w.nama.toLowerCase() === namaWilayah.toLowerCase());
+    const targetWil = WILAYAH_SIDOARJO.find(w => w.nama.toLowerCase() === String(namaWilayah || '').toLowerCase());
     const daftarKelurahan = targetWil && targetWil.kelurahan !== '-' ? targetWil.kelurahan : 'Tidak ada kelurahan (seluruhnya berstatus desa)';
     const daftarDesa = targetWil && targetWil.desa ? targetWil.desa : 'Seluruh Desa Terkait';
 
+    const subLabel = subWilayahOpt && subWilayahOpt.namaSub
+        ? `${subWilayahOpt.namaSub} (Kecamatan ${namaWilayah})`
+        : `Kecamatan ${namaWilayah} (Kecamatan, Kelurahan & Desa)`;
+
+    const cardTitleEl = modal.querySelector('.card-title');
+    if (cardTitleEl) {
+        cardTitleEl.innerHTML = `Rincian Seluruh Penerima Bansos Wilayah: <span id="modalWilayahTitle" style="color:#0f172a; font-weight:800;">${window.safeHtml(subLabel)}</span>`;
+    }
+
     const dataWarga = window.globalDataWarga || [];
-    window.currentModalWargaList = dataWarga.filter(w => {
-        return isAlamatMatchingKecamatan(w.alamat, namaWilayah);
-    });
+    const wargaKecamatan = dataWarga.filter(w => isAlamatMatchingKecamatan(w.alamat, namaWilayah));
+
+    if (subWilayahOpt && subWilayahOpt.namaSub) {
+        const cleanSub = String(subWilayahOpt.namaSub).replace(/^(Kelurahan|Desa)\s+/i, '').trim().toLowerCase();
+        const filteredSub = wargaKecamatan.filter(w => String(w.alamat || '').toLowerCase().includes(cleanSub) || String(w.kelurahan_desa || '').toLowerCase().includes(cleanSub));
+        window.currentModalWargaList = filteredSub.length > 0 ? filteredSub : wargaKecamatan;
+    } else {
+        window.currentModalWargaList = wargaKecamatan;
+    }
 
     const modalBody = modal.querySelector('div[style*="overflow-y:auto"]') || modal.querySelector('.card-body');
     const table = modal.querySelector('table');
@@ -523,7 +603,10 @@ window.bukaRincianWilayah = function (namaWilayah) {
         const thead = table.querySelector('thead');
         if (thead) {
             thead.style.position = 'static';
-            thead.querySelectorAll('th').forEach(th => {
+            const ths = thead.querySelectorAll('th');
+            if (ths[4]) ths[4].innerText = 'PENYALURAN AWAL S/D AKHIR (TAHAP I–IV)';
+            if (ths[5]) ths[5].innerText = 'NOMINAL (AWAL S/D AKHIR) & BENTUK BANTUAN';
+            ths.forEach(th => {
                 th.style.position = 'static';
                 th.style.top = 'auto';
                 th.style.zIndex = 'auto';
@@ -553,33 +636,44 @@ window.bukaRincianWilayah = function (namaWilayah) {
     const totalWilayah = window.currentModalWargaList.length;
     const totalLayakWil = window.currentModalWargaList.filter(w => (Number(w.desil) || 5) <= 4).length;
     const totalTidakWil = totalWilayah - totalLayakWil;
-    const totalDanaWil = totalLayakWil * 600000;
+    const totalDanaAwalWil = window.currentModalWargaList.reduce((acc, w) => acc + window.AdminMap.computePenyaluranAwalAkhirWarga(w).nomAwal, 0);
+    const totalDanaAkhirWil = window.currentModalWargaList.reduce((acc, w) => acc + window.AdminMap.computePenyaluranAwalAkhirWarga(w).nomAkhir, 0);
+    const totalDanaAkumulasiWil = window.currentModalWargaList.reduce((acc, w) => acc + window.AdminMap.computePenyaluranAwalAkhirWarga(w).totalAkumulasi, 0);
 
     if (statsHeader) {
         statsHeader.innerHTML = `
             <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 16px; margin-bottom:12px; font-size:0.84rem; color:#475569; line-height:1.5;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
+                    <div>
+                        <b style="color:#0f172a;">Cakupan Wilayah Kecamatan ${window.safeHtml(namaWilayah)} (Kecamatan, Kelurahan &amp; Desa):</b>
+                    </div>
+                    <span style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; padding:2px 10px; border-radius:20px; font-size:0.72rem; font-weight:800;">
+                        <i class="fas fa-check-double"></i> Tercatat Penyaluran Awal (Tahap I) s/d Akhir (Tahap IV) &amp; Bentuk Bantuan
+                    </span>
+                </div>
                 <div style="margin-bottom:6px;">
-                    <b style="color:#0f172a;">Daftar Kelurahan di Kec. ${namaWilayah}:</b><br>
-                    <span style="color:#0369a1; font-weight:600;">${daftarKelurahan}</span>
+                    <b style="color:#0f172a;">Daftar Kelurahan di Kec. ${window.safeHtml(namaWilayah)}:</b><br>
+                    <span style="color:#0369a1; font-weight:600;">${window.safeHtml(daftarKelurahan)}</span>
                 </div>
                 <div style="border-top:1px solid #e2e8f0; padding-top:6px;">
-                    <b style="color:#0f172a;">Daftar Desa di Kec. ${namaWilayah} (${daftarDesa.split(',').length} Desa):</b><br>
-                    <span>${daftarDesa}</span>
+                    <b style="color:#0f172a;">Daftar Desa di Kec. ${window.safeHtml(namaWilayah)} (${daftarDesa.split(',').length} Desa):</b><br>
+                    <span>${window.safeHtml(daftarDesa)}</span>
                 </div>
             </div>
 
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:12px;">
-                <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #0284c7; border-radius:10px; padding:10px 14px;"><div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase;">Total Terdata</div><div style="font-size:1.15rem; font-weight:800; color:#0f172a; margin-top:2px;">${totalWilayah} <span style="font-size:0.75rem; font-weight:600; color:#64748b;">Jiwa</span></div></div>
-                <div style="background:#ffffff; border:1px solid #bbf7d0; border-left:4px solid #16a34a; border-radius:10px; padding:12px 14px;"><div style="font-size:0.7rem; color:#15803d; font-weight:700; text-transform:uppercase;">Penerima (Desil 1–4)</div><div style="font-size:1.15rem; font-weight:800; color:#14532d; margin-top:2px;">${totalLayakWil} <span style="font-size:0.75rem; font-weight:600; color:#16a34a;">Warga</span></div></div>
-                <div style="background:#ffffff; border:1px solid #fecaca; border-left:4px solid #dc2626; border-radius:10px; padding:12px 14px;"><div style="font-size:0.7rem; color:#b91c1c; font-weight:700; text-transform:uppercase;">Tidak Prioritas</div><div style="font-size:1.15rem; font-weight:800; color:#7f1d1d; margin-top:2px;">${totalTidakWil} <span style="font-size:0.75rem; font-weight:600; color:#b91c1c;">Warga</span></div></div>
-                <div style="background:#ffffff; border:1px solid #fde68a; border-left:4px solid #d97706; border-radius:10px; padding:12px 14px;"><div style="font-size:0.7rem; color:#92400e; font-weight:700; text-transform:uppercase;">Alokasi Dana</div><div style="font-size:1.1rem; font-weight:800; color:#78350f; margin-top:2px;">Rp ${totalDanaWil.toLocaleString('id-ID')}</div></div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(155px, 1fr)); gap:10px; margin-bottom:12px;">
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #0284c7; border-radius:10px; padding:10px 12px;"><div style="font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase;">Total Terdata</div><div style="font-size:1.1rem; font-weight:800; color:#0f172a; margin-top:2px;">${totalWilayah} <span style="font-size:0.73rem; font-weight:600; color:#64748b;">Jiwa</span></div></div>
+                <div style="background:#ffffff; border:1px solid #bbf7d0; border-left:4px solid #16a34a; border-radius:10px; padding:10px 12px;"><div style="font-size:0.68rem; color:#15803d; font-weight:700; text-transform:uppercase;">Penerima Aktif (Desil 1–4)</div><div style="font-size:1.1rem; font-weight:800; color:#14532d; margin-top:2px;">${totalLayakWil} <span style="font-size:0.73rem; font-weight:600; color:#16a34a;">Warga</span></div></div>
+                <div style="background:#ffffff; border:1px solid #bae6fd; border-left:4px solid #0284c7; border-radius:10px; padding:10px 12px;"><div style="font-size:0.68rem; color:#0369a1; font-weight:700; text-transform:uppercase;">Penyaluran Awal (Tahap I)</div><div style="font-size:1rem; font-weight:800; color:#0c4a6e; margin-top:2px;">Rp ${totalDanaAwalWil.toLocaleString('id-ID')}</div></div>
+                <div style="background:#ffffff; border:1px solid #bbf7d0; border-left:4px solid #15803d; border-radius:10px; padding:10px 12px;"><div style="font-size:0.68rem; color:#166534; font-weight:700; text-transform:uppercase;">Penyaluran Akhir (Tahap IV)</div><div style="font-size:1rem; font-weight:800; color:#14532d; margin-top:2px;">Rp ${totalDanaAkhirWil.toLocaleString('id-ID')}</div></div>
+                <div style="background:#ffffff; border:1px solid #fde68a; border-left:4px solid #d97706; border-radius:10px; padding:10px 12px;"><div style="font-size:0.68rem; color:#92400e; font-weight:700; text-transform:uppercase;">Total Alokasi (Awal s/d Akhir)</div><div style="font-size:1.05rem; font-weight:900; color:#78350f; margin-top:2px;">Rp ${totalDanaAkumulasiWil.toLocaleString('id-ID')}</div></div>
             </div>
 
             <!-- Bilah Pencarian Terpadu: Input Teks & Tombol Pencarian Suara -->
             <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center;">
                 <div style="flex: 1; position: relative; display: flex; align-items: center;">
                     <i class="fas fa-search" style="position: absolute; left: 14px; color: #94a3b8; font-size: 0.88rem;"></i>
-                    <input type="text" id="inputSearchWargaWilayah" oninput="window.AdminMap.filterWilayahTable()" placeholder="Ketik Nama Lengkap atau 16 Digit NIK pemohon..." style="width: 100%; padding: 10px 14px 10px 38px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 0.88rem; outline: none; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                    <input type="text" id="inputSearchWargaWilayah" oninput="window.AdminMap.filterWilayahTable()" placeholder="Ketik Nama Lengkap, NIK 16 Digit, Kelurahan, atau Desa..." style="width: 100%; padding: 10px 14px 10px 38px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 0.88rem; outline: none; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
                 </div>
                 <button type="button" id="btnVoiceSearchWilayah" onclick="window.AdminMap.startVoiceSearchWilayah()" class="btn btn-secondary" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #cbd5e1; color: #0284c7; background: #ffffff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem;" title="Cari dengan Suara">
                     <i class="fas fa-microphone"></i>
@@ -681,18 +775,46 @@ window.AdminMap.renderWilayahRows = function (list) {
             trendBadge = `<span style="font-size:0.68rem; font-weight:600; color:#64748b; background:#f1f5f9; border:1px solid #e2e8f0; padding:1px 6px; border-radius:10px; display:inline-flex; align-items:center; gap:2px;" title="Desil Stabil / Tetap">▬ Tetap (D${currentDesil})</span>`;
         }
 
-        const isVerified = Boolean(w.is_verified == 1 || w.is_verified === true || w.status_verifikasi === 'layak' || w.status === 'disetujui' || isEligible);
-        const isDisalurkan = Boolean((w.tanggal_salur && w.tanggal_salur !== '-') || w.bukti_salur || window.customMediaBuktiMap[w.nik]);
+        const infoSalur = window.AdminMap.computePenyaluranAwalAkhirWarga(w);
+        const kelDesaTag = w.kelurahan_desa || (String(w.alamat || '').match(/(Kelurahan|Desa)\s+[A-Za-z0-9\s]+/i)?.[0]) || `Wilayah Kec. ${window.currentActiveWilayahNama || 'Sidoarjo'}`;
 
-        let bantuanDisplayHtml = '<span style="color:#94a3b8; font-weight:700;">-</span>';
-        if (isVerified && isDisalurkan) {
-            const savedBantuan = window.customBantuanMap[w.nik] || w.nominal_bantuan || (isEligible ? 'Rp 600.000 / Beras 10 Kg' : 'Bantuan Sosial');
-            bantuanDisplayHtml = `
-                <span style="color:#15803d; font-weight:800; font-size:0.84rem;">
-                    ${window.safeHtml(savedBantuan)}
-                </span>
-            `;
-        }
+        const penyaluranAwalAkhirHtml = `
+            <div style="text-align:left; font-size:0.74rem; line-height:1.35; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:6px 8px;">
+                <div style="display:flex; justify-content:space-between; gap:6px; border-bottom:1px dashed #cbd5e1; padding-bottom:3px; margin-bottom:3px;">
+                    <span style="color:#0369a1; font-weight:800;"><i class="fas fa-play-circle"></i> Awal:</span>
+                    <span style="font-weight:700; color:#0f172a;">${window.safeHtml(infoSalur.periodeAwal)}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; gap:6px; margin-bottom:4px;">
+                    <span style="color:#15803d; font-weight:800;"><i class="fas fa-flag-checkered"></i> Akhir:</span>
+                    <span style="font-weight:700; color:${infoSalur.nomAkhir > 0 ? '#14532d' : '#991b1b'};">${window.safeHtml(infoSalur.periodeAkhir)}</span>
+                </div>
+                <div style="font-size:0.65rem; color:#475569; background:#eff6ff; border-radius:5px; padding:2px 6px; font-weight:700;">
+                    Siklus: Tahap I, II, III &amp; IV Tercatat
+                </div>
+            </div>
+        `;
+
+        const savedCustomBantuan = window.customBantuanMap && window.customBantuanMap[w.nik];
+        const bentukFinalText = savedCustomBantuan || infoSalur.bentukTampilUtama;
+        const bantuanDisplayHtml = `
+            <div style="text-align:left; font-size:0.74rem; line-height:1.35; background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:6px 8px;">
+                <div style="display:flex; justify-content:space-between; gap:6px;">
+                    <span style="color:#64748b; font-weight:700;">Penyaluran Awal:</span>
+                    <span style="color:#0369a1; font-weight:800;">${window.safeHtml(infoSalur.nomAwalLabel)}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; gap:6px; margin-top:2px;">
+                    <span style="color:#64748b; font-weight:700;">Penyaluran Akhir:</span>
+                    <span style="color:${infoSalur.nomAkhir > 0 ? '#15803d' : '#b91c1c'}; font-weight:800;">${window.safeHtml(infoSalur.nomAkhirLabel)}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; gap:6px; margin-top:3px; padding-top:3px; border-top:1px dashed #cbd5e1;">
+                    <span style="color:#1e40af; font-weight:800;">Total (Awal–Akhir):</span>
+                    <span style="color:#1e3a8a; font-weight:900;">${window.safeHtml(infoSalur.totalAkumulasiLabel)}</span>
+                </div>
+                <div style="margin-top:4px; background:#fefce8; border:1px solid #fde68a; border-radius:6px; padding:3px 6px; font-size:0.68rem; color:#78350f; font-weight:700;">
+                    <i class="fas fa-hand-holding-heart" style="color:#d97706;"></i> Disalurkan: <span style="color:#0f172a;">${window.safeHtml(bentukFinalText)}</span>
+                </div>
+            </div>
+        `;
 
         const mediaSrc = window.customMediaBuktiMap[w.nik] || w.bukti_salur;
         let mediaBuktiHtml = `<span style="color:#94a3b8; font-size:0.75rem; font-style:italic;">Belum ada berkas</span>`;
@@ -722,8 +844,12 @@ window.AdminMap.renderWilayahRows = function (list) {
         return `
             <tr style="background:${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
                 <td style="text-align:center; font-weight:700; color:#64748b; font-size:0.8rem;">${idx + 1}</td>
-                <td><div style="font-weight:800; color:#0f172a; font-size:0.9rem;">${window.safeHtml(w.nama)}</div><small style="color:#64748b; font-family:monospace; font-size:0.78rem;">${w.nik}</small></td>
-                <td style="font-size:0.82rem; color:#334155;"><div>${window.safeHtml(w.tempat_lahir || 'Sidoarjo')}, ${w.tanggal_lahir || '-'}</div><small class="text-muted">${window.safeHtml(w.alamat)}</small></td>
+                <td>
+                    <div style="font-weight:800; color:#0f172a; font-size:0.88rem;">${window.safeHtml(w.nama)}</div>
+                    <small style="color:#1d4ed8; font-family:monospace; font-size:0.76rem; font-weight:700;">${w.nik}</small>
+                    <div style="margin-top:2px;"><span style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px; padding:1px 6px; font-size:0.66rem; font-weight:700;">${window.safeHtml(kelDesaTag)}</span></div>
+                </td>
+                <td style="font-size:0.8rem; color:#334155;"><div>${window.safeHtml(w.tempat_lahir || 'Sidoarjo')}, ${w.tanggal_lahir || '-'}</div><small class="text-muted">${window.safeHtml(w.alamat)}</small></td>
                 
                 <td style="text-align:center;">
                     ${desilBadge}
@@ -732,7 +858,7 @@ window.AdminMap.renderWilayahRows = function (list) {
                     </div>
                 </td>
                 
-                <td style="text-align:center; font-size:0.8rem; color:#475569;">${w.tanggal_salur || '-'}</td>
+                <td>${penyaluranAwalAkhirHtml}</td>
                 <td>${bantuanDisplayHtml}</td>
                 <td style="text-align:center;">${mediaBuktiHtml}</td>
                 <td style="text-align:center;">
@@ -802,8 +928,9 @@ window.AdminMap.pratinjauMediaPenyaluran = function (identifier, isVideoFallback
             </div>
         `,
         width: isVideo ? '720px' : '650px',
-        showCloseButton: true,
-        showConfirmButton: false,
+        showCloseButton: false,
+        showConfirmButton: true,
+        confirmButtonText: 'Tutup',
         didOpen: () => {
             const popup = Swal.getPopup();
             const container = Swal.getContainer();

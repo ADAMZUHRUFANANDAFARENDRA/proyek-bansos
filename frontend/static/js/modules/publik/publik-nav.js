@@ -41,7 +41,7 @@ window.switchTabPublik = window.switchTab = function (targetSectionId, btnEl) {
         if (shell && dashboardView && shell.contains(dashboardView)) {
             shell.style.display = 'block';
             if (tabsBar) tabsBar.style.display = 'none';
-            ['loginWargaSection', 'cekStatusSection', 'daftarMandiriSection', 'pantauAduanSection', 'bantuanSection'].forEach(id => {
+            ['loginWargaSection', 'cekStatusSection', 'rekapPublikSection', 'spkSkPublikSection', 'daftarMandiriSection', 'pantauAduanSection', 'bantuanSection'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
@@ -121,9 +121,15 @@ window.switchTabPublik = window.switchTab = function (targetSectionId, btnEl) {
     if (chatbotBtn) chatbotBtn.style.display = 'flex';
 
     document.querySelectorAll('.tab-btn-portal, .tab-btn').forEach(b => b.classList.remove('active'));
+    // Sembunyikan seluruh kontainer tab portal secara universal
+    document.querySelectorAll('.tab-content-portal').forEach(el => {
+        el.style.display = 'none';
+        el.classList.remove('active');
+    });
+
     const allSections = [
-        'loginWargaSection', 'cekStatusSection', 'daftarMandiriSection', 'pantauAduanSection', 'bantuanSection',
-        'panelMasukDashboard', 'panelCekStatus', 'panelDaftarMandiri', 'panelPantauAduan', 'panelFAQ'
+        'loginWargaSection', 'cekStatusSection', 'rekapPublikSection', 'spkSkPublikSection', 'daftarMandiriSection', 'pantauAduanSection', 'bantuanSection',
+        'panelMasukDashboard', 'panelCekStatus', 'panelRekapPublik', 'panelSpkSkPublik', 'panelDaftarMandiri', 'panelPantauAduan', 'panelFAQ'
     ];
     allSections.forEach(id => {
         const el = document.getElementById(id);
@@ -138,6 +144,10 @@ window.switchTabPublik = window.switchTab = function (targetSectionId, btnEl) {
         'panelMasukDashboard': ['loginWargaSection', 'panelMasukDashboard'],
         'cekStatusSection': ['cekStatusSection', 'panelCekStatus'],
         'panelCekStatus': ['cekStatusSection', 'panelCekStatus'],
+        'rekapPublikSection': ['rekapPublikSection', 'panelRekapPublik'],
+        'panelRekapPublik': ['rekapPublikSection', 'panelRekapPublik'],
+        'spkSkPublikSection': ['spkSkPublikSection', 'panelSpkSkPublik'],
+        'panelSpkSkPublik': ['spkSkPublikSection', 'panelSpkSkPublik'],
         'daftarMandiriSection': ['daftarMandiriSection', 'panelDaftarMandiri'],
         'panelDaftarMandiri': ['daftarMandiriSection', 'panelDaftarMandiri'],
         'pantauAduanSection': ['pantauAduanSection', 'panelPantauAduan'],
@@ -163,6 +173,10 @@ window.switchTabPublik = window.switchTab = function (targetSectionId, btnEl) {
             'panelMasukDashboard': ['btn-login', 'tabBtnMasuk'],
             'cekStatusSection': ['btn-cek', 'tabBtnCek'],
             'panelCekStatus': ['btn-cek', 'tabBtnCek'],
+            'rekapPublikSection': ['btn-rekap-publik', 'tabBtnRekapPublik'],
+            'panelRekapPublik': ['btn-rekap-publik', 'tabBtnRekapPublik'],
+            'spkSkPublikSection': ['btn-spk-sk', 'tabBtnSpkSk'],
+            'panelSpkSkPublik': ['btn-spk-sk', 'tabBtnSpkSk'],
             'daftarMandiriSection': ['btn-daftar', 'tabBtnDaftar'],
             'panelDaftarMandiri': ['btn-daftar', 'tabBtnDaftar'],
             'pantauAduanSection': ['btn-aduan', 'tabBtnAduan'],
@@ -177,6 +191,18 @@ window.switchTabPublik = window.switchTab = function (targetSectionId, btnEl) {
         });
     }
 
+    
+    if (targetSectionId === 'spkSkPublikSection' || targetSectionId === 'panelSpkSkPublik') {
+        if (typeof window.cekStatusPublikasiWargaSpkSk === 'function') {
+            window.cekStatusPublikasiWargaSpkSk();
+        }
+    }
+    if (targetSectionId === 'rekapPublikSection' || targetSectionId === 'panelRekapPublik') {
+        if (typeof window.muatRekapPublikWarga === 'function') {
+            window.muatRekapPublikWarga();
+        }
+    }
+
     if (targetSectionId === 'daftarMandiriSection' || targetSectionId === 'panelDaftarMandiri') {
         setTimeout(() => {
             if (typeof initGeotaggingMap === 'function') initGeotaggingMap();
@@ -188,6 +214,7 @@ window.gantiTabPortal = function (tab) {
     const map = {
         'masuk': 'loginWargaSection',
         'cek': 'cekStatusSection',
+        'rekap': 'rekapPublikSection',
         'daftar': 'daftarMandiriSection',
         'aduan': 'pantauAduanSection',
         'faq': 'bantuanSection'
@@ -241,6 +268,18 @@ const daftarLangkahTur = [
         badge: 'Transparansi',
         title: 'Cek Status Bansos Terpadu',
         desc: 'Cukup masukkan 16 digit NIK untuk mengetahui klasifikasi desil (1-10), status kelayakan bansos, dan status penyaluran fisik secara seketika dan transparan.'
+    },
+    {
+        targetId: 'rekapPublikSection',
+        badge: 'Rekap Triwulanan',
+        title: 'Rekapitulasi Penyaluran 3 Bulanan',
+        desc: 'Pantau laporan penyaluran bansos setiap 3 bulan sekali (Tahap 1–4), perbandingan data lama vs baru, arah desil graduasi/prioritas, serta transparansi nominal penyaluran awal s/d akhir.'
+    },
+    {
+        targetId: 'spkSkPublikSection',
+        badge: 'Akuntabilitas SPK',
+        title: 'Metrik Perhitungan SPK & SK Bupati Resmi',
+        desc: 'Akses terbuka hasil penilaian algoritma BWM-SAW (variabel kriteria C1–C10, bobot, skor, ranking) dan ketetapan sah SK Bupati Sidoarjo berotentikasi BSrE BSSN dengan verifikasi privasi aman.'
     },
     {
         targetId: 'daftarMandiriSection',

@@ -1,3 +1,25 @@
+export function isSpkCriterionKey(k: string): boolean {
+  if (!k) return false;
+  const clean = k.trim().replace(/\s+/g, '_');
+  if (/^c0?([1-9]|10)(?:$|[^0-9])/i.test(clean)) {
+    return true;
+  }
+  const low = clean.toLowerCase();
+  const spkKeywords = [
+    'kondisi_ekonomi', 'penghasilan', 'pendapatan', 'gaji', 'penghasilan_per_bulan',
+    'kepemilikan_aset', 'nilai_aset',
+    'umur_kk', 'usia_kk',
+    'jenis_kelamin_kk',
+    'jumlah_tanggungan', 'jml_tanggungan',
+    'status_pernikahan', 'status_kawin',
+    'kepemilikan_anak', 'balita',
+    'kelayakan_tempat_tinggal', 'kelayakan_rumah',
+    'pendidikan_kk', 'pendidikan_terakhir',
+    'kondisi_kesehatan', 'kesehatan_disabilitas'
+  ];
+  return spkKeywords.includes(low);
+}
+
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
@@ -9,7 +31,10 @@ import type {
   PengaduanItem,
   ChatItem,
   LaporanPelanggaranItem,
-  MasterSeedTuple
+  MasterSeedTuple,
+  LogPanggilanItem,
+  SpkMetrikPerhitunganItem,
+  SkBupatiItem
 } from './types.js';
 import {
   validateUploadFileSafe,
@@ -492,11 +517,16 @@ export function catatNotifikasi(pesan: string, roleSender = 'Sistem', kategori =
 }
 
 export function formatWarga(w: WargaItem) {
+  // Bersihkan jika nama tidak sengaja ketempelan nilai kriteria dari kolom berikutnya
+  const cleanNama = String(w.nama || '').replace(/\s+(Ada\s*\([^)]*\)|Ada\s*\(.*|Tidak Ada\b.*)$/i, '').trim();
+  if (cleanNama && cleanNama !== w.nama) {
+    w.nama = cleanNama;
+  }
   const result: Record<string, unknown> = {
     id: w.id,
     nik: w.nik,
-    nama: w.nama,
-    nama_lengkap: w.nama,
+    nama: cleanNama || w.nama,
+    nama_lengkap: cleanNama || w.nama,
     tempat_lahir: w.tempat_lahir || 'Sidoarjo',
     tanggal_lahir: w.tanggal_lahir || '',
     alamat: w.alamat || 'Kabupaten Sidoarjo',
@@ -514,25 +544,16 @@ export function formatWarga(w: WargaItem) {
     c8: w.c8,
     c9: w.c9,
     c10: w.c10,
-    c1_ekonomi: w.c1,
-    c2_aset: w.c2,
-    c3_umur: w.c3,
-    c4_jenis_kelamin: w.c4,
-    c5_tanggungan: w.c5,
-    c6_status_pernikahan: w.c6,
-    c7_kepemilikan_anak: w.c7,
-    c8_tempat_tinggal: w.c8,
-    c9_pendidikan: w.c9,
-    c10_kesehatan: w.c10,
+    // Alias c1_ekonomi s/d c10_kesehatan ditiadakan agar kriteria SPK tidak duplikat
     desil: w.desil,
     is_layak: w.desil <= 4,
     skor_saw: Number(w.skor_saw.toFixed(4)),
     rank_saw: w.rank_saw,
     is_verified: Boolean(w.is_verified),
     status_validasi: w.status_validasi || (w.is_verified ? 'Disetujui' : 'Menunggu'),
-    status_salur: w.desil <= 4 ? (w.status_salur || 'Belum Salur') : 'Tidak Dialokasikan',
-    status_bansos: w.desil <= 4 ? (w.status_bansos || 'Layak Bansos') : 'Tidak Menerima',
-    prioritas: w.desil <= 4 ? (w.prioritas || 'Prioritas Utama') : 'Tidak Prioritas',
+    status_salur: w.desil <= 4 ? (w.status_salur || 'Belum Salur') : (w.status_salur === 'Dihentikan' ? 'Dihentikan' : 'Tidak Dialokasikan'),
+    status_bansos: w.desil <= 4 ? (w.status_bansos || 'Layak Bansos') : (w.status_bansos && w.status_bansos.includes('(') ? w.status_bansos : 'Tidak Menerima'),
+    prioritas: w.desil <= 4 ? (w.prioritas || 'Prioritas Utama') : (w.prioritas && w.prioritas.includes('(') ? w.prioritas : 'Tidak Prioritas'),
     bukti_salur: w.desil <= 4 ? (w.bukti_salur || '') : '',
     keterangan_salur: w.keterangan_salur || w.catatan || '',
     konfirmasi_warga: Boolean(w.konfirmasi_warga),
@@ -541,12 +562,14 @@ export function formatWarga(w: WargaItem) {
     nominal_bantuan: w.desil <= 4 ? (w.nominal_bantuan || 'Rp 600.000 / Beras 10 Kg') : '-',
     tanggal_salur: w.tanggal_salur || '-',
     created_at: w.created_at || 'Hari ini',
+    status_mutasi: (w as any).status_mutasi || 'aktif',
+    rekap_mutasi: (w as any).rekap_mutasi || null,
     extra_data: w.extra_data || {}
   };
 
   if (w.extra_data && typeof w.extra_data === 'object') {
     Object.keys(w.extra_data).forEach(k => {
-      if (!(k in result)) {
+      if (!isSpkCriterionKey(k) && !(k in result)) {
         result[k] = (w.extra_data as any)[k];
       }
     });
@@ -554,7 +577,7 @@ export function formatWarga(w: WargaItem) {
 
   const standardKeySet = new Set(Object.keys(result));
   Object.keys(w).forEach(k => {
-    if (!standardKeySet.has(k) && !k.startsWith('_')) {
+    if (!standardKeySet.has(k) && !k.startsWith('_') && !isSpkCriterionKey(k)) {
       result[k] = (w as any)[k];
     }
   });
@@ -593,25 +616,218 @@ export function maskName(name?: string | null): string {
   return words.map(w => w.length <= 2 ? w : `${w[0]}${'*'.repeat(Math.max(1, w.length - 2))}${w[w.length - 1]}`).join(' ');
 }
 
-export function formatWargaSafe(w: WargaItem, maskPrivacy = true) {
-  const formatted = formatWarga(w);
-  if (maskPrivacy) {
-    formatted.nik = maskNik(w.nik);
-    formatted.nama = maskName(w.nama);
-    formatted.nama_lengkap = formatted.nama;
-    formatted.no_hp = maskPhone(w.no_hp);
-    formatted.email = maskEmail(w.email);
-    formatted.tempat_lahir = 'Kabupaten Sidoarjo';
-    formatted.tanggal_lahir = w.tanggal_lahir ? `**/**/${String(w.tanggal_lahir).slice(0, 4)}` : '**/**/****';
-    if (w.lat) formatted.lat = Number(Number(w.lat).toFixed(2));
-    if (w.lng) formatted.lng = Number(Number(w.lng).toFixed(2));
-    if (w.alamat) {
-      formatted.alamat = `Kawasan Wilayah (${w.alamat.includes('Kec.') ? w.alamat.slice(w.alamat.indexOf('Kec.')) : 'Kabupaten Sidoarjo'})`;
-    }
-  }
-  return formatted;
+export function formatWargaSafe(w: WargaItem, _maskPrivacy = false) {
+  // Kebijakan data profil: tidak ada sensor bintang (*) agar warga maupun aparatur (petugas, admin, superadmin)
+  // dapat memeriksa profil kependudukan, bansos, dan variabel SPK secara lengkap dan akurat.
+  return formatWarga(w);
 }
 
 export function makeJwtToken(user: { id: number; username: string; role: string }) {
   return createSecureJwt(user);
+}
+
+
+// =========================================================================
+// STORE LOG PANGGILAN REALTIME (SUARA & VIDEO APARATUR DAN WARGA)
+// =========================================================================
+export const logPanggilanStore: LogPanggilanItem[] = [
+  {
+    id: 1,
+    caller_id: '1234563728394856',
+    caller_name: 'SULIS',
+    caller_role: 'warga',
+    callee_id: 'petugas_01',
+    callee_name: 'Petugas Dinsos Lapangan',
+    callee_role: 'petugas',
+    nik_warga: '1234563728394856',
+    tipe_panggilan: 'audio',
+    status: 'selesai',
+    durasi_detik: 185,
+    waktu_mulai: '2026-10-31 08:15:00',
+    waktu_selesai: '2026-10-31 08:18:05',
+    catatan: 'Mediasi koordinasi verifikasi administrasi dan jadwal pencairan bansos beras',
+    created_at: '2026-10-31 08:15:00'
+  },
+  {
+    id: 2,
+    caller_id: 'petugas_02',
+    caller_name: 'Tim Verifikator Wilayah',
+    caller_role: 'petugas',
+    callee_id: '3515990000000001',
+    callee_name: 'KPM WILAYAH WARU 01',
+    callee_role: 'warga',
+    nik_warga: '3515990000000001',
+    tipe_panggilan: 'video',
+    status: 'selesai',
+    durasi_detik: 320,
+    waktu_mulai: '2026-10-30 14:00:00',
+    waktu_selesai: '2026-10-30 14:05:20',
+    catatan: 'Peninjauan faktual langsung kondisi kelayakan tempat tinggal dan atap rumah KPM',
+    created_at: '2026-10-30 14:00:00'
+  },
+  {
+    id: 3,
+    caller_id: '3515990000000010',
+    caller_name: 'KPM Wilayah Terdaftar 10',
+    caller_role: 'warga',
+    callee_id: 'admin_01',
+    callee_name: 'Admin Bansos Sidoarjo',
+    callee_role: 'admin',
+    nik_warga: '3515990000000010',
+    tipe_panggilan: 'audio',
+    status: 'selesai',
+    durasi_detik: 140,
+    waktu_mulai: '2026-10-29 10:20:00',
+    waktu_selesai: '2026-10-29 10:22:20',
+    catatan: 'Klarifikasi status pengaduan sengketa sembako Krian yang telah selesai dimediasi',
+    created_at: '2026-10-29 10:20:00'
+  },
+  {
+    id: 4,
+    caller_id: 'petugas_01',
+    caller_name: 'Petugas Lapangan Dinsos',
+    caller_role: 'petugas',
+    callee_id: '3515990000000015',
+    callee_name: 'KPM Wilayah Buduran 15',
+    callee_role: 'warga',
+    nik_warga: '3515990000000015',
+    tipe_panggilan: 'video',
+    status: 'selesai',
+    durasi_detik: 210,
+    waktu_mulai: '2026-10-28 16:45:00',
+    waktu_selesai: '2026-10-28 16:48:30',
+    catatan: 'Verifikasi faktual visual kelayakan hunian dan kepemilikan aset warga KPM',
+    created_at: '2026-10-28 16:45:00'
+  }
+];
+
+// =========================================================================
+// STORE METRIK PERHITUNGAN SPK & SK BUPATI (DENGAN KONTROL PUBLISH)
+// =========================================================================
+export const spkMetrikStore: SpkMetrikPerhitunganItem[] = [
+  {
+    id: 1,
+    kode_perhitungan: 'SPK-2026-TW4',
+    tahun: 2026,
+    triwulan_ke: 4,
+    metode: 'Integrasi BWM - SAW & Weighted Product (WP)',
+    total_warga: 100,
+    total_layak: 40,
+    is_published: true,
+    published_at: '2026-10-26 10:00',
+    published_by: 'Kepala Dinas Sosial Kab. Sidoarjo',
+    bobot_kriteria: [
+      { kode: 'C1', nama: 'Kondisi Ekonomi / Penghasilan', bobot: 0.22, jenis: 'cost' },
+      { kode: 'C2', nama: 'Kepemilikan Aset', bobot: 0.15, jenis: 'cost' },
+      { kode: 'C3', nama: 'Umur Kepala Keluarga', bobot: 0.08, jenis: 'benefit' },
+      { kode: 'C4', nama: 'Jenis Kelamin', bobot: 0.05, jenis: 'benefit' },
+      { kode: 'C5', nama: 'Jumlah Tanggungan', bobot: 0.18, jenis: 'benefit' },
+      { kode: 'C6', nama: 'Status Pernikahan', bobot: 0.06, jenis: 'benefit' },
+      { kode: 'C7', nama: 'Kepemilikan Anak / Balita', bobot: 0.08, jenis: 'benefit' },
+      { kode: 'C8', nama: 'Kelayakan Tempat Tinggal', bobot: 0.10, jenis: 'cost' },
+      { kode: 'C9', nama: 'Tingkat Pendidikan Terakhir', bobot: 0.04, jenis: 'cost' },
+      { kode: 'C10', nama: 'Kondisi Kesehatan / Disabilitas', bobot: 0.04, jenis: 'cost' }
+    ],
+    skor_dan_ranking: [],
+    created_at: '2026-10-26 09:30:00',
+    updated_at: '2026-10-26 10:00:00'
+  }
+];
+
+export const skBupatiStore: SkBupatiItem[] = [
+  {
+    id: 1,
+    nomor_sk: '188/460/438.1.1.3/2026',
+    tahun: 2026,
+    judul_sk: 'KEPUTUSAN BUPATI SIDOARJO NOMOR 188/460/438.1.1.3/2026 TENTANG PENETAPAN KELUARGA PENERIMA MANFAAT (KPM) BANTUAN SOSIAL TERPADU KABUPATEN SIDOARJO TAHUN ANGGARAN 2026',
+    tentang: 'Penetapan Penerima Bantuan Sosial Pangan Sembako & PKH Daerah Berdasarkan Hasil Perangkingan Desil 1–4 Sistem Pendukung Keputusan BWM - SAW',
+    tanggal_penetapan: '26 Oktober 2026',
+    nama_bupati: 'H. Ahmad Muhdlor Ali, S.I.P.',
+    nama_kadinsos: 'Drs. H. Misbah, M.M.',
+    total_kpm: 40,
+    total_anggaran: 'Rp 72.000.000 (Triwulan IV)',
+    is_published: true,
+    published_at: '2026-10-26 10:00',
+    published_by: 'Super Administrator & Kadinsos',
+    daftar_penerima: [],
+    created_at: '2026-10-26 09:45:00',
+    updated_at: '2026-10-26 10:00:00'
+  }
+];
+
+export function getStatusPublikasiSpk() {
+  const m = spkMetrikStore[0];
+  return {
+    is_published: m ? Boolean(m.is_published) : false,
+    published_at: m?.published_at || null,
+    published_by: m?.published_by || null,
+    metode: m?.metode || 'BWM - SAW & WP'
+  };
+}
+
+export function setStatusPublikasiSpk(published, actor = 'Admin') {
+  if (spkMetrikStore.length === 0) {
+    spkMetrikStore.push({
+      id: 1,
+      kode_perhitungan: 'SPK-' + new Date().getFullYear() + '-TW4',
+      tahun: new Date().getFullYear(),
+      triwulan_ke: 4,
+      metode: 'Integrasi BWM - SAW & Weighted Product (WP)',
+      total_warga: wargaStore.length,
+      total_layak: wargaStore.filter(w => w.desil <= 4).length,
+      is_published: published,
+      published_at: published ? new Date().toLocaleString('id-ID') : null,
+      published_by: published ? actor : null,
+      bobot_kriteria: kriteriaStore,
+      skor_dan_ranking: [],
+      created_at: new Date().toISOString()
+    });
+  } else {
+    spkMetrikStore[0].is_published = published;
+    spkMetrikStore[0].published_at = published ? new Date().toLocaleString('id-ID') : null;
+    spkMetrikStore[0].published_by = published ? actor : null;
+    spkMetrikStore[0].updated_at = new Date().toISOString();
+  }
+  return getStatusPublikasiSpk();
+}
+
+export function getStatusPublikasiSkBupati() {
+  const sk = skBupatiStore[0];
+  return {
+    is_published: sk ? Boolean(sk.is_published) : false,
+    published_at: sk?.published_at || null,
+    published_by: sk?.published_by || null,
+    nomor_sk: sk?.nomor_sk || '188/BANSOS-SPK/' + new Date().getFullYear()
+  };
+}
+
+export function setStatusPublikasiSkBupati(published, actor = 'Super Admin') {
+  const layak = wargaStore.filter(w => w.desil <= 4);
+  if (skBupatiStore.length === 0) {
+    skBupatiStore.push({
+      id: 1,
+      nomor_sk: '188/460/438.1.1.3/' + new Date().getFullYear(),
+      tahun: new Date().getFullYear(),
+      judul_sk: 'KEPUTUSAN BUPATI SIDOARJO TENTANG PENETAPAN PENERIMA BANTUAN SOSIAL TAHUN ' + new Date().getFullYear(),
+      tentang: 'Penetapan Penerima Bansos Berdasarkan Hasil SPK',
+      tanggal_penetapan: '26 Oktober 2026',
+      nama_bupati: 'H. Ahmad Muhdlor Ali, S.I.P.',
+      nama_kadinsos: 'Drs. H. Misbah, M.M.',
+      total_kpm: layak.length,
+      total_anggaran: 'Rp ' + (layak.length * 600000).toLocaleString('id-ID'),
+      is_published: published,
+      published_at: published ? new Date().toLocaleString('id-ID') : null,
+      published_by: published ? actor : null,
+      daftar_penerima: layak.map(formatWarga),
+      created_at: new Date().toISOString()
+    });
+  } else {
+    skBupatiStore[0].is_published = published;
+    skBupatiStore[0].published_at = published ? new Date().toLocaleString('id-ID') : null;
+    skBupatiStore[0].published_by = published ? actor : null;
+    skBupatiStore[0].total_kpm = layak.length;
+    skBupatiStore[0].daftar_penerima = layak.map(formatWarga);
+    skBupatiStore[0].updated_at = new Date().toISOString();
+  }
+  return getStatusPublikasiSkBupati();
 }

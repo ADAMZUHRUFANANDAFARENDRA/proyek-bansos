@@ -65,8 +65,56 @@
     let peerInstance = null;
     let activeCallObj = null;
     let callLocalStream = null;
+    Object.defineProperty(window, 'callLocalStream', {
+        get() { return callLocalStream; },
+        set(v) { callLocalStream = v; },
+        configurable: true
+    });
+    let currentCallId = null;
+    let lastAdminSwapTime = 0;
+    let callRemoteStream = null;
+    Object.defineProperty(window, 'callRemoteStream', {
+        get() { return callRemoteStream; },
+        set(v) { callRemoteStream = v; },
+        configurable: true
+    });
+    let isVideoSwappedAdmin = false;
+    Object.defineProperty(window, 'isVideoSwappedAdmin', {
+        get() { return isVideoSwappedAdmin; },
+        set(v) { isVideoSwappedAdmin = v; },
+        configurable: true
+    });
+    let isAdminCameraOff = false;
+    Object.defineProperty(window, 'isAdminCameraOff', {
+        get() { return isAdminCameraOff; },
+        set(v) { isAdminCameraOff = v; },
+        configurable: true
+    });
+    let isRemoteCameraOffAdmin = false;
+    Object.defineProperty(window, 'isRemoteCameraOffAdmin', {
+        get() { return isRemoteCameraOffAdmin; },
+        set(v) { isRemoteCameraOffAdmin = v; },
+        configurable: true
+    });
+    let isRemoteMicMutedAdmin = false;
+    Object.defineProperty(window, 'isRemoteMicMutedAdmin', {
+        get() { return isRemoteMicMutedAdmin; },
+        set(v) { isRemoteMicMutedAdmin = v; },
+        configurable: true
+    });
+    let activeCallPartnerNik = null;
     let isCallAudioMuted = false;
+    Object.defineProperty(window, 'isCallAudioMuted', {
+        get() { return isCallAudioMuted; },
+        set(v) { isCallAudioMuted = v; },
+        configurable: true
+    });
     let isCallVideoMuted = true;
+    Object.defineProperty(window, 'isCallVideoMuted', {
+        get() { return isCallVideoMuted; },
+        set(v) { isCallVideoMuted = v; },
+        configurable: true
+    });
     let isCallPortraitFx = false;
     let callDurationTimer = null;
     let callDurationSecs = 0;
@@ -163,36 +211,235 @@
         if (m) m.style.display = 'none';
     };
 
+    function isOfficerNameStr(str) {
+        if (!str) return false;
+        const s = String(str).toLowerCase().trim();
+        return s.startsWith('petugas') || s.startsWith('admin') || s.startsWith('super admin') || s.startsWith('superadmin') || s.startsWith('dinsos') || s.includes('admin_bansos') || s.includes('investigasi dinsos') || s.includes('petugas dinsos') || s.includes('super administrator') || s.includes('(petugas') || s.includes('(admin') || s === 'operator' || s === 'penyalur';
+    }
+
     window.getWargaNameByNik = function (nik, fallbackName = '') {
-        if (fallbackName && fallbackName !== 'Warga' && !fallbackName.startsWith('Warga (')) {
-            window.cachedWargaNamesMap[nik] = fallbackName;
-            localStorage.setItem('cachedWargaNamesMap', JSON.stringify(window.cachedWargaNamesMap));
-            return fallbackName;
+        const cleanNik = String(nik || '').trim();
+        if (!cleanNik) return fallbackName || 'Warga';
+
+        // Bersihkan cache jika tercemar nama aparat
+        if (window.cachedWargaNamesMap && window.cachedWargaNamesMap[cleanNik]) {
+            if (isOfficerNameStr(window.cachedWargaNamesMap[cleanNik])) {
+                delete window.cachedWargaNamesMap[cleanNik];
+            }
         }
-        if (window.cachedWargaNamesMap && window.cachedWargaNamesMap[nik]) {
-            return window.cachedWargaNamesMap[nik];
-        }
-        const match = (window.globalDataWarga || []).find(w => String(w.nik) === String(nik));
-        if (match && match.nama) {
-            window.cachedWargaNamesMap[nik] = match.nama;
-            localStorage.setItem('cachedWargaNamesMap', JSON.stringify(window.cachedWargaNamesMap));
+
+        // 1. Cek di window.globalDataWarga (arsip kependudukan resmi - prioritas tertinggi)
+        const match = (window.globalDataWarga || []).find(w => String(w.nik) === cleanNik);
+        if (match && match.nama && !isOfficerNameStr(match.nama)) {
+            window.cachedWargaNamesMap[cleanNik] = match.nama;
+            try { localStorage.setItem('cachedWargaNamesMap', JSON.stringify(window.cachedWargaNamesMap)); } catch (e) {}
             return match.nama;
         }
-        return fallbackName || window.activeChatName || `Warga (${String(nik).slice(-4)})`;
+
+        // 2. Cek cache jika valid dan BUKAN nama petugas
+        if (window.cachedWargaNamesMap && window.cachedWargaNamesMap[cleanNik]) {
+            const cached = window.cachedWargaNamesMap[cleanNik];
+            if (cached && !isOfficerNameStr(cached) && cached !== 'Warga' && !cached.startsWith('Warga (')) {
+                return cached;
+            }
+        }
+
+        // 3. Cek fallbackName jika bukan nama petugas
+        if (fallbackName && !isOfficerNameStr(fallbackName) && fallbackName !== 'Warga' && !fallbackName.startsWith('Warga (')) {
+            window.cachedWargaNamesMap[cleanNik] = fallbackName;
+            try { localStorage.setItem('cachedWargaNamesMap', JSON.stringify(window.cachedWargaNamesMap)); } catch (e) {}
+            return fallbackName;
+        }
+
+        // 4. Cek activeChatName jika cocok dan bukan nama petugas
+        if (window.activeChatNik === cleanNik && window.activeChatName && !isOfficerNameStr(window.activeChatName)) {
+            return window.activeChatName;
+        }
+
+        return `Warga Konsultasi (${cleanNik.slice(-4)})`;
     };
 
-    window.activeChatCategoryFilter = 'semua';
+    // =========================================================================
+    // METADATA PENYIMPANAN: PIN, ARSIP, BLOKIR PESAN MASUK & PANGGILAN
+    // =========================================================================
+    window.getChatMeta = function (nik) {
+        try {
+            const raw = localStorage.getItem(`bansos_chat_meta_${nik}`);
+            return raw ? JSON.parse(raw) : { is_pinned: false, is_archived: false, is_blocked: false };
+        } catch (_) {
+            return { is_pinned: false, is_archived: false, is_blocked: false };
+        }
+    };
+
+    window.setChatMeta = function (nik, meta) {
+        try {
+            localStorage.setItem(`bansos_chat_meta_${nik}`, JSON.stringify(meta));
+        } catch (_) {}
+    };
+
+    window.togglePinChat = function (nik) {
+        const meta = window.getChatMeta(nik);
+        meta.is_pinned = !meta.is_pinned;
+        window.setChatMeta(nik, meta);
+        window.filterChatList();
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: meta.is_pinned ? 'Obrolan disematkan ke atas' : 'Sematan obrolan dilepas',
+                showConfirmButton: false,
+                timer: 1600
+            });
+        }
+    };
+
+    window.toggleArsipChat = function (nik) {
+        const meta = window.getChatMeta(nik);
+        meta.is_archived = !meta.is_archived;
+        window.setChatMeta(nik, meta);
+        window.filterChatList();
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'info',
+                title: meta.is_archived ? 'Obrolan diarsipkan' : 'Obrolan dipindahkan ke kotak masuk utama',
+                showConfirmButton: false,
+                timer: 1600
+            });
+        }
+    };
+
+    window.toggleBlokirChat = async function (nik) {
+        const meta = window.getChatMeta(nik);
+        const nextState = !meta.is_blocked;
+        const wargaName = window.getWargaNameByNik(nik) || `Warga (${nik})`;
+
+        if (nextState) {
+            if (typeof Swal !== 'undefined') {
+                const res = await Swal.fire({
+                    title: 'Blokir Kontak Warga?',
+                    text: `Kontak ${wargaName} akan diblokir dari pengiriman pesan masuk dan interaksi ke aparatur.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: 'Ya, Blokir Kontak',
+                    cancelButtonText: 'Batal'
+                });
+                if (!res.isConfirmed) return;
+            } else {
+                if (!confirm(`Blokir kontak ${wargaName}?`)) return;
+            }
+        }
+
+        meta.is_blocked = nextState;
+        window.setChatMeta(nik, meta);
+        window.filterChatList();
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: nextState ? 'error' : 'success',
+                title: nextState ? 'Kontak warga berhasil diblokir' : 'Blokir kontak telah dibuka',
+                showConfirmButton: false,
+                timer: 1800
+            });
+        }
+    };
+
+    window.hapusPercakapanChat = async function (nik, namaWarga = '') {
+        const displayName = namaWarga || window.getWargaNameByNik(nik) || `Warga (${nik})`;
+        if (typeof Swal !== 'undefined') {
+            const res = await Swal.fire({
+                title: 'Hapus Percakapan Ini?',
+                text: `Seluruh riwayat obrolan masuk dengan ${displayName} akan dibersihkan dari daftar pesan.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Ya, Hapus Obrolan',
+                cancelButtonText: 'Batal'
+            });
+            if (!res.isConfirmed) return;
+        } else {
+            if (!confirm(`Hapus seluruh pesan percakapan dengan ${displayName}?`)) return;
+        }
+
+        window.rawChatListData = (window.rawChatListData || []).filter(c => String(c.nik) !== String(nik));
+        
+        if (String(window.activeChatNik) === String(nik)) {
+            window.activeChatNik = null;
+            const emptyPanel = document.getElementById('chatEmptyStatePanel');
+            const activePanel = document.getElementById('chatActiveConversationPanel');
+            if (emptyPanel) emptyPanel.style.display = 'flex';
+            if (activePanel) activePanel.style.display = 'none';
+        }
+
+        window.filterChatList();
+
+        try {
+            const base = (window.BASE_API_URL || window.API_BASE_URL || window.BASE_URL || window.location.origin).replace(/\/+$/, '');
+            await fetch(`${base}/api/chat/clear/${nik}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
+            });
+        } catch (e) {
+            console.warn('[AdminChat] Gagal hapus chat dari server:', e);
+        }
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Percakapan berhasil dihapus',
+                showConfirmButton: false,
+                timer: 1800
+            });
+        }
+    };
+
+    window.activeChatStatusFilter = 'semua'; // 'semua' | 'pinned' | 'arsip' | 'blocked'
+    window.activeChatCategoryFilter = 'semua'; // 'semua' | 'desil1-4' | 'desil5-10' | 'unread' | 'pelaporan'
+
     window.filterChatKategori = function (kategori) {
-        window.activeChatCategoryFilter = kategori;
+        const statusChips = ['pinned', 'arsip', 'blocked'];
+        const categoryChips = ['semua', 'desil1-4', 'desil5-10', 'unread', 'pelaporan'];
+
+        if (statusChips.includes(kategori)) {
+            // Toggle status filter jika diklik ulang
+            if (window.activeChatStatusFilter === kategori) {
+                window.activeChatStatusFilter = 'semua';
+            } else {
+                window.activeChatStatusFilter = kategori;
+            }
+        } else if (categoryChips.includes(kategori)) {
+            window.activeChatCategoryFilter = kategori;
+            if (kategori === 'semua' && window.activeChatStatusFilter !== 'arsip' && window.activeChatStatusFilter !== 'blocked' && window.activeChatStatusFilter !== 'pinned') {
+                window.activeChatStatusFilter = 'semua';
+            }
+        }
+
+        // Sinkronisasi kelas active pada tombol chip baris atas (kategori desil/pesan)
         ['chipFilterSemua', 'chipFilterDesil', 'chipFilterDesil5_10', 'chipFilterUnread', 'chipFilterPelaporan'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.classList.remove('active');
+            document.getElementById(id)?.classList.remove('active');
         });
-        if (kategori === 'semua') document.getElementById('chipFilterSemua')?.classList.add('active');
-        else if (kategori === 'desil1-4') document.getElementById('chipFilterDesil')?.classList.add('active');
-        else if (kategori === 'desil5-10') document.getElementById('chipFilterDesil5_10')?.classList.add('active');
-        else if (kategori === 'unread') document.getElementById('chipFilterUnread')?.classList.add('active');
-        else if (kategori === 'pelaporan') document.getElementById('chipFilterPelaporan')?.classList.add('active');
+        if (window.activeChatCategoryFilter === 'semua') document.getElementById('chipFilterSemua')?.classList.add('active');
+        else if (window.activeChatCategoryFilter === 'desil1-4') document.getElementById('chipFilterDesil')?.classList.add('active');
+        else if (window.activeChatCategoryFilter === 'desil5-10') document.getElementById('chipFilterDesil5_10')?.classList.add('active');
+        else if (window.activeChatCategoryFilter === 'unread') document.getElementById('chipFilterUnread')?.classList.add('active');
+        else if (window.activeChatCategoryFilter === 'pelaporan') document.getElementById('chipFilterPelaporan')?.classList.add('active');
+
+        // Sinkronisasi kelas active pada tombol chip baris bawah (status sematan, arsip, diblokir)
+        ['chipFilterPinned', 'chipFilterArsip', 'chipFilterBlocked'].forEach(id => {
+            document.getElementById(id)?.classList.remove('active');
+        });
+        if (window.activeChatStatusFilter === 'pinned') document.getElementById('chipFilterPinned')?.classList.add('active');
+        else if (window.activeChatStatusFilter === 'arsip') document.getElementById('chipFilterArsip')?.classList.add('active');
+        else if (window.activeChatStatusFilter === 'blocked') document.getElementById('chipFilterBlocked')?.classList.add('active');
 
         window.filterChatList();
     };
@@ -219,26 +466,35 @@
         if (!container) return;
         let list = [...(window.rawChatListData || [])];
 
-        // Terapkan filter kategori aktif
+        // 1. Filter Status Pengelolaan: Semua (aktif) / Arsip / Tersemat / Diblokir
+        if (window.activeChatStatusFilter === 'arsip') {
+            // Menampilkan yang diarsipkan (mencakup seluruh desil 1-10, pesan baru, pelaporan, tersemat, diblokir)
+            list = list.filter(c => window.getChatMeta(c.nik).is_archived);
+        } else if (window.activeChatStatusFilter === 'pinned') {
+            list = list.filter(c => window.getChatMeta(c.nik).is_pinned);
+        } else if (window.activeChatStatusFilter === 'blocked') {
+            list = list.filter(c => window.getChatMeta(c.nik).is_blocked);
+        } else {
+            // Default 'semua': sembunyikan yang diarsipkan agar kotak masuk utama tetap bersih
+            list = list.filter(c => !window.getChatMeta(c.nik).is_archived);
+        }
+
+        // 2. Filter Kategori Desil / Jenis Pesan: Desil 1-4, Desil 5-10, Pesan Baru, Pelaporan
         if (window.activeChatCategoryFilter === 'desil1-4') {
-            // Khusus warga dengan Desil 1 s/d 4
             list = list.filter(c => {
                 const w = (window.globalDataWarga || []).find(x => String(x.nik) === String(c.nik));
                 const desil = w ? parseInt(w.desil || 5, 10) : (c.desil !== 'Umum' && c.desil !== undefined ? parseInt(c.desil, 10) : 0);
                 return desil >= 1 && desil <= 4;
             });
         } else if (window.activeChatCategoryFilter === 'desil5-10') {
-            // Khusus warga dengan Desil 5 s/d 10
             list = list.filter(c => {
                 const w = (window.globalDataWarga || []).find(x => String(x.nik) === String(c.nik));
                 const desil = w ? parseInt(w.desil || 5, 10) : (c.desil !== 'Umum' && c.desil !== undefined ? parseInt(c.desil, 10) : 0);
                 return desil >= 5 && desil <= 10;
             });
         } else if (window.activeChatCategoryFilter === 'unread') {
-            // Khusus pesan yang baru masuk saja (belum dibuka). Ketika sudah dibuka, tidak masuk ke sini lagi.
             list = list.filter(c => (c.unread_count || 0) > 0);
         } else if (window.activeChatCategoryFilter === 'pelaporan') {
-            // Khusus pesan pelaporan / sanggahan resmi
             list = list.filter(c => Boolean(
                 c.has_aduan || 
                 c.aduan_id || 
@@ -259,9 +515,21 @@
         }
 
         if (!list.length) {
-            container.innerHTML = '<div style="text-align:center; padding:40px 16px; color:#94a3b8; font-size:0.85rem;"><i class="fas fa-inbox fa-2x" style="margin-bottom:8px; opacity:0.5; display:block;"></i>Tidak ada obrolan dalam kategori ini.</div>';
+            let emptyLabel = 'Tidak ada obrolan dalam kategori ini.';
+            if (window.activeChatCategoryFilter === 'pinned') emptyLabel = 'Belum ada obrolan yang disematkan.';
+            else if (window.activeChatCategoryFilter === 'arsip') emptyLabel = 'Belum ada obrolan yang diarsipkan.';
+            else if (window.activeChatCategoryFilter === 'blocked') emptyLabel = 'Tidak ada kontak warga yang diblokir.';
+            container.innerHTML = `<div style="text-align:center; padding:40px 16px; color:#94a3b8; font-size:0.85rem;"><i class="fas fa-inbox fa-2x" style="margin-bottom:8px; opacity:0.5; display:block;"></i>${emptyLabel}</div>`;
             return;
         }
+
+        // Urutkan: Sematan (pinned) selalu berada di urutan teratas!
+        list.sort((a, b) => {
+            const pinA = window.getChatMeta(a.nik).is_pinned ? 1 : 0;
+            const pinB = window.getChatMeta(b.nik).is_pinned ? 1 : 0;
+            if (pinB !== pinA) return pinB - pinA;
+            return (b.unread_count || 0) - (a.unread_count || 0);
+        });
 
         container.innerHTML = list.map(c => {
             const realName = window.getWargaNameByNik(c.nik, c.nama);
@@ -287,25 +555,54 @@
 
             const avatarBg = isActive ? '#009846' : (hasAduan ? '#dc2626' : (isPrioritas ? '#0284c7' : '#64748b'));
 
+            const meta = window.getChatMeta(c.nik);
+            if (meta.is_pinned) {
+                badgeHtml += `<span style="background:#fef3c7; color:#d97706; border:1px solid #fde68a; padding:1px 5px; border-radius:4px; font-weight:800; font-size:0.65rem; margin-right:3px;"><i class="fas fa-thumbtack"></i> SEMATAN</span>`;
+            }
+            if (meta.is_blocked) {
+                badgeHtml += `<span style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; padding:1px 5px; border-radius:4px; font-weight:800; font-size:0.65rem; margin-right:3px;"><i class="fas fa-ban"></i> DIBLOKIR</span>`;
+            }
+            if (meta.is_archived) {
+                badgeHtml += `<span style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; padding:1px 5px; border-radius:4px; font-weight:800; font-size:0.65rem; margin-right:3px;"><i class="fas fa-archive"></i> ARSIP</span>`;
+            }
+
+            const itemBg = meta.is_pinned ? 'background:#fffdf7;' : '';
+            const borderAccent = meta.is_pinned ? 'border-left: 4px solid #f59e0b;' : '';
+
             return `
-                <div class="chat-contact-item ${isActive ? 'active' : ''}" onclick="window.loadChatMessages('${c.nik}', '${window.escapeInlineJS(realName)}')">
-                    <div class="contact-avatar" style="background:${avatarBg};">
+                <div class="chat-contact-item ${isActive ? 'active' : ''}" style="${itemBg} ${borderAccent} position:relative;" onclick="window.loadChatMessages('${c.nik}', '${window.escapeInlineJS(realName)}')">
+                    <div class="contact-avatar" style="background:${meta.is_blocked ? '#dc2626' : avatarBg};">
                         ${(realName || 'W').charAt(0).toUpperCase()}
                         <span class="contact-online-badge"></span>
                     </div>
-                    <div class="contact-info">
+                    <div class="contact-info" style="min-width:0; flex:1;">
                         <div class="contact-top">
                             <span class="contact-name-txt">${window.safeHtml(realName)}</span>
                             <span class="contact-time-txt">${c.waktu || ''}</span>
                         </div>
-                        <div class="contact-nik-chip">
+                        <div class="contact-nik-chip" style="display:flex; flex-wrap:wrap; gap:3px; margin:3px 0;">
                             <span><i class="fas fa-id-card"></i> ${c.nik}</span>
                             ${badgeHtml}
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div class="contact-last-msg-txt">${window.safeHtml(c.last_msg || c.pesan_terakhir || 'Mulai percakapan')}</div>
-                            ${unreadCount > 0 ? `<div class="contact-unread-dot">${unreadCount > 1 ? unreadCount : ''}</div>` : ''}
+                            <div class="contact-last-msg-txt" style="min-width:0; flex:1;">${window.safeHtml(c.last_msg || c.pesan_terakhir || 'Mulai percakapan')}</div>
+                            ${unreadCount > 0 ? `<div class="contact-unread-dot" style="margin-left:6px;">${unreadCount > 1 ? unreadCount : ''}</div>` : ''}
                         </div>
+                    </div>
+                    <!-- CONTROL BAR PESAN MASUK (PIN, ARSIP, BLOKIR, HAPUS) -->
+                    <div class="chat-item-actions" style="display:flex; flex-direction:column; gap:3px; justify-content:center; padding-left:4px;" onclick="event.stopPropagation()">
+                        <button type="button" onclick="window.togglePinChat('${c.nik}')" title="${meta.is_pinned ? 'Lepas Sematan' : 'Sematkan ke Atas'}" style="background:none; border:none; color:${meta.is_pinned ? '#d97706' : '#94a3b8'}; cursor:pointer; font-size:0.75rem; padding:3px 4px; border-radius:4px;" onmouseover="this.style.color='#d97706';" onmouseout="this.style.color='${meta.is_pinned ? '#d97706' : '#94a3b8'}';">
+                            <i class="fas fa-thumbtack"></i>
+                        </button>
+                        <button type="button" onclick="window.toggleArsipChat('${c.nik}')" title="${meta.is_archived ? 'Buka dari Arsip' : 'Arsipkan Obrolan'}" style="background:none; border:none; color:${meta.is_archived ? '#0284c7' : '#94a3b8'}; cursor:pointer; font-size:0.75rem; padding:3px 4px; border-radius:4px;" onmouseover="this.style.color='#0284c7';" onmouseout="this.style.color='${meta.is_archived ? '#0284c7' : '#94a3b8'}';">
+                            <i class="fas ${meta.is_archived ? 'fa-box-open' : 'fa-archive'}"></i>
+                        </button>
+                        <button type="button" onclick="window.toggleBlokirChat('${c.nik}')" title="${meta.is_blocked ? 'Buka Blokir' : 'Blokir Kontak'}" style="background:none; border:none; color:${meta.is_blocked ? '#dc2626' : '#94a3b8'}; cursor:pointer; font-size:0.75rem; padding:3px 4px; border-radius:4px;" onmouseover="this.style.color='#dc2626';" onmouseout="this.style.color='${meta.is_blocked ? '#dc2626' : '#94a3b8'}';">
+                            <i class="fas fa-ban"></i>
+                        </button>
+                        <button type="button" onclick="window.hapusPercakapanChat('${c.nik}', '${window.escapeInlineJS(realName)}')" title="Hapus Obrolan" style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:0.75rem; padding:3px 4px; border-radius:4px;" onmouseover="this.style.color='#dc2626';" onmouseout="this.style.color='#94a3b8';">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
                     </div>
                 </div>`;
         }).join('');
@@ -315,23 +612,25 @@
         window.activeChatTab = tab;
         const btnInbox = document.getElementById('tabInboxBtn');
         const btnKontak = document.getElementById('tabKontakBtn');
+        const btnCalls = document.getElementById('tabCallLogBtn');
         const listInbox = document.getElementById('chatContactList');
         const listKontak = document.getElementById('chatBukuKontakList');
+        const listCalls = document.getElementById('chatCallLogList');
+
+        if (btnInbox) btnInbox.className = (tab === 'inbox') ? 'chat-tab-btn active' : 'chat-tab-btn';
+        if (btnKontak) btnKontak.className = (tab === 'kontak') ? 'chat-tab-btn active' : 'chat-tab-btn';
+        if (btnCalls) btnCalls.className = (tab === 'calls') ? 'chat-tab-btn active' : 'chat-tab-btn';
+
+        if (listInbox) listInbox.style.display = (tab === 'inbox') ? 'block' : 'none';
+        if (listKontak) listKontak.style.display = (tab === 'kontak') ? 'block' : 'none';
+        if (listCalls) listCalls.style.display = (tab === 'calls') ? 'block' : 'none';
 
         if (tab === 'inbox') {
-            if (btnInbox) btnInbox.className = 'chat-tab-btn active';
-            if (btnKontak) btnKontak.className = 'chat-tab-btn';
-            if (listInbox) listInbox.style.display = 'block';
-            if (listKontak) listKontak.style.display = 'none';
             sinkronisasiPesanMasukRealtime();
-        } else {
-            if (btnKontak) btnKontak.className = 'chat-tab-btn active';
-            if (btnInbox) btnInbox.className = 'chat-tab-btn';
-            if (listInbox) listInbox.style.display = 'none';
-            if (listKontak) {
-                listKontak.style.display = 'block';
-                window.renderBukuKontak();
-            }
+        } else if (tab === 'kontak') {
+            window.renderBukuKontak();
+        } else if (tab === 'calls') {
+            window.muatDaftarLogPanggilanInsideChat();
         }
     };
 
@@ -1287,6 +1586,24 @@
         const isDeletedAll = window.deletedForAllIds.includes(String(msgId)) || Boolean(pesan.is_deleted_all);
 
         let contentHtml = '';
+        const extAdmin = (pesan.file_path ? pesan.file_path.split('.').pop() || '' : '').toLowerCase();
+        const isAudioAdmin = Boolean(
+            pesan.file_path && (
+                pesan.file_type === 'audio' ||
+                (pesan.file_path && pesan.file_path.includes('voice_')) ||
+                ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'weba'].some(e => (pesan.file_path || '').toLowerCase().endsWith('.' + e)) ||
+                ((pesan.file_path || '').toLowerCase().endsWith('.webm') && (
+                    pesan.file_type === 'audio' ||
+                    (pesan.file_path || '').includes('voice') ||
+                    (rawText || '').toLowerCase().includes('suara') ||
+                    (rawText || '').toLowerCase().includes('voice') ||
+                    pesan.file_type !== 'video'
+                ))
+            )
+        );
+        const isImgAdmin = Boolean(!isAudioAdmin && pesan.file_path && (pesan.file_type === 'image' || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].some(e => (pesan.file_path || '').toLowerCase().endsWith('.' + e))));
+        const isVidAdmin = Boolean(!isAudioAdmin && pesan.file_path && (pesan.file_type === 'video' || ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp'].some(e => (pesan.file_path || '').toLowerCase().endsWith('.' + e))));
+        const isDocAdmin = Boolean(pesan.file_path && !isImgAdmin && !isVidAdmin && !isAudioAdmin);
         let cleanText = (rawText || '')
             .replace(/pesan\s*suara\s*(\(voice\s*note\))?/gi, '')
             .replace(/^voice\s*note$/gi, '')
@@ -1352,10 +1669,7 @@
             if (pesan.file_path) {
                 const url = pesan.file_path.startsWith('http') ? pesan.file_path : `${BASE_API_URL}${pesan.file_path}`;
                 const ext = (pesan.file_path.split('.').pop() || '').toLowerCase();
-                const isAudio = pesan.file_type === 'audio' ||
-                                (pesan.file_path && pesan.file_path.includes('voice_')) ||
-                                (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'weba'].some(e => pesan.file_path.toLowerCase().endsWith('.' + e))) ||
-                                (pesan.file_path.toLowerCase().endsWith('.webm') && (rawText.toLowerCase().includes('suara') || rawText.toLowerCase().includes('voice')));
+                const isAudio = isAudioAdmin;
 
                 const isImageOnly = Boolean(
                     (pesan.file_type === 'image' || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].includes(ext)) &&
@@ -1377,6 +1691,7 @@
                             <div class="voice-track-info">
                                 <div class="voice-meta-row">
                                     <span class="voice-title-label"><i class="fas fa-microphone"></i> Pesan Suara</span>
+                                    <span class="voice-timer-badge" id="dur_${audioId}">00:00</span>
                                 </div>
                                 <div class="voice-waveform-row">
                                     <div class="voice-freq-visualizer" id="freq_box_${audioId}" 
@@ -1388,7 +1703,6 @@
                                             return `<div class="voice-freq-bar" id="bar_${audioId}_${i}" style="height:3.5px; --i:${i};"></div>`;
                                         }).join('')}
                                     </div>
-                                    <span class="voice-timer-badge" id="dur_${audioId}">00:00</span>
                                 </div>
                             </div>
                             <button type="button" class="btn-voice-speed-pill" id="speed_${audioId}" onclick="window.toggleVoiceSpeed ? window.toggleVoiceSpeed('${audioId}', this) : null" title="Atur Kecepatan Suara (1x, 1.5x, 2x, 0.5x)">
@@ -1646,7 +1960,7 @@
                         contentHtml += `<div class="chat-msg-text" style="font-size:0.88rem; line-height:1.45;">📍 ${window.safeHtml(cleanText)}</div>`;
                     }
                 } else {
-                    contentHtml += `<div class="chat-msg-text" style="${isEmojiOnly ? `${emojiSizeStyleAdmin} text-align:center; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.12)); margin:2px 0 3px 0 !important; user-select:all;` : 'font-size:0.88rem; line-height:1.45;'}">${window.safeHtml(cleanText)}</div>`;
+                    contentHtml += `<div class="chat-msg-text ${isAudioAdmin ? 'chat-audio-caption' : ''}" style="${isEmojiOnly ? `${emojiSizeStyleAdmin} text-align:center; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.12)); margin:2px 0 3px 0 !important; user-select:all;` : (isAudioAdmin ? `margin-top:8px; padding-top:6px; border-top:1px solid ${isOfficer ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)'}; font-size:0.88rem; line-height:1.45; word-break:break-word; color:${isOfficer ? '#ffffff' : '#1e293b'};` : 'font-size:0.88rem; line-height:1.45;')}">${window.safeHtml(cleanText)}</div>`;
                 }
             }
         }
@@ -1661,11 +1975,8 @@
             cleanText.length <= 15 &&
             !cleanText.includes('\n')
         );
-        const extAdmin = (pesan.file_path ? pesan.file_path.split('.').pop() || '' : '').toLowerCase();
-        const isImgAdmin = Boolean(pesan.file_path && (pesan.file_type === 'image' || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].some(e => (pesan.file_path || '').toLowerCase().endsWith('.' + e))));
-        const isVidAdmin = Boolean(pesan.file_path && (pesan.file_type === 'video' || ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp'].some(e => (pesan.file_path || '').toLowerCase().endsWith('.' + e))));
-        const isAudioAdmin = Boolean(pesan.file_path && (pesan.file_type === 'audio' || (pesan.file_path && pesan.file_path.includes('voice_')) || ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'weba'].some(e => (pesan.file_path || '').toLowerCase().endsWith('.' + e))));
-        const isDocAdmin = Boolean(pesan.file_path && !isImgAdmin && !isVidAdmin && !isAudioAdmin);
+        // (media variables declared earlier)
+
 
         const isImageBubbleOnly = Boolean(
             isImgAdmin &&
@@ -1688,17 +1999,20 @@
         } else if (isVidAdmin && !isVideoBubbleOnly) {
             adminMediaStyle = 'width:280px !important; max-width:min(280px, 85vw) !important; box-sizing:border-box !important;';
         } else if (isAudioAdmin) {
-            adminMediaStyle = 'width:335px !important; max-width:min(335px, 85vw) !important; box-sizing:border-box !important;';
+            const audioBubbleWidth = '340px';
+            adminMediaStyle = isOfficer
+                ? `background:#ffffff !important; color:#0f172a !important; border:1.5px solid #10b981 !important; border-radius:18px 4px 18px 18px !important; width:${audioBubbleWidth} !important; max-width:min(${audioBubbleWidth}, 85vw) !important; box-sizing:border-box !important; padding:10px 42px 8px 14px !important; box-shadow:0 4px 16px rgba(16,185,129,0.14) !important; position:relative !important;`
+                : `background:#ffffff !important; color:#0f172a !important; border:1.5px solid #e2e8f0 !important; border-radius:4px 18px 18px 18px !important; width:${audioBubbleWidth} !important; max-width:min(${audioBubbleWidth}, 85vw) !important; box-sizing:border-box !important; padding:10px 14px 8px 42px !important; box-shadow:0 4px 16px rgba(15,23,42,0.06) !important; position:relative !important;`;
         }
 
-        const mediaTypeClassAdmin = isDocAdmin ? 'is-doc-card' : (isImgAdmin ? 'is-image-card' : (isVidAdmin ? 'is-video-card' : (isAudioAdmin ? 'is-audio-card' : '')));
+        const mediaTypeClassAdmin = isAudioAdmin ? 'is-audio-card' : (isDocAdmin ? 'is-doc-card' : (isImgAdmin ? 'is-image-card' : (isVidAdmin ? 'is-video-card' : '')));
 
         return `
             <div class="chat-msg-row ${rowClass}" id="bubble_wrap_${msgId}" data-id="${msgId}" style="width:100% !important; display:flex !important; flex-direction:row !important; justify-content:${isOfficer ? 'flex-end' : 'flex-start'} !important; align-items:${isOfficer ? 'flex-end' : 'flex-start'} !important; margin-left:${isOfficer ? 'auto' : '0'} !important; margin-right:${isOfficer ? '0' : 'auto'} !important; padding:2px 0 !important; box-sizing:border-box !important;">
                 <div class="chat-msg-bubble ${isOfficer ? 'outgoing-bubble' : 'incoming-bubble'} ${isEmojiOnly ? 'is-emoji-only' : ''} ${isShortText ? 'is-short-text' : ''} ${isImageBubbleOnly ? 'is-image-only' : ''} ${isVideoBubbleOnly ? 'is-video-only' : ''} ${isMediaBubbleOnly ? 'is-media-only' : ''} ${mediaTypeClassAdmin}" style="${isOfficer ? 'margin-left:auto !important; margin-right:0 !important; align-self:flex-end !important; text-align:left !important;' : 'margin-right:auto !important; margin-left:0 !important; align-self:flex-start !important; text-align:left !important;'} ${adminMediaStyle}">
                     ${!isDeletedAll ? `
                     <div style="position:absolute; ${isOfficer ? (isMediaBubbleOnly || isVidAdmin || isImgAdmin ? 'top:8px; right:8px; left:auto;' : 'top:6px; right:6px; left:auto;') : (isMediaBubbleOnly || isVidAdmin || isImgAdmin ? 'top:8px; left:8px; right:auto;' : 'top:6px; left:6px; right:auto;')}; z-index:70; pointer-events:auto;">
-                        <button type="button" class="${isMediaBubbleOnly || isVidAdmin || isImgAdmin ? 'bubble-corner-btn' : 'btn-msg-dots'}" style="${isOfficer && !(isMediaBubbleOnly || isVidAdmin || isImgAdmin) ? 'color:#ffffff;' : ''}" onclick="window.toggleBubbleDropdown(this, event)" title="Opsi Pesan">
+                        <button type="button" class="${isAudioAdmin ? 'btn-msg-dots' : (isMediaBubbleOnly || isVidAdmin || isImgAdmin ? 'bubble-corner-btn' : 'btn-msg-dots')}" style="${isOfficer ? (isAudioAdmin ? 'color:#047857;' : (isMediaBubbleOnly || isVidAdmin || isImgAdmin ? '' : 'color:#047857;')) : 'color:#64748b;'}" onclick="window.toggleBubbleDropdown(this, event)" title="Opsi Pesan">
                             <i class="fas fa-ellipsis-v"></i>
                         </button>
 
@@ -2204,111 +2518,327 @@
     };
 
     // =========================================================================
-    // MODAL DRAWER PROFIL LENGKAP WARGA & KELAYAKAN BANSOS
+    // MODAL DRAWER PROFIL LENGKAP WARGA & KELAYAKAN BANSOS (KOMPREHENSIF & DINAMIS)
     // =========================================================================
-    window.bukaProfilWargaChat = function () {
-        if (!window.activeChatNik) return;
-        const nik = window.activeChatNik;
-        const warga = (window.globalDataWarga || []).find(w => String(w.nik) === String(nik));
+    window.bukaProfilWargaChat = async function (nikParam) {
+        const nik = String(nikParam || window.activeChatNik || '').trim();
+        if (!nik) {
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Pilih Warga', text: 'Silakan pilih percakapan warga terlebih dahulu.' });
+            return;
+        }
+
         const bodyEl = document.getElementById('bodyProfilWargaChat');
         if (!bodyEl) return;
 
-        const nama = warga ? (warga.nama || warga.nama_lengkap) : (window.activeChatName || 'Warga Sidoarjo');
-        const desil = warga ? (warga.desil || 1) : 1;
-        const isPrioritas = desil <= 4;
-        const skorSaw = warga?.skor_saw || warga?.skor || 0.75;
-        const skorWp = warga?.skor_wp || 0.024;
-        const penghasilan = warga?.penghasilan ? parseInt(warga.penghasilan, 10).toLocaleString('id-ID') : '850.000';
-        const tanggungan = warga?.tanggungan || warga?.jumlah_tanggungan || '3';
-        const alamat = warga?.alamat || 'Kabupaten Sidoarjo';
-        const desa = warga?.desa || warga?.kelurahan || 'Urangagung';
-        const kec = warga?.kecamatan || 'Sidoarjo';
-        const noKk = warga?.no_kk || warga?.kk || `3515${nik.slice(4)}`;
-        const statusVerif = warga?.is_verified ? 'Terverifikasi Lapangan' : 'Menunggu Verifikasi Fisik';
-
-        bodyEl.innerHTML = `
-            <div style="display:flex; align-items:center; gap:16px; margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid #f1f5f9;">
-                <div style="width:60px; height:60px; border-radius:50%; background:linear-gradient(135deg, #009846, #047857); color:white; font-size:1.6rem; font-weight:800; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,152,70,0.3);">
-                    ${nama.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                    <h3 style="margin:0 0 4px 0; font-size:1.15rem; font-weight:800; color:#0f172a;">${window.safeHtml(nama)}</h3>
-                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                        <span style="background:${isPrioritas ? '#dcfce7' : '#f1f5f9'}; color:${isPrioritas ? '#15803d' : '#64748b'}; border:1px solid ${isPrioritas ? '#86efac' : '#cbd5e1'}; padding:2px 8px; border-radius:12px; font-weight:800; font-size:0.75rem;">
-                            Desil ${desil} · ${isPrioritas ? 'Prioritas Kuota Bansos' : 'Non-Prioritas'}
-                        </span>
-                        <span style="font-size:0.75rem; color:#64748b;">NIK: <b style="font-family:monospace; color:#0f172a;">${nik}</b></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- KARTU STATUS PENETAPAN BANSOS SPK -->
-            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:14px; margin-bottom:16px;">
-                <div style="font-weight:800; font-size:0.82rem; color:#0f172a; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.4px;">
-                    <i class="fas fa-calculator text-success"></i> Status Audit Komputasi SPK BWM - SAW:
-                </div>
-                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; text-align:center;">
-                    <div style="background:#ffffff; padding:10px; border-radius:10px; border:1px solid #cbd5e1;">
-                        <div style="font-size:0.68rem; color:#64748b; font-weight:700;">Skor SAW ($V_i$)</div>
-                        <div style="font-size:1.1rem; font-weight:800; color:#009846; font-family:monospace;">${parseFloat(skorSaw).toFixed(4)}</div>
-                    </div>
-                    <div style="background:#ffffff; padding:10px; border-radius:10px; border:1px solid #cbd5e1;">
-                        <div style="font-size:0.68rem; color:#64748b; font-weight:700;">Validasi WP ($S_i$)</div>
-                        <div style="font-size:1.1rem; font-weight:800; color:#0284c7; font-family:monospace;">${parseFloat(skorWp).toFixed(4)}</div>
-                    </div>
-                    <div style="background:#ffffff; padding:10px; border-radius:10px; border:1px solid #cbd5e1;">
-                        <div style="font-size:0.68rem; color:#64748b; font-weight:700;">Alokasi Bansos</div>
-                        <div style="font-size:0.95rem; font-weight:800; color:${isPrioritas ? '#15803d' : '#64748b'};">${isPrioritas ? 'Rp 600.000,-' : 'Rp 0,-'}</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- RINCIAN SOSIAL EKONOMI -->
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:0.8rem; margin-bottom:16px;">
-                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px;">
-                    <span style="color:#64748b; display:block; font-size:0.72rem;">Nomor Kartu Keluarga (KK):</span>
-                    <b style="font-family:monospace; color:#0f172a;">${noKk}</b>
-                </div>
-                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px;">
-                    <span style="color:#64748b; display:block; font-size:0.72rem;">Penghasilan Bulanan:</span>
-                    <b style="color:#0f172a;">Rp ${penghasilan} / bulan</b>
-                </div>
-                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px;">
-                    <span style="color:#64748b; display:block; font-size:0.72rem;">Jumlah Tanggungan:</span>
-                    <b style="color:#0f172a;">${tanggungan} Jiwa</b>
-                </div>
-                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px;">
-                    <span style="color:#64748b; display:block; font-size:0.72rem;">Status Verifikasi:</span>
-                    <b style="color:#009846;">${statusVerif}</b>
-                </div>
-            </div>
-
-            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px; font-size:0.8rem;">
-                <span style="color:#64748b; display:block; font-size:0.72rem;">Alamat Tempat Tinggal:</span>
-                <b style="color:#0f172a;"><i class="fas fa-map-marker-alt text-danger"></i> ${alamat}, Desa ${desa}, Kec. ${kec}, Kabupaten Sidoarjo</b>
-            </div>
-        `;
-
+        // Buka modal segera dengan loading indicator
         if (typeof window.openModal === 'function') {
             window.openModal('modalProfilWargaChat');
         } else {
             const m = document.getElementById('modalProfilWargaChat');
             if (m) m.style.display = 'flex';
         }
+
+        bodyEl.innerHTML = `
+            <div style="text-align:center; padding:40px 20px; color:#64748b;">
+                <div class="spinner-border text-success" role="status" style="width:2.5rem; height:2.5rem; border-width:3px; margin-bottom:12px;"></div>
+                <div style="font-weight:700; font-size:0.92rem; color:#0f172a;">Memuat Profil Lengkap Kependudukan...</div>
+                <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">Mengambil data arsip, verifikasi lapangan, dan variabel kriteria SPK</div>
+            </div>
+        `;
+
+        // Ambil data dari server jika memungkinkan untuk data terlengkap, atau fallback ke globalDataWarga
+        let warga = (window.globalDataWarga || []).find(w => String(w.nik) === String(nik));
+        try {
+            const res = await fetch(`${typeof BASE_API_URL !== 'undefined' ? BASE_API_URL : ''}/api/warga/${nik}`);
+            if (res.ok) {
+                const json = await res.json();
+                if (json.data) {
+                    warga = json.data;
+                } else if (json.nik) {
+                    warga = json;
+                }
+            }
+        } catch (e) {
+            console.warn('[ProfilWarga] Gagal memuat dari server, menggunakan cache:', e);
+        }
+
+        const nama = warga ? (warga.nama || warga.nama_lengkap) : (window.activeChatName || 'Warga Sidoarjo');
+        const noKk = warga?.no_kk || warga?.kk || null;
+        const desil = (warga?.desil !== undefined && warga?.desil !== null) ? parseInt(warga.desil, 10) : null;
+        const isPrioritas = desil !== null ? desil <= 4 : false;
+        const statusVerif = warga?.is_verified ? 'Terverifikasi Lapangan' : (warga ? 'Menunggu Verifikasi Fisik' : 'Belum Diverifikasi');
+        const statusSalur = warga?.status_salur || null;
+        const statusBansos = warga?.status_bansos || null;
+        const prioritas = warga?.prioritas || (isPrioritas ? 'Prioritas Kuota Bansos' : (desil !== null ? 'Non-Prioritas' : null));
+        const nominal = warga?.nominal_bantuan || (isPrioritas ? 'Rp 600.000,-' : null);
+
+        // Nilai SPK
+        const skorSaw = (warga?.skor_saw !== undefined && warga?.skor_saw !== null) ? Number(warga.skor_saw) : ((warga?.skor !== undefined && warga?.skor !== null) ? Number(warga.skor) : null);
+        const rankSaw = warga?.rank_saw || warga?.ranking || null;
+        const skorWp = (warga?.skor_wp !== undefined && warga?.skor_wp !== null) ? Number(warga.skor_wp) : null;
+        const rankWp = warga?.rank_wp || null;
+
+        // Data Demografi & Identitas
+        const tempatLahir = warga?.tempat_lahir || null;
+        const tanggalLahir = warga?.tanggal_lahir || null;
+        const jenisKelamin = warga?.jenis_kelamin || warga?.jk || null;
+        const agama = warga?.agama || null;
+        const statusKawin = warga?.status_kawin || warga?.status_pernikahan || warga?.status_perkawinan || null;
+        const pekerjaan = warga?.pekerjaan || null;
+        const pendidikan = warga?.pendidikan || warga?.pendidikan_terakhir || null;
+
+        // Data Kontak & Domisili
+        const noHp = warga?.no_hp || warga?.telepon || warga?.no_wa || warga?.nohp || null;
+        const email = warga?.email || null;
+        const alamat = warga?.alamat || warga?.alamat_lengkap || null;
+        const rt = warga?.rt || null;
+        const rw = warga?.rw || null;
+        const dusun = warga?.dusun || null;
+        const desa = warga?.desa || warga?.kelurahan || null;
+        const kec = warga?.kecamatan || null;
+        const kab = warga?.kabupaten || warga?.kab_kota || 'Sidoarjo';
+        const kodePos = warga?.kode_pos || null;
+        const lat = warga?.lat || null;
+        const lng = warga?.lng || null;
+
+        // Indikator Kriteria C1 - C50 (Hanya yang memiliki nilai nyata, tidak mengada-ada dummy)
+        const criteriaItems = [];
+        const labelMap = {
+            c1: 'Kondisi Ekonomi / Penghasilan',
+            c2: 'Kepemilikan Aset',
+            c3: 'Umur Kepala Keluarga',
+            c4: 'Jenis Kelamin',
+            c5: 'Jumlah Tanggungan',
+            c6: 'Status Pernikahan',
+            c7: 'Kepemilikan Anak / Balita',
+            c8: 'Kelayakan Tempat Tinggal',
+            c9: 'Tingkat Pendidikan Terakhir',
+            c10: 'Kondisi Kesehatan / Disabilitas'
+        };
+
+        if (warga) {
+            // Cek C1 s/d C50 langsung dari object
+            for (let i = 1; i <= 50; i++) {
+                const keyLower = `c${i}`;
+                const keyUpper = `C${i}`;
+                let val = warga[keyLower] !== undefined ? warga[keyLower] : warga[keyUpper];
+                if (val === undefined && warga.extra_data && typeof warga.extra_data === 'object') {
+                    val = warga.extra_data[keyLower] !== undefined ? warga.extra_data[keyLower] : warga.extra_data[keyUpper];
+                }
+
+                if (val !== undefined && val !== null && String(val).trim() !== '' && String(val).trim() !== '-') {
+                    const label = labelMap[keyLower] ? `C${i} - ${labelMap[keyLower]}` : `Kriteria C${i}`;
+                    let formattedVal = val;
+                    if (keyLower === 'c1' && !isNaN(val) && Number(val) > 1000) {
+                        formattedVal = `Rp ${Number(val).toLocaleString('id-ID')}`;
+                    } else if (keyLower === 'c2' && !isNaN(val) && Number(val) > 1000) {
+                        formattedVal = `Rp ${Number(val).toLocaleString('id-ID')}`;
+                    } else if (keyLower === 'c5' && !isNaN(val)) {
+                        formattedVal = `${val} Jiwa`;
+                    }
+                    criteriaItems.push({ code: `C${i}`, label, value: formattedVal });
+                }
+            }
+
+            // Kriteria berbasis nama field jika C1..C50 belum mencakupnya
+            if (warga.penghasilan && !criteriaItems.some(c => c.code === 'C1')) {
+                criteriaItems.push({ code: 'C1', label: 'C1 - Penghasilan Bulanan', value: `Rp ${parseInt(warga.penghasilan, 10).toLocaleString('id-ID')}` });
+            }
+            if ((warga.tanggungan || warga.jumlah_tanggungan) && !criteriaItems.some(c => c.code === 'C5')) {
+                criteriaItems.push({ code: 'C5', label: 'C5 - Jumlah Tanggungan', value: `${warga.tanggungan || warga.jumlah_tanggungan} Jiwa` });
+            }
+        }
+
+        // Render HTML Profil Elegan
+        let html = `
+            <!-- HEADER PROFIL WARGA -->
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid #f1f5f9; flex-wrap:wrap;">
+                <div style="width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg, #009846, #047857); color:white; font-size:1.75rem; font-weight:800; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(0,152,70,0.3); flex-shrink:0;">
+                    ${window.safeHtml(nama.charAt(0).toUpperCase())}
+                </div>
+                <div style="flex:1; min-width:240px;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
+                        <h3 style="margin:0; font-size:1.2rem; font-weight:800; color:#0f172a;">${window.safeHtml(nama)}</h3>
+                        ${warga?.is_verified ? `<span style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; padding:2px 8px; border-radius:12px; font-weight:800; font-size:0.7rem; display:inline-flex; align-items:center; gap:4px;"><i class="fas fa-check-circle"></i> Terverifikasi</span>` : ''}
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:0.78rem;">
+                        <span style="color:#64748b;">NIK: <b style="font-family:monospace; color:#0f172a; font-size:0.85rem;">${nik}</b></span>
+                        ${noKk ? `<span>&bull;</span><span style="color:#64748b;">No. KK: <b style="font-family:monospace; color:#0f172a;">${window.safeHtml(noKk)}</b></span>` : ''}
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px;">
+                        ${desil !== null ? `
+                            <span style="background:${isPrioritas ? '#dcfce7' : '#f1f5f9'}; color:${isPrioritas ? '#15803d' : '#64748b'}; border:1px solid ${isPrioritas ? '#86efac' : '#cbd5e1'}; padding:2px 9px; border-radius:12px; font-weight:800; font-size:0.72rem;">
+                                Desil ${desil} · ${isPrioritas ? 'Prioritas Kuota Bansos' : 'Non-Prioritas'}
+                            </span>` : ''}
+                        ${statusSalur ? `
+                            <span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; padding:2px 9px; border-radius:12px; font-weight:800; font-size:0.72rem;">
+                                <i class="fas fa-hand-holding-heart"></i> ${window.safeHtml(statusSalur)}
+                            </span>` : ''}
+                        ${statusBansos ? `
+                            <span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; padding:2px 9px; border-radius:12px; font-weight:800; font-size:0.72rem;">
+                                ${window.safeHtml(statusBansos)}
+                            </span>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // KARTU AUDIT SPK BWM - SAW (Jika data komputasi tersedia)
+        if (skorSaw !== null || skorWp !== null || nominal) {
+            html += `
+                <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; padding:14px; margin-bottom:16px;">
+                    <div style="font-weight:800; font-size:0.8rem; color:#0f172a; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.4px; display:flex; align-items:center; justify-content:space-between;">
+                        <span><i class="fas fa-calculator text-success"></i> Status Audit SPK Terpadu (SAW - BWM)</span>
+                        ${rankSaw ? `<span style="background:#e6f9f0; color:#047857; border:1px solid #a7f3d0; padding:1px 8px; border-radius:10px; font-size:0.7rem;">Peringkat #${rankSaw}</span>` : ''}
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; text-align:center;">
+                        ${skorSaw !== null ? `
+                            <div style="background:#ffffff; padding:10px; border-radius:10px; border:1px solid #cbd5e1;">
+                                <div style="font-size:0.68rem; color:#64748b; font-weight:700;">Skor SAW ($V_i$)</div>
+                                <div style="font-size:1.1rem; font-weight:800; color:#009846; font-family:monospace;">${skorSaw.toFixed(4)}</div>
+                            </div>` : ''}
+                        ${skorWp !== null ? `
+                            <div style="background:#ffffff; padding:10px; border-radius:10px; border:1px solid #cbd5e1;">
+                                <div style="font-size:0.68rem; color:#64748b; font-weight:700;">Validasi WP ($S_i$)</div>
+                                <div style="font-size:1.1rem; font-weight:800; color:#0284c7; font-family:monospace;">${skorWp.toFixed(4)}</div>
+                            </div>` : ''}
+                        ${nominal ? `
+                            <div style="background:#ffffff; padding:10px; border-radius:10px; border:1px solid #cbd5e1;">
+                                <div style="font-size:0.68rem; color:#64748b; font-weight:700;">Alokasi Bantuan</div>
+                                <div style="font-size:0.95rem; font-weight:800; color:${isPrioritas ? '#15803d' : '#64748b'};">${nominal}</div>
+                            </div>` : ''}
+                        <div style="background:#ffffff; padding:10px; border-radius:10px; border:1px solid #cbd5e1;">
+                            <div style="font-size:0.68rem; color:#64748b; font-weight:700;">Verifikasi Fisik</div>
+                            <div style="font-size:0.82rem; font-weight:800; color:${warga?.is_verified ? '#059669' : '#d97706'};">${statusVerif}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // BAGIAN 1: IDENTITAS & KEPENDUDUKAN (HANYA FIELD YANG MEMILIKI NILAI)
+        const idFields = [];
+        if (tempatLahir || tanggalLahir) {
+            idFields.push({ label: 'Tempat, Tanggal Lahir', val: `${tempatLahir || ''}${tempatLahir && tanggalLahir ? ', ' : ''}${tanggalLahir || ''}` });
+        }
+        if (jenisKelamin) idFields.push({ label: 'Jenis Kelamin', val: jenisKelamin });
+        if (agama) idFields.push({ label: 'Agama', val: agama });
+        if (statusKawin) idFields.push({ label: 'Status Perkawinan', val: statusKawin });
+        if (pekerjaan) idFields.push({ label: 'Pekerjaan', val: pekerjaan });
+        if (pendidikan) idFields.push({ label: 'Pendidikan Terakhir', val: pendidikan });
+
+        if (idFields.length > 0) {
+            html += `
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:0.75rem; font-weight:800; color:#475569; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-id-card text-primary"></i> Data Demografi & Kependudukan
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">
+                        ${idFields.map(f => `
+                            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; font-size:0.8rem;">
+                                <span style="color:#64748b; display:block; font-size:0.7rem; font-weight:600;">${f.label}:</span>
+                                <b style="color:#0f172a;">${window.safeHtml(f.val)}</b>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // BAGIAN 2: KONTAK & DOMISILI LENGKAP (HANYA FIELD YANG MEMILIKI NILAI)
+        const domFields = [];
+        if (noHp) domFields.push({ label: 'No. WhatsApp / HP', val: `<a href="tel:${noHp}" style="color:#009846; text-decoration:none; font-weight:700;"><i class="fab fa-whatsapp"></i> ${window.safeHtml(noHp)}</a>` });
+        if (email) domFields.push({ label: 'Alamat Email', val: `<a href="mailto:${email}" style="color:#0284c7; text-decoration:none;">${window.safeHtml(email)}</a>` });
+        
+        let alamatFull = '';
+        if (alamat) alamatFull += alamat;
+        if (rt || rw) alamatFull += `${alamatFull ? ', ' : ''}RT ${rt || '-'}/RW ${rw || '-'}`;
+        if (dusun) alamatFull += `${alamatFull ? ', ' : ''}Dsn. ${dusun}`;
+        if (desa) alamatFull += `${alamatFull ? ', ' : ''}Desa/Kel. ${desa}`;
+        if (kec) alamatFull += `${alamatFull ? ', ' : ''}Kec. ${kec}`;
+        if (kab) alamatFull += `${alamatFull ? ', ' : ''}Kab. ${kab}`;
+        if (kodePos) alamatFull += ` (${kodePos})`;
+
+        if (alamatFull || domFields.length > 0 || (lat && lng)) {
+            html += `
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:0.75rem; font-weight:800; color:#475569; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-map-marker-alt text-danger"></i> Kontak & Wilayah Domisili
+                    </div>
+                    ${alamatFull ? `
+                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 14px; font-size:0.82rem; margin-bottom:8px;">
+                            <span style="color:#64748b; display:block; font-size:0.7rem; font-weight:600;">Alamat Tempat Tinggal:</span>
+                            <b style="color:#0f172a;"><i class="fas fa-home text-muted"></i> ${window.safeHtml(alamatFull)}</b>
+                        </div>
+                    ` : ''}
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">
+                        ${domFields.map(f => `
+                            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; font-size:0.8rem;">
+                                <span style="color:#64748b; display:block; font-size:0.7rem; font-weight:600;">${f.label}:</span>
+                                <div>${f.val}</div>
+                            </div>
+                        `).join('')}
+                        ${lat && lng ? `
+                            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; font-size:0.8rem;">
+                                <span style="color:#64748b; display:block; font-size:0.7rem; font-weight:600;">Koordinat Geotagging:</span>
+                                <a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" style="color:#0284c7; font-weight:700; text-decoration:none; font-family:monospace; display:inline-flex; align-items:center; gap:4px;">
+                                    <i class="fas fa-external-link-alt"></i> ${lat}, ${lng}
+                                </a>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // BAGIAN 3: VARIABEL KRITERIA KEPENDUDUKAN (C1 s/d C50 - HANYA YANG TERISI)
+        if (criteriaItems.length > 0) {
+            html += `
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:0.75rem; font-weight:800; color:#475569; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                        <span><i class="fas fa-layer-group text-primary"></i> Indikator & Variabel Kriteria SPK (${criteriaItems.length} Variabel)</span>
+                        <span style="font-size:0.68rem; color:#64748b;">Hanya menampilkan data valid</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:8px; max-height:260px; overflow-y:auto; padding:2px;">
+                        ${criteriaItems.map(c => `
+                            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; font-size:0.78rem;">
+                                <div style="color:#64748b; font-size:0.68rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${window.safeHtml(c.label)}">${window.safeHtml(c.label)}:</div>
+                                <b style="color:#0f172a; font-size:0.82rem;">${window.safeHtml(String(c.value))}</b>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // BAGIAN 4: CATATAN PENYALURAN / KETERANGAN TAMBAHAN
+        if (warga?.catatan || warga?.keterangan_salur || warga?.tanggal_salur) {
+            html += `
+                <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:10px 14px; font-size:0.8rem; margin-top:8px;">
+                    <span style="color:#92400e; font-weight:800; display:block; font-size:0.72rem; text-transform:uppercase; margin-bottom:4px;">
+                        <i class="fas fa-sticky-note"></i> Catatan Verifikasi & Penyaluran:
+                    </span>
+                    ${warga?.tanggal_salur ? `<div style="font-size:0.74rem; color:#78350f; margin-bottom:2px;"><b>Tanggal Penyaluran:</b> ${window.safeHtml(warga.tanggal_salur)}</div>` : ''}
+                    ${warga?.keterangan_salur ? `<div style="font-size:0.74rem; color:#78350f; margin-bottom:2px;"><b>Keterangan:</b> ${window.safeHtml(warga.keterangan_salur)}</div>` : ''}
+                    ${warga?.catatan ? `<div style="color:#78350f; line-height:1.4;">${window.safeHtml(warga.catatan)}</div>` : ''}
+                </div>
+            `;
+        }
+
+        bodyEl.innerHTML = html;
     };
 
     window.salinProfilWargaTxt = function () {
-        if (!window.activeChatNik) return;
-        const nik = window.activeChatNik;
-        const warga = (window.globalDataWarga || []).find(w => String(w.nik) === String(nik));
-        const nama = warga ? (warga.nama || warga.nama_lengkap) : (window.activeChatName || 'Warga');
-        const desil = warga ? (warga.desil || 1) : 1;
-        const text = `DATA PENERIMA BANSOS SIDOARJO:\nNama: ${nama}\nNIK: ${nik}\nDesil: ${desil}\nAlamat: ${warga?.alamat || 'Sidoarjo'}\nStatus: ${desil <= 4 ? 'Prioritas Kuota Rp 600.000,-' : 'Non-Prioritas'}`;
-
+        const body = document.getElementById('bodyProfilWargaChat');
+        if (!body) return;
+        const text = body.innerText.trim();
         navigator.clipboard.writeText(text).then(() => {
-            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Data profil berhasil disalin', timer: 1500, showConfirmButton: false });
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Data profil berhasil disalin', timer: 1500, showConfirmButton: false });
+            }
         });
     };
+
 
     // =========================================================================
     // INLINE SEARCH CHAT & FILTER MULTIMODA (PERSIS DASHBOARD PRIBADI ANDA)
@@ -5137,21 +5667,27 @@
     // Handler untuk menerima lampiran dari Google Workspace atau Kamera Live ke obrolan admin
     window.addAdminChatAttachments = function (files) {
         if (!files || files.length === 0) return;
-        const fakeInput = { files: files.map(f => f.file || f) };
-        window.appendAdminMediaSelection(fakeInput);
-    };
-
-    // 1. MODAL GOOGLE DRIVE PICKER
-    window.openGoogleDrivePicker = function () {
-        const pop = document.getElementById('adminAttachmentMenuPopover');
-        if (pop) pop.style.display = 'none';
-        const modal = document.getElementById('modalGoogleDrivePicker');
-        if (modal) {
-            modal.style.display = 'flex';
+        const binaryList = [];
+        files.forEach(f => {
+            const candidate = f && f.file ? f.file : f;
+            if (candidate instanceof Blob) {
+                binaryList.push(candidate);
+            } else if (f && f.webViewLink) {
+                const linkContent = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${f.webViewLink}"></head><body><a href="${f.webViewLink}">${f.name || 'Berkas Google'}</a></body></html>`;
+                const blob = new Blob([linkContent], { type: 'text/html' });
+                const fileName = (f.name || 'Berkas_Google') + (String(f.name || '').includes('.') ? '' : '.html');
+                binaryList.push(new File([blob], fileName, { type: 'text/html' }));
+            }
+        });
+        if (binaryList.length > 0 && typeof window.appendAdminMediaSelection === 'function') {
+            window.appendAdminMediaSelection({ files: binaryList });
         }
     };
 
     window.closeGoogleDrivePicker = function () {
+        if (typeof window.closeGoogleWorkspaceModal === 'function') {
+            window.closeGoogleWorkspaceModal();
+        }
         const modal = document.getElementById('modalGoogleDrivePicker');
         if (modal) modal.style.display = 'none';
     };
@@ -5220,17 +5756,10 @@
         inp.value = '';
     };
 
-    // 2. MODAL GOOGLE PHOTOS PICKER
-    window.openGooglePhotosPicker = function () {
-        const pop = document.getElementById('adminAttachmentMenuPopover');
-        if (pop) pop.style.display = 'none';
-        const modal = document.getElementById('modalGooglePhotosPicker');
-        if (modal) {
-            modal.style.display = 'flex';
-        }
-    };
-
     window.closeGooglePhotosPicker = function () {
+        if (typeof window.closeGoogleWorkspaceModal === 'function') {
+            window.closeGoogleWorkspaceModal();
+        }
         const modal = document.getElementById('modalGooglePhotosPicker');
         if (modal) modal.style.display = 'none';
     };
@@ -5396,16 +5925,19 @@
                         method: 'POST',
                         body: formData
                     });
+                    if (typeof Swal !== 'undefined' && typeof Swal.close === 'function') Swal.close();
                     if (typeof window.catatAktivitasRealtime === 'function') {
                         window.catatAktivitasRealtime(`Petugas membagikan lokasi GPS real-time ke warga NIK ${window.activeChatNik}.`, 'Petugas', 'chat');
                     }
                     window.loadChatMessages(window.activeChatNik, window.activeChatName);
                     window.loadChatList();
-                    Swal.fire({ icon: 'success', title: 'Terkirim', text: 'Titik lokasi GPS perangkat berhasil dibagikan.', timer: 1500, showConfirmButton: false });
+                    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '📍 Titik lokasi GPS perangkat berhasil dibagikan!', timer: 2500, showConfirmButton: false });
                 } catch (e) {
+                    if (typeof Swal !== 'undefined' && typeof Swal.close === 'function') Swal.close();
                     Swal.fire('Gagal', 'Gagal membagikan lokasi real-time.', 'error');
                 }
             }, (err) => {
+                if (typeof Swal !== 'undefined' && typeof Swal.close === 'function') Swal.close();
                 Swal.fire('Gagal Mendeteksi GPS', `Tidak dapat mengambil lokasi perangkat: ${err.message}. Pastikan izin lokasi aktif.`, 'error');
             }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
         } else {
@@ -5564,6 +6096,10 @@
         window.renderEmojiPickerGrid(val);
     };
 
+    window.toggleAdminVoiceEmojiPicker = function (event) {
+        window.toggleAdminEmojiPicker(event);
+    };
+
     window.toggleAdminEmojiPicker = function (event) {
         if (event && event.stopPropagation) event.stopPropagation();
         const el = document.getElementById('emojiPickerAdmin');
@@ -5579,8 +6115,12 @@
             return;
         }
 
-        const triggerBtn = event ? (event.currentTarget || event.target.closest('button')) : document.querySelector('#adminChatInputBar button');
-        const container = el.parentElement;
+        const voiceBar = document.getElementById('adminVoicePreviewBar');
+        const isVoicePreview = voiceBar && voiceBar.style.display !== 'none';
+        const triggerBtn = event ? (event.currentTarget || event.target.closest('button')) : (
+            isVoicePreview ? document.getElementById('btnAdminVoiceEmojiToggle') : document.querySelector('#adminChatInputBar button')
+        );
+        const container = document.getElementById('chatActiveConversationPanel') || el.parentElement;
 
         el.innerHTML = `
             <div style="display:flex; flex-direction:column; gap:8px; width:100%;">
@@ -5619,47 +6159,49 @@
             const bottomPos = (containerRect.bottom - btnRect.top) + 8;
 
             el.style.cssText = `
-                display: flex;
-                position: absolute;
-                bottom: ${bottomPos}px;
-                left: ${leftPos}px;
-                right: auto;
-                background: #ffffff;
-                border: 1.5px solid #cbd5e1;
-                border-radius: 18px;
-                box-shadow: 0 16px 36px rgba(0,0,0,0.18);
-                padding: 10px;
-                width: 300px;
-                max-width: calc(100vw - 32px);
+                display: flex !important;
+                position: absolute !important;
+                bottom: ${bottomPos}px !important;
+                left: ${leftPos}px !important;
+                right: auto !important;
+                background: #ffffff !important;
+                border: 1.5px solid #cbd5e1 !important;
+                border-radius: 18px !important;
+                box-shadow: 0 16px 36px rgba(0,0,0,0.18) !important;
+                padding: 10px !important;
+                width: 300px !important;
+                max-width: calc(100vw - 32px) !important;
                 z-index: 999999 !important;
-                box-sizing: border-box;
+                box-sizing: border-box !important;
             `;
         } else {
             el.style.cssText = `
-                display: flex;
-                position: absolute;
-                bottom: 66px;
-                left: 12px;
-                background: #ffffff;
-                border: 1.5px solid #cbd5e1;
-                border-radius: 18px;
-                box-shadow: 0 16px 36px rgba(0,0,0,0.18);
-                padding: 10px;
-                width: 300px;
-                max-width: calc(100vw - 32px);
+                display: flex !important;
+                position: absolute !important;
+                bottom: 66px !important;
+                left: 12px !important;
+                background: #ffffff !important;
+                border: 1.5px solid #cbd5e1 !important;
+                border-radius: 18px !important;
+                box-shadow: 0 16px 36px rgba(0,0,0,0.18) !important;
+                padding: 10px !important;
+                width: 300px !important;
+                max-width: calc(100vw - 32px) !important;
                 z-index: 999999 !important;
-                box-sizing: border-box;
+                box-sizing: border-box !important;
             `;
         }
 
         const closeOnClickOutside = function (ev) {
-            if (!el.contains(ev.target) && (!triggerBtn || !triggerBtn.contains(ev.target))) {
+            if (!el.contains(ev.target) && (!triggerBtn || !triggerBtn.contains(ev.target)) && !ev.target.closest('#btnAdminVoiceEmojiToggle') && !ev.target.closest('#adminChatInputBar button')) {
                 el.style.display = 'none';
                 document.removeEventListener('click', closeOnClickOutside);
             }
         };
         setTimeout(() => {
             document.addEventListener('click', closeOnClickOutside);
+            const searchInput = document.getElementById('adminEmojiSearchInput');
+            if (searchInput) searchInput.focus();
         }, 50);
     };
 
@@ -5671,11 +6213,23 @@
         const chatInp = document.getElementById('adminChatInput');
 
         if (voiceBar && voiceBar.style.display !== 'none' && voiceInp) {
-            voiceInp.value += emoji;
+            const start = voiceInp.selectionStart ?? voiceInp.value.length;
+            const end = voiceInp.selectionEnd ?? voiceInp.value.length;
+            const val = voiceInp.value;
+            voiceInp.value = val.substring(0, start) + emoji + val.substring(end);
+            const nextPos = start + emoji.length;
             voiceInp.focus();
+            try { voiceInp.setSelectionRange(nextPos, nextPos); } catch (e) {}
+            voiceInp.dispatchEvent(new Event('input', { bubbles: true }));
         } else if (chatInp) {
-            chatInp.value += emoji;
+            const start = chatInp.selectionStart ?? chatInp.value.length;
+            const end = chatInp.selectionEnd ?? chatInp.value.length;
+            const val = chatInp.value;
+            chatInp.value = val.substring(0, start) + emoji + val.substring(end);
+            const nextPos = start + emoji.length;
             chatInp.focus();
+            try { chatInp.setSelectionRange(nextPos, nextPos); } catch (e) {}
+            chatInp.dispatchEvent(new Event('input', { bubbles: true }));
         }
     };
 
@@ -5685,6 +6239,157 @@
     let activeCallDataConn = null;
     let myAdminPeerId = null;
     window.pendingIncomingCallFromWarga = null;
+
+    function createSilentBlackVideoTrackAdmin(width = 640, height = 480) {
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.fillStyle = '#050b14';
+                ctx.fillRect(0, 0, width, height);
+            }
+            const stream = canvas.captureStream ? canvas.captureStream(10) : null;
+            if (stream && stream.getVideoTracks().length > 0) {
+                const track = stream.getVideoTracks()[0];
+                track.enabled = true;
+
+                // Loop animasi kontinyu 10 FPS untuk menjaga pipeline WebRTC tetap hidup tanpa freeze
+                let frameCount = 0;
+                const timer = setInterval(() => {
+                    if (track.readyState === 'ended') {
+                        clearInterval(timer);
+                        return;
+                    }
+                    if (ctx) {
+                        ctx.fillStyle = '#050b14';
+                        ctx.fillRect(0, 0, width, height);
+                        frameCount = (frameCount + 1) % 10;
+                        ctx.fillStyle = (frameCount % 2 === 0) ? '#050b15' : '#050b14';
+                        ctx.fillRect(0, 0, 1, 1);
+                    }
+                }, 100);
+
+                track.addEventListener('ended', () => {
+                    clearInterval(timer);
+                });
+
+                return track;
+            }
+        } catch (e) {
+            console.warn('[SILENT_TRACK_ERR]', e);
+        }
+        return null;
+    }
+
+    function findVideoSenderAdmin(pc) {
+        if (!pc) return null;
+        try {
+            if (typeof pc.getTransceivers === 'function') {
+                const tc = pc.getTransceivers().find(t => 
+                    (t.sender && t.sender.track && t.sender.track.kind === 'video') ||
+                    (t.receiver && t.receiver.track && t.receiver.track.kind === 'video') ||
+                    (t.mid && String(t.mid).toLowerCase().includes('video'))
+                );
+                if (tc && tc.sender) return tc.sender;
+            }
+            if (typeof pc.getSenders === 'function') {
+                const senders = pc.getSenders();
+                const vs = senders.find(s => s.track && s.track.kind === 'video');
+                if (vs) return vs;
+                const as = senders.find(s => s.track && s.track.kind === 'audio');
+                const candidate = senders.find(s => s !== as);
+                if (candidate) return candidate;
+            }
+        } catch (e) {
+            console.warn('[FIND_VIDEO_SENDER_ADMIN_ERR]', e);
+        }
+        return null;
+    }
+
+    function findAudioSenderAdmin(pc) {
+        if (!pc) return null;
+        try {
+            if (typeof pc.getTransceivers === 'function') {
+                const tc = pc.getTransceivers().find(t => 
+                    (t.sender && t.sender.track && t.sender.track.kind === 'audio') ||
+                    (t.receiver && t.receiver.track && t.receiver.track.kind === 'audio') ||
+                    (t.mid && String(t.mid).toLowerCase().includes('audio'))
+                );
+                if (tc && tc.sender) return tc.sender;
+            }
+            if (typeof pc.getSenders === 'function') {
+                const senders = pc.getSenders();
+                const as = senders.find(s => s.track && s.track.kind === 'audio');
+                if (as) return as;
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function ensureRemoteAudioPlayingAdmin() {
+        if (!callRemoteStream) return;
+        let audioEl = document.getElementById('adminRemoteAudioPlayer');
+        if (!audioEl) {
+            audioEl = document.createElement('audio');
+            audioEl.id = 'adminRemoteAudioPlayer';
+            audioEl.autoplay = true;
+            audioEl.playsInline = true;
+            audioEl.style.display = 'none';
+            document.body.appendChild(audioEl);
+        }
+        if (audioEl.srcObject !== callRemoteStream) {
+            audioEl.srcObject = callRemoteStream;
+        }
+        audioEl.play().catch(() => {});
+    }
+
+    function setupActiveCallStreamAdmin(call) {
+        if (!call) return;
+        activeCallObj = call;
+        call.on('stream', remoteStream => {
+            callRemoteStream = remoteStream;
+            remoteStream.getVideoTracks().forEach(t => {
+                t.onunmute = () => {
+                    if (typeof window.updateVideoViewsAdmin === 'function') window.updateVideoViewsAdmin();
+                    unfreezeVideoPlayersAdmin();
+                };
+            });
+            ensureRemoteAudioPlayingAdmin();
+            if (typeof window.updateVideoViewsAdmin === 'function') {
+                window.updateVideoViewsAdmin();
+            }
+            unfreezeVideoPlayersAdmin();
+        });
+
+        if (call.peerConnection) {
+            call.peerConnection.ontrack = (ev) => {
+                if (ev.streams && ev.streams[0]) {
+                    callRemoteStream = ev.streams[0];
+                } else if (ev.track && callRemoteStream) {
+                    if (!callRemoteStream.getTracks().find(t => t.id === ev.track.id)) {
+                        callRemoteStream.addTrack(ev.track);
+                    }
+                }
+                if (ev.track) {
+                    ev.track.onunmute = () => {
+                        if (typeof window.updateVideoViewsAdmin === 'function') window.updateVideoViewsAdmin();
+                        unfreezeVideoPlayersAdmin();
+                    };
+                }
+                ensureRemoteAudioPlayingAdmin();
+                if (typeof window.updateVideoViewsAdmin === 'function') {
+                    window.updateVideoViewsAdmin();
+                }
+                unfreezeVideoPlayersAdmin();
+            };
+        }
+
+        call.on('close', () => window.endCall(false));
+    }
 
     window.initAdminPeer = function (callback) {
         if (peerInstance && !peerInstance.destroyed && myAdminPeerId) {
@@ -5712,24 +6417,38 @@
             });
 
             peerInstance.on('call', call => {
+                if (activeCallObj && activeCallObj.open && activeCallObj !== call) {
+                    try { activeCallObj.close(); } catch(e){}
+                }
                 activeCallObj = call;
                 if (callLocalStream) {
                     call.answer(callLocalStream);
-                    call.on('stream', remoteStream => {
-                        const rVid = document.getElementById('remoteVideo');
-                        if (rVid) {
-                            rVid.srcObject = remoteStream;
-                            rVid.play().catch(() => {});
-                        }
-                    });
+                    setupActiveCallStreamAdmin(call);
                 }
             });
 
             peerInstance.on('connection', conn => {
                 activeCallDataConn = conn;
                 conn.on('data', data => {
-                    if (data && data.type === 'reaction') {
+                    if (!data) return;
+                    if (data.type === 'reaction') {
                         window.showFloatingReactionEffect(data.emoji);
+                    } else if (data.type === 'CALL_MEDIA_STATE') {
+                        if (typeof window.handleCallMediaStateSignal === 'function') {
+                            window.handleCallMediaStateSignal(data);
+                        }
+                    } else if (data.type === 'CALL_SWITCH_MODE') {
+                        if (typeof window.handleCallSwitchModeSignal === 'function') {
+                            window.handleCallSwitchModeSignal(data);
+                        }
+                    } else if (data.type === 'CALL_SWITCH_REQUEST') {
+                        if (typeof window.handleCallSwitchRequestSignal === 'function') {
+                            window.handleCallSwitchRequestSignal(data);
+                        }
+                    } else if (data.type === 'CALL_SWITCH_RESPONSE') {
+                        if (typeof window.handleCallSwitchResponseSignal === 'function') {
+                            window.handleCallSwitchResponseSignal(data);
+                        }
                     }
                 });
             });
@@ -5755,15 +6474,29 @@
             }
         }
         window.pendingIncomingCallFromWarga = event;
+        currentCallId = event.call_id || `call_${Date.now()}`;
         const incomingUI = document.getElementById('incomingCallUI');
         const callerNameEl = document.getElementById('callerNameText');
         const callerTypeEl = document.getElementById('callerTypeText');
+
+        const isVideo = (event.call_type === 'video');
+        const incomingCard = document.getElementById('incomingCallCard');
+        const badge = document.getElementById('incomingCallBadge');
+        const icon = document.getElementById('incomingCallIcon');
+        const acceptIcon = document.getElementById('incomingAcceptIcon');
+
+        if (incomingCard) incomingCard.setAttribute('data-type', isVideo ? 'video' : 'audio');
+        if (badge) {
+            badge.innerHTML = isVideo ? '<i class="fas fa-video"></i> Panggilan Video Masuk' : '<i class="fas fa-phone-alt"></i> Panggilan Suara Masuk';
+        }
+        if (icon) icon.className = isVideo ? 'fas fa-video' : 'fas fa-phone-alt';
+        if (acceptIcon) acceptIcon.className = isVideo ? 'fas fa-video' : 'fas fa-phone-alt';
 
         if (callerNameEl) {
             callerNameEl.innerText = event.caller_name || `Warga (NIK: ${event.caller_nik || '-'})`;
         }
         if (callerTypeEl) {
-            callerTypeEl.innerText = `Panggilan ${event.call_type === 'video' ? 'Video Call' : 'Suara'} dari Warga NIK: ${event.caller_nik || '-'}`;
+            callerTypeEl.innerText = `Panggilan ${isVideo ? 'Video Call' : 'Suara'} dari Warga NIK: ${event.caller_nik || '-'}`;
         }
         if (incomingUI) incomingUI.style.display = 'flex';
 
@@ -5785,20 +6518,47 @@
             const isVideo = (type === 'video');
             const nikAktif = window.activeChatNik;
             const namaAktif = window.activeChatName || `Warga (${nikAktif})`;
-            const currentCallId = `call_${Date.now()}`;
+            currentCallId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+            window.activeCallWargaName = namaAktif;
 
             isCallVideoMuted = !isVideo;
-            callLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
-            callLocalStream.getVideoTracks().forEach(t => t.enabled = !isCallVideoMuted);
+            isAdminCameraOff = !isVideo;
+            isCallAudioMuted = false;
+            if (isVideo) {
+                callLocalStream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: { width: { ideal: 640 }, height: { ideal: 480 } }
+                });
+            } else {
+                callLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                const silentTrack = createSilentBlackVideoTrackAdmin();
+                if (silentTrack) callLocalStream.addTrack(silentTrack);
+            }
 
             const activeUI = document.getElementById('activeCallUI');
             if (activeUI) activeUI.style.display = 'flex';
             const callNameEl = document.getElementById('activeCallName');
-            if (callNameEl) callNameEl.innerText = namaAktif; // HANYA nama warga yang dihubungi
-            
-            // Status tunggal: Awalnya "Memanggil" (menandakan offline / sedang menghubungi)
-            window.setCallStatus('memanggil');
+            if (callNameEl) {
+                callNameEl.innerText = namaAktif;
+                callNameEl.setAttribute('data-warga-name', namaAktif);
+            }
+            const avatarEl = document.getElementById('activeCallAvatar');
+            if (avatarEl && namaAktif) {
+                avatarEl.innerText = (namaAktif.trim().charAt(0) || 'W').toUpperCase();
+            }
 
+            const activeCard = document.getElementById('activeCallCard');
+            if (activeCard) {
+                activeCard.setAttribute('data-mode', isVideo ? 'video' : 'audio');
+                activeCard.setAttribute('data-state', 'calling');
+                activeCard.setAttribute('data-cam', 'on');
+            }
+            const chip = document.getElementById('activeCallTypeChip');
+            if (chip) {
+                chip.innerHTML = isVideo ? '<i class="fas fa-video"></i> Video Call' : '<i class="fas fa-phone-alt"></i> Panggilan Suara';
+            }
+            
+            window.setCallStatus('memanggil');
             window.updateCallInterfaceView();
 
             // Mainkan nada dering sambung keluar
@@ -5857,89 +6617,727 @@
     window.setCallStatus = function (status, extra = '') {
         const dot = document.getElementById('callStatusDot');
         const label = document.getElementById('callStatusLabel');
+        const card = document.getElementById('activeCallCard');
         if (!label) return;
 
         if (status === 'memanggil') {
             if (dot) dot.className = 'status-indicator-dot dot-calling';
             label.innerText = 'Memanggil';
+            if (card) card.setAttribute('data-state', 'calling');
         } else if (status === 'berdering') {
             if (dot) dot.className = 'status-indicator-dot dot-ringing';
             label.innerText = 'Berdering';
+            if (card) card.setAttribute('data-state', 'ringing');
         } else if (status === 'terhubung') {
             if (dot) dot.className = 'status-indicator-dot dot-connected';
             label.innerText = extra ? `Terhubung • ${extra}` : 'Terhubung';
+            if (card) card.setAttribute('data-state', 'connected');
         }
     };
 
-    window.updateCallInterfaceView = function () {
+    function getAparaturDisplayName() {
+        const rawRole = (localStorage.getItem('role') || localStorage.getItem('user_role') || localStorage.getItem('bansos_user_role') || '').toUpperCase().trim();
+        const rawUser = localStorage.getItem('user') || localStorage.getItem('current_user') || localStorage.getItem('bansos_user_data');
+        let uObj = null;
+        try { uObj = rawUser ? JSON.parse(rawUser) : null; } catch (_) {}
+        const uname = localStorage.getItem('username') || uObj?.username || uObj?.nama_lengkap || '';
+
+        let roleTitle = 'Petugas';
+        if (rawRole.includes('SUPER')) roleTitle = 'Super Admin';
+        else if (rawRole.includes('ADMIN')) roleTitle = 'Admin';
+        else if (rawRole.includes('PETUGAS')) roleTitle = 'Petugas';
+
+        if (uname && uname.toLowerCase() !== 'admin' && uname.toLowerCase() !== 'user' && uname.toLowerCase() !== 'petugas' && uname.toLowerCase() !== 'superadmin' && uname.toLowerCase() !== 'super_admin') {
+            if (uname.toLowerCase().includes(roleTitle.toLowerCase())) return uname;
+            return `${roleTitle} (${uname})`;
+        }
+        return roleTitle;
+    }
+
+    window.updateVideoViewsAdmin = function () {
         const vArea = document.getElementById('videoCallArea');
         const aArea = document.getElementById('audioCallArea');
-        const localVid = document.getElementById('localVideo');
+        const mainVid = document.getElementById('remoteVideo');
+        const pipContainer = document.getElementById('videoPipContainer');
+        const pipVid = document.getElementById('localVideo');
+        const pipLabel = document.getElementById('pipTagLabel');
+        const mainCamOff = document.getElementById('mainCameraOffOverlay');
+        const pipCamOff = document.getElementById('pipCameraOffOverlay');
+        const activeCard = document.getElementById('activeCallCard');
+        const chip = document.getElementById('activeCallTypeChip');
         const btnVideo = document.getElementById('btnVideo');
-        const btnFilter = document.getElementById('btnVideoFilter');
 
-        if (!isCallVideoMuted) {
-            // MODE VIDEO CALL
-            if (vArea) vArea.style.display = 'block';
-            if (aArea) aArea.style.display = 'none';
-            if (localVid) localVid.srcObject = callLocalStream;
-            if (btnVideo) {
-                btnVideo.className = 'call-ctrl-btn';
-                btnVideo.innerHTML = '<i class="fas fa-video"></i>';
+        const setOverlay = (el, show, customText) => {
+            if (!el) return;
+            el.classList.toggle('is-active', !!show);
+            el.style.display = show ? 'flex' : 'none';
+            if (show && customText) {
+                const txt = el.querySelector('.cam-off-text') || el.querySelector('span');
+                if (txt) txt.innerText = customText;
             }
-            // Tanda pensil filter DITAMPILKAN pada video call
-            if (btnFilter) btnFilter.style.display = 'flex';
-        } else {
-            // MODE TELEPON / SUARA (AUDIO)
+        };
+
+        if (isCallVideoMuted) {
+            // MODE AUDIO
+            if (activeCard) activeCard.setAttribute('data-mode', 'audio');
+            if (chip) chip.innerHTML = '<i class="fas fa-phone-alt"></i> Panggilan Suara';
             if (vArea) vArea.style.display = 'none';
             if (aArea) aArea.style.display = 'flex';
             if (btnVideo) {
-                btnVideo.className = 'call-ctrl-btn off';
+                btnVideo.className = 'call-ctrl-btn call-video-only off';
                 btnVideo.innerHTML = '<i class="fas fa-video-slash"></i>';
             }
-            // Tanda pensil filter DIHILANGKAN pada telepon biasa
-            if (btnFilter) btnFilter.style.display = 'none';
-            const filterPop = document.getElementById('videoFilterPopover');
-            if (filterPop) filterPop.style.display = 'none';
+            setOverlay(mainCamOff, false);
+            setOverlay(pipCamOff, false);
+
+            const minMicBadge = document.getElementById('minMicOffBadge');
+            if (minMicBadge) minMicBadge.style.display = isCallAudioMuted ? 'inline-flex' : 'none';
+            const minMicBadgeA = document.getElementById('minMicOffBadgeA');
+            if (minMicBadgeA) minMicBadgeA.style.display = isCallAudioMuted ? 'inline-flex' : 'none';
+            return;
+        }
+
+        // MODE VIDEO
+        if (activeCard) {
+            activeCard.setAttribute('data-mode', 'video');
+            activeCard.setAttribute('data-cam', isAdminCameraOff ? 'off' : 'on');
+        }
+        if (chip) chip.innerHTML = '<i class="fas fa-video"></i> Video Call';
+        if (vArea) vArea.style.display = 'block';
+        if (aArea) aArea.style.display = 'none';
+        if (btnVideo) {
+            btnVideo.className = isAdminCameraOff ? 'call-ctrl-btn call-video-only off' : 'call-ctrl-btn call-video-only';
+            btnVideo.innerHTML = isAdminCameraOff ? '<i class="fas fa-video-slash"></i>' : '<i class="fas fa-video"></i>';
+            btnVideo.title = isAdminCameraOff ? 'Nyalakan Kamera' : 'Matikan Kamera';
+        }
+
+        const callNameEl = document.getElementById('activeCallName');
+        const wargaName = window.activeCallWargaName || (callNameEl && callNameEl.getAttribute('data-warga-name')) || window.activeChatName || 'Warga';
+        const aparaturName = getAparaturDisplayName();
+
+        // MODE VIDEO: PiP Container SELALU aktif dan muncul seketika saat mode video
+        if (pipContainer) pipContainer.style.display = 'block';
+
+        if (!callRemoteStream) {
+            // Belum terhubung dengan remote peer (sedang handshake atau remote stream belum tiba)
+            if (pipVid) {
+                if (pipVid.srcObject !== callLocalStream) pipVid.srcObject = callLocalStream;
+                pipVid.muted = true;
+                pipVid.style.transform = 'scaleX(-1)';
+                pipVid.play().catch(() => {});
+            }
+            if (mainVid) {
+                mainVid.srcObject = null;
+            }
+            if (callNameEl) callNameEl.innerText = wargaName;
+            if (pipLabel) pipLabel.innerText = aparaturName;
+            setOverlay(mainCamOff, true, `Menghubungkan video ${wargaName}...`);
+            setOverlay(pipCamOff, isAdminCameraOff, `Kamera ${aparaturName} Dimatikan`);
+        } else {
+            // Sudah terhubung (ada remoteStream dan localStream)
+            if (!isVideoSwappedAdmin) {
+                // Tampilan Normal: Layar Besar = Remote (Warga), PiP = Kamera Petugas (Lokal)
+                if (mainVid) {
+                    if (mainVid.srcObject !== callRemoteStream) mainVid.srcObject = callRemoteStream;
+                    mainVid.muted = true;
+                    mainVid.style.transform = 'none';
+                    mainVid.play().catch(() => {});
+                }
+                if (pipVid) {
+                    if (pipVid.srcObject !== callLocalStream) pipVid.srcObject = callLocalStream;
+                    pipVid.muted = true;
+                    pipVid.style.transform = 'scaleX(-1)';
+                    pipVid.play().catch(() => {});
+                }
+                if (callNameEl) callNameEl.innerText = wargaName;
+                if (pipLabel) pipLabel.innerText = aparaturName;
+                setOverlay(mainCamOff, isRemoteCameraOffAdmin, `Kamera ${wargaName} Dimatikan`);
+                setOverlay(pipCamOff, isAdminCameraOff, `Kamera ${aparaturName} Dimatikan`);
+            } else {
+                // Tampilan Swapped: Layar Besar = Kamera Petugas (Lokal), PiP = Remote (Warga)
+                if (mainVid) {
+                    if (mainVid.srcObject !== callLocalStream) mainVid.srcObject = callLocalStream;
+                    mainVid.muted = true;
+                    mainVid.style.transform = 'scaleX(-1)';
+                    mainVid.play().catch(() => {});
+                }
+                if (pipVid) {
+                    if (pipVid.srcObject !== callRemoteStream) pipVid.srcObject = callRemoteStream;
+                    pipVid.muted = true;
+                    pipVid.style.transform = 'none';
+                    pipVid.play().catch(() => {});
+                }
+                if (callNameEl) callNameEl.innerText = aparaturName;
+                if (pipLabel) pipLabel.innerText = wargaName;
+                setOverlay(mainCamOff, isAdminCameraOff, `Kamera ${aparaturName} Dimatikan`);
+                setOverlay(pipCamOff, isRemoteCameraOffAdmin, `Kamera ${wargaName} Dimatikan`);
+            }
+        }
+
+        const minCamBadge = document.getElementById('minCamOffBadge');
+        if (minCamBadge) minCamBadge.style.display = isAdminCameraOff ? 'inline-flex' : 'none';
+        const minMicBadge = document.getElementById('minMicOffBadge');
+        if (minMicBadge) minMicBadge.style.display = isCallAudioMuted ? 'inline-flex' : 'none';
+        const minMicBadgeA = document.getElementById('minMicOffBadgeA');
+        if (minMicBadgeA) minMicBadgeA.style.display = isCallAudioMuted ? 'inline-flex' : 'none';
+    };
+
+    window.updateCallInterfaceView = function () {
+        window.updateVideoViewsAdmin();
+        unfreezeVideoPlayersAdmin();
+    };
+
+    function broadcastCallMediaStateAdmin() {
+        const stateMsg = {
+            type: 'CALL_MEDIA_STATE',
+            call_id: currentCallId,
+            sender_socket: window.mySessionSocketId,
+            target_nik: activeCallPartnerNik || window.activeChatNik || '',
+            is_cam_off: isAdminCameraOff,
+            is_mic_muted: isCallAudioMuted
+        };
+        if (window.RealtimeHub && typeof window.RealtimeHub.send === 'function') {
+            window.RealtimeHub.send(stateMsg);
+        }
+        if (activeCallDataConn && activeCallDataConn.open) {
+            try { activeCallDataConn.send(stateMsg); } catch (e) {}
+        }
+    }
+
+    window.unfreezeVideoPlayersAdmin = function unfreezeVideoPlayersAdmin() {
+        const mainVid = document.getElementById('remoteVideo');
+        const pipVid = document.getElementById('localVideo');
+        if (!mainVid && !pipVid) return;
+
+        const remoteEl = isVideoSwappedAdmin ? pipVid : mainVid;
+        const localEl = isVideoSwappedAdmin ? mainVid : pipVid;
+
+        if (remoteEl && callRemoteStream) {
+            try {
+                if (remoteEl.srcObject !== callRemoteStream) {
+                    remoteEl.srcObject = callRemoteStream;
+                }
+                remoteEl.muted = true;
+                const p = remoteEl.play();
+                if (p && typeof p.catch === 'function') p.catch(() => {});
+            } catch (e) {}
+        }
+
+        if (localEl && callLocalStream) {
+            try {
+                if (localEl.srcObject !== callLocalStream) {
+                    localEl.srcObject = callLocalStream;
+                }
+                localEl.muted = true;
+                const p = localEl.play();
+                if (p && typeof p.catch === 'function') p.catch(() => {});
+            } catch (e) {}
+        }
+
+        ensureRemoteAudioPlayingAdmin();
+
+        // Segera sinkronkan overlay agar overlay "Menghubungkan video..." segera tertutup saat stream tiba
+        if (typeof window.updateVideoViewsAdmin === 'function') {
+            window.updateVideoViewsAdmin();
+        }
+
+        const ensurePlay = () => {
+            if (remoteEl && remoteEl.paused) remoteEl.play().catch(() => {});
+            if (localEl && localEl.paused) localEl.play().catch(() => {});
+        };
+
+        setTimeout(ensurePlay, 80);
+        setTimeout(ensurePlay, 250);
+        setTimeout(ensurePlay, 600);
+    };
+
+    window.handleCallMediaStateSignal = function (event) {
+        if (!event) return;
+        if (event.sender_socket && event.sender_socket === window.mySessionSocketId) return;
+        if (event.is_cam_off !== undefined) {
+            isRemoteCameraOffAdmin = Boolean(event.is_cam_off);
+        }
+        if (event.is_mic_muted !== undefined) {
+            isRemoteMicMutedAdmin = Boolean(event.is_mic_muted);
+        }
+
+        // Ketika kamera lawan dihidupkan kembali, re-bind wrapper MediaStream segar untuk melepas buffer lock
+        if (!isRemoteCameraOffAdmin && callRemoteStream) {
+            const remoteEl = isVideoSwappedAdmin ? document.getElementById('localVideo') : document.getElementById('remoteVideo');
+            if (remoteEl) {
+                try {
+                    remoteEl.srcObject = new MediaStream(callRemoteStream.getTracks());
+                    remoteEl.muted = true;
+                    remoteEl.play().catch(() => {});
+                } catch (e) {}
+            }
+        }
+
+        window.updateVideoViewsAdmin();
+        unfreezeVideoPlayersAdmin();
+        if (!isRemoteCameraOffAdmin) {
+            setTimeout(() => {
+                if (typeof window.updateVideoViewsAdmin === 'function') window.updateVideoViewsAdmin();
+                unfreezeVideoPlayersAdmin();
+            }, 200);
+            setTimeout(() => {
+                if (typeof window.updateVideoViewsAdmin === 'function') window.updateVideoViewsAdmin();
+                unfreezeVideoPlayersAdmin();
+            }, 600);
         }
     };
 
-    window.toggleVideoCall = function () {
-        if (!callLocalStream) return;
-        isCallVideoMuted = !isCallVideoMuted;
-        callLocalStream.getVideoTracks().forEach(t => t.enabled = !isCallVideoMuted);
-        window.updateCallInterfaceView();
+    // ALUR PERALIHAN TELEPON KE VIDEO CALL DENGAN AJAKAN & KONFIRMASI MULUS (TANPA ANGKAT ULANG)
+    window.toggleVideoCall = async function (e) {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        const activeCard = document.getElementById('activeCallCard');
+        const currentMode = (activeCard && activeCard.getAttribute('data-mode')) || (isCallVideoMuted ? 'audio' : 'video');
+        if (currentMode === 'video') {
+            // Mode video: tombol kamera berfungsi untuk mematikan / menyalakan hardware kamera
+            return window.toggleCameraModeCall(e);
+        }
+        // Mode audio: kirim ajakan beralih ke Video Call tanpa memutus panggilan suara
+        await window.requestSwitchToVideoAdmin();
     };
 
-    window.toggleMuteCall = function () {
-        if (!callLocalStream) return;
+    window.requestSwitchToVideoAdmin = async function () {
+        const targetNik = activeCallPartnerNik || window.activeChatNik;
+        const myName = getAparaturDisplayName();
+        const reqMsg = {
+            type: 'CALL_SWITCH_REQUEST',
+            from_role: 'aparatur',
+            from_name: myName,
+            sender_socket: window.mySessionSocketId,
+            target_nik: targetNik
+        };
+        if (window.RealtimeHub && typeof window.RealtimeHub.send === 'function') {
+            window.RealtimeHub.send(reqMsg);
+        }
+        if (activeCallDataConn && activeCallDataConn.open) {
+            try { activeCallDataConn.send(reqMsg); } catch(e){}
+        }
+
+        window.isWaitingCallSwitchResponseAdmin = true;
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Mengajak ke Video Call...',
+                html: 'Menunggu konfirmasi warga untuk mengaktifkan kamera.<br><small class="text-muted">Panggilan suara tetap terhubung dengan lancar.</small>',
+                icon: 'info',
+                showCancelButton: true,
+                cancelButtonColor: '#64748b',
+                cancelButtonText: 'Batalkan Ajakan',
+                showConfirmButton: false,
+                allowOutsideClick: false
+            }).then(r => {
+                if (r.dismiss === Swal.DismissReason.cancel) {
+                    window.isWaitingCallSwitchResponseAdmin = false;
+                }
+            });
+        }
+    };
+
+    window.handleCallSwitchRequestSignal = async function (event) {
+        if (!event) return;
+        if (event.sender_socket && event.sender_socket === window.mySessionSocketId) return;
+
+        const callerName = event.from_name || window.activeCallWargaName || 'Warga';
+        let isAccepted = false;
+
+        if (typeof Swal !== 'undefined') {
+            const res = await Swal.fire({
+                title: 'Ajakan Video Call',
+                html: `<b>${callerName}</b> mengajak Anda beralih ke <b>Video Call</b>.<br>Apakah Anda bersedia mengaktifkan kamera?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '<i class="fas fa-video"></i> Ya, Beralih ke Video Call',
+                cancelButtonText: '<i class="fas fa-phone-alt"></i> Tetap Panggilan Suara',
+                reverseButtons: true,
+                allowOutsideClick: false,
+                timer: 20000,
+                timerProgressBar: true
+            });
+            isAccepted = Boolean(res.isConfirmed);
+        } else {
+            isAccepted = window.confirm(`${callerName} mengajak beralih ke Video Call. Aktifkan kamera?`);
+        }
+
+        const respMsg = {
+            type: 'CALL_SWITCH_RESPONSE',
+            accepted: isAccepted,
+            sender_socket: window.mySessionSocketId,
+            target_nik: activeCallPartnerNik || window.activeChatNik
+        };
+        if (window.RealtimeHub && typeof window.RealtimeHub.send === 'function') {
+            window.RealtimeHub.send(respMsg);
+        }
+        if (activeCallDataConn && activeCallDataConn.open) {
+            try { activeCallDataConn.send(respMsg); } catch(e){}
+        }
+
+        if (isAccepted) {
+            await window.performSeamlessUpgradeToVideoAdmin();
+        }
+    };
+
+    window.handleCallSwitchResponseSignal = async function (event) {
+        if (!event) return;
+        if (event.sender_socket && event.sender_socket === window.mySessionSocketId) return;
+
+        if (window.isWaitingCallSwitchResponseAdmin) {
+            window.isWaitingCallSwitchResponseAdmin = false;
+            try { if (typeof Swal !== 'undefined') Swal.close(); } catch(e){}
+        }
+
+        if (event.accepted) {
+            await window.performSeamlessUpgradeToVideoAdmin();
+        } else {
+            const partner = window.activeCallWargaName || 'Warga';
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Tetap Panggilan Suara',
+                    text: `${partner} memilih untuk tetap menggunakan panggilan suara.`,
+                    icon: 'info',
+                    timer: 2500,
+                    showConfirmButton: false
+                });
+            }
+        }
+    };
+
+    window.performSeamlessUpgradeToVideoAdmin = async function () {
+        isCallVideoMuted = false;
+        isAdminCameraOff = false;
+        try {
+            if (callLocalStream) {
+                callLocalStream.getVideoTracks().forEach(t => {
+                    try { t.stop(); } catch(e){}
+                    callLocalStream.removeTrack(t);
+                });
+            }
+            const camStream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 640, max: 1280 }, height: { ideal: 480, max: 720 }, frameRate: { ideal: 30, min: 15 } },
+                audio: false
+            });
+            const realVTrack = camStream.getVideoTracks()[0];
+            if (realVTrack) realVTrack.contentHint = 'motion';
+
+            if (callLocalStream) {
+                callLocalStream.addTrack(realVTrack);
+            } else {
+                callLocalStream = camStream;
+            }
+
+            if (activeCallObj && activeCallObj.peerConnection) {
+                const vSender = findVideoSenderAdmin(activeCallObj.peerConnection);
+                if (vSender) {
+                    await vSender.replaceTrack(realVTrack);
+                } else {
+                    activeCallObj.peerConnection.addTrack(realVTrack, callLocalStream);
+                }
+            }
+        } catch (err) {
+            console.warn('[CAM_SWITCH_FAIL]', err);
+            isAdminCameraOff = true;
+            const dummyTrack = createSilentBlackVideoTrackAdmin();
+            if (dummyTrack && callLocalStream) callLocalStream.addTrack(dummyTrack);
+        }
+
+        const activeCard = document.getElementById('activeCallCard');
+        if (activeCard) {
+            activeCard.setAttribute('data-mode', 'video');
+            activeCard.setAttribute('data-cam', isAdminCameraOff ? 'off' : 'on');
+        }
+
+        window.updateVideoViewsAdmin();
+        broadcastCallMediaStateAdmin();
+        unfreezeVideoPlayersAdmin();
+
+        setTimeout(() => {
+            unfreezeVideoPlayersAdmin();
+            broadcastCallMediaStateAdmin();
+        }, 300);
+        setTimeout(() => {
+            unfreezeVideoPlayersAdmin();
+        }, 800);
+    };
+
+    window.switchCallModeAdmin = async function (newMode) {
+        if (newMode === 'video') {
+            await window.performSeamlessUpgradeToVideoAdmin();
+        } else {
+            isCallVideoMuted = true;
+            isAdminCameraOff = true;
+            if (callLocalStream) {
+                callLocalStream.getVideoTracks().forEach(t => {
+                    try { t.stop(); } catch(e){}
+                    callLocalStream.removeTrack(t);
+                });
+                const silentTrack = createSilentBlackVideoTrackAdmin();
+                if (silentTrack) {
+                    callLocalStream.addTrack(silentTrack);
+                    if (activeCallObj && activeCallObj.peerConnection) {
+                        const vSender = findVideoSenderAdmin(activeCallObj.peerConnection);
+                        if (vSender) vSender.replaceTrack(silentTrack);
+                    }
+                }
+            }
+            const switchMsg = {
+                type: 'CALL_SWITCH_MODE',
+                mode: 'audio',
+                sender_socket: window.mySessionSocketId,
+                target_nik: activeCallPartnerNik || window.activeChatNik
+            };
+            if (window.RealtimeHub && typeof window.RealtimeHub.send === 'function') {
+                window.RealtimeHub.send(switchMsg);
+            }
+            if (activeCallDataConn && activeCallDataConn.open) {
+                activeCallDataConn.send(switchMsg);
+            }
+            window.updateVideoViewsAdmin();
+        }
+    };
+
+    window.handleCallSwitchModeSignal = async function (event) {
+        if (!event || !event.mode) return;
+        if (event.sender_socket && event.sender_socket === window.mySessionSocketId) return;
+
+        if (event.mode === 'video') {
+            await window.performSeamlessUpgradeToVideoAdmin();
+        } else {
+            isCallVideoMuted = true;
+            isAdminCameraOff = true;
+            if (callLocalStream) {
+                callLocalStream.getVideoTracks().forEach(t => {
+                    try { t.stop(); } catch(e){}
+                    callLocalStream.removeTrack(t);
+                });
+                const silentTrack = createSilentBlackVideoTrackAdmin();
+                if (silentTrack) {
+                    callLocalStream.addTrack(silentTrack);
+                    if (activeCallObj && activeCallObj.peerConnection) {
+                        const vSender = findVideoSenderAdmin(activeCallObj.peerConnection);
+                        if (vSender) vSender.replaceTrack(silentTrack);
+                    }
+                }
+            }
+            window.updateVideoViewsAdmin();
+        }
+    };
+
+    window.toggleCameraModeCall = async function (e) {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        isAdminCameraOff = !isAdminCameraOff;
+
+        if (isAdminCameraOff) {
+            // Matikan hardware kamera secara fisik (Lampu indikator webcam mati!)
+            if (callLocalStream) {
+                callLocalStream.getVideoTracks().forEach(t => {
+                    try { t.enabled = false; t.stop(); } catch (err) {}
+                    callLocalStream.removeTrack(t);
+                });
+            }
+            // Kirim dummy black canvas stream agar WebRTC tetap terkoneksi tanpa freeze frame lama
+            const dummyTrack = createSilentBlackVideoTrackAdmin();
+            if (dummyTrack && callLocalStream) {
+                callLocalStream.addTrack(dummyTrack);
+            }
+            if (activeCallObj && activeCallObj.peerConnection) {
+                try {
+                    const vSender = findVideoSenderAdmin(activeCallObj.peerConnection);
+                    if (vSender && dummyTrack) {
+                        await vSender.replaceTrack(dummyTrack);
+                    }
+                } catch (err) {}
+            }
+        } else {
+            // Nyalakan kembali hardware kamera dengan request track baru
+            try {
+                const freshStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+                    audio: false
+                });
+                const newVTrack = freshStream.getVideoTracks()[0];
+                if (newVTrack) newVTrack.contentHint = 'motion';
+
+                if (activeCallObj && activeCallObj.peerConnection) {
+                    try {
+                        const sender = findVideoSenderAdmin(activeCallObj.peerConnection);
+                        if (sender && typeof sender.replaceTrack === 'function') {
+                            await sender.replaceTrack(newVTrack);
+                        }
+                    } catch (err) {}
+                }
+
+                if (callLocalStream) {
+                    callLocalStream.getVideoTracks().forEach(t => {
+                        try { t.stop(); } catch (err) {}
+                        callLocalStream.removeTrack(t);
+                    });
+                    callLocalStream.addTrack(newVTrack);
+                }
+            } catch (err) {
+                console.warn('[CAM ADMIN] Gagal menyalakan ulang kamera:', err);
+                isAdminCameraOff = true;
+                const dummyTrack = createSilentBlackVideoTrackAdmin();
+                if (dummyTrack && callLocalStream) callLocalStream.addTrack(dummyTrack);
+            }
+        }
+
+        const btnVid = document.getElementById('btnVideo');
+        const minVidCam = document.getElementById('minVideoBtnCam');
+        const iconHtml = isAdminCameraOff ? '<i class="fas fa-video-slash"></i>' : '<i class="fas fa-video"></i>';
+
+        if (btnVid) {
+            btnVid.classList.toggle('off', isAdminCameraOff);
+            btnVid.innerHTML = iconHtml;
+            btnVid.title = isAdminCameraOff ? 'Nyalakan Kamera' : 'Matikan Kamera';
+        }
+        if (minVidCam) {
+            minVidCam.classList.toggle('is-off', isAdminCameraOff);
+            minVidCam.innerHTML = iconHtml;
+            minVidCam.title = isAdminCameraOff ? 'Nyalakan Kamera' : 'Matikan Kamera';
+        }
+        broadcastCallMediaStateAdmin();
+        window.updateVideoViewsAdmin();
+        unfreezeVideoPlayersAdmin();
+        if (!isAdminCameraOff) {
+            setTimeout(() => {
+                broadcastCallMediaStateAdmin();
+                unfreezeVideoPlayersAdmin();
+            }, 300);
+        }
+    };
+
+    window.toggleMuteCall = function (e) {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
         isCallAudioMuted = !isCallAudioMuted;
-        callLocalStream.getAudioTracks().forEach(t => t.enabled = !isCallAudioMuted);
+        if (callLocalStream) {
+            callLocalStream.getAudioTracks().forEach(t => {
+                t.enabled = !isCallAudioMuted;
+            });
+        }
+        if (activeCallObj && activeCallObj.peerConnection) {
+            try {
+                const aSender = findAudioSenderAdmin(activeCallObj.peerConnection);
+                if (aSender && aSender.track) {
+                    aSender.track.enabled = !isCallAudioMuted;
+                }
+            } catch (err) {}
+        }
         const btnMute = document.getElementById('btnMute');
+        const minAudBtn = document.getElementById('minAudioBtnMute');
+        const minVidBtn = document.getElementById('minVideoBtnMute');
+
+        const iconHtml = isCallAudioMuted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
+
         if (btnMute) {
             btnMute.className = isCallAudioMuted ? 'call-ctrl-btn off' : 'call-ctrl-btn';
-            btnMute.innerHTML = isCallAudioMuted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
+            btnMute.innerHTML = iconHtml;
+            btnMute.title = isCallAudioMuted ? 'Nyalakan Mikrofon' : 'Bisukan Mikrofon';
         }
+        [minAudBtn, minVidBtn].forEach(b => {
+            if (b) {
+                b.classList.toggle('is-muted', isCallAudioMuted);
+                b.innerHTML = iconHtml;
+                b.title = isCallAudioMuted ? 'Nyalakan Mikrofon' : 'Bisukan Mikrofon';
+            }
+        });
+        broadcastCallMediaStateAdmin();
+        window.updateVideoViewsAdmin();
+        unfreezeVideoPlayersAdmin();
     };
 
-    // PENGATURAN FILTER VIDEO CALL (2 FILTER: WAJAH MULUS & TERANG + BURAMKAN BACKGROUND)
-    let isBeautyFilterActive = false;
-    let isBlurFilterActive = false;
+    // Stubs untuk kompabilitas filter (fitur filter dihapus sesuai instruksi)
+    window.toggleBeautyFilter = function () {};
+    window.toggleBackgroundBlurFilter = function () {};
+    window.toggleVideoFilterOptions = function () {};
 
-    window.toggleBeautyFilter = function () {
-        isBeautyFilterActive = !isBeautyFilterActive;
-        const localVid = document.getElementById('localVideo');
-        if (localVid) localVid.classList.toggle('filter-beauty', isBeautyFilterActive);
-        const sw = document.getElementById('switchBeautyFilter');
-        if (sw) sw.classList.toggle('active', isBeautyFilterActive);
+    // TUKAR TAMPILAN LAYAR BESAR & KECIL (KAMERA SENDIRI <-> WARGA)
+    window.swapVideoViews = function (e) {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        if (Date.now() - lastAdminSwapTime < 350) return;
+        lastAdminSwapTime = Date.now();
+
+        if (!callRemoteStream) return;
+        isVideoSwappedAdmin = !isVideoSwappedAdmin;
+        const card = document.getElementById('activeCallCard');
+        if (card) {
+            card.setAttribute('data-swap', isVideoSwappedAdmin ? 'true' : 'false');
+        }
+        const pip = document.getElementById('videoPipContainer');
+        if (pip) {
+            pip.classList.remove('pip-swapped-anim');
+            void pip.offsetWidth;
+            pip.classList.add('pip-swapped-anim');
+        }
+        window.updateVideoViewsAdmin();
+        unfreezeVideoPlayersAdmin();
     };
 
-    window.toggleBackgroundBlurFilter = function () {
-        isBlurFilterActive = !isBlurFilterActive;
-        const localVid = document.getElementById('localVideo');
-        if (localVid) localVid.classList.toggle('filter-blur-bg', isBlurFilterActive);
-        const sw = document.getElementById('switchBlurFilter');
-        if (sw) sw.classList.toggle('active', isBlurFilterActive);
+    // PINDAH SUDUT PiP (KANAN BAWAH -> KANAN ATAS -> KIRI ATAS -> KIRI BAWAH)
+    const ADMIN_PIP_CORNERS = ['br', 'tr', 'tl', 'bl'];
+    window.cyclePipCorner = function (e) {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        const pip = document.getElementById('videoPipContainer');
+        if (!pip) return;
+        pip.style.removeProperty('left');
+        pip.style.removeProperty('top');
+        pip.style.removeProperty('right');
+        pip.style.removeProperty('bottom');
+        const current = pip.getAttribute('data-pip-pos') || 'br';
+        let idx = ADMIN_PIP_CORNERS.indexOf(current);
+        if (idx === -1) idx = 0;
+        const nextIdx = (idx + 1) % ADMIN_PIP_CORNERS.length;
+        pip.setAttribute('data-pip-pos', ADMIN_PIP_CORNERS[nextIdx]);
+    };
+
+    // MODE MINIMIZE (FLOATING WIDGET SUDUT - MULTITASKING AKTIF)
+    const ADMIN_MIN_CORNERS = ['br', 'tr', 'tl', 'bl'];
+    window.minimizeCallWindow = function () {
+        const modal = document.getElementById('activeCallUI');
+        const card = document.getElementById('activeCallCard');
+        if (modal) modal.classList.add('is-minimized');
+        if (card) card.classList.add('call-minimized');
+
+        const incomingUI = document.getElementById('incomingCallUI');
+        if (incomingUI) incomingUI.style.display = 'none';
+        const popNet = document.getElementById('callNetworkPopover');
+        if (popNet) popNet.style.display = 'none';
+
+        const nameText = (document.getElementById('activeCallName') && document.getElementById('activeCallName').innerText) || 'Warga';
+        const nameEl = document.getElementById('minimizedAudioName');
+        if (nameEl) nameEl.innerText = nameText;
+        const avatarEl = document.getElementById('minimizedAudioAvatar');
+        if (avatarEl) avatarEl.innerText = (nameText.trim().charAt(0) || 'W').toUpperCase();
+    };
+
+    window.expandCallWindow = function () {
+        const modal = document.getElementById('activeCallUI');
+        const card = document.getElementById('activeCallCard');
+        if (modal) modal.classList.remove('is-minimized');
+        if (card) {
+            card.classList.remove('call-minimized');
+            card.style.position = '';
+            card.style.left = '';
+            card.style.top = '';
+            card.style.right = '';
+            card.style.bottom = '';
+            card.style.width = '';
+            card.style.height = '';
+        }
+        window.updateVideoViewsAdmin();
+        unfreezeVideoPlayersAdmin();
+    };
+
+    window.cycleMinimizedCorner = function (e) {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        const card = document.getElementById('activeCallCard');
+        if (!card) return;
+        const current = card.getAttribute('data-min-corner') || 'br';
+        const nextIdx = (ADMIN_MIN_CORNERS.indexOf(current) + 1) % ADMIN_MIN_CORNERS.length;
+        card.setAttribute('data-min-corner', ADMIN_MIN_CORNERS[nextIdx]);
     };
 
     // TOGGLE OPSI TITIK TIGA (STATUS JARINGAN BAR KOTAK)
@@ -6109,19 +7507,47 @@
 
         window.activeChatNik = callerNik;
         window.activeChatName = callerNama;
+        window.activeCallWargaName = callerNama;
 
         try {
             isCallVideoMuted = !isVideo;
-            callLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
-            callLocalStream.getVideoTracks().forEach(t => t.enabled = !isCallVideoMuted);
+            isAdminCameraOff = !isVideo;
+            isCallAudioMuted = false;
+            if (isVideo) {
+                callLocalStream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: { width: { ideal: 640 }, height: { ideal: 480 } }
+                });
+            } else {
+                callLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                const silentTrack = createSilentBlackVideoTrackAdmin();
+                if (silentTrack) callLocalStream.addTrack(silentTrack);
+            }
 
             const activeUI = document.getElementById('activeCallUI');
             if (activeUI) activeUI.style.display = 'flex';
             const callNameEl = document.getElementById('activeCallName');
-            if (callNameEl) callNameEl.innerText = callerNama; // HANYA nama warga yang dihubungi
+            if (callNameEl) {
+                callNameEl.innerText = callerNama;
+                callNameEl.setAttribute('data-warga-name', callerNama);
+            }
+            const avatarEl = document.getElementById('activeCallAvatar');
+            if (avatarEl && callerNama) {
+                avatarEl.innerText = (callerNama.trim().charAt(0) || 'W').toUpperCase();
+            }
+
+            const activeCard = document.getElementById('activeCallCard');
+            if (activeCard) {
+                activeCard.setAttribute('data-mode', isVideo ? 'video' : 'audio');
+                activeCard.setAttribute('data-state', 'connected');
+                activeCard.setAttribute('data-cam', 'on');
+            }
+            const chip = document.getElementById('activeCallTypeChip');
+            if (chip) {
+                chip.innerHTML = isVideo ? '<i class="fas fa-video"></i> Video Call' : '<i class="fas fa-phone-alt"></i> Panggilan Suara';
+            }
             
             window.setCallStatus('terhubung', '00:00');
-
             window.updateCallInterfaceView();
 
             window.initAdminPeer((myPeerId) => {
@@ -6147,14 +7573,7 @@
                         metadata: { type: callData.call_type }
                     });
                     if (activeCallObj) {
-                        activeCallObj.on('stream', remoteStream => {
-                            const rVid = document.getElementById('remoteVideo');
-                            if (rVid) {
-                                rVid.srcObject = remoteStream;
-                                rVid.play().catch(() => {});
-                            }
-                        });
-                        activeCallObj.on('close', () => window.endCall(false));
+                        setupActiveCallStreamAdmin(activeCallObj);
                     }
                 }
             });
@@ -6167,6 +7586,10 @@
                 const mins = String(Math.floor(callDurationSecs / 60)).padStart(2, '0');
                 const secs = String(callDurationSecs % 60).padStart(2, '0');
                 window.setCallStatus('terhubung', `${mins}:${secs}`);
+            const mAudio = document.getElementById('minimizedAudioTimer');
+            if (mAudio) mAudio.innerHTML = `<span class="status-indicator-dot dot-connected"></span> ${mins}:${secs}`;
+            const mVideo = document.getElementById('minVideoTimer');
+            if (mVideo) mVideo.innerHTML = `<span class="status-indicator-dot dot-connected"></span> ${mins}:${secs}`;
             }, 1000);
 
             // Audit
@@ -6200,7 +7623,16 @@
         }
 
         if (activeCallObj) {
-            try { activeCallObj.close(); } catch (e) {}
+            try {
+                if (typeof activeCallObj.removeAllListeners === 'function') {
+                    activeCallObj.removeAllListeners();
+                } else if (typeof activeCallObj.off === 'function') {
+                    activeCallObj.off('close');
+                    activeCallObj.off('stream');
+                    activeCallObj.off('error');
+                }
+                activeCallObj.close();
+            } catch (e) {}
             activeCallObj = null;
         }
     };
@@ -6222,38 +7654,108 @@
             const mins = String(Math.floor(callDurationSecs / 60)).padStart(2, '0');
             const secs = String(callDurationSecs % 60).padStart(2, '0');
             window.setCallStatus('terhubung', `${mins}:${secs}`);
+            const mAudio = document.getElementById('minimizedAudioTimer');
+            if (mAudio) mAudio.innerHTML = `<span class="status-indicator-dot dot-connected"></span> ${mins}:${secs}`;
+            const mVideo = document.getElementById('minVideoTimer');
+            if (mVideo) mVideo.innerHTML = `<span class="status-indicator-dot dot-connected"></span> ${mins}:${secs}`;
         }, 1000);
 
-        // Hubungkan peer jika Warga mengirimkan peer_id
-        if (event.peer_id && peerInstance && callLocalStream) {
-            activeCallObj = peerInstance.call(event.peer_id, callLocalStream, {
-                metadata: { type: event.call_type || 'audio' }
-            });
-            if (activeCallObj) {
-                activeCallObj.on('stream', remoteStream => {
-                    const rVid = document.getElementById('remoteVideo');
-                    if (rVid) {
-                        rVid.srcObject = remoteStream;
-                        rVid.play().catch(() => {});
+        // Callee (Warga) yang menekan 'Angkat' memanggil peer via peer.call().
+        // Caller (Admin) TIDAK melakukan peer.call() untuk menghindari Dual-Call Race Glare.
+        // Fallback: Jika setelah 3.5 detik peer belum terhubung, lakukan dial balik darurat.
+        setTimeout(() => {
+            if (!activeCallObj && event.peer_id && peerInstance && callLocalStream) {
+                console.log('[WEBRTC FALLBACK] Callee warga did not dial, dialing from Admin...');
+                activeCallObj = peerInstance.call(event.peer_id, callLocalStream, {
+                    metadata: { type: event.call_type || 'audio' }
+                });
+                if (activeCallObj) {
+                    setupActiveCallStreamAdmin(activeCallObj);
+                }
+            }
+        }, 3500);
+    };
+
+    function stopAllHardwareMediaTracksAdmin() {
+        if (callLocalStream) {
+            try {
+                callLocalStream.getTracks().forEach(t => {
+                    t.enabled = false;
+                    t.stop();
+                });
+            } catch (e) {}
+            callLocalStream = null;
+        }
+        if (callRemoteStream) {
+            try {
+                callRemoteStream.getTracks().forEach(t => {
+                    t.enabled = false;
+                    t.stop();
+                });
+            } catch (e) {}
+            callRemoteStream = null;
+        }
+        document.querySelectorAll('video, audio').forEach(el => {
+            if (el.srcObject && typeof el.srcObject.getTracks === 'function') {
+                try {
+                    el.srcObject.getTracks().forEach(t => {
+                        t.enabled = false;
+                        t.stop();
+                    });
+                } catch (e) {}
+            }
+            el.srcObject = null;
+            el.removeAttribute('src');
+            try { el.load(); } catch (e) {}
+        });
+        if (activeCallObj && activeCallObj.peerConnection) {
+            try {
+                activeCallObj.peerConnection.getSenders().forEach(s => {
+                    if (s.track) {
+                        try {
+                            s.track.enabled = false;
+                            s.track.stop();
+                        } catch (e) {}
                     }
                 });
-                activeCallObj.on('close', () => window.endCall(false));
-            }
+            } catch (e) {}
         }
-    };
+        if (window.VideoFXEngine && typeof window.VideoFXEngine.stop === 'function') {
+            try { window.VideoFXEngine.stop(); } catch (e) {}
+        }
+        isVideoSwappedAdmin = false;
+        const activeCard = document.getElementById('activeCallCard');
+        if (activeCard) activeCard.setAttribute('data-swap', 'false');
+        const callNameEl = document.getElementById('activeCallName');
+        if (callNameEl && window.activeCallWargaName) {
+            callNameEl.innerText = window.activeCallWargaName;
+        }
+    }
 
     /**
      * Sinyal Panggilan Ditolak atau Diakhiri oleh Warga
      */
     window.handleCallEndedSignal = function (event) {
+        if (!event) return;
+        if (event.sender_socket && event.sender_socket === window.mySessionSocketId) return;
+
+        const activeUI = document.getElementById('activeCallUI');
+        const isCallActive = (activeUI && activeUI.style.display !== 'none') || Boolean(activeCallObj || callLocalStream);
+        const incomingUI = document.getElementById('incomingCallUI');
+        const isIncoming = (incomingUI && incomingUI.style.display !== 'none') || Boolean(window.pendingIncomingCallFromWarga);
+
+        if (!isCallActive && !isIncoming) {
+            return;
+        }
+
         if (window.RealtimeHub && typeof window.RealtimeHub.stopRingtone === 'function') {
             window.RealtimeHub.stopRingtone();
         }
 
-        const incomingUI = document.getElementById('incomingCallUI');
         if (incomingUI) incomingUI.style.display = 'none';
+        window.pendingIncomingCallFromWarga = null;
 
-        if (event && event.type === 'CALL_DECLINE') {
+        if (event.type === 'CALL_DECLINE') {
             Swal.fire({
                 icon: 'info',
                 title: 'Panggilan Ditolak',
@@ -6267,54 +7769,120 @@
     };
 
     window.endCall = function (shouldBroadcast = true) {
+        if (shouldBroadcast && typeof shouldBroadcast === 'object') {
+            shouldBroadcast = true;
+        }
+
         if (window.RealtimeHub && typeof window.RealtimeHub.stopRingtone === 'function') {
             window.RealtimeHub.stopRingtone();
         }
 
-        if (shouldBroadcast && window.activeChatNik && window.RealtimeHub && typeof window.RealtimeHub.send === 'function') {
+        if (shouldBroadcast && window.RealtimeHub && typeof window.RealtimeHub.send === 'function') {
+            const myRole = (localStorage.getItem('role') || localStorage.getItem('user_role') || 'Admin Bansos').toUpperCase();
             window.RealtimeHub.send({
                 type: 'CALL_END',
-                target_nik: window.activeChatNik
+                call_id: currentCallId,
+                sender_socket: window.mySessionSocketId,
+                sender_role: myRole,
+                target_nik: activeCallPartnerNik || window.activeChatNik || '',
+                caller_nik: localStorage.getItem('nik') || ''
             });
         }
 
-        if (callLocalStream) {
-            callLocalStream.getTracks().forEach(t => t.stop());
-            callLocalStream = null;
+        currentCallId = null;
+        activeCallPartnerNik = null;
+        isRemoteCameraOffAdmin = false;
+        isRemoteMicMutedAdmin = false;
+        isVideoSwappedAdmin = false;
+        isAdminCameraOff = false;
+        isCallAudioMuted = false;
+
+        stopAllHardwareMediaTracksAdmin();
+
+        const mCamOff = document.getElementById('mainCameraOffOverlay');
+        if (mCamOff) mCamOff.style.display = 'none';
+        const pCamOff = document.getElementById('pipCameraOffOverlay');
+        if (pCamOff) pCamOff.style.display = 'none';
+
+        const pipReset = document.getElementById('videoPipContainer');
+        if (pipReset) {
+            ['position', 'left', 'top', 'right', 'bottom', 'width', 'height'].forEach(p => pipReset.style.removeProperty(p));
+            pipReset.setAttribute('data-pip-pos', 'br');
         }
 
         if (activeCallObj) {
-            try { activeCallObj.close(); } catch (e) {}
+            try {
+                if (typeof activeCallObj.removeAllListeners === 'function') {
+                    activeCallObj.removeAllListeners();
+                } else if (typeof activeCallObj.off === 'function') {
+                    activeCallObj.off('close');
+                    activeCallObj.off('stream');
+                    activeCallObj.off('error');
+                }
+                activeCallObj.close();
+            } catch (e) {}
             activeCallObj = null;
         }
 
         clearInterval(callDurationTimer);
         const activeUI = document.getElementById('activeCallUI');
-        if (activeUI) activeUI.style.display = 'none';
+        if (activeUI) {
+            activeUI.style.display = 'none';
+            activeUI.classList.remove('is-minimized');
+        }
+        const activeCard = document.getElementById('activeCallCard');
+        if (activeCard) {
+            activeCard.classList.remove('call-minimized');
+            ['position', 'left', 'top', 'right', 'bottom', 'width', 'height'].forEach(p => activeCard.style.removeProperty(p));
+            activeCard.removeAttribute('data-swap');
+        }
         const incomingUI = document.getElementById('incomingCallUI');
         if (incomingUI) incomingUI.style.display = 'none';
 
-        // Reset filter & popover
-        isBeautyFilterActive = false;
-        isBlurFilterActive = false;
-        const localVid = document.getElementById('localVideo');
-        if (localVid) {
-            localVid.classList.remove('filter-beauty', 'filter-blur-bg');
-            localVid.srcObject = null;
-        }
-        const swBeauty = document.getElementById('switchBeautyFilter');
-        if (swBeauty) swBeauty.classList.remove('active');
-        const swBlur = document.getElementById('switchBlurFilter');
-        if (swBlur) swBlur.classList.remove('active');
         const netPop = document.getElementById('callNetworkPopover');
         if (netPop) netPop.style.display = 'none';
-        const filterPop = document.getElementById('videoFilterPopover');
-        if (filterPop) filterPop.style.display = 'none';
         const btnMore = document.getElementById('btnCallMoreOptions');
         if (btnMore) btnMore.classList.remove('active-popover');
-        const btnFilter = document.getElementById('btnVideoFilter');
-        if (btnFilter) btnFilter.classList.remove('active-popover');
 
+        const btnMute = document.getElementById('btnMute');
+        if (btnMute) {
+            btnMute.className = 'call-ctrl-btn';
+            btnMute.innerHTML = '<i class="fas fa-microphone"></i>';
+        }
+        const minAudBtn = document.getElementById('minAudioBtnMute');
+        const minVidBtn = document.getElementById('minVideoBtnMute');
+        [minAudBtn, minVidBtn].forEach(b => {
+            if (b) {
+                b.classList.remove('is-muted');
+                b.innerHTML = '<i class="fas fa-microphone"></i>';
+                b.title = 'Bisukan Mikrofon';
+            }
+        });
+        const btnVid = document.getElementById('btnVideo');
+        if (btnVid) {
+            btnVid.classList.remove('off');
+            btnVid.innerHTML = '<i class="fas fa-video"></i>';
+        }
+        const minVidCam = document.getElementById('minVideoBtnCam');
+        if (minVidCam) {
+            minVidCam.classList.remove('is-off');
+            minVidCam.innerHTML = '<i class="fas fa-video"></i>';
+            minVidCam.title = 'Matikan Kamera';
+        }
+
+        const minCamBadge = document.getElementById('minCamOffBadge');
+        if (minCamBadge) minCamBadge.style.display = 'none';
+        const minMicBadge = document.getElementById('minMicOffBadge');
+        if (minMicBadge) minMicBadge.style.display = 'none';
+
+        const cardA = document.getElementById('activeCallCard');
+        if (cardA) {
+            cardA.classList.remove('call-minimized');
+            ['position', 'left', 'top', 'right', 'bottom', 'width', 'height'].forEach(p => cardA.style.removeProperty(p));
+            cardA.removeAttribute('data-swap');
+            cardA.removeAttribute('data-filter-beauty');
+            cardA.removeAttribute('data-filter-blur');
+        }
         window.pendingIncomingCallFromWarga = null;
     };
 
@@ -6421,65 +7989,17 @@
         }
     };
 
-    window.filterInvestigasi = async function (filterType, btnEl) {
-        if (btnEl) {
-            btnEl.parentElement.querySelectorAll('button').forEach(b => {
-                b.className = 'btn btn-secondary btn-sm';
-            });
-            btnEl.className = 'btn btn-primary btn-sm';
-        }
-
-        const container = document.getElementById('laporanChatList');
-        if (!container) return;
-
-        container.innerHTML = '<div style="text-align:center; padding:30px; color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Memuat data investigasi...</div>';
-
-        try {
-            const res = await apiCall('/api/laporan-chat');
-            let list = (res && res.ok) ? await res.json() : [];
-
-            if (filterType !== 'all') {
-                list = list.filter(r => r.urgensi === filterType || r.tipe === filterType);
-            }
-
-            if (!list.length) {
-                container.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8;">Tidak ada aduan aktif dalam kategori ini.</div>';
-                return;
-            }
-
-            container.innerHTML = list.map(r => `
-                <div class="investigasi-card-modern urgent-level">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div>
-                            <span style="font-size:0.75rem; font-weight:800; color:#dc2626; text-transform:uppercase;">🚨 PRIORITAS TINGGI</span>
-                            <h4 style="margin:4px 0 2px 0; font-size:1.05rem; color:#0f172a; font-weight:800;">${window.safeHtml(r.kategori)}</h4>
-                            <div style="font-size:0.82rem; color:#64748b;">
-                                Pelapor: <b style="color:#0f172a;">${window.safeHtml(r.nama)}</b> • NIK: <span style="font-family:monospace; color:#009846; font-weight:700;">${r.nik}</span>
-                            </div>
-                        </div>
-                        <span class="badge" style="background:#f1f5f9; font-size:0.75rem; color:#475569;"><i class="fas fa-clock"></i> ${r.waktu}</span>
-                    </div>
-                    <div style="background:#f8fafc; border:1px solid #f1f5f9; padding:10px 14px; border-radius:10px; margin:12px 0; font-size:0.86rem; color:#334155;">
-                        ${window.safeHtml(r.uraian)}
-                    </div>
-                    <div style="display:flex; justify-content:flex-end; gap:8px;">
-                        <button onclick="window.closeModal('modalLaporanChat'); window.openAdminChat('${r.nik}', '${window.escapeInlineJS(r.nama)}');" class="btn btn-primary btn-sm">
-                            <i class="fas fa-comments"></i> Buka Chat Mediasi Warga
-                        </button>
-                        <button onclick="Swal.fire('Selesai', 'Status aduan berhasil diperbarui.', 'success')" class="btn btn-sm" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-weight:700;">
-                            <i class="fas fa-check"></i> Selesaikan
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        } catch (e) {
-            container.innerHTML = '<div style="text-align:center; padding:30px; color:#ef4444;">Gagal mengambil data investigasi.</div>';
+    // Delegasi Investigasi ke admin-investigasi.js sebagai sumber tunggal
+    window.filterInvestigasi = function (filterType, btnEl) {
+        if (typeof window.applyCombinedInvestigasiFilter === 'function') {
+            window.activeInvestigasiFilter = filterType || 'all';
+            window.applyCombinedInvestigasiFilter();
         }
     };
 
-    window.loadLaporanChatData = async function () {
-        if (typeof window.filterInvestigasi === 'function') {
-            window.filterInvestigasi('all', null);
+    window.loadLaporanChatData = function () {
+        if (typeof window.applyCombinedInvestigasiFilter === 'function') {
+            window.applyCombinedInvestigasiFilter();
         }
     };
 
@@ -6548,143 +8068,55 @@
     };
 
     window.toggleNotifPanel = function (e) {
-        if (e) e.stopPropagation();
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         const panel = document.getElementById('notifPanel');
         if (!panel) return;
         const isShow = panel.style.display === 'flex' || panel.style.display === 'block';
-        panel.style.display = isShow ? 'none' : 'flex';
-        if (!isShow) {
-            lastRenderedNotifState = '';
-            window.fetchNotifications();
-            window.renderNotificationList();
+        panel.style.display = isShow ? 'none' : 'block';
+        if (!isShow && typeof window.loadNotifikasiAktivitas === 'function') {
+            window.loadNotifikasiAktivitas(window.currentNotifTab || 'all', true);
         }
     };
 
     window.switchNotifTab = function (tab) {
+        window.currentNotifTab = tab;
         window.activeNotifTab = tab;
-        document.querySelectorAll('.ntf-tab-btn').forEach(b => b.classList.remove('active'));
-        if (tab === 'all') document.getElementById('tabNotifAll')?.classList.add('active');
-        else if (tab === 'urgent') document.getElementById('tabNotifUrgent')?.classList.add('active');
-        else if (tab === 'arsip') document.getElementById('tabNotifArsip')?.classList.add('active');
-        lastRenderedNotifState = '';
-        window.renderNotificationList();
+        document.querySelectorAll('.ntf-tab-btn').forEach(b => {
+            b.classList.remove('active');
+            b.style.background = 'transparent';
+            b.style.color = '#475569';
+        });
+
+        let activeBtnId = 'tabNotifAll';
+        if (tab === 'urgent') activeBtnId = 'tabNotifUrgent';
+        else if (tab === 'arsip') activeBtnId = 'tabNotifArsip';
+        else if (tab === 'panggilan') activeBtnId = 'tabNotifPanggilan';
+
+        const activeBtn = document.getElementById(activeBtnId);
+        if (activeBtn) {
+            activeBtn.classList.add('active');
+            activeBtn.style.background = tab === 'urgent' ? '#dc2626' : (tab === 'panggilan' ? '#0284c7' : '#ffffff');
+            activeBtn.style.color = (tab === 'urgent' || tab === 'panggilan') ? '#ffffff' : '#0f172a';
+        }
+
+        if (typeof window.renderNotifikasiListDOM === 'function') {
+            window.renderNotifikasiListDOM();
+        }
     };
 
     window.renderNotificationList = function () {
-        const listContainer = document.getElementById('notifList');
-        if (!listContainer) return;
-
-        let items = [...(window.globalNotificationsData || [])];
-        if (window.activeNotifTab === 'urgent') items = items.filter(n => n.isUrgent && !n.archived);
-        else if (window.activeNotifTab === 'arsip') items = items.filter(n => n.archived);
-        else items = items.filter(n => !n.archived);
-
-        items.sort((a, b) => {
-            if (a.pinned !== b.pinned) return b.pinned ? 1 : -1;
-            return b.id - a.id;
-        });
-
-        const currentStateKey = JSON.stringify(items.map(i => ({ id: i.id, p: i.pinned, a: i.archived, r: i.is_read }))) + '_' + window.activeNotifTab;
-        if (currentStateKey === lastRenderedNotifState && listContainer.children.length > 0) {
-            return;
+        if (typeof window.renderNotifikasiListDOM === 'function') {
+            window.renderNotifikasiListDOM();
         }
-        lastRenderedNotifState = currentStateKey;
-
-        if (!items.length) {
-            listContainer.innerHTML = '<div style="text-align:center; padding:35px 20px; color:#94a3b8;"><i class="fas fa-bell-slash fa-2x"></i><p style="margin-top:8px; font-size:0.85rem;">Tidak ada notifikasi baru.</p></div>';
-            return;
-        }
-
-        const prevScroll = listContainer.scrollTop;
-
-        listContainer.innerHTML = items.map(n => {
-            const rawPesan = n.text || n.pesan || '';
-            let roleBadgeText = (n.role_sender || 'SISTEM').toUpperCase();
-            let badgeStyle = 'background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;';
-            let cleanText = rawPesan;
-
-            // Ekstraksi Tag Awalan Presisi Menggunakan Regex yang Telah Diperbaiki Bebas Artefak
-            const tagMatch = rawPesan.match(/^\[(Admin\vert{}Petugas\vert{}Operator\vert{}Warga\vert{}Sistem\vert{}Urgent\vert{}Keamanan)\]\s*/i);
-            if (tagMatch) {
-                const tag = tagMatch[1].toUpperCase();
-                roleBadgeText = (tag === 'OPERATOR') ? 'PETUGAS' : tag;
-                cleanText = rawPesan.replace(/^\[(Admin\vert{}Petugas\vert{}Operator\vert{}Warga\vert{}Sistem\vert{}Urgent\vert{}Keamanan)\]\s*/i, '').trim();
-            }
-
-            // Terapkan Palet Warna Berdasarkan Peran Sebenarnya
-            if (roleBadgeText === 'ADMIN') {
-                badgeStyle = 'background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe;';
-            } else if (roleBadgeText === 'PETUGAS') {
-                badgeStyle = 'background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;';
-            } else if (roleBadgeText === 'WARGA') {
-                badgeStyle = 'background:#fef3c7; color:#b45309; border:1px solid #fde68a;';
-            } else if (roleBadgeText === 'URGENT' || rawPesan.includes('🚨') || rawPesan.toLowerCase().includes('sengketa')) {
-                roleBadgeText = 'URGENT';
-                badgeStyle = 'background:#fee2e2; color:#dc2626; border:1px solid #fecaca;';
-            } else {
-                roleBadgeText = 'SISTEM';
-                badgeStyle = 'background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;';
-            }
-
-            return `
-                <div class="ntf-item-row" onclick="window.handleNotificationClick(${n.id})" 
-                     style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s; background: ${n.is_read ? '#ffffff' : '#f8fafc'};" 
-                     onmouseenter="this.style.background='#f1f5f9'" 
-                     onmouseleave="this.style.background='${n.is_read ? '#ffffff' : '#f8fafc'}'">
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                        <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; ${badgeStyle}">
-                            ${roleBadgeText}
-                        </span>
-                        
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 0.72rem; color: #94a3b8; font-family: monospace;">${n.time || n.waktu || 'Hari ini'}</span>
-                            <button type="button" onclick="window.togglePinNotification(${n.id}, event)" style="background: none; border: none; color: ${n.pinned || n.is_pinned ? '#d97706' : '#94a3b8'}; cursor: pointer; padding: 2px 4px;" title="Sematkan">
-                                <i class="fas fa-thumbtack"></i>
-                            </button>
-                            <button type="button" onclick="window.toggleArchiveNotification(${n.id}, event)" style="background: none; border: none; color: ${n.archived || n.is_archived ? '#0284c7' : '#94a3b8'}; cursor: pointer; padding: 2px 4px;" title="Arsipkan">
-                                <i class="fas fa-archive"></i>
-                            </button>
-                            <button type="button" onclick="window.hapusNotifikasi(${n.id}, event)" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 2px 4px;" title="Hapus">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div style="font-size: 0.85rem; color: #1e293b; font-weight: ${n.is_read ? '500' : '700'}; line-height: 1.45; word-break: break-word;">
-                        ${window.safeHtml(cleanText)}
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        listContainer.scrollTop = prevScroll;
     };
 
-    window.renderNotifikasi = window.renderNotificationList;
-    window.loadNotifikasi = window.fetchNotifications;
-    window.loadNotifications = window.fetchNotifications;
-    window.checkNotifications = window.fetchNotifications;
-
-    window.handleNotificationClick = async function (id) {
-        const item = (window.globalNotificationsData || []).find(n => n.id === id);
-        if (!item) return;
-
-        try {
-            await apiCall(`/api/notifikasi/${id}/read`, { method: 'PATCH' });
-        } catch (e) {}
-
-        const panel = document.getElementById('notifPanel');
-        if (panel) panel.style.display = 'none';
-
-        if (item.action === 'chat' && item.nik) {
-            window.openAdminChat(item.nik, window.getWargaNameByNik(item.nik));
-        } else if (item.action === 'spk') {
-            if (typeof window.hitungSPK === 'function') window.hitungSPK();
+    window.handleNotificationClick = function (id) {
+        if (typeof window.lihatDetailNotifikasi === 'function') {
+            window.lihatDetailNotifikasi(null, id);
         }
-
-        lastRenderedNotifState = '';
-        window.fetchNotifications();
     };
 
     window.togglePinNotification = async function (id, event) {
@@ -7498,3 +8930,524 @@
     }, 1500);
 
 })(window);
+
+    document.addEventListener('click', (ev) => {
+        const netPop = document.getElementById('callNetworkPopover');
+        const netBtn = document.getElementById('btnCallMoreOptions');
+        if (netPop && netPop.style.display !== 'none' && !netPop.contains(ev.target) && (!netBtn || !netBtn.contains(ev.target))) {
+            netPop.style.display = 'none';
+            if (netBtn) netBtn.classList.remove('active-popover');
+        }
+        const filterPop = document.getElementById('videoFilterPopover');
+        const filterBtn = document.getElementById('btnVideoFilter');
+        if (filterPop && filterPop.style.display !== 'none' && !filterPop.contains(ev.target) && (!filterBtn || !filterBtn.contains(ev.target))) {
+            filterPop.style.display = 'none';
+            if (filterBtn) filterBtn.classList.remove('active-popover');
+        }
+    });
+
+    // Penutup Popover Titik Tiga saat klik di luar (Admin)
+    document.addEventListener('click', (ev) => {
+        const pop = document.getElementById('callNetworkPopover');
+        const btn = document.getElementById('btnCallMoreOptions');
+        if (pop && pop.style.display !== 'none' && !pop.contains(ev.target) && (!btn || !btn.contains(ev.target))) {
+            pop.style.display = 'none';
+            if (btn) btn.classList.remove('active-popover');
+        }
+    });
+    window.toggleCallMoreMenu = window.toggleCallNetworkOptions;
+
+// =========================================================================
+// INTEGRASI LOG PANGGILAN DI DALAM CHAT WARGA (SATU TEMPAT TERPADU)
+// =========================================================================
+window._cachedCallLogsInChat = [];
+window._filterCallInChat = 'semua';
+
+window.filterCallLogInChat = function (fil, btn) {
+    window._filterCallInChat = fil;
+    document.querySelectorAll('.btn-chat-call-fil').forEach(b => {
+        b.style.background = '#ffffff';
+        b.style.color = '#475569';
+        b.style.borderColor = '#cbd5e1';
+    });
+    if (btn) {
+        btn.style.background = '#0284c7';
+        btn.style.color = '#ffffff';
+        btn.style.borderColor = '#0284c7';
+    }
+    window.renderCallLogsInChat();
+};
+
+window.muatDaftarLogPanggilanInsideChat = async function () {
+    const container = document.getElementById('chatCallLogItemContainer');
+    if (!container) return;
+    try {
+        const base = (window.BASE_API_URL || window.API_BASE_URL || window.BASE_URL || window.location.origin).replace(/\/+$/, '');
+        const res = await fetch(`${base}/api/panggilan/logs`, {
+            headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
+        });
+        if (!res.ok) throw new Error('Gagal mengambil data log panggilan.');
+        const json = await res.json();
+        window._cachedCallLogsInChat = json.data || [];
+
+        // Update statistik ringkas
+        const statTotal = document.getElementById('chatCallStatTotal');
+        const statSuccess = document.getElementById('chatCallStatSuccess');
+        if (statTotal) statTotal.textContent = `${window._cachedCallLogsInChat.length}`;
+        if (statSuccess) {
+            const countDone = window._cachedCallLogsInChat.filter(c => c.status === 'selesai').length;
+            statSuccess.textContent = `${countDone}`;
+        }
+
+        window.renderCallLogsInChat();
+    } catch (err) {
+        container.innerHTML = `<div style="text-align:center; padding:12px; color:#dc2626; font-size:0.75rem;">${err.message}</div>`;
+    }
+};
+
+
+// =========================================================================
+// HELPER & STATE LOG PANGGILAN DI CHAT (PIN, ARSIP, BLOKIR, HAPUS, PANGGIL LANGSUNG)
+// =========================================================================
+window.getCallMeta = function (callId) {
+    try {
+        const raw = localStorage.getItem(`bansos_call_meta_${callId}`);
+        return raw ? JSON.parse(raw) : { is_pinned: false, is_archived: false, is_blocked: false };
+    } catch (_) {
+        return { is_pinned: false, is_archived: false, is_blocked: false };
+    }
+};
+
+window.setCallMeta = function (callId, meta) {
+    try {
+        localStorage.setItem(`bansos_call_meta_${callId}`, JSON.stringify(meta));
+    } catch (_) {}
+};
+
+window.togglePinCall = function (callId) {
+    const meta = window.getCallMeta(callId);
+    meta.is_pinned = !meta.is_pinned;
+    window.setCallMeta(callId, meta);
+    window.renderCallLogsInChat();
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: meta.is_pinned ? 'Riwayat panggilan disematkan' : 'Sematan riwayat panggilan dilepas',
+            showConfirmButton: false,
+            timer: 1600
+        });
+    }
+};
+
+window.toggleArsipCall = function (callId) {
+    const meta = window.getCallMeta(callId);
+    meta.is_archived = !meta.is_archived;
+    window.setCallMeta(callId, meta);
+    window.renderCallLogsInChat();
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'info',
+            title: meta.is_archived ? 'Riwayat panggilan diarsipkan' : 'Riwayat panggilan dikembalikan',
+            showConfirmButton: false,
+            timer: 1600
+        });
+    }
+};
+
+window.toggleBlokirCall = async function (callId, callerName = '') {
+    const meta = window.getCallMeta(callId);
+    const nextState = !meta.is_blocked;
+    if (nextState) {
+        if (typeof Swal !== 'undefined') {
+            const res = await Swal.fire({
+                title: 'Blokir Kontak Panggilan?',
+                text: `Nomor/kontak ${callerName || 'ini'} akan diblokir dari panggilan telepon dan video call.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Ya, Blokir Panggilan',
+                cancelButtonText: 'Batal'
+            });
+            if (!res.isConfirmed) return;
+        } else {
+            if (!confirm(`Blokir panggilan dari ${callerName}?`)) return;
+        }
+    }
+
+    meta.is_blocked = nextState;
+    window.setCallMeta(callId, meta);
+    window.renderCallLogsInChat();
+
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: nextState ? 'error' : 'success',
+            title: nextState ? 'Kontak panggilan diblokir' : 'Blokir panggilan dibuka',
+            showConfirmButton: false,
+            timer: 1800
+        });
+    }
+};
+
+window.panggilLangsungDariLog = function (callId, type = 'audio') {
+    const call = (window._cachedCallLogsInChat || []).find(c => String(c.id) === String(callId));
+    if (!call) return;
+    const targetNik = call.nik_warga || (call.callee_role === 'warga' ? call.callee_id : call.caller_id);
+    const targetName = call.callee_name || call.caller_name || 'Warga';
+
+    if (targetNik) {
+        window.activeChatNik = targetNik;
+        window.activeChatName = targetName;
+    }
+
+    if (typeof window.startCallWarga === 'function') {
+        window.startCallWarga(type);
+    } else {
+        alert('Fitur panggilan WebRTC sedang diinisiasi.');
+    }
+};
+
+window.bukaModalPanggilanLangsung = function (defaultType = 'audio') {
+    const listWarga = window.globalDataWarga || [];
+    let optionsHtml = '';
+    listWarga.slice(0, 50).forEach(w => {
+        optionsHtml += `<option value="${w.nik}">${w.nama || 'Warga'} - NIK: ${w.nik} (Desil ${w.desil || 1})</option>`;
+    });
+
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: `<div style="display:flex; align-items:center; gap:8px; font-size:1.05rem; color:#0f172a;">
+                        <span style="width:34px; height:34px; border-radius:8px; background:${defaultType === 'video' ? '#f3e8ff' : '#dcfce7'}; color:${defaultType === 'video' ? '#7e22ce' : '#15803d'}; display:flex; align-items:center; justify-content:center;">
+                            <i class="fas ${defaultType === 'video' ? 'fa-video' : 'fa-phone-alt'}"></i>
+                        </span>
+                        <span>Mulai Panggilan Langsung WebRTC</span>
+                    </div>`,
+            html: `
+                <div style="text-align:left; font-size:0.83rem; color:#334155; margin-top:8px;">
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block; font-weight:700; margin-bottom:4px; font-size:0.75rem; color:#475569;">PILIH TIPE PANGGILAN:</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                            <label style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #cbd5e1; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:700;">
+                                <input type="radio" name="swalCallType" value="audio" ${defaultType === 'audio' ? 'checked' : ''}>
+                                <i class="fas fa-phone-alt text-success"></i> Suara (Audio)
+                            </label>
+                            <label style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #cbd5e1; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:700;">
+                                <input type="radio" name="swalCallType" value="video" ${defaultType === 'video' ? 'checked' : ''}>
+                                <i class="fas fa-video text-purple"></i> Video Call
+                            </label>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block; font-weight:700; margin-bottom:4px; font-size:0.75rem; color:#475569;">PILIH WARGA BINAAN / KONTEN:</label>
+                        <select id="swalSelectWargaCall" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.82rem; background:#ffffff;">
+                            <option value="">-- Pilih dari Daftar Warga Terdaftar --</option>
+                            ${optionsHtml}
+                        </select>
+                    </div>
+
+                    <div style="margin-bottom:6px;">
+                        <label style="display:block; font-weight:700; margin-bottom:4px; font-size:0.75rem; color:#475569;">ATAU KETIK NOMOR NIK / ID TUJUAN:</label>
+                        <input type="text" id="swalCustomNikCall" placeholder="Masukkan 16 Digit NIK..." style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.82rem; box-sizing:border-box;">
+                    </div>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-phone-volume"></i> Hubungkan Sekarang',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: defaultType === 'video' ? '#7e22ce' : '#009846',
+            cancelButtonColor: '#64748b',
+            didOpen: () => {
+                const sel = document.getElementById('swalSelectWargaCall');
+                const inp = document.getElementById('swalCustomNikCall');
+                if (sel && inp) {
+                    sel.addEventListener('change', () => {
+                        if (sel.value) inp.value = sel.value;
+                    });
+                }
+            },
+            preConfirm: () => {
+                const typeEl = document.querySelector('input[name="swalCallType"]:checked');
+                const callType = typeEl ? typeEl.value : 'audio';
+                const sel = document.getElementById('swalSelectWargaCall');
+                const inp = document.getElementById('swalCustomNikCall');
+                const nik = (inp?.value || sel?.value || '').trim();
+
+                if (!nik) {
+                    Swal.showValidationMessage('Silakan pilih atau ketik NIK tujuan panggilan.');
+                    return false;
+                }
+                const wargaObj = listWarga.find(w => String(w.nik) === nik);
+                return {
+                    nik: nik,
+                    nama: wargaObj ? wargaObj.nama : `Warga (${nik})`,
+                    type: callType
+                };
+            }
+        }).then(result => {
+            if (result.isConfirmed && result.value) {
+                window.activeChatNik = result.value.nik;
+                window.activeChatName = result.value.nama;
+                window.startCallWarga(result.value.type);
+            }
+        });
+    }
+};
+
+window.renderCallLogsInChat = function () {
+    const container = document.getElementById('chatCallLogItemContainer');
+    if (!container) return;
+
+    // HANYA PANGGILAN DENGAN WARGA: Admin, Petugas, dan Super Admin TIDAK DAPAT saling menelepon
+    const aparaturRoles = ['admin', 'superadmin', 'super_admin', 'petugas'];
+    let list = (window._cachedCallLogsInChat || []).filter(c => {
+        const isCallerAparatur = aparaturRoles.includes((c.caller_role || '').toLowerCase());
+        const isCalleeAparatur = aparaturRoles.includes((c.callee_role || '').toLowerCase());
+        if (isCallerAparatur && isCalleeAparatur) return false; // Buang panggilan sesama aparatur
+        return true;
+    });
+
+    const fil = window._filterCallInChat;
+    if (fil === 'warga') {
+        list = list.filter(c => !window.getCallMeta(c.id).is_archived);
+    } else if (fil === 'pinned') {
+        list = list.filter(c => window.getCallMeta(c.id).is_pinned);
+    } else if (fil === 'arsip') {
+        list = list.filter(c => window.getCallMeta(c.id).is_archived);
+    } else if (fil === 'blocked') {
+        list = list.filter(c => window.getCallMeta(c.id).is_blocked);
+    } else {
+        // Default 'semua': sembunyikan yang diarsipkan
+        list = list.filter(c => !window.getCallMeta(c.id).is_archived);
+    }
+
+    if (list.length === 0) {
+        let emptyText = 'Belum ada riwayat panggilan.';
+        if (fil === 'pinned') emptyText = 'Belum ada riwayat panggilan yang disematkan.';
+        else if (fil === 'arsip') emptyText = 'Belum ada riwayat panggilan yang diarsipkan.';
+        else if (fil === 'blocked') emptyText = 'Tidak ada kontak panggilan yang diblokir.';
+        container.innerHTML = `
+            <div style="text-align:center; padding:20px 10px; background:#f8fafc; border-radius:10px; border:1px dashed #cbd5e1; color:#64748b; font-size:0.75rem;">
+                <i class="fas fa-phone-slash" style="font-size:1.2rem; color:#94a3b8; margin-bottom:6px;"></i>
+                <div>${emptyText}</div>
+            </div>
+        `;
+        return;
+    }
+
+    // Urutkan: Sematan (pinned) selalu paling atas!
+    list.sort((a, b) => {
+        const pinA = window.getCallMeta(a.id).is_pinned ? 1 : 0;
+        const pinB = window.getCallMeta(b.id).is_pinned ? 1 : 0;
+        if (pinB !== pinA) return pinB - pinA;
+        return (Number(b.id) || 0) - (Number(a.id) || 0);
+    });
+
+    let html = '';
+    list.forEach(c => {
+        const meta = window.getCallMeta(c.id);
+        const isVideo = c.tipe_panggilan === 'video';
+        const icon = isVideo ? 'fa-video' : 'fa-phone-alt';
+        const col = isVideo ? '#7e22ce' : '#0284c7';
+        const bg = isVideo ? '#f3e8ff' : '#e0f2fe';
+        const durSec = Number(c.durasi_detik) || 0;
+        const durStr = durSec >= 60 ? `${Math.floor(durSec/60)}m ${durSec%60}s` : `${durSec} dtk`;
+        const callTime = c.waktu_mulai ? (c.waktu_mulai.includes('T') ? c.waktu_mulai.split('T')[1].slice(0, 5) : c.waktu_mulai.slice(11, 16)) : '-';
+        const calleeOrCaller = c.callee_name || c.caller_name || 'Warga';
+
+        let badgeStatus = '';
+        if (meta.is_pinned) {
+            badgeStatus += `<span style="background:#fef3c7; color:#d97706; border:1px solid #fde68a; font-size:0.62rem; font-weight:800; padding:1px 5px; border-radius:4px;"><i class="fas fa-thumbtack"></i> SEMATAN</span>`;
+        }
+        if (meta.is_blocked) {
+            badgeStatus += `<span style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-size:0.62rem; font-weight:800; padding:1px 5px; border-radius:4px;"><i class="fas fa-ban"></i> DIBLOKIR</span>`;
+        }
+        if (meta.is_archived) {
+            badgeStatus += `<span style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; font-size:0.62rem; font-weight:800; padding:1px 5px; border-radius:4px;"><i class="fas fa-archive"></i> ARSIP</span>`;
+        }
+
+        const itemBg = meta.is_pinned ? 'background:#fffdf7;' : 'background:#ffffff;';
+        const borderAccent = meta.is_pinned ? 'border-left: 4px solid #f59e0b;' : 'border:1px solid #e2e8f0;';
+
+        html += `
+            <div style="${itemBg} ${borderAccent} border-radius:10px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; box-shadow:0 1px 3px rgba(0,0,0,0.02); transition:all 0.15s ease;"
+                 onmouseover="this.style.borderColor='#38bdf8';"
+                 onmouseout="this.style.borderColor='#e2e8f0';">
+                <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1; cursor:pointer;" onclick="window.bukaDetailLogPanggilanModal('${c.id}')">
+                    <div style="width:34px; height:34px; border-radius:10px; background:${meta.is_blocked ? '#fee2e2' : bg}; color:${meta.is_blocked ? '#dc2626' : col}; display:flex; align-items:center; justify-content:center; font-size:0.9rem; flex-shrink:0;">
+                        <i class="fas ${icon}"></i>
+                    </div>
+                    <div style="min-width:0; flex:1;">
+                        <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                            <span style="font-weight:800; font-size:0.82rem; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                ${calleeOrCaller}
+                            </span>
+                            ${badgeStatus}
+                        </div>
+                        <div style="font-size:0.7rem; color:#64748b; display:flex; gap:6px; align-items:center; margin-top:2px; flex-wrap:wrap;">
+                            <span><i class="far fa-clock"></i> ${callTime}</span>
+                            <span>•</span>
+                            <span style="font-weight:700; color:#15803d;">${durStr}</span>
+                            <span>•</span>
+                            <span style="text-transform:uppercase; font-size:0.62rem; background:#f1f5f9; padding:1px 5px; border-radius:4px; font-weight:700;">${c.callee_role || 'warga'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AKSI LANGSUNG PANGGILAN & MANAJEMEN -->
+                <div style="display:flex; gap:4px; align-items:center;" onclick="event.stopPropagation()">
+                    <!-- Tombol Langsung Panggilan Suara & Video -->
+                    <button type="button" onclick="window.panggilLangsungDariLog('${c.id}', 'audio')" style="background:#f0fdf4; border:1px solid #bbf7d0; color:#16a34a; border-radius:6px; padding:5px 7px; font-size:0.72rem; font-weight:800; cursor:pointer;" title="Panggil Suara Langsung">
+                        <i class="fas fa-phone-alt"></i>
+                    </button>
+                    <button type="button" onclick="window.panggilLangsungDariLog('${c.id}', 'video')" style="background:#f3e8ff; border:1px solid #e9d5ff; color:#7e22ce; border-radius:6px; padding:5px 7px; font-size:0.72rem; font-weight:800; cursor:pointer;" title="Video Call Langsung">
+                        <i class="fas fa-video"></i>
+                    </button>
+
+                    <!-- Tombol Pin, Arsip, Blokir, Hapus -->
+                    <button type="button" onclick="window.togglePinCall('${c.id}')" title="${meta.is_pinned ? 'Lepas Sematan' : 'Sematkan Riwayat'}" style="background:none; border:none; color:${meta.is_pinned ? '#d97706' : '#94a3b8'}; cursor:pointer; font-size:0.75rem; padding:4px 3px;">
+                        <i class="fas fa-thumbtack"></i>
+                    </button>
+                    <button type="button" onclick="window.toggleArsipCall('${c.id}')" title="${meta.is_archived ? 'Buka dari Arsip' : 'Arsipkan Riwayat'}" style="background:none; border:none; color:${meta.is_archived ? '#0284c7' : '#94a3b8'}; cursor:pointer; font-size:0.75rem; padding:4px 3px;">
+                        <i class="fas ${meta.is_archived ? 'fa-box-open' : 'fa-archive'}"></i>
+                    </button>
+                    <button type="button" onclick="window.toggleBlokirCall('${c.id}', '${window.escapeInlineJS(calleeOrCaller)}')" title="${meta.is_blocked ? 'Buka Blokir' : 'Blokir Panggilan Kontak'}" style="background:none; border:none; color:${meta.is_blocked ? '#dc2626' : '#94a3b8'}; cursor:pointer; font-size:0.75rem; padding:4px 3px;">
+                        <i class="fas fa-ban"></i>
+                    </button>
+                    <button type="button" onclick="window.hapusLogPanggilanDariNotif('${c.id}')" title="Hapus Rekaman Panggilan" style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:0.75rem; padding:4px 3px;" onmouseover="this.style.color='#dc2626';" onmouseout="this.style.color='#94a3b8';">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                    <button type="button" onclick="window.bukaDetailLogPanggilanModal('${c.id}')" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; border-radius:6px; padding:5px 6px; font-size:0.7rem; font-weight:700; cursor:pointer;" title="Buka Detail Lengkap">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+};
+
+// MODAL DETAIL LOG PANGGILAN RESMI
+window.bukaDetailLogPanggilanModal = async function (callId) {
+    let call = (window._cachedCallLogsInChat || []).find(c => String(c.id) === String(callId)) ||
+               (window.cachedCallLogs || []).find(c => String(c.id) === String(callId));
+
+    if (!call) {
+        try {
+            const base = (window.BASE_API_URL || window.API_BASE_URL || window.BASE_URL || window.location.origin).replace(/\/+$/, '');
+            const res = await fetch(`${base}/api/panggilan/logs`, {
+                headers: { 'Authorization': `Bearer ${window.getCleanToken()}` }
+            });
+            if (res.ok) {
+                const json = await res.json();
+                window._cachedCallLogsInChat = json.data || [];
+                call = window._cachedCallLogsInChat.find(c => String(c.id) === String(callId));
+            }
+        } catch (e) {}
+    }
+
+    if (!call) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({ icon: 'warning', title: 'Data Tidak Ditemukan', text: 'Riwayat log panggilan tidak ditemukan di memori sistem.' });
+        }
+        return;
+    }
+
+    const isVideo = call.tipe_panggilan === 'video';
+    const durSec = Number(call.durasi_detik) || 0;
+    const durStr = durSec >= 60 ? `${Math.floor(durSec / 60)} Menit ${durSec % 60} Detik` : `${durSec} Detik`;
+    const callerName = call.caller_name || 'Pemanggil';
+    const callerRole = (call.caller_role || 'petugas').toUpperCase();
+    const calleeName = call.callee_name || 'Penerima';
+    const calleeRole = (call.callee_role || 'warga').toUpperCase();
+    const waktuMulai = call.waktu_mulai ? call.waktu_mulai.replace('T', ' ').slice(0, 19) : '-';
+    const waktuSelesai = call.waktu_selesai ? call.waktu_selesai.replace('T', ' ').slice(0, 19) : '-';
+    const statusText = call.status === 'selesai' ? 'Selesai Terhubung' : (call.status === 'tidak_terjawab' ? 'Tidak Terjawab / Tak Terhubung' : call.status);
+    const statusColor = call.status === 'selesai' ? '#16a34a' : '#dc2626';
+    const statusBg = call.status === 'selesai' ? '#f0fdf4' : '#fef2f2';
+
+    Swal.fire({
+        title: `<div style="display:flex; align-items:center; gap:8px; font-size:1.1rem; color:#0f172a;">
+                    <span style="width:36px; height:36px; border-radius:10px; background:${isVideo ? '#f3e8ff' : '#e0f2fe'}; color:${isVideo ? '#7e22ce' : '#0284c7'}; display:flex; align-items:center; justify-content:center;">
+                        <i class="fas ${isVideo ? 'fa-video' : 'fa-phone-alt'}"></i>
+                    </span>
+                    <span>Detail Riwayat Panggilan #${call.id}</span>
+                </div>`,
+        html: `
+            <div style="text-align:left; font-size:0.86rem; color:#334155; line-height:1.6;">
+                <div style="display:flex; justify-content:space-between; align-items:center; background:${statusBg}; padding:10px 14px; border-radius:10px; border:1px solid ${call.status === 'selesai' ? '#bbf7d0' : '#fecaca'}; margin-bottom:12px;">
+                    <div>
+                        <span style="font-size:0.75rem; color:#64748b;">Status Sesi Panggilan:</span>
+                        <div style="font-weight:800; color:${statusColor}; font-size:0.92rem;">
+                            <i class="fas ${call.status === 'selesai' ? 'fa-check-circle' : 'fa-times-circle'}"></i> ${statusText}
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="font-size:0.75rem; color:#64748b;">Durasi Percakapan:</span>
+                        <div style="font-weight:800; color:#0f172a; font-size:0.92rem;">${durStr}</div>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+                        <div style="font-size:0.72rem; font-weight:800; color:#64748b; text-transform:uppercase;"><i class="fas fa-sign-out-alt text-primary"></i> Pihak Pemanggil:</div>
+                        <div style="font-weight:800; color:#0f172a; margin-top:2px;">${callerName}</div>
+                        <div style="font-size:0.72rem; color:#0284c7; font-weight:700;">Peran: ${callerRole}</div>
+                    </div>
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+                        <div style="font-size:0.72rem; font-weight:800; color:#64748b; text-transform:uppercase;"><i class="fas fa-sign-in-alt text-success"></i> Pihak Penerima:</div>
+                        <div style="font-weight:800; color:#0f172a; margin-top:2px;">${calleeName}</div>
+                        <div style="font-size:0.72rem; color:#16a34a; font-weight:700;">Peran: ${calleeRole}</div>
+                    </div>
+                </div>
+
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 14px; margin-bottom:12px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:0.8rem;">
+                        <span style="color:#64748b;"><i class="far fa-calendar-alt"></i> Waktu Dimulai:</span>
+                        <span style="font-weight:700; color:#0f172a;">${waktuMulai}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:0.8rem;">
+                        <span style="color:#64748b;"><i class="far fa-clock"></i> Waktu Diakhiri:</span>
+                        <span style="font-weight:700; color:#0f172a;">${waktuSelesai}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+                        <span style="color:#64748b;"><i class="fas fa-shield-alt"></i> Jalur Komunikasi:</span>
+                        <span style="font-weight:700; color:#7e22ce;">WebRTC Peer-to-Peer (E2EE)</span>
+                    </div>
+                    ${call.nik_warga ? `
+                        <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:0.8rem; border-top:1px dashed #cbd5e1; padding-top:4px;">
+                            <span style="color:#64748b;"><i class="fas fa-id-card"></i> NIK Warga Terkait:</span>
+                            <span style="font-weight:800; color:#0f172a; font-family:monospace;">${call.nik_warga}</span>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:10px; padding:10px 14px;">
+                    <div style="font-size:0.75rem; font-weight:800; color:#475569; margin-bottom:3px;"><i class="fas fa-sticky-note text-warning"></i> Catatan Koordinasi Petugas:</div>
+                    <div style="font-size:0.84rem; color:#1e293b; font-style:italic;">
+                        "${call.catatan || 'Koordinasi interaktif penanganan data bansos & pendampingan masyarakat.'}"
+                    </div>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: call.nik_warga ? '<i class="fas fa-comment"></i> Buka Chat Warga' : '<i class="fas fa-phone-alt"></i> Panggil Balik',
+        confirmButtonColor: '#0284c7',
+        cancelButtonText: 'Tutup'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            if (call.nik_warga && typeof window.pilihKontakWargaDariNik === 'function') {
+                window.pilihKontakWargaDariNik(call.nik_warga);
+            } else if (typeof window.mulaiPanggilanAdmin === 'function') {
+                window.mulaiPanggilanAdmin(call.callee_id || call.caller_id, isVideo ? 'video' : 'audio');
+            }
+        }
+    });
+};

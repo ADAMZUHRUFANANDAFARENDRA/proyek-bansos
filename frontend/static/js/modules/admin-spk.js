@@ -39,6 +39,35 @@ const KRITERIA_MASTER_DEFAULT = [
 ];
 
 // =========================================================================
+// 0. RESET & SEMBUNYIKAN CARD HASIL REKOMENDASI SAW & BWM
+// =========================================================================
+window.sembunyikanHasilSPK = function () {
+    const resultCard = document.getElementById('resultCard');
+    if (resultCard) {
+        resultCard.style.display = 'none';
+        resultCard.classList.add('hidden');
+    }
+    const summaryBox = document.getElementById('spkSummaryMetrics');
+    if (summaryBox) {
+        summaryBox.remove();
+    }
+    const resultTbody = document.querySelector('#resultTable tbody');
+    if (resultTbody) {
+        resultTbody.innerHTML = '';
+    }
+    window.lastSPKResult = null;
+    window.spkDetailedAudit = null;
+    if (window.BansosApp && window.BansosApp.State) {
+        try {
+            if (typeof window.BansosApp.State.clearSPK === 'function') {
+                window.BansosApp.State.clearSPK();
+            } else if (typeof window.BansosApp.State.setSPKResult === 'function') {
+                window.BansosApp.State.setSPKResult(null);
+            }
+        } catch (e) {}
+    }
+};
+
 // 1. PROSES ALGORITMA BWM - SAW (AUDIT DETAIL, VALIDASI ROSCOE & SINKRONISASI)
 // =========================================================================
 window.hitungSPK = async function () {
@@ -432,7 +461,23 @@ window.rekonstruksiAuditMatematisSAW = function (dataWarga, spkData) {
         });
     }
 
-    const detailV = hasilList.map((h, idx) => {
+    const effectiveHasil = (hasilList && hasilList.length > 0) ? hasilList : matriksR.map((r) => {
+        let sum = 0;
+        KRITERIA_SPK_CONFIG.forEach((k, j) => {
+            sum += (parseFloat(r['c' + (j + 1)]) || 0) * (parseFloat(bobotW[j]) || 0);
+        });
+        return {
+            nik: r.nik,
+            nama: r.nama,
+            skor_akhir: parseFloat(sum.toFixed(4)),
+            desil: 1
+        };
+    }).sort((a, b) => b.skor_akhir - a.skor_akhir).map((item, idx, arr) => {
+        const desil = Math.min(10, Math.max(1, Math.ceil(((idx + 1) / Math.max(1, arr.length)) * 10)));
+        return { ...item, desil };
+    });
+
+    const detailV = effectiveHasil.map((h, idx) => {
         const matchedR = matriksR.find(r => r.nik === h.nik) || matriksR[idx] || {};
         const breakdown = KRITERIA_SPK_CONFIG.map((k, j) => {
             const rVal = parseFloat(matchedR[`c${j + 1}`] || 0);
@@ -1241,16 +1286,70 @@ window.toggleVoiceSearchKomparasi = function () {
 // PENGATURAN DOKUMEN, TEMPLAT KOP SURAT & TANDA TANGAN (SEBELUM DIUNDUH)
 // =========================================================================
 const DEFAULT_DOC_SETTINGS = {
+    // Penandatangan Bagian Atas (Naskah Keputusan / SK Bupati)
+    jabatanAtas: 'BUPATI SIDOARJO',
+    gelarDepanAtas: '',
+    namaAtas: 'H. SUBANDI',
+    gelarBelakangAtas: 'S.H., M.Kn.',
+    nipAtas: '',
+    pangkatAtas: 'Kepala Daerah',
+    tipeTtdAtas: 'tte', // 'tte', 'scan', 'manual'
+    customTtdAtas: '',
+
+    // Penandatangan Bagian Bawah (Pengesahan Lampiran / Kepala Dinas Sosial)
+    jabatanBawah: 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO',
+    gelarDepanBawah: 'Dr. Drs. H.',
+    namaBawah: 'AHMAD MISBAHUL MUNIR',
+    gelarBelakangBawah: 'M.Si.',
+    nipBawah: '19710815 199603 1 003',
+    pangkatBawah: 'Pembina Utama Muda',
+    tipeTtdBawah: 'tte', // 'tte', 'scan', 'manual'
+    customTtdBawah: '',
+
+    // Kompatibilitas single pimpinan untuk laporan teknis dinas
     gelarDepan: 'Dr. Drs. H.',
     namaPimpinan: 'AHMAD MISBAHUL MUNIR',
     gelarBelakang: 'M.Si.',
     nipPimpinan: '19710815 199603 1 003',
     jabatanPimpinan: 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO',
     pangkatPimpinan: 'Pembina Utama Muda',
-    nomorSurat: '460/084/BA-SPK/438.5.12/2026',
+    tipeTtd: 'tte',
+
+    nomorSurat: '188 / 460 / 438.5.12 / 2026',
     kotaSurat: 'Sidoarjo',
     tanggalSurat: '28 September 2026',
-    tipeTtd: 'tte' // 'tte', 'scan', atau 'manual'
+
+    // Pengaturan Stempel Fleksibel Bagian Atas (Bupati)
+    stempelAtas: {
+        aktif: true,
+        tipe: 'otomatis', // 'otomatis', 'upload', 'teks'
+        warna: '#dc2626', // Merah Resmi Bupati
+        bentuk: 'bulat',  // 'bulat', 'oval', 'kotak'
+        posisi: 'kiri',   // 'kiri', 'tengah', 'kanan'
+        rotasi: -8,       // -25 sampai +25 derajat
+        ukuran: 92,       // 65 sampai 130 px
+        opacity: 0.88,    // 0.40 sampai 1.00
+        teksAtas: 'PEMERINTAH KABUPATEN SIDOARJO',
+        teksBawah: 'BUPATI SIDOARJO',
+        simbol: 'bintang',
+        customImage: ''
+    },
+
+    // Pengaturan Stempel Fleksibel Bagian Bawah (Kadinsos)
+    stempelBawah: {
+        aktif: true,
+        tipe: 'otomatis', // 'otomatis', 'upload', 'teks'
+        warna: '#1e40af', // Biru Instansi Dinsos
+        bentuk: 'bulat',  // 'bulat', 'oval', 'kotak'
+        posisi: 'kiri',   // 'kiri', 'tengah', 'kanan'
+        rotasi: -6,       // -25 sampai +25 derajat
+        ukuran: 92,       // 65 sampai 130 px
+        opacity: 0.88,    // 0.40 sampai 1.00
+        teksAtas: 'PEMERINTAH KABUPATEN SIDOARJO',
+        teksBawah: 'DINAS SOSIAL',
+        simbol: 'bintang',
+        customImage: ''
+    }
 };
 
 const DEFAULT_KOP_TEMPLATE = {
@@ -1311,12 +1410,27 @@ const KOP_PRESETS = {
     }
 };
 
-window.getNamaLengkapPemimpin = function (settings) {
+window.getNamaLengkapPemimpin = function (settings, posisi = 'atas') {
     const s = settings || (typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : DEFAULT_DOC_SETTINGS);
-    const nama = (s.namaPimpinan || '').trim();
-    const gDepan = (s.gelarDepan || '').trim();
-    const gBelakang = (s.gelarBelakang || '').trim();
-    if (!nama) return 'Pj. BUPATI SIDOARJO';
+    let nama = '';
+    let gDepan = '';
+    let gBelakang = '';
+
+    if (posisi === 'bawah') {
+        nama = (s.namaBawah || s.namaPimpinan || 'AHMAD MISBAHUL MUNIR').trim();
+        gDepan = (s.gelarDepanBawah !== undefined ? s.gelarDepanBawah : (s.gelarDepan !== undefined ? s.gelarDepan : 'Dr. Drs. H.')).trim();
+        gBelakang = (s.gelarBelakangBawah !== undefined ? s.gelarBelakangBawah : (s.gelarBelakang !== undefined ? s.gelarBelakang : 'M.Si.')).trim();
+    } else {
+        // 'atas'
+        nama = (s.namaAtas || s.namaPimpinan || 'H. SUBANDI').trim();
+        gDepan = (s.gelarDepanAtas !== undefined ? s.gelarDepanAtas : '').trim();
+        gBelakang = (s.gelarBelakangAtas !== undefined ? s.gelarBelakangAtas : 'S.H., M.Kn.').trim();
+    }
+
+    if (!nama) {
+        return posisi === 'bawah' ? 'Dr. Drs. H. AHMAD MISBAHUL MUNIR, M.Si.' : 'H. SUBANDI, S.H., M.Kn.';
+    }
+
     let full = nama;
     if (gDepan && !nama.toLowerCase().startsWith(gDepan.toLowerCase())) {
         full = `${gDepan} ${full}`;
@@ -1365,35 +1479,248 @@ window.switchTabDokumen = function (tab) {
 
     Object.keys(panels).forEach(key => {
         if (panels[key]) panels[key].style.display = key === tab ? 'block' : 'none';
-        if (buttons[key]) {
+        const btn = buttons[key];
+        if (btn) {
             if (key === tab) {
-                buttons[key].style.background = '#ffffff';
-                buttons[key].style.color = '#0f172a';
-                buttons[key].style.boxShadow = '0 2px 5px rgba(0,0,0,0.06)';
+                btn.style.setProperty('background', '#ffffff', 'important');
+                btn.style.setProperty('color', '#0f172a', 'important');
+                btn.style.setProperty('box-shadow', '0 3px 8px rgba(0,0,0,0.1)', 'important');
+                btn.style.setProperty('font-weight', '800', 'important');
+                btn.style.setProperty('border', '1px solid rgba(0,0,0,0.06)', 'important');
             } else {
-                buttons[key].style.background = 'transparent';
-                buttons[key].style.color = '#64748b';
-                buttons[key].style.boxShadow = 'none';
+                btn.style.setProperty('background', 'transparent', 'important');
+                btn.style.setProperty('color', '#64748b', 'important');
+                btn.style.setProperty('box-shadow', 'none', 'important');
+                btn.style.setProperty('font-weight', '600', 'important');
+                btn.style.setProperty('border', 'none', 'important');
             }
         }
     });
 
     if (tab === 'kop') {
         window.updateLiveKopPreview();
+        if (window._currentDocSettingContext === 'sk_bupati') {
+            window.highlightKopPreset('bupati');
+        } else {
+            window.highlightKopPreset('dinsos');
+        }
     } else if (tab === 'ttd') {
+        window.updateTtdLabelStyle();
         window.updateLiveTtdPreview();
     }
+};
+
+window.highlightKopPreset = function (activeKey) {
+    const keys = ['bupati', 'dinsos', 'setda', 'bappeda'];
+    keys.forEach(k => {
+        const btn = document.getElementById('btnPresetKop_' + k);
+        if (!btn) return;
+        if (k === activeKey) {
+            btn.style.setProperty('background', '#dc2626', 'important');
+            btn.style.setProperty('color', '#ffffff', 'important');
+            btn.style.setProperty('border', '1px solid #b91c1c', 'important');
+            btn.style.setProperty('box-shadow', '0 3px 8px rgba(220, 38, 38, 0.35)', 'important');
+            btn.style.setProperty('font-weight', '800', 'important');
+            const icon = btn.querySelector('i');
+            if (icon) icon.style.setProperty('color', '#ffffff', 'important');
+        } else {
+            btn.style.setProperty('background', '#ffffff', 'important');
+            btn.style.setProperty('color', '#475569', 'important');
+            btn.style.setProperty('border', '1px solid #cbd5e1', 'important');
+            btn.style.setProperty('box-shadow', 'none', 'important');
+            btn.style.setProperty('font-weight', '700', 'important');
+            const icon = btn.querySelector('i');
+            if (icon) icon.style.removeProperty('color');
+        }
+    });
 };
 
 // =========================================================================
 // MESIN DIGITAL SIGNATURE PAD (TANDA TANGAN MANUAL DI WEB SECARA LANGSUNG)
 // =========================================================================
-window._sigCanvasState = {
-    canvas: null,
-    ctx: null,
+// DIGITAL SIGNATURE PAD & PENGATURAN TERPADU DUAL SIGNATORY (ATAS & BAWAH)
+// =========================================================================
+window.activeSubTabTtd = 'atas'; // 'atas' (Bupati) atau 'bawah' (Kadinsos)
+
+window.switchSubTabTtd = function (posisi) {
+    window.activeSubTabTtd = posisi || 'atas';
+    const isAtas = (window.activeSubTabTtd === 'atas');
+
+    const btnAtas = document.getElementById('btnSubTabTtdAtas');
+    const btnBawah = document.getElementById('btnSubTabTtdBawah');
+    const panelAtas = document.getElementById('panelSubTabTtdAtas');
+    const panelBawah = document.getElementById('panelSubTabTtdBawah');
+    const lblCanvas = document.getElementById('canvasTargetLabel');
+
+    if (btnAtas) {
+        btnAtas.style.background = isAtas ? 'linear-gradient(135deg, #e11d48, #be123c)' : '#ffffff';
+        btnAtas.style.color = isAtas ? '#ffffff' : '#475569';
+        btnAtas.style.borderColor = isAtas ? '#be123c' : '#cbd5e1';
+    }
+    if (btnBawah) {
+        btnBawah.style.background = !isAtas ? 'linear-gradient(135deg, #009846, #047857)' : '#ffffff';
+        btnBawah.style.color = !isAtas ? '#ffffff' : '#475569';
+        btnBawah.style.borderColor = !isAtas ? '#047857' : '#cbd5e1';
+    }
+
+    if (panelAtas) panelAtas.style.display = isAtas ? 'block' : 'none';
+    if (panelBawah) panelBawah.style.display = !isAtas ? 'block' : 'none';
+    if (lblCanvas) lblCanvas.textContent = isAtas ? 'Pejabat Atas / Bupati' : 'Pejabat Bawah / Kepala Dinsos';
+
+    window.updateTtdLabelStyle();
+    window.updateLiveTtdPreview();
+};
+
+window.tukarPosisiTtd = function () {
+    const fields = ['Jabatan', 'GelarDepan', 'Nama', 'GelarBelakang', 'Nip', 'Pangkat'];
+    fields.forEach(f => {
+        const elAtas = document.getElementById(`setting${f}Atas`);
+        const elBawah = document.getElementById(`setting${f}Bawah`);
+        if (elAtas && elBawah) {
+            const temp = elAtas.value;
+            elAtas.value = elBawah.value;
+            elBawah.value = temp;
+        }
+    });
+
+    // Tukar Tipe TTD (Radio)
+    const radAtas = document.querySelector('input[name="settingTipeTtdAtas"]:checked')?.value || 'tte';
+    const radBawah = document.querySelector('input[name="settingTipeTtdBawah"]:checked')?.value || 'tte';
+    const optAtasTarget = document.querySelector(`input[name="settingTipeTtdAtas"][value="${radBawah}"]`);
+    const optBawahTarget = document.querySelector(`input[name="settingTipeTtdBawah"][value="${radAtas}"]`);
+    if (optAtasTarget) optAtasTarget.checked = true;
+    if (optBawahTarget) optBawahTarget.checked = true;
+
+    // Tukar custom signatures di localStorage
+    const sigAtas = localStorage.getItem('spk_custom_signature_atas');
+    const sigBawah = localStorage.getItem('spk_custom_signature_bawah');
+
+    // Tukar custom stamp images di localStorage
+    const stampImgAtas = localStorage.getItem('spk_custom_stamp_image_atas');
+    const stampImgBawah = localStorage.getItem('spk_custom_stamp_image_bawah');
+    if (stampImgAtas && stampImgBawah) {
+        localStorage.setItem('spk_custom_stamp_image_atas', stampImgBawah);
+        localStorage.setItem('spk_custom_stamp_image_bawah', stampImgAtas);
+    } else if (stampImgAtas) {
+        localStorage.setItem('spk_custom_stamp_image_bawah', stampImgAtas);
+        localStorage.removeItem('spk_custom_stamp_image_atas');
+    } else if (stampImgBawah) {
+        localStorage.setItem('spk_custom_stamp_image_atas', stampImgBawah);
+        localStorage.removeItem('spk_custom_stamp_image_bawah');
+    }
+
+    // Tukar form kontrol stempel Atas & Bawah
+    const chkA = document.getElementById('settingEnableStampAtas');
+    const chkB = document.getElementById('settingEnableStampBawah');
+    if (chkA && chkB) { const t = chkA.checked; chkA.checked = chkB.checked; chkB.checked = t; }
+
+    const pkA = document.getElementById('settingStampColorPickerAtas');
+    const pkB = document.getElementById('settingStampColorPickerBawah');
+    if (pkA && pkB) { const t = pkA.value; pkA.value = pkB.value; pkB.value = t; }
+
+    const btA = document.getElementById('settingStampBentukAtas');
+    const btB = document.getElementById('settingStampBentukBawah');
+    if (btA && btB) { const t = btA.value; btA.value = btB.value; btB.value = t; }
+
+    const psA = document.getElementById('settingStampPosisiAtas');
+    const psB = document.getElementById('settingStampPosisiBawah');
+    if (psA && psB) { const t = psA.value; psA.value = psB.value; psB.value = t; }
+
+    const rtA = document.getElementById('settingStampRotasiAtas');
+    const rtB = document.getElementById('settingStampRotasiBawah');
+    if (rtA && rtB) { const t = rtA.value; rtA.value = rtB.value; rtB.value = t; }
+
+    const ukA = document.getElementById('settingStampUkuranAtas');
+    const ukB = document.getElementById('settingStampUkuranBawah');
+    if (ukA && ukB) { const t = ukA.value; ukA.value = ukB.value; ukB.value = t; }
+
+    const opA = document.getElementById('settingStampOpacityAtas');
+    const opB = document.getElementById('settingStampOpacityBawah');
+    if (opA && opB) { const t = opA.value; opA.value = opB.value; opB.value = t; }
+
+    const t1A = document.getElementById('settingStampTeksAtas_Atas');
+    const t1B = document.getElementById('settingStampTeksAtas_Bawah');
+    if (t1A && t1B) { const t = t1A.value; t1A.value = t1B.value; t1B.value = t; }
+
+    const t2A = document.getElementById('settingStampTeksBawah_Atas');
+    const t2B = document.getElementById('settingStampTeksBawah_Bawah');
+    if (t2A && t2B) { const t = t2A.value; t2A.value = t2B.value; t2B.value = t; }
+    if (sigAtas && sigBawah) {
+        localStorage.setItem('spk_custom_signature_atas', sigBawah);
+        localStorage.setItem('spk_custom_signature_bawah', sigAtas);
+    } else if (sigAtas) {
+        localStorage.setItem('spk_custom_signature_bawah', sigAtas);
+        localStorage.removeItem('spk_custom_signature_atas');
+    } else if (sigBawah) {
+        localStorage.setItem('spk_custom_signature_atas', sigBawah);
+        localStorage.removeItem('spk_custom_signature_bawah');
+    }
+
+    window.updateTtdLabelStyle();
+    window.updateLiveTtdPreview();
+
+    Swal.fire({
+        icon: 'success',
+        title: 'Posisi Penandatangan Ditukar!',
+        text: 'Posisi penandatangan Bagian Atas (Bupati) dan Bagian Bawah (Kepala Dinsos) telah berhasil ditukar.',
+        timer: 1600,
+        showConfirmButton: false
+    });
+};
+
+window.resetTtdKeStandar = function () {
+    // Atas: Bupati Sidoarjo
+    const elJAtas = document.getElementById('settingJabatanAtas');
+    const elGDAtas = document.getElementById('settingGelarDepanAtas');
+    const elNAtas = document.getElementById('settingNamaAtas');
+    const elGBAtas = document.getElementById('settingGelarBelakangAtas');
+    const elNipAtas = document.getElementById('settingNipAtas');
+    const elPAtas = document.getElementById('settingPangkatAtas');
+    if (elJAtas) elJAtas.value = 'BUPATI SIDOARJO';
+    if (elGDAtas) elGDAtas.value = '';
+    if (elNAtas) elNAtas.value = 'H. SUBANDI';
+    if (elGBAtas) elGBAtas.value = 'S.H., M.Kn.';
+    if (elNipAtas) elNipAtas.value = '';
+    if (elPAtas) elPAtas.value = 'Kepala Daerah';
+
+    // Bawah: Kepala Dinas Sosial
+    const elJBawah = document.getElementById('settingJabatanBawah');
+    const elGDBawah = document.getElementById('settingGelarDepanBawah');
+    const elNBawah = document.getElementById('settingNamaBawah');
+    const elGBBawah = document.getElementById('settingGelarBelakangBawah');
+    const elNipBawah = document.getElementById('settingNipBawah');
+    const elPBawah = document.getElementById('settingPangkatBawah');
+    if (elJBawah) elJBawah.value = 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO';
+    if (elGDBawah) elGDBawah.value = 'Dr. Drs. H.';
+    if (elNBawah) elNBawah.value = 'AHMAD MISBAHUL MUNIR';
+    if (elGBBawah) elGBBawah.value = 'M.Si.';
+    if (elNipBawah) elNipBawah.value = '19710815 199603 1 003';
+    if (elPBawah) elPBawah.value = 'Pembina Utama Muda';
+
+    const optTteAtas = document.getElementById('ttdOptTteAtas');
+    const optTteBawah = document.getElementById('ttdOptTteBawah');
+    if (optTteAtas) optTteAtas.checked = true;
+    if (optTteBawah) optTteBawah.checked = true;
+
+    localStorage.removeItem('spk_custom_signature_atas');
+    localStorage.removeItem('spk_custom_signature_bawah');
+
+    window.updateTtdLabelStyle();
+    window.updateLiveTtdPreview();
+
+    Swal.fire({
+        icon: 'info',
+        title: 'Pengaturan Standar Dipulihkan',
+        text: 'Atas diset ke Bupati Sidoarjo dan Bawah diset ke Kepala Dinas Sosial.',
+        timer: 1600,
+        showConfirmButton: false
+    });
+};
+
+window.signaturePadState = {
     isDrawing: false,
     color: '#003366',
-    size: 2.6,
+    lineWidth: 2.6,
     hasDrawn: false
 };
 
@@ -1401,147 +1728,195 @@ window.initSignatureCanvas = function () {
     const canvas = document.getElementById('canvasSignaturePad');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    window._sigCanvasState.canvas = canvas;
-    window._sigCanvasState.ctx = ctx;
+    if (!ctx) return;
 
-    if (canvas._initialized) return;
-    canvas._initialized = true;
-
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = window._sigCanvasState.color;
-    ctx.lineWidth = window._sigCanvasState.size;
-
-    function getCoords(e) {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        if (e.touches && e.touches.length > 0) {
+    if (!canvas._hasInitListeners) {
+        canvas._hasInitListeners = true;
+        const getPos = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             return {
-                x: (e.touches[0].clientX - rect.left) * scaleX,
-                y: (e.touches[0].clientY - rect.top) * scaleY
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
             };
-        }
-        return {
-            x: (e.clientX - rect.left) * scaleX,
-            y: (e.clientY - rect.top) * scaleY
         };
+
+        const startDraw = (e) => {
+            e.preventDefault();
+            window.signaturePadState.isDrawing = true;
+            window.signaturePadState.hasDrawn = true;
+            const pos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+            ctx.strokeStyle = window.signaturePadState.color;
+            ctx.lineWidth = window.signaturePadState.lineWidth;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        };
+
+        const drawMove = (e) => {
+            if (!window.signaturePadState.isDrawing) return;
+            e.preventDefault();
+            const pos = getPos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        };
+
+        const stopDraw = () => {
+            window.signaturePadState.isDrawing = false;
+        };
+
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', drawMove);
+        window.addEventListener('mouseup', stopDraw);
+        canvas.addEventListener('touchstart', startDraw, { passive: false });
+        canvas.addEventListener('touchmove', drawMove, { passive: false });
+        canvas.addEventListener('touchend', stopDraw);
     }
-
-    function startDraw(e) {
-        e.preventDefault();
-        window._sigCanvasState.isDrawing = true;
-        const coords = getCoords(e);
-        ctx.beginPath();
-        ctx.moveTo(coords.x, coords.y);
-    }
-
-    function draw(e) {
-        if (!window._sigCanvasState.isDrawing) return;
-        e.preventDefault();
-        const coords = getCoords(e);
-        ctx.lineTo(coords.x, coords.y);
-        ctx.stroke();
-        window._sigCanvasState.hasDrawn = true;
-    }
-
-    function stopDraw(e) {
-        if (!window._sigCanvasState.isDrawing) return;
-        window._sigCanvasState.isDrawing = false;
-        ctx.closePath();
-    }
-
-    canvas.addEventListener('mousedown', startDraw);
-    canvas.addEventListener('mousemove', draw);
-    window.addEventListener('mouseup', stopDraw);
-    canvas.addEventListener('touchstart', startDraw, { passive: false });
-    canvas.addEventListener('touchmove', draw, { passive: false });
-    canvas.addEventListener('touchend', stopDraw, { passive: false });
-};
-
-window.clearSignatureCanvas = function () {
-    const canvas = window._sigCanvasState.canvas || document.getElementById('canvasSignaturePad');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    window._sigCanvasState.hasDrawn = false;
 };
 
 window.setSignatureColor = function (color, btn) {
-    window._sigCanvasState.color = color;
-    if (window._sigCanvasState.ctx) {
-        window._sigCanvasState.ctx.strokeStyle = color;
-    }
+    window.signaturePadState.color = color;
     document.querySelectorAll('.pen-color-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
 };
 
 window.setSignatureSize = function (size, btn) {
-    window._sigCanvasState.size = size;
-    if (window._sigCanvasState.ctx) {
-        window._sigCanvasState.ctx.lineWidth = size;
-    }
+    window.signaturePadState.lineWidth = size;
     document.querySelectorAll('.pen-size-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
 };
 
-window.simpanSignatureCanvas = function () {
-    const canvas = window._sigCanvasState.canvas || document.getElementById('canvasSignaturePad');
-    if (!canvas || !window._sigCanvasState.hasDrawn) {
-        return Swal.fire({
-            icon: 'warning',
-            title: 'Tanda Tangan Masih Kosong',
-            text: 'Silakan bubuhkan goresan tanda tangan Anda di area canvas sebelum menerapkan.',
-            confirmButtonColor: '#009846'
-        });
-    }
+window.clearSignatureCanvas = function () {
+    const canvas = document.getElementById('canvasSignaturePad');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    window.signaturePadState.hasDrawn = false;
+};
 
+window.handleUploadCustomSignature = function (e, posisi) {
+    const targetPosisi = posisi || window.activeSubTabTtd || 'bawah';
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+        return Swal.fire('Format Salah', 'Silakan pilih berkas gambar (PNG, JPG, JPEG).', 'warning');
+    }
+    const reader = new FileReader();
+    reader.onload = function (evt) {
+        const dataUrl = evt.target.result;
+        if (targetPosisi === 'atas') {
+            localStorage.setItem('spk_custom_signature_atas', dataUrl);
+        } else {
+            localStorage.setItem('spk_custom_signature_bawah', dataUrl);
+        }
+        localStorage.setItem('spk_custom_signature', dataUrl);
+        window.updateLiveTtdPreview();
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Scan TTD Berhasil Diunggah!',
+            text: `Tanda tangan untuk penandatangan ${targetPosisi === 'atas' ? 'Atas (Bupati)' : 'Bawah (Kepala Dinsos)'} telah disimpan.`,
+            timer: 1800,
+            showConfirmButton: false
+        });
+    };
+    reader.readAsDataURL(file);
+};
+
+window.resetCustomSignature = function (posisi) {
+    const targetPosisi = posisi || window.activeSubTabTtd || 'bawah';
+    if (targetPosisi === 'atas') {
+        localStorage.removeItem('spk_custom_signature_atas');
+    } else {
+        localStorage.removeItem('spk_custom_signature_bawah');
+        localStorage.removeItem('spk_custom_signature');
+    }
+    window.updateLiveTtdPreview();
+
+    Swal.fire({
+        icon: 'info',
+        title: 'Paraf & Stempel Resmi Diterapkan',
+        text: `Paraf otomatis instansi Sidoarjo untuk penandatangan ${targetPosisi === 'atas' ? 'Atas (Bupati)' : 'Bawah (Kadinsos)'} aktif.`,
+        timer: 1500,
+        showConfirmButton: false
+    });
+};
+
+window.simpanSignatureCanvas = function () {
+    const canvas = document.getElementById('canvasSignaturePad');
+    if (!canvas || !window.signaturePadState.hasDrawn) {
+        return Swal.fire('Tanda Tangan Kosong', 'Silakan goreskan tanda tangan Anda di canvas terlebih dahulu.', 'warning');
+    }
     const dataUrl = canvas.toDataURL('image/png');
+    const targetPosisi = window.activeSubTabTtd || 'bawah';
+    if (targetPosisi === 'atas') {
+        localStorage.setItem('spk_custom_signature_atas', dataUrl);
+    } else {
+        localStorage.setItem('spk_custom_signature_bawah', dataUrl);
+    }
     localStorage.setItem('spk_custom_signature', dataUrl);
     window.updateLiveTtdPreview();
 
     Swal.fire({
         icon: 'success',
         title: 'Tanda Tangan Manual Diterapkan!',
-        text: 'Tanda tangan manual Anda berhasil disimpan dan siap disematkan pada dokumen PDF, Word, dan Excel.',
+        text: `Tanda tangan manual untuk penandatangan ${targetPosisi === 'atas' ? 'Atas (Bupati)' : 'Bawah (Kepala Dinsos)'} berhasil disimpan.`,
         timer: 1800,
         showConfirmButton: false
     });
 };
 
 window.updateTtdLabelStyle = function () {
-    const ttdVal = document.querySelector('input[name="settingTipeTtd"]:checked')?.value || 'tte';
-    const labelTte = document.getElementById('labelTtdTte');
-    const labelScan = document.getElementById('labelTtdScan');
-    const labelManual = document.getElementById('labelTtdManual');
+    const isSingleSignatory = (window._currentDocSettingContext === 'matriks' || window._currentDocSettingContext === 'komparasi');
+    const isAtasActive = !isSingleSignatory && (window.activeSubTabTtd === 'atas');
+    const ttdValAtas = document.querySelector('input[name="settingTipeTtdAtas"]:checked')?.value || 'tte';
+    const ttdValBawah = document.querySelector('input[name="settingTipeTtdBawah"]:checked')?.value || 'tte';
+    const activeVal = isAtasActive ? ttdValAtas : ttdValBawah;
+
+    // Sub-labels Atas
+    const lblTteA = document.getElementById('labelTtdTteAtas');
+    const lblScanA = document.getElementById('labelTtdScanAtas');
+    const lblManualA = document.getElementById('labelTtdManualAtas');
+    const ctrlUploadA = document.getElementById('ctrlUploadSignatureAtas');
+
+    [lblTteA, lblScanA, lblManualA].forEach(l => { if (l) { l.style.borderColor = '#cbd5e1'; l.style.background = '#ffffff'; } });
+    if (ttdValAtas === 'tte' && lblTteA) { lblTteA.style.borderColor = '#e11d48'; lblTteA.style.background = '#fff1f2'; }
+    if (ttdValAtas === 'scan' && lblScanA) { lblScanA.style.borderColor = '#d97706'; lblScanA.style.background = '#fffbeb'; }
+    if (ttdValAtas === 'manual' && lblManualA) { lblManualA.style.borderColor = '#0284c7'; lblManualA.style.background = '#f0f9ff'; }
+    if (ctrlUploadA) ctrlUploadA.style.display = (ttdValAtas === 'scan') ? 'flex' : 'none';
+
+    // Sub-labels Bawah
+    const lblTteB = document.getElementById('labelTtdTteBawah');
+    const lblScanB = document.getElementById('labelTtdScanBawah');
+    const lblManualB = document.getElementById('labelTtdManualBawah');
+    const ctrlUploadB = document.getElementById('ctrlUploadSignatureBawah');
+
+    [lblTteB, lblScanB, lblManualB].forEach(l => { if (l) { l.style.borderColor = '#cbd5e1'; l.style.background = '#ffffff'; } });
+    if (ttdValBawah === 'tte' && lblTteB) { lblTteB.style.borderColor = '#16a34a'; lblTteB.style.background = '#f0fdf4'; }
+    if (ttdValBawah === 'scan' && lblScanB) { lblScanB.style.borderColor = '#d97706'; lblScanB.style.background = '#fffbeb'; }
+    if (ttdValBawah === 'manual' && lblManualB) { lblManualB.style.borderColor = '#0284c7'; lblManualB.style.background = '#f0f9ff'; }
+    if (ctrlUploadB) ctrlUploadB.style.display = (ttdValBawah === 'scan') ? 'flex' : 'none';
+
+    // Perbarui label target canvas tanda tangan
+    const targetLabel = document.getElementById('canvasTargetLabel');
+    if (targetLabel) {
+        targetLabel.textContent = isAtasActive ? 'Bupati Sidoarjo / Penandatangan Atas' : 'Kepala Dinas Sosial / Penandatangan Laporan';
+    }
+
+    // Tampilkan panel canvas jika subtab aktif sedang memilih manual
     const panelCanvas = document.getElementById('panelSignatureCanvas');
-    const ctrlUpload = document.getElementById('ctrlUploadSignature');
-
-    // Reset styles
-    [labelTte, labelScan, labelManual].forEach(lbl => {
-        if (lbl) {
-            lbl.style.borderColor = '#cbd5e1';
-            lbl.style.background = '#ffffff';
-        }
-    });
-
-    if (ttdVal === 'tte') {
-        if (labelTte) { labelTte.style.borderColor = '#16a34a'; labelTte.style.background = '#f0fdf4'; }
-        if (panelCanvas) panelCanvas.style.display = 'none';
-        if (ctrlUpload) ctrlUpload.style.display = 'none';
-    } else if (ttdVal === 'scan') {
-        if (labelScan) { labelScan.style.borderColor = '#d97706'; labelScan.style.background = '#fffbeb'; }
-        if (panelCanvas) panelCanvas.style.display = 'none';
-        if (ctrlUpload) ctrlUpload.style.display = 'flex';
-    } else if (ttdVal === 'manual') {
-        if (labelManual) { labelManual.style.borderColor = '#0284c7'; labelManual.style.background = '#f0f9ff'; }
-        if (panelCanvas) {
+    if (panelCanvas) {
+        if (activeVal === 'manual') {
             panelCanvas.style.display = 'block';
             setTimeout(() => window.initSignatureCanvas(), 50);
+        } else {
+            panelCanvas.style.display = 'none';
         }
-        if (ctrlUpload) ctrlUpload.style.display = 'none';
     }
-    window.updateLiveTtdPreview();
 };
 
 window.toggleTargetFormatOptions = function () {
@@ -1563,16 +1938,8 @@ window.applyKopPreset = function (key) {
     if (elAlamat) elAlamat.value = p.alamat;
     if (elTelp) elTelp.value = p.telp;
     if (elEmail) elEmail.value = p.email;
+    window.highlightKopPreset(key);
     window.updateLiveKopPreview();
-    if (typeof Swal !== 'undefined') {
-        Swal.fire({
-            icon: 'success',
-            title: 'Preset Templat Diterapkan',
-            text: `Kop Surat diset ke: ${p.dinas}`,
-            timer: 1400,
-            showConfirmButton: false
-        });
-    }
 };
 
 window.updateLiveKopPreview = function () {
@@ -1598,72 +1965,98 @@ window.updateLiveKopPreview = function () {
     }
 };
 
-window.updateLiveTtdPreview = function () {
-    const ttdVal = document.querySelector('input[name="settingTipeTtd"]:checked')?.value || 'tte';
-    const isTte = ttdVal === 'tte';
-    const imgTtd = document.getElementById('imgPreviewTtd');
-    const descTtd = document.getElementById('descPreviewTtd');
-    const subDescTtd = document.getElementById('subDescPreviewTtd');
-    const nomor = document.getElementById('settingNomorSurat')?.value || '460/084/BA-SPK/438.5.12/2026';
-    
-    // Live update preview nama lengkap & gelar
-    const gDepan = document.getElementById('settingGelarDepan')?.value.trim() || '';
-    const namaInti = document.getElementById('settingNamaPimpinan')?.value.trim() || 'AHMAD MISBAHUL MUNIR';
-    const gBelakang = document.getElementById('settingGelarBelakang')?.value.trim() || '';
-    
-    const namaLengkap = window.getNamaLengkapPemimpin({
-        gelarDepan: gDepan,
-        namaPimpinan: namaInti,
-        gelarBelakang: gBelakang
-    });
 
-    const elPreviewNama = document.getElementById('previewNamaLengkapGelar');
-    if (elPreviewNama) {
-        elPreviewNama.textContent = `Nama Resmi Lengkap: ${namaLengkap.toUpperCase()}`;
+// =========================================================================
+// HANDLER & KONTROL INTERAKTIF STEMPEL RESMI (ATAS: BUPATI & BAWAH: KADINSOS)
+// =========================================================================
+window.toggleStampSettings = function (posisi) {
+    const isAtas = (posisi === 'atas');
+    const chk = document.getElementById(isAtas ? 'settingEnableStampAtas' : 'settingEnableStampBawah');
+    const wrap = document.getElementById(isAtas ? 'wrapperStampOptionsAtas' : 'wrapperStampOptionsBawah');
+    if (wrap) {
+        wrap.style.display = (chk && chk.checked) ? 'block' : 'none';
     }
-
-    if (isTte) {
-        if (descTtd) descTtd.textContent = 'Tanda Tangan Elektronik Tersertifikasi BSrE BSSN';
-        if (subDescTtd) subDescTtd.textContent = 'Format QR Code terenkripsi valid otomatis tercetak pada dokumen PDF, Word, dan disematkan langsung di bawah tabel Sheet 1 Excel.';
-        if (imgTtd && window.PrintHelper && typeof window.PrintHelper.getQrBadgeBase64 === 'function') {
-            imgTtd.src = window.PrintHelper.getQrBadgeBase64(nomor);
-        }
-    } else if (ttdVal === 'scan') {
-        if (descTtd) descTtd.textContent = 'Scan Tanda Tangan & Cap Stempel Resmi Kedinasan';
-        if (subDescTtd) subDescTtd.textContent = 'Gambar tanda tangan hasil scan/foto akan dicantumkan secara presisi pada PDF, Word, dan Excel.';
-        const custom = localStorage.getItem('spk_custom_signature');
-        if (imgTtd && custom) {
-            imgTtd.src = custom;
-        } else if (imgTtd && window.PrintHelper && typeof window.PrintHelper.getManualSignatureBase64 === 'function') {
-            imgTtd.src = window.PrintHelper.getManualSignatureBase64(namaLengkap);
-        }
-    } else {
-        if (descTtd) descTtd.textContent = 'Tanda Tangan Manual Digital Pad (Digambar di Web)';
-        if (subDescTtd) subDescTtd.textContent = 'Goresan tanda tangan manual yang Anda buat di canvas web akan disematkan rapi pada dokumen PDF, Word, dan Excel.';
-        const custom = localStorage.getItem('spk_custom_signature');
-        if (imgTtd && custom) {
-            imgTtd.src = custom;
-        } else if (imgTtd && window.PrintHelper && typeof window.PrintHelper.getManualSignatureBase64 === 'function') {
-            imgTtd.src = window.PrintHelper.getManualSignatureBase64(namaLengkap);
-        }
-    }
+    window.updateLiveTtdPreview();
 };
 
-window.handleUploadCustomSignature = function (e) {
-    const file = e.target?.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-        return Swal.fire('Format Salah', 'Silakan pilih berkas gambar tanda tangan (PNG transparan atau JPG).', 'warning');
+window.updateStampStyle = function (posisi) {
+    const isAtas = (posisi === 'atas');
+    const tipe = document.querySelector(`input[name="${isAtas ? 'settingTipeStampAtas' : 'settingTipeStampBawah'}"]:checked`)?.value || 'otomatis';
+    const ctrlUpload = document.getElementById(isAtas ? 'ctrlUploadStampAtas' : 'ctrlUploadStampBawah');
+    const ctrlTeks = document.getElementById(isAtas ? 'ctrlCustomTextStampAtas' : 'ctrlCustomTextStampBawah');
+
+    const lblOtomatis = document.getElementById(isAtas ? 'labelStampOtomatisAtas' : 'labelStampOtomatisBawah');
+    const lblUpload = document.getElementById(isAtas ? 'labelStampUploadAtas' : 'labelStampUploadBawah');
+    const lblTeks = document.getElementById(isAtas ? 'labelStampTeksAtas' : 'labelStampTeksBawah');
+
+    [lblOtomatis, lblUpload, lblTeks].forEach(l => {
+        if (l) {
+            l.style.borderColor = '#cbd5e1';
+            l.style.background = '#f8fafc';
+        }
+    });
+
+    const activeColor = isAtas ? '#e11d48' : '#009846';
+    const activeBg = isAtas ? '#fff1f2' : '#f0fdf4';
+
+    if (tipe === 'otomatis' && lblOtomatis) {
+        lblOtomatis.style.borderColor = activeColor;
+        lblOtomatis.style.background = activeBg;
+    } else if (tipe === 'upload' && lblUpload) {
+        lblUpload.style.borderColor = activeColor;
+        lblUpload.style.background = activeBg;
+    } else if (tipe === 'teks' && lblTeks) {
+        lblTeks.style.borderColor = activeColor;
+        lblTeks.style.background = activeBg;
     }
+
+    if (ctrlUpload) ctrlUpload.style.display = (tipe === 'upload') ? 'flex' : 'none';
+    if (ctrlTeks) ctrlTeks.style.display = (tipe === 'teks') ? 'block' : 'none';
+};
+
+window.setStampColor = function (posisi, colorHex, btnEl) {
+    const isAtas = (posisi === 'atas');
+    const picker = document.getElementById(isAtas ? 'settingStampColorPickerAtas' : 'settingStampColorPickerBawah');
+    if (picker) picker.value = colorHex;
+
+    const parent = btnEl ? btnEl.parentElement : (picker ? picker.parentElement : null);
+    if (parent) {
+        parent.querySelectorAll('.btn-stamp-color').forEach(b => {
+            b.style.boxShadow = '0 0 0 1px #cbd5e1';
+            b.classList.remove('active');
+        });
+        if (btnEl) {
+            btnEl.style.boxShadow = `0 0 0 2px ${colorHex}`;
+            btnEl.classList.add('active');
+        }
+    }
+    window.updateLiveTtdPreview();
+};
+
+window.handleUploadCustomStamp = function (event, posisi) {
+    const file = event?.target?.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        return Swal.fire('Format Berkas Tidak Sesuai', 'Harap pilih file gambar (PNG, JPG, atau SVG) untuk stempel.', 'warning');
+    }
+
     const reader = new FileReader();
-    reader.onload = function (event) {
-        const dataUrl = event.target.result;
-        localStorage.setItem('spk_custom_signature', dataUrl);
+    reader.onload = function (e) {
+        const dataUrl = e.target.result;
+        const isAtas = (posisi === 'atas');
+        localStorage.setItem(isAtas ? 'spk_custom_stamp_image_atas' : 'spk_custom_stamp_image_bawah', dataUrl);
+
+        const btnHapus = document.getElementById(isAtas ? 'btnHapusStampAtas' : 'btnHapusStampBawah');
+        const txtDesc = document.getElementById(isAtas ? 'txtUploadStampAtas' : 'txtUploadStampBawah');
+        if (btnHapus) btnHapus.style.display = 'inline-flex';
+        if (txtDesc) txtDesc.textContent = `Berkas terpilih: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+
         window.updateLiveTtdPreview();
         Swal.fire({
             icon: 'success',
-            title: 'Tanda Tangan Terunggah',
-            text: 'Gambar tanda tangan khusus Anda disimpan dan siap disematkan pada PDF, Word, dan Excel.',
+            title: 'Berkas Stempel Berhasil Diunggah!',
+            text: `Stempel kustom untuk penandatangan ${isAtas ? 'Bupati Sidoarjo' : 'Kepala Dinas Sosial'} siap digunakan.`,
             timer: 1600,
             showConfirmButton: false
         });
@@ -1671,100 +2064,354 @@ window.handleUploadCustomSignature = function (e) {
     reader.readAsDataURL(file);
 };
 
-window.resetCustomSignature = function () {
-    localStorage.removeItem('spk_custom_signature');
+window.resetCustomStamp = function (posisi) {
+    const isAtas = (posisi === 'atas');
+    localStorage.removeItem(isAtas ? 'spk_custom_stamp_image_atas' : 'spk_custom_stamp_image_bawah');
+    const input = document.getElementById(isAtas ? 'inputUploadStampAtas' : 'inputUploadStampBawah');
+    if (input) input.value = '';
+    const btnHapus = document.getElementById(isAtas ? 'btnHapusStampAtas' : 'btnHapusStampBawah');
+    const txtDesc = document.getElementById(isAtas ? 'txtUploadStampAtas' : 'txtUploadStampBawah');
+    if (btnHapus) btnHapus.style.display = 'none';
+    if (txtDesc) txtDesc.textContent = isAtas ? 'Gunakan gambar cap basah stempel Bupati hasil scan atau transparan.' : 'Gunakan gambar cap basah stempel Dinas Sosial hasil scan atau transparan.';
+
     window.updateLiveTtdPreview();
-    Swal.fire({
-        icon: 'info',
-        title: 'Tanda Tangan Direset',
-        text: 'Menggunakan stempel dinas dan paraf resmi otomatis Pemkab Sidoarjo.',
-        timer: 1400,
-        showConfirmButton: false
-    });
 };
 
-window.currentCustomLogo = null;
+window.getStampFormConfig = function (posisi) {
+    const isAtas = (posisi === 'atas');
+    const pfx = isAtas ? 'Atas' : 'Bawah';
+    const enableStamp = document.getElementById(`settingEnableStamp${pfx}`)?.checked ?? true;
+    const tipeStamp = document.querySelector(`input[name="settingTipeStamp${pfx}"]:checked`)?.value || 'otomatis';
+    const warna = document.getElementById(`settingStampColorPicker${pfx}`)?.value || (isAtas ? '#dc2626' : '#1e40af');
+    const bentuk = document.getElementById(`settingStampBentuk${pfx}`)?.value || 'bulat';
+    const pos = document.getElementById(`settingStampPosisi${pfx}`)?.value || 'kiri';
+    const rotasi = parseFloat(document.getElementById(`settingStampRotasi${pfx}`)?.value || (isAtas ? -8 : -6));
+    const ukuran = parseFloat(document.getElementById(`settingStampUkuran${pfx}`)?.value || 92);
+    const opacity = parseFloat(document.getElementById(`settingStampOpacity${pfx}`)?.value || 88) / 100;
+    const teksAtas = document.getElementById(`settingStampTeksAtas_${pfx}`)?.value || 'PEMERINTAH KABUPATEN SIDOARJO';
+    const teksBawah = document.getElementById(`settingStampTeksBawah_${pfx}`)?.value || (isAtas ? 'BUPATI SIDOARJO' : 'DINAS SOSIAL');
+    const customImage = localStorage.getItem(isAtas ? 'spk_custom_stamp_image_atas' : 'spk_custom_stamp_image_bawah') || '';
 
-window.handleUploadLogoKop = function (e) {
-    const file = e.target?.files?.[0];
-    if (!file) return;
+    return {
+        aktif: enableStamp,
+        tipe: tipeStamp,
+        warna: warna,
+        bentuk: bentuk,
+        posisi: pos,
+        rotasi: rotasi,
+        ukuran: ukuran,
+        opacity: opacity,
+        teksAtas: teksAtas,
+        teksBawah: teksBawah,
+        simbol: 'bintang',
+        customImage: customImage
+    };
+};
 
-    if (!file.type.startsWith('image/')) {
-        return Swal.fire('Format Salah', 'Silakan pilih berkas gambar (PNG, JPG, SVG, WebP).', 'warning');
+window.updateLiveTtdPreview = function () {
+    const nomor = document.getElementById('settingNomorSurat')?.value || '188 / 460 / 438.5.12 / 2026';
+
+    // 1. Live update Atas (Bupati)
+    const jAtas = document.getElementById('settingJabatanAtas')?.value.trim() || 'BUPATI SIDOARJO';
+    const gDepanA = document.getElementById('settingGelarDepanAtas')?.value.trim() || '';
+    const namaA = document.getElementById('settingNamaAtas')?.value.trim() || 'H. SUBANDI';
+    const gBelakangA = document.getElementById('settingGelarBelakangAtas')?.value.trim() || '';
+    const namaLengkapA = window.getNamaLengkapPemimpin({
+        namaAtas: namaA,
+        gelarDepanAtas: gDepanA,
+        gelarBelakangAtas: gBelakangA
+    }, 'atas');
+
+    const elPrevA = document.getElementById('previewNamaLengkapGelarAtas');
+    if (elPrevA) elPrevA.textContent = `Nama Resmi Lengkap Atas: ${namaLengkapA.toUpperCase()}`;
+
+    const elSummA = document.getElementById('summaryNamaAtas');
+    if (elSummA) elSummA.textContent = `${jAtas} • ${namaLengkapA}`;
+
+    const ttdValA = document.querySelector('input[name="settingTipeTtdAtas"]:checked')?.value || 'tte';
+    const imgA = document.getElementById('imgPreviewTtdAtas');
+    const descA = document.getElementById('descPreviewTtdAtas');
+    const subDescA = document.getElementById('subDescPreviewTtdAtas');
+
+    if (ttdValA === 'tte') {
+        if (descA) descA.textContent = 'Tanda Tangan Elektronik Tersertifikasi BSrE BSSN';
+        if (subDescA) subDescA.textContent = 'Format QR Code terenkripsi valid otomatis tercetak pada naskah SK Bupati.';
+        if (imgA && window.PrintHelper && typeof window.PrintHelper.getQrBadgeBase64 === 'function') {
+            imgA.src = window.PrintHelper.getQrBadgeBase64(nomor);
+        }
+    } else {
+        if (descA) descA.textContent = ttdValA === 'scan' ? 'Scan Tanda Tangan & Cap Lambang Resmi' : 'TTD Manual Digital Pad Web';
+        if (subDescA) subDescA.textContent = 'Gambar tanda tangan & cap stempel disematkan presisi pada naskah SK Bupati.';
+        const customA = localStorage.getItem('spk_custom_signature_atas');
+        if (imgA && window.PrintHelper && typeof window.PrintHelper.getManualSignatureBase64 === 'function') {
+            const stCfgA = (typeof window.getStampFormConfig === 'function') ? window.getStampFormConfig('atas') : null;
+            imgA.src = window.PrintHelper.getManualSignatureBase64(namaLengkapA, 'atas', stCfgA);
+        } else if (imgA && customA) {
+            imgA.src = customA;
+        }
     }
 
-    const reader = new FileReader();
-    reader.onload = function (event) {
-        const dataUrl = event.target.result;
-        window.currentCustomLogo = dataUrl;
-        const img = document.getElementById('imgPreviewLogoKop');
-        if (img) img.src = dataUrl;
-        window.updateLiveKopPreview();
+    // 2. Live update Bawah (Kepala Dinsos)
+    const jBawah = document.getElementById('settingJabatanBawah')?.value.trim() || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO';
+    const gDepanB = document.getElementById('settingGelarDepanBawah')?.value.trim() || '';
+    const namaB = document.getElementById('settingNamaBawah')?.value.trim() || 'AHMAD MISBAHUL MUNIR';
+    const gBelakangB = document.getElementById('settingGelarBelakangBawah')?.value.trim() || '';
+    const namaLengkapB = window.getNamaLengkapPemimpin({
+        namaBawah: namaB,
+        gelarDepanBawah: gDepanB,
+        gelarBelakangBawah: gBelakangB
+    }, 'bawah');
 
-        Swal.fire({
-            icon: 'success',
-            title: 'Logo Terunggah',
-            text: 'Pratinjau logo instansi diperbarui. Klik Simpan untuk menerapkan templat.',
-            timer: 1600,
-            showConfirmButton: false
-        });
-    };
-    reader.readAsDataURL(file);
+    const elPrevB = document.getElementById('previewNamaLengkapGelarBawah');
+    if (elPrevB) elPrevB.textContent = `Nama Resmi Lengkap Bawah: ${namaLengkapB.toUpperCase()}`;
+
+    const elSummB = document.getElementById('summaryNamaBawah');
+    if (elSummB) elSummB.textContent = `${jBawah} • ${namaLengkapB}`;
+
+    const ttdValB = document.querySelector('input[name="settingTipeTtdBawah"]:checked')?.value || 'tte';
+    const imgB = document.getElementById('imgPreviewTtdBawah');
+    const descB = document.getElementById('descPreviewTtdBawah');
+    const subDescB = document.getElementById('subDescPreviewTtdBawah');
+
+    if (ttdValB === 'tte') {
+        if (descB) descB.textContent = 'Tanda Tangan Elektronik Tersertifikasi BSrE BSSN';
+        if (subDescB) subDescB.textContent = 'Format QR Code terenkripsi valid disematkan di bawah tabel nominatif lampiran SK.';
+        if (imgB && window.PrintHelper && typeof window.PrintHelper.getQrBadgeBase64 === 'function') {
+            imgB.src = window.PrintHelper.getQrBadgeBase64(nomor + '-LAMPIRAN');
+        }
+    } else {
+        if (descB) descB.textContent = ttdValB === 'scan' ? 'Scan Tanda Tangan & Cap Stempel Dinas' : 'TTD Manual Digital Pad Web';
+        if (subDescB) subDescB.textContent = 'Gambar tanda tangan & cap dinas disematkan rapi di bawah tabel lampiran.';
+        const customB = localStorage.getItem('spk_custom_signature_bawah');
+        if (imgB && window.PrintHelper && typeof window.PrintHelper.getManualSignatureBase64 === 'function') {
+            const stCfgB = (typeof window.getStampFormConfig === 'function') ? window.getStampFormConfig('bawah') : null;
+            imgB.src = window.PrintHelper.getManualSignatureBase64(namaLengkapB, 'bawah', stCfgB);
+        } else if (imgB && customB) {
+            imgB.src = customB;
+        }
+    }
+
+    // 3. Live update Pratinjau Cap Basah Stempel Aktif (Atas & Bawah)
+    const stCfgA = (typeof window.getStampFormConfig === 'function') ? window.getStampFormConfig('atas') : null;
+    const imgStampA = document.getElementById('imgLiveStampPreviewAtas');
+    if (imgStampA && window.PrintHelper && typeof window.PrintHelper.getStampBase64 === 'function') {
+        const stampB64A = window.PrintHelper.getStampBase64('atas', stCfgA);
+        imgStampA.src = stampB64A || '';
+    }
+
+    const stCfgB = (typeof window.getStampFormConfig === 'function') ? window.getStampFormConfig('bawah') : null;
+    const imgStampB = document.getElementById('imgLiveStampPreviewBawah');
+    if (imgStampB && window.PrintHelper && typeof window.PrintHelper.getStampBase64 === 'function') {
+        const stampB64B = window.PrintHelper.getStampBase64('bawah', stCfgB);
+        imgStampB.src = stampB64B || '';
+    }
 };
 
-window.resetLogoDefaultKop = function () {
-    window.currentCustomLogo = '';
-    const img = document.getElementById('imgPreviewLogoKop');
-    const defaultSrc = window.LOGO_SIDOARJO_BASE64 || "static/img/logo-sidoarjo.png";
-    if (img) img.src = defaultSrc;
-    window.updateLiveKopPreview();
 
-    Swal.fire({
-        icon: 'info',
-        title: 'Logo Direset',
-        text: 'Logo dikembalikan ke Lambang Resmi Pemkab Sidoarjo.',
-        timer: 1400,
-        showConfirmButton: false
-    });
-};
 
-window.bukaModalSettingDokumen = function (targetTab = 'ttd') {
+window.bukaModalSettingDokumen = function (targetTab, contextSource) {
+    if (!contextSource) {
+        const modalSK = document.getElementById('modalSKBupati');
+        if (modalSK && modalSK.style.display !== 'none' && modalSK.style.display !== '') {
+            contextSource = 'sk_bupati';
+        } else {
+            const modalAudit = document.getElementById('modalAuditMatriksSAW');
+            if (modalAudit && modalAudit.style.display !== 'none' && modalAudit.style.display !== '') {
+                contextSource = 'matriks';
+            } else {
+                contextSource = 'komparasi';
+            }
+        }
+    }
+    window._currentDocSettingContext = contextSource;
+
     const s = window.getDocumentSettings();
     const kop = window.getKopTemplate();
     const fmt = window.getFormatOptions();
 
-    // Tab 1: Pimpinan & TTD
-    const elGelarD = document.getElementById('settingGelarDepan');
-    const elNama = document.getElementById('settingNamaPimpinan');
-    const elGelarB = document.getElementById('settingGelarBelakang');
-    const elNip = document.getElementById('settingNipPimpinan');
-    const elJabatan = document.getElementById('settingJabatanPimpinan');
-    const elPangkat = document.getElementById('settingPangkatPimpinan');
+    // Kontrol Tampilan: Dual Signatory (SK Bupati) vs Single Signatory (Matriks / Komparasi)
+    const wrapDual = document.getElementById('wrapperDualSignatoryOnly');
+    const wrapSingle = document.getElementById('wrapperSingleSignatoryInfo');
+    const panelAtas = document.getElementById('panelSubTabTtdAtas');
+    const panelBawah = document.getElementById('panelSubTabTtdBawah');
+    const labelJudulBawah = document.getElementById('labelJudulPenandatanganBawah');
+    const subDescBawah = document.getElementById('subDescPreviewTtdBawah');
+
+    const isSkBupati = (contextSource === 'sk_bupati');
+
+    if (isSkBupati) {
+        if (wrapDual) wrapDual.style.display = 'block';
+        if (wrapSingle) wrapSingle.style.display = 'none';
+        if (labelJudulBawah) {
+            labelJudulBawah.innerHTML = '<i class="fas fa-file-signature"></i> Identitas Pejabat Bagian Bawah (Pengesahan Lampiran Tabel Nominatif)';
+        }
+        if (subDescBawah) {
+            subDescBawah.textContent = 'Validasi digital Kepala Dinas Sosial pada lampiran tabel PDF & Word.';
+        }
+        if (isSkBupati) {
+        window.switchSubTabTtd('atas');
+    }
+        window.highlightKopPreset('bupati');
+    } else {
+        window.activeSubTabTtd = 'bawah';
+        if (wrapDual) wrapDual.style.display = 'none';
+        if (wrapSingle) wrapSingle.style.display = 'block';
+        if (panelAtas) panelAtas.style.display = 'none';
+        if (panelBawah) panelBawah.style.display = 'block';
+        if (labelJudulBawah) {
+            labelJudulBawah.innerHTML = '<i class="fas fa-user-tie"></i> Identitas Pejabat Penandatangan (Kepala Dinas Sosial / Pimpinan)';
+        }
+        if (subDescBawah) {
+            subDescBawah.textContent = 'Pengesahan resmi berkas laporan matriks kerja dan verifikasi algoritma.';
+        }
+        window.updateTtdLabelStyle();
+        window.updateLiveTtdPreview();
+        window.highlightKopPreset('dinsos');
+    }
+
+    // Tab 1: Pimpinan Atas (Bupati)
+    const elJAtas = document.getElementById('settingJabatanAtas');
+    const elGDAtas = document.getElementById('settingGelarDepanAtas');
+    const elNAtas = document.getElementById('settingNamaAtas');
+    const elGBAtas = document.getElementById('settingGelarBelakangAtas');
+    const elNipAtas = document.getElementById('settingNipAtas');
+    const elPAtas = document.getElementById('settingPangkatAtas');
+
+    if (elJAtas) elJAtas.value = s.jabatanAtas || DEFAULT_DOC_SETTINGS.jabatanAtas;
+    if (elGDAtas) elGDAtas.value = s.gelarDepanAtas !== undefined ? s.gelarDepanAtas : DEFAULT_DOC_SETTINGS.gelarDepanAtas;
+    if (elNAtas) elNAtas.value = s.namaAtas || DEFAULT_DOC_SETTINGS.namaAtas;
+    if (elGBAtas) elGBAtas.value = s.gelarBelakangAtas !== undefined ? s.gelarBelakangAtas : DEFAULT_DOC_SETTINGS.gelarBelakangAtas;
+    if (elNipAtas) elNipAtas.value = s.nipAtas || '';
+    if (elPAtas) elPAtas.value = s.pangkatAtas || DEFAULT_DOC_SETTINGS.pangkatAtas;
+
+    const optTteA = document.getElementById('ttdOptTteAtas');
+    const optScanA = document.getElementById('ttdOptScanAtas');
+    const optManualA = document.getElementById('ttdOptManualAtas');
+    const tipeA = s.tipeTtdAtas || s.tipeTtd || 'tte';
+    if (tipeA === 'manual' && optManualA) optManualA.checked = true;
+    else if (tipeA === 'scan' && optScanA) optScanA.checked = true;
+    else if (optTteA) optTteA.checked = true;
+
+    // Inisialisasi Nilai Stempel Atas (Bupati)
+    const stAtas = s.stempelAtas || DEFAULT_DOC_SETTINGS.stempelAtas || {};
+    const chkStAtas = document.getElementById('settingEnableStampAtas');
+    if (chkStAtas) chkStAtas.checked = stAtas.aktif !== false;
+    const radStAtas = document.querySelector(`input[name="settingTipeStampAtas"][value="${stAtas.tipe || 'otomatis'}"]`);
+    if (radStAtas) radStAtas.checked = true;
+    const pickerStAtas = document.getElementById('settingStampColorPickerAtas');
+    if (pickerStAtas) pickerStAtas.value = stAtas.warna || '#dc2626';
+    const bentukStAtas = document.getElementById('settingStampBentukAtas');
+    if (bentukStAtas) bentukStAtas.value = stAtas.bentuk || 'bulat';
+    const posStAtas = document.getElementById('settingStampPosisiAtas');
+    if (posStAtas) posStAtas.value = stAtas.posisi || 'kiri';
+    const rotStAtas = document.getElementById('settingStampRotasiAtas');
+    if (rotStAtas) {
+        rotStAtas.value = typeof stAtas.rotasi === 'number' ? stAtas.rotasi : -8;
+        const lbl = document.getElementById('lblRotasiValAtas');
+        if (lbl) lbl.textContent = rotStAtas.value + '°';
+    }
+    const ukStAtas = document.getElementById('settingStampUkuranAtas');
+    if (ukStAtas) {
+        ukStAtas.value = typeof stAtas.ukuran === 'number' ? stAtas.ukuran : 92;
+        const lbl = document.getElementById('lblUkuranValAtas');
+        if (lbl) lbl.textContent = ukStAtas.value + ' px';
+    }
+    const opStAtas = document.getElementById('settingStampOpacityAtas');
+    if (opStAtas) {
+        opStAtas.value = typeof stAtas.opacity === 'number' ? Math.round(stAtas.opacity * 100) : 88;
+        const lbl = document.getElementById('lblOpacityValAtas');
+        if (lbl) lbl.textContent = opStAtas.value + '%';
+    }
+    const txtAtas1 = document.getElementById('settingStampTeksAtas_Atas');
+    if (txtAtas1) txtAtas1.value = stAtas.teksAtas || 'PEMERINTAH KABUPATEN SIDOARJO';
+    const txtAtas2 = document.getElementById('settingStampTeksBawah_Atas');
+    if (txtAtas2) txtAtas2.value = stAtas.teksBawah || 'BUPATI SIDOARJO';
+
+    const customStampAtas = localStorage.getItem('spk_custom_stamp_image_atas');
+    const btnHapusStAtas = document.getElementById('btnHapusStampAtas');
+    const txtDescStAtas = document.getElementById('txtUploadStampAtas');
+    if (btnHapusStAtas) btnHapusStAtas.style.display = customStampAtas ? 'inline-flex' : 'none';
+    if (txtDescStAtas && customStampAtas) txtDescStAtas.textContent = 'Berkas stempel manual tersimpan di memori.';
+    if (typeof window.toggleStampSettings === 'function') window.toggleStampSettings('atas');
+    if (typeof window.updateStampStyle === 'function') window.updateStampStyle('atas');
+
+    // Tab 1: Pimpinan Bawah (Kadinsos)
+    const elJBawah = document.getElementById('settingJabatanBawah');
+    const elGDBawah = document.getElementById('settingGelarDepanBawah');
+    const elNBawah = document.getElementById('settingNamaBawah');
+    const elGBBawah = document.getElementById('settingGelarBelakangBawah');
+    const elNipBawah = document.getElementById('settingNipBawah');
+    const elPBawah = document.getElementById('settingPangkatBawah');
+
+    if (elJBawah) elJBawah.value = s.jabatanBawah || s.jabatanPimpinan || DEFAULT_DOC_SETTINGS.jabatanBawah;
+    if (elGDBawah) elGDBawah.value = s.gelarDepanBawah !== undefined ? s.gelarDepanBawah : (s.gelarDepan !== undefined ? s.gelarDepan : DEFAULT_DOC_SETTINGS.gelarDepanBawah);
+    if (elNBawah) elNBawah.value = s.namaBawah || s.namaPimpinan || DEFAULT_DOC_SETTINGS.namaBawah;
+    if (elGBBawah) elGBBawah.value = s.gelarBelakangBawah !== undefined ? s.gelarBelakangBawah : (s.gelarBelakang !== undefined ? s.gelarBelakang : DEFAULT_DOC_SETTINGS.gelarBelakangBawah);
+    if (elNipBawah) elNipBawah.value = s.nipBawah || s.nipPimpinan || DEFAULT_DOC_SETTINGS.nipBawah;
+    if (elPBawah) elPBawah.value = s.pangkatBawah || s.pangkatPimpinan || DEFAULT_DOC_SETTINGS.pangkatBawah;
+
+    const optTteB = document.getElementById('ttdOptTteBawah');
+    const optScanB = document.getElementById('ttdOptScanBawah');
+    const optManualB = document.getElementById('ttdOptManualBawah');
+    const tipeB = s.tipeTtdBawah || s.tipeTtd || 'tte';
+    if (tipeB === 'manual' && optManualB) optManualB.checked = true;
+    else if (tipeB === 'scan' && optScanB) optScanB.checked = true;
+    else if (optTteB) optTteB.checked = true;
+
+    // Inisialisasi Nilai Stempel Bawah (Kadinsos)
+    const stBawah = s.stempelBawah || DEFAULT_DOC_SETTINGS.stempelBawah || {};
+    const chkStBawah = document.getElementById('settingEnableStampBawah');
+    if (chkStBawah) chkStBawah.checked = stBawah.aktif !== false;
+    const radStBawah = document.querySelector(`input[name="settingTipeStampBawah"][value="${stBawah.tipe || 'otomatis'}"]`);
+    if (radStBawah) radStBawah.checked = true;
+    const pickerStBawah = document.getElementById('settingStampColorPickerBawah');
+    if (pickerStBawah) pickerStBawah.value = stBawah.warna || '#1e40af';
+    const bentukStBawah = document.getElementById('settingStampBentukBawah');
+    if (bentukStBawah) bentukStBawah.value = stBawah.bentuk || 'bulat';
+    const posStBawah = document.getElementById('settingStampPosisiBawah');
+    if (posStBawah) posStBawah.value = stBawah.posisi || 'kiri';
+    const rotStBawah = document.getElementById('settingStampRotasiBawah');
+    if (rotStBawah) {
+        rotStBawah.value = typeof stBawah.rotasi === 'number' ? stBawah.rotasi : -6;
+        const lbl = document.getElementById('lblRotasiValBawah');
+        if (lbl) lbl.textContent = rotStBawah.value + '°';
+    }
+    const ukStBawah = document.getElementById('settingStampUkuranBawah');
+    if (ukStBawah) {
+        ukStBawah.value = typeof stBawah.ukuran === 'number' ? stBawah.ukuran : 92;
+        const lbl = document.getElementById('lblUkuranValBawah');
+        if (lbl) lbl.textContent = ukStBawah.value + ' px';
+    }
+    const opStBawah = document.getElementById('settingStampOpacityBawah');
+    if (opStBawah) {
+        opStBawah.value = typeof stBawah.opacity === 'number' ? Math.round(stBawah.opacity * 100) : 88;
+        const lbl = document.getElementById('lblOpacityValBawah');
+        if (lbl) lbl.textContent = opStBawah.value + '%';
+    }
+    const txtBawah1 = document.getElementById('settingStampTeksAtas_Bawah');
+    if (txtBawah1) txtBawah1.value = stBawah.teksAtas || 'PEMERINTAH KABUPATEN SIDOARJO';
+    const txtBawah2 = document.getElementById('settingStampTeksBawah_Bawah');
+    if (txtBawah2) txtBawah2.value = stBawah.teksBawah || 'DINAS SOSIAL';
+
+    const customStampBawah = localStorage.getItem('spk_custom_stamp_image_bawah');
+    const btnHapusStBawah = document.getElementById('btnHapusStampBawah');
+    const txtDescStBawah = document.getElementById('txtUploadStampBawah');
+    if (btnHapusStBawah) btnHapusStBawah.style.display = customStampBawah ? 'inline-flex' : 'none';
+    if (txtDescStBawah && customStampBawah) txtDescStBawah.textContent = 'Berkas stempel manual tersimpan di memori.';
+    if (typeof window.toggleStampSettings === 'function') window.toggleStampSettings('bawah');
+    if (typeof window.updateStampStyle === 'function') window.updateStampStyle('bawah');
+
+    // Data Surat Umum
     const elNomor = document.getElementById('settingNomorSurat');
     const elKota = document.getElementById('settingKotaSurat');
     const elTanggal = document.getElementById('settingTanggalSurat');
-    const optTte = document.getElementById('ttdOptTte');
-    const optScan = document.getElementById('ttdOptScan');
-    const optManual = document.getElementById('ttdOptManual');
-
-    if (elGelarD) elGelarD.value = s.gelarDepan !== undefined ? s.gelarDepan : DEFAULT_DOC_SETTINGS.gelarDepan;
-    if (elNama) elNama.value = s.namaPimpinan || DEFAULT_DOC_SETTINGS.namaPimpinan;
-    if (elGelarB) elGelarB.value = s.gelarBelakang !== undefined ? s.gelarBelakang : DEFAULT_DOC_SETTINGS.gelarBelakang;
-    if (elNip) elNip.value = s.nipPimpinan || DEFAULT_DOC_SETTINGS.nipPimpinan;
-    if (elJabatan) elJabatan.value = s.jabatanPimpinan || DEFAULT_DOC_SETTINGS.jabatanPimpinan;
-    if (elPangkat) elPangkat.value = s.pangkatPimpinan || DEFAULT_DOC_SETTINGS.pangkatPimpinan;
     if (elNomor) elNomor.value = s.nomorSurat || DEFAULT_DOC_SETTINGS.nomorSurat;
     if (elKota) elKota.value = s.kotaSurat || DEFAULT_DOC_SETTINGS.kotaSurat;
     if (elTanggal) elTanggal.value = s.tanggalSurat || DEFAULT_DOC_SETTINGS.tanggalSurat;
 
-    if (s.tipeTtd === 'manual') {
-        if (optManual) optManual.checked = true;
-    } else if (s.tipeTtd === 'scan') {
-        if (optScan) optScan.checked = true;
-    } else {
-        if (optTte) optTte.checked = true;
+    if (isSkBupati) {
+        window.switchSubTabTtd('atas');
     }
-    window.updateTtdLabelStyle();
 
     // Tab 2: Kop Surat & Logo
     const elProv = document.getElementById('settingKopProvinsi');
@@ -1845,21 +2492,50 @@ window.getPaperSettings = function () {
 
 window.simpanSettingDokumen = function (e) {
     if (e) e.preventDefault();
-    const ttdVal = document.querySelector('input[name="settingTipeTtd"]:checked')?.value || 'tte';
+
+    const ttdAtas = document.querySelector('input[name="settingTipeTtdAtas"]:checked')?.value || 'tte';
+    const ttdBawah = document.querySelector('input[name="settingTipeTtdBawah"]:checked')?.value || 'tte';
     const targetFmt = document.querySelector('input[name="settingTargetFormat"]:checked')?.value || 'all';
 
     const newSettings = {
-        gelarDepan: document.getElementById('settingGelarDepan')?.value.trim() || '',
-        namaPimpinan: document.getElementById('settingNamaPimpinan')?.value.trim() || DEFAULT_DOC_SETTINGS.namaPimpinan,
-        gelarBelakang: document.getElementById('settingGelarBelakang')?.value.trim() || '',
-        nipPimpinan: document.getElementById('settingNipPimpinan')?.value.trim() || DEFAULT_DOC_SETTINGS.nipPimpinan,
-        jabatanPimpinan: document.getElementById('settingJabatanPimpinan')?.value.trim() || DEFAULT_DOC_SETTINGS.jabatanPimpinan,
-        pangkatPimpinan: document.getElementById('settingPangkatPimpinan')?.value.trim() || DEFAULT_DOC_SETTINGS.pangkatPimpinan,
+        // Atas (Bupati)
+        jabatanAtas: document.getElementById('settingJabatanAtas')?.value.trim() || DEFAULT_DOC_SETTINGS.jabatanAtas,
+        gelarDepanAtas: document.getElementById('settingGelarDepanAtas')?.value.trim() || '',
+        namaAtas: document.getElementById('settingNamaAtas')?.value.trim() || DEFAULT_DOC_SETTINGS.namaAtas,
+        gelarBelakangAtas: document.getElementById('settingGelarBelakangAtas')?.value.trim() || '',
+        nipAtas: document.getElementById('settingNipAtas')?.value.trim() || '',
+        pangkatAtas: document.getElementById('settingPangkatAtas')?.value.trim() || '',
+        tipeTtdAtas: ttdAtas,
+
+        // Bawah (Kepala Dinsos)
+        jabatanBawah: document.getElementById('settingJabatanBawah')?.value.trim() || DEFAULT_DOC_SETTINGS.jabatanBawah,
+        gelarDepanBawah: document.getElementById('settingGelarDepanBawah')?.value.trim() || '',
+        namaBawah: document.getElementById('settingNamaBawah')?.value.trim() || DEFAULT_DOC_SETTINGS.namaBawah,
+        gelarBelakangBawah: document.getElementById('settingGelarBelakangBawah')?.value.trim() || '',
+        nipBawah: document.getElementById('settingNipBawah')?.value.trim() || DEFAULT_DOC_SETTINGS.nipBawah,
+        pangkatBawah: document.getElementById('settingPangkatBawah')?.value.trim() || DEFAULT_DOC_SETTINGS.pangkatBawah,
+        tipeTtdBawah: ttdBawah,
+
+        // Kompatibilitas mundur untuk modul lain
+        gelarDepan: document.getElementById('settingGelarDepanBawah')?.value.trim() || '',
+        namaPimpinan: document.getElementById('settingNamaBawah')?.value.trim() || DEFAULT_DOC_SETTINGS.namaBawah,
+        gelarBelakang: document.getElementById('settingGelarBelakangBawah')?.value.trim() || '',
+        nipPimpinan: document.getElementById('settingNipBawah')?.value.trim() || DEFAULT_DOC_SETTINGS.nipBawah,
+        jabatanPimpinan: document.getElementById('settingJabatanBawah')?.value.trim() || DEFAULT_DOC_SETTINGS.jabatanBawah,
+        pangkatPimpinan: document.getElementById('settingPangkatBawah')?.value.trim() || DEFAULT_DOC_SETTINGS.pangkatBawah,
+        tipeTtd: ttdBawah,
+
         nomorSurat: document.getElementById('settingNomorSurat')?.value.trim() || DEFAULT_DOC_SETTINGS.nomorSurat,
         kotaSurat: document.getElementById('settingKotaSurat')?.value.trim() || DEFAULT_DOC_SETTINGS.kotaSurat,
         tanggalSurat: document.getElementById('settingTanggalSurat')?.value.trim() || DEFAULT_DOC_SETTINGS.tanggalSurat,
-        tipeTtd: ttdVal
+
+        // Simpan Konfigurasi Stempel Terpadu
+        stempelAtas: (typeof window.getStampFormConfig === 'function') ? window.getStampFormConfig('atas') : DEFAULT_DOC_SETTINGS.stempelAtas,
+        stempelBawah: (typeof window.getStampFormConfig === 'function') ? window.getStampFormConfig('bawah') : DEFAULT_DOC_SETTINGS.stempelBawah
     };
+
+    localStorage.setItem('spk_stempel_settings_atas', JSON.stringify(newSettings.stempelAtas));
+    localStorage.setItem('spk_stempel_settings_bawah', JSON.stringify(newSettings.stempelBawah));
 
     const newKop = {
         provinsi: document.getElementById('settingKopProvinsi')?.value.trim() || DEFAULT_KOP_TEMPLATE.provinsi,
@@ -1906,15 +2582,12 @@ window.simpanSettingDokumen = function (e) {
     Swal.fire({
         icon: 'success',
         title: 'Templat Dokumen Berhasil Disimpan!',
-        text: 'Identitas pimpinan, gelar, tanda tangan, templat Kop Surat, dan opsi berkas telah diperbarui untuk PDF, Word, dan Excel.',
+        text: 'Identitas penandatangan Atas (Bupati) & Bawah (Kadinsos), templat Kop Surat, serta opsi berkas telah diperbarui.',
         timer: 2000,
         showConfirmButton: false
     });
 };
 
-// =========================================================================
-// HANDLER DROPDOWN & EKSPOR MATRIKS KERJA (PDF, WORD, EXCEL)
-// =========================================================================
 window.toggleDropdownUnduhMatriks = function (e) {
     if (e) {
         e.preventDefault();
@@ -1978,7 +2651,7 @@ window.bukaModalSKBupati = async function () {
     }
 
     modal.style.display = 'flex';
-    window.renderSKBupatiPreview();
+    await window.renderSKBupatiPreview();
 };
 
 window.renderSKBupatiPreview = async function () {
@@ -1988,11 +2661,11 @@ window.renderSKBupatiPreview = async function () {
     previewArea.innerHTML = '<div style="text-align:center; padding:40px; color:#64748b;"><i class="fas fa-spinner fa-spin fa-2x text-danger" style="margin-bottom:12px;"></i><div>Memuat naskah keputusan resmi Bupati Sidoarjo...</div></div>';
 
     let rawList = (window.globalDataWarga || []).filter(w => w.is_verified);
-    if (!rawList.length && typeof window.fetchData === 'function') {
-        try {
-            const res = await window.fetchData('/warga?verified=true');
-            if (res && res.data) rawList = res.data;
-        } catch (e) {}
+    if (!rawList.length && window.PrintHelper && typeof window.PrintHelper.resolveDataset === 'function') {
+        rawList = await window.PrintHelper.resolveDataset();
+    }
+    if (!rawList.length && Array.isArray(window.globalDataWarga) && window.globalDataWarga.length > 0) {
+        rawList = window.globalDataWarga;
     }
 
     const sortedList = [...rawList].sort((a, b) => {
@@ -2003,47 +2676,88 @@ window.renderSKBupatiPreview = async function () {
 
     const docSettings = window.getDocumentSettings();
     const kop = window.getKopTemplate();
-    const namaLengkapBupati = window.getNamaLengkapPemimpin(docSettings);
+
     const tahunAnggaran = '2026';
     const nomorSK = docSettings.nomorSurat || '188 / 460 / 438.5.12 / 2026';
     const tanggalSK = docSettings.tanggalSurat || '28 September 2026';
     const kotaSK = docSettings.kotaSurat || 'Sidoarjo';
-    const jabatanBupati = docSettings.jabatanPimpinan || 'BUPATI SIDOARJO';
     const logoSrc = kop.logoBase64 || window.LOGO_SIDOARJO_BASE64 || "static/img/logo-sidoarjo.png";
 
-    // Format TTD Preview
-    let ttdPreviewHtml = '';
-    if (docSettings.tipeTtd === 'tte') {
-        const qrSrc = window.PrintHelper ? window.PrintHelper.getQrBadgeBase64(nomorSK) : `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=SK-BUPATI-SIDOARJO-${encodeURIComponent(nomorSK)}`;
-        ttdPreviewHtml = `
+    // Pejabat Atas (Bupati)
+    const jabatanAtas = docSettings.jabatanAtas || docSettings.jabatanPimpinan || 'BUPATI SIDOARJO';
+    const namaLengkapAtas = window.getNamaLengkapPemimpin(docSettings, 'atas');
+    const tipeTtdAtas = docSettings.tipeTtdAtas || docSettings.tipeTtd || 'tte';
+    const nipAtas = docSettings.nipAtas || '';
+    const pangkatAtas = docSettings.pangkatAtas || '';
+
+    // Pejabat Bawah (Kepala Dinsos)
+    const jabatanBawah = docSettings.jabatanBawah || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO';
+    const namaLengkapBawah = window.getNamaLengkapPemimpin(docSettings, 'bawah');
+    const tipeTtdBawah = docSettings.tipeTtdBawah || docSettings.tipeTtd || 'tte';
+    const nipBawah = docSettings.nipBawah || '19710815 199603 1 003';
+    const pangkatBawah = docSettings.pangkatBawah || 'Pembina Utama Muda';
+
+    // Format TTD Preview Naskah SK Halaman 1 (Hanya Penandatangan Atas: Bupati Sidoarjo, Tanpa QR Code)
+    const manualSigSrcAtas = window.PrintHelper ? window.PrintHelper.getManualSignatureBase64(namaLengkapAtas, 'atas') : '';
+
+    const isPublik = Boolean(window._isSkBupatiPublished);
+    const statusBadgeSuratSK = isPublik
+        ? `<div style="display:inline-flex; align-items:center; gap:8px; background:#dcfce7; border:1.5px solid #86efac; color:#15803d; padding:6px 14px; border-radius:10px; font-weight:800; font-size:0.8rem; margin-bottom:14px;"><i class="fas fa-check-double"></i> NASKAH RESMI: TELAH DITERBITKAN KE PORTAL WARGA</div>`
+        : `<div style="display:inline-flex; align-items:center; gap:8px; background:#fffbeb; border:1.5px solid #fde68a; color:#b45309; padding:6px 14px; border-radius:10px; font-weight:800; font-size:0.8rem; margin-bottom:14px;"><i class="fas fa-lock"></i> NASKAH INTERNAL: STATUS DRAFT / BELUM DIBUKA KE WARGA</div>`;
+    
+    const ttdPreviewAtasHtml = `
+        <div style="display:flex; justify-content:flex-end; margin-top:24px; padding-top:16px; border-top:1px dashed #cbd5e1;">
+            <!-- PENANDATANGAN BAGIAN ATAS: BUPATI SIDOARJO (TANPA QR CODE) -->
+            <div style="text-align:center; min-width:280px; max-width:420px; background:#fff1f2; padding:14px 18px; border-radius:12px; border:1px solid #fecdd3;">
+                <div style="font-size:0.78rem; color:#be123c; margin-bottom:2px;">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
+                <div style="font-size:0.9rem; font-weight:800; color:#0f172a; margin-top:2px; min-height:26px; display:flex; align-items:center; justify-content:center;">${jabatanAtas}</div>
+                <div style="height:62px; display:flex; align-items:center; justify-content:center; margin:6px 0;">
+                    <img src="${manualSigSrcAtas}" style="max-height:60px; max-width:175px; object-fit:contain;" alt="TTD & Stempel Bupati">
+                </div>
+                <div style="font-size:0.9rem; font-weight:800; color:#be123c; text-decoration:underline;">${namaLengkapAtas}</div>
+                ${nipAtas ? `<div style="font-size:0.74rem; color:#475569; margin-top:2px;">${pangkatAtas ? pangkatAtas + ' | ' : ''}NIP. ${nipAtas}</div>` : ''}
+            </div>
+        </div>
+    `;
+
+    // Format TTD Preview Bawah (Halaman Lampiran - Kepala Dinas Sosial)
+    let ttdPreviewBawahHtml = '';
+    const manualSigSrcBawah = window.PrintHelper ? window.PrintHelper.getManualSignatureBase64(namaLengkapBawah, 'bawah') : '';
+
+    if (tipeTtdBawah === 'tte') {
+        const qrSrcB = window.PrintHelper ? window.PrintHelper.getQrBadgeBase64(nomorSK + '-LAMPIRAN') : `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LAMPIRAN-${encodeURIComponent(nomorSK)}`;
+        ttdPreviewBawahHtml = `
             <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:20px; flex-wrap:wrap; margin-top:24px; padding-top:14px; border-top:1px dashed #cbd5e1;">
                 <div style="display:flex; align-items:center; gap:12px; background:#f0fdf4; border:1px solid #bbf7d0; padding:10px 14px; border-radius:12px; max-width:380px;">
-                    <img src="${qrSrc}" style="width:70px; height:70px; object-fit:contain; border-radius:6px; background:#ffffff; padding:2px; border:1px solid #e2e8f0;" alt="QR BSrE">
+                    <img src="${qrSrcB}" style="width:70px; height:70px; object-fit:contain; border-radius:6px; background:#ffffff; padding:2px; border:1px solid #e2e8f0;" alt="QR BSrE Lampiran">
                     <div style="font-size:0.75rem; color:#166534; line-height:1.4;">
-                        <b>Ditandatangani secara Elektronik oleh:</b><br>
-                        ${jabatanBupati}<br>
+                        <b>Disahkan secara Elektronik oleh:</b><br>
+                        ${jabatanBawah}<br>
                         <small style="color:#15803d; font-size:0.7rem;">Sertifikasi BSrE Badan Siber dan Sandi Negara (BSSN)</small>
                     </div>
                 </div>
-                <div style="text-align:center; min-width:240px;">
-                    <div style="font-size:0.8rem; color:#475569;">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
-                    <div style="font-size:0.88rem; font-weight:800; color:#0f172a; margin-top:4px;">${jabatanBupati}</div>
-                    <div style="font-size:0.88rem; font-weight:800; color:#be123c; margin-top:45px; text-decoration:underline;">${namaLengkapBupati}</div>
+                <div style="text-align:center; min-width:250px;">
+                    <div style="font-size:0.8rem; color:#475569;">${kotaSK}, ${tanggalSK}</div>
+                    <div style="font-size:0.88rem; font-weight:800; color:#0f172a; margin-top:4px;">${jabatanBawah}</div>
+                    <div style="height:60px; display:flex; align-items:center; justify-content:center; margin:6px 0;">
+                        <img src="${manualSigSrcBawah}" style="max-height:56px; max-width:150px; object-fit:contain;" alt="TTD & Stempel">
+                    </div>
+                    <div style="font-size:0.88rem; font-weight:800; color:#0f172a; text-decoration:underline;">${namaLengkapBawah}</div>
+                    ${nipBawah ? `<div style="font-size:0.75rem; color:#475569;">${pangkatBawah ? pangkatBawah + ' | ' : ''}NIP. ${nipBawah}</div>` : ''}
                 </div>
             </div>
         `;
     } else {
-        const manualSigSrc = window.PrintHelper ? window.PrintHelper.getManualSignatureBase64(namaLengkapBupati) : '';
-        ttdPreviewHtml = `
+        ttdPreviewBawahHtml = `
             <div style="display:flex; justify-content:flex-end; margin-top:24px; padding-top:14px; border-top:1px dashed #cbd5e1;">
                 <div style="text-align:center; min-width:250px;">
-                    <div style="font-size:0.8rem; color:#475569;">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
-                    <div style="font-size:0.88rem; font-weight:800; color:#0f172a; margin-top:4px;">${jabatanBupati}</div>
+                    <div style="font-size:0.8rem; color:#475569;">${kotaSK}, ${tanggalSK}</div>
+                    <div style="font-size:0.88rem; font-weight:800; color:#0f172a; margin-top:4px;">${jabatanBawah}</div>
                     <div style="height:60px; display:flex; align-items:center; justify-content:center; margin:6px 0;">
-                        <img src="${manualSigSrc}" style="max-height:56px; max-width:150px; object-fit:contain;" alt="TTD & Stempel">
+                        <img src="${manualSigSrcBawah}" style="max-height:56px; max-width:150px; object-fit:contain;" alt="TTD & Stempel">
                     </div>
-                    <div style="font-size:0.88rem; font-weight:800; color:#0f172a; text-decoration:underline;">${namaLengkapBupati}</div>
-                    ${docSettings.nipPimpinan ? `<div style="font-size:0.75rem; color:#475569;">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>` : ''}
+                    <div style="font-size:0.88rem; font-weight:800; color:#0f172a; text-decoration:underline;">${namaLengkapBawah}</div>
+                    ${nipBawah ? `<div style="font-size:0.75rem; color:#475569;">${pangkatBawah ? pangkatBawah + ' | ' : ''}NIP. ${nipBawah}</div>` : ''}
                 </div>
             </div>
         `;
@@ -2110,8 +2824,8 @@ window.renderSKBupatiPreview = async function () {
                 </table>
             </div>
 
-            <!-- TTD PENGESAHAN -->
-            ${ttdPreviewHtml}
+            <!-- TTD PENGESAHAN ATAS (BUPATI SIDOARJO) -->
+            ${ttdPreviewAtasHtml}
 
             <!-- LAMPIRAN NOMINATIF SAMPEL -->
             <div style="margin-top:35px; padding-top:18px; border-top:2px solid #0f172a;">
@@ -2161,6 +2875,9 @@ window.renderSKBupatiPreview = async function () {
                     </table>
                 </div>
                 ${sortedList.length > 15 ? `<div style="font-size:0.72rem; color:#64748b; margin-top:6px; text-align:right;">* Menampilkan 15 penerima pertama pada pratinjau. Seluruh ${sortedList.length} warga dicetak lengkap pada berkas PDF & Word.</div>` : ''}
+
+                <!-- TTD PENGESAHAN BAWAH (KEPALA DINAS SOSIAL) -->
+                ${ttdPreviewBawahHtml}
             </div>
         </div>
     `;

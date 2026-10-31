@@ -1276,43 +1276,29 @@ body {
     opacity: 1 !important;
     width: auto !important;
     height: auto !important;
-    padding: 13px 40px !important;
-    margin: 6px !important;
+    min-height: 48px !important;
+    min-width: 155px !important;
+    padding: 13px 36px !important;
+    margin: 0 !important;
     cursor: pointer !important;
 }
 
-/* TOMBOL SILANG (X) SUDUT KANAN ATAS SWEETALERT */
-.swal2-popup .swal2-close {
-    width: 38px !important;
-    height: 38px !important;
-    line-height: 36px !important;
-    border-radius: 50% !important;
-    top: 14px !important;
-    right: 14px !important;
-    color: #64748b !important;
-    font-size: 20px !important;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
-    font-weight: 700 !important;
-    background: #f1f5f9 !important;
-    border: 1px solid #e2e8f0 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
-    outline: none !important;
-    cursor: pointer !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
-    z-index: 10 !important;
+/* HILANGKAN TOMBOL SILANG (X) SUDUT KANAN ATAS SWEETALERT AGAR TIDAK DOUBLE FUNGSI */
+.swal2-popup:not(.swal2-toast) .swal2-close,
+.swal2-popup .swal-close-modern,
+.swal-close-btn-hidden {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
 }
 
-.swal2-popup .swal2-close:hover {
-    color: #ef4444 !important;
-    background: #fee2e2 !important;
-    border-color: #fca5a5 !important;
-    transform: rotate(90deg) scale(1.08) !important;
-}
-
-/* TOMBOL BATALKAN PROSES MEMBULAT MODEREN */
+/* TOMBOL BATALKAN / TUTUP MEMBULAT MODEREN & SELARAS */
 .swal-btn-hidden-force,
 button.swal2-cancel[style*="display: none"],
 button.swal2-cancel[style*="display:none"],
@@ -1327,7 +1313,31 @@ button.swal2-cancel:empty {
     pointer-events: none !important;
 }
 
-.swal2-popup:not(.swal-no-cancel) .swal2-cancel.swal-btn-pill-cancel:not([style*="display: none"]):not([style*="display:none"]),
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading):not(.swal-no-cancel) .swal2-cancel:not([style*="display: none"]):not([style*="display:none"]):not(.swal-btn-hidden-force),
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading):not(.swal-no-cancel) .swal2-cancel.swal-btn-pill-cancel:not([style*="display: none"]):not([style*="display:none"]):not(.swal-btn-hidden-force) {
+    border-radius: 9999px !important;
+    min-height: 48px !important;
+    min-width: 155px !important;
+    padding: 13px 36px !important;
+    margin: 0 !important;
+    font-size: 0.94rem !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.25px !important;
+    background: #ffffff !important;
+    color: #dc2626 !important;
+    border: 2px solid #fca5a5 !important;
+    cursor: pointer !important;
+    box-shadow: 0 8px 24px -4px rgba(220, 38, 38, 0.16) !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    outline: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+}
+
 .swal2-popup.swal-modern-loading-card .swal2-cancel:not([style*="display: none"]):not([style*="display:none"]),
 .swal2-loading .swal2-cancel:not([style*="display: none"]):not([style*="display:none"]) {
     border-radius: 9999px !important;
@@ -1348,14 +1358,15 @@ button.swal2-cancel:empty {
     margin: 14px auto 2px auto !important;
 }
 
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading) .swal2-cancel:hover,
 .swal2-popup .swal2-cancel.swal-btn-pill-cancel:hover,
 .swal2-popup.swal-modern-loading-card .swal2-cancel:hover,
 .swal2-loading .swal2-cancel:hover {
     background: #fef2f2 !important;
     color: #b91c1c !important;
     border-color: #f87171 !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 6px 16px rgba(220, 38, 38, 0.16) !important;
+    transform: translateY(-2px) scale(1.01) !important;
+    box-shadow: 0 12px 28px -4px rgba(220, 38, 38, 0.24) !important;
 }
 
 /* HILANGKAN TOMBOL SILANG (X) PADA KANAN ATAS MODAL LOADING */
@@ -1676,96 +1687,131 @@ button.swal2-cancel:empty {
     filter: brightness(1.02);
 }
 
-/* TOMBOL OKE / CONFIRM MODERN MEMBULAT SERASI */
+/* TOMBOL OKE / CONFIRM / BATAL MODERN MEMBULAT SERASI */
 .swal-btn-pill-oke,
 .swal-btn-pill-primary,
 .swal-btn-pill-confirm {
     border-radius: 9999px !important;
-    padding: 12px 34px !important;
-    font-size: 0.95rem !important;
+    min-height: 48px !important;
+    min-width: 155px !important;
+    padding: 13px 36px !important;
+    font-size: 0.94rem !important;
     font-weight: 800 !important;
-    letter-spacing: 0.2px !important;
-    background: linear-gradient(135deg, #009846, #059669) !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.25px !important;
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
     color: #ffffff !important;
-    border: none !important;
+    border: 2px solid transparent !important;
     cursor: pointer !important;
-    box-shadow: 0 6px 20px rgba(0, 152, 70, 0.35) !important;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 8px 24px -4px rgba(5, 150, 105, 0.45) !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
     outline: none !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     gap: 8px !important;
-    margin: 6px !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
 }
 
 .swal-btn-pill-oke:hover,
 .swal-btn-pill-primary:hover,
 .swal-btn-pill-confirm:hover {
-    transform: translateY(-2px) scale(1.02) !important;
-    box-shadow: 0 10px 25px rgba(0, 152, 70, 0.45) !important;
-    filter: brightness(1.08) !important;
+    transform: translateY(-2px) scale(1.01) !important;
+    box-shadow: 0 12px 28px -4px rgba(5, 150, 105, 0.55) !important;
+    filter: brightness(1.06) !important;
 }
 
 .swal-btn-pill-cancel {
     border-radius: 9999px !important;
-    padding: 12px 28px !important;
-    font-size: 0.92rem !important;
-    font-weight: 700 !important;
-    background: #f1f5f9 !important;
-    color: #475569 !important;
-    border: 1.5px solid #cbd5e1 !important;
+    min-height: 48px !important;
+    min-width: 155px !important;
+    padding: 13px 36px !important;
+    font-size: 0.94rem !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.25px !important;
+    background: #ffffff !important;
+    color: #dc2626 !important;
+    border: 2px solid #fca5a5 !important;
     cursor: pointer !important;
-    transition: all 0.2s ease !important;
+    box-shadow: 0 8px 24px -4px rgba(220, 38, 38, 0.16) !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
     outline: none !important;
-    margin: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
 }
 
 .swal-btn-pill-cancel:hover {
-    background: #e2e8f0 !important;
-    color: #0f172a !important;
+    background: #fef2f2 !important;
+    color: #b91c1c !important;
+    border-color: #f87171 !important;
+    transform: translateY(-2px) scale(1.01) !important;
+    box-shadow: 0 12px 28px -4px rgba(220, 38, 38, 0.24) !important;
 }
 
 .swal-btn-pill-danger {
     border-radius: 9999px !important;
-    padding: 12px 32px !important;
-    font-size: 0.92rem !important;
+    min-height: 48px !important;
+    min-width: 155px !important;
+    padding: 13px 36px !important;
+    font-size: 0.94rem !important;
     font-weight: 800 !important;
-    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.25px !important;
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
     color: #ffffff !important;
-    border: none !important;
+    border: 2px solid transparent !important;
     cursor: pointer !important;
-    box-shadow: 0 6px 20px rgba(220, 38, 38, 0.35) !important;
-    transition: all 0.25s ease !important;
+    box-shadow: 0 8px 24px -4px rgba(5, 150, 105, 0.45) !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
     outline: none !important;
-    margin: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
 }
 
 .swal-btn-pill-danger:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 10px 25px rgba(220, 38, 38, 0.45) !important;
-    filter: brightness(1.08) !important;
+    transform: translateY(-2px) scale(1.01) !important;
+    box-shadow: 0 12px 28px -4px rgba(5, 150, 105, 0.55) !important;
+    filter: brightness(1.06) !important;
 }
 
 .swal-btn-pill-warning {
     border-radius: 9999px !important;
-    padding: 12px 32px !important;
-    font-size: 0.92rem !important;
+    min-height: 48px !important;
+    min-width: 155px !important;
+    padding: 13px 36px !important;
+    font-size: 0.94rem !important;
     font-weight: 800 !important;
-    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.25px !important;
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
     color: #ffffff !important;
-    border: none !important;
+    border: 2px solid transparent !important;
     cursor: pointer !important;
-    box-shadow: 0 6px 20px rgba(217, 119, 6, 0.35) !important;
-    transition: all 0.25s ease !important;
+    box-shadow: 0 8px 24px -4px rgba(5, 150, 105, 0.45) !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
     outline: none !important;
-    margin: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
 }
 
 .swal-btn-pill-warning:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 10px 25px rgba(217, 119, 6, 0.45) !important;
-    filter: brightness(1.08) !important;
+    transform: translateY(-2px) scale(1.01) !important;
+    box-shadow: 0 12px 28px -4px rgba(5, 150, 105, 0.55) !important;
+    filter: brightness(1.06) !important;
 }
 
 /* =============================================================================
@@ -4018,10 +4064,12 @@ body.page-dashboard {
 }
 
 .chat-msg-row.outgoing .chat-msg-bubble.is-emoji-only {
-    background: #e6f9f0 !important;
-    border: 1.5px solid #a7f3d0 !important;
+    background: linear-gradient(135deg, #009846, #007a37) !important;
+    border: none !important;
+    border-radius: 16px 4px 16px 16px !important;
+    color: #ffffff !important;
     padding-right: 28px !important; /* Ruang untuk titik tiga di kanan atas */
-    box-shadow: 0 2px 10px rgba(0, 152, 70, 0.12) !important;
+    box-shadow: 0 2px 10px rgba(0, 152, 70, 0.25) !important;
 }
 
 .chat-msg-row.incoming .chat-msg-bubble.is-emoji-only {
@@ -4166,8 +4214,8 @@ body.page-dashboard {
 /* KETIKA INCOMING (WARGA): TITIK TIGA DI KIRI -> DROPDOWN RATA KIRI AGAR TIDAK KELUAR LAYAR */
 .chat-msg-row.incoming .bubble-action-dropdown,
 .aduan-dropdown-menu.menu-left {
-    left: 0 !important;
-    right: auto !important;
+    right: 0 !important;
+    left: auto !important;
 }
 
 .btn-msg-dots {
@@ -5694,8 +5742,8 @@ body.page-dashboard {
 .emoji-picker-container {
     display: none;
     position: absolute !important;
-    bottom: calc(100% + 10px) !important;
-    left: 14px !important;
+    bottom: calc(100% + 10px);
+    left: 14px;
     width: 320px !important;
     max-height: 270px !important;
     background: #ffffff !important;
@@ -5745,23 +5793,179 @@ body.page-dashboard {
 .voice-note-bubble-card {
     display: flex !important;
     align-items: center !important;
-    gap: 12px !important;
-    padding: 10px 14px 10px 10px !important;
-    background: rgba(255, 255, 255, 0.98) !important;
-    border-radius: 20px !important;
-    border: 1px solid rgba(0, 0, 0, 0.08) !important;
-    min-width: 320px !important;
-    max-width: 420px !important;
+    gap: 10px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border-radius: 14px !important;
+    border: none !important;
+    min-width: 260px !important;
+    max-width: 100% !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    margin-bottom: 3px !important;
+    margin-bottom: 2px !important;
     overflow: visible !important;
     position: relative !important;
 }
-.chat-msg-row.outgoing .voice-note-bubble-card {
-    background: rgba(255, 255, 255, 0.22) !important;
-    border-color: rgba(255, 255, 255, 0.4) !important;
+
+.chat-msg-bubble.is-audio-card {
+    background: #ffffff !important;
+    border: 1.5px solid #e2e8f0 !important;
+    border-radius: 4px 18px 18px 18px !important;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06) !important;
+    padding: 10px 14px 8px 42px !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    width: 340px !important;
+    max-width: min(340px, 85vw) !important;
+}
+
+.chat-msg-bubble.outgoing-bubble.is-audio-card {
+    background: #ffffff !important;
+    border: 1.5px solid #10b981 !important;
+    border-radius: 18px 4px 18px 18px !important;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.14) !important;
+    padding: 10px 42px 8px 14px !important;
+    position: relative !important;
+    width: 340px !important;
+    max-width: min(340px, 85vw) !important;
+}
+
+/* Memastikan teks, waveform, tombol play, dan timer pada audio card terbaca sempurna */
+.chat-msg-row.outgoing .is-audio-card .voice-note-bubble-card,
+.chat-msg-row.incoming .is-audio-card .voice-note-bubble-card {
+    background: transparent !important;
+    border: none !important;
+    color: #0f172a !important;
+}
+
+.chat-msg-row.outgoing .is-audio-card .voice-title-label,
+.chat-msg-row.incoming .is-audio-card .voice-title-label {
+    color: #0f172a !important;
+    font-weight: 800 !important;
+    font-size: 0.78rem !important;
+}
+
+.chat-msg-row.outgoing .is-audio-card .voice-title-label i {
+    color: #009846 !important;
+}
+
+.chat-msg-row.incoming .is-audio-card .voice-title-label i {
+    color: #0284c7 !important;
+}
+
+.chat-msg-row.outgoing .is-audio-card .voice-timer-badge {
+    color: #047857 !important;
+    font-weight: 800 !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-size: 0.75rem !important;
+    text-shadow: none !important;
+}
+
+.chat-msg-row.incoming .is-audio-card .voice-timer-badge {
+    color: #475569 !important;
+    font-weight: 800 !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-size: 0.75rem !important;
+    text-shadow: none !important;
+}
+
+.chat-msg-row.outgoing .is-audio-card .voice-freq-bar {
+    background: #cbd5e1 !important;
+}
+
+.chat-msg-row.outgoing .is-audio-card .voice-freq-bar.played {
+    background: #009846 !important;
+}
+
+.chat-msg-row.incoming .is-audio-card .voice-freq-bar {
+    background: #cbd5e1 !important;
+}
+
+.chat-msg-row.incoming .is-audio-card .voice-freq-bar.played {
+    background: #0284c7 !important;
+}
+
+.chat-msg-row.outgoing .is-audio-card .voice-play-circle-btn {
+    background: linear-gradient(135deg, #009846 0%, #10b981 100%) !important;
     color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(0, 152, 70, 0.35) !important;
+    border: none !important;
+    width: 38px !important;
+    height: 38px !important;
+}
+
+.chat-msg-row.incoming .is-audio-card .voice-play-circle-btn {
+    background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35) !important;
+    border: none !important;
+    width: 38px !important;
+    height: 38px !important;
+}
+
+.chat-msg-row.outgoing .is-audio-card .btn-voice-speed-pill {
+    background: #f0fdf4 !important;
+    border: 1.5px solid #86efac !important;
+    color: #065f46 !important;
+    font-weight: 800 !important;
+    font-size: 0.74rem !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+.chat-msg-row.incoming .is-audio-card .btn-voice-speed-pill {
+    background: #f8fafc !important;
+    border: 1.5px solid #cbd5e1 !important;
+    color: #334155 !important;
+    font-weight: 800 !important;
+    font-size: 0.74rem !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+.chat-msg-row.outgoing .is-audio-card .btn-voice-speed-pill:hover {
+    background: #dcfce7 !important;
+    border-color: #4ade80 !important;
+    color: #047857 !important;
+}
+
+.chat-msg-bubble.is-audio-card .chat-time-stamp {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 3px !important;
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+    margin-top: 4px !important;
+    margin-right: 0 !important;
+    float: none !important;
+}
+
+.chat-msg-bubble.outgoing-bubble.is-audio-card .chat-time-stamp {
+    color: #047857 !important;
+}
+
+.chat-msg-bubble.outgoing-bubble.is-audio-card .chat-time-stamp .chat-check-delivered {
+    color: #047857 !important;
+}
+
+.chat-msg-row.outgoing .is-audio-card .btn-msg-dots {
+    color: #047857 !important;
+    background: transparent !important;
+}
+
+.chat-msg-row.outgoing .is-audio-card .btn-msg-dots:hover {
+    background: rgba(0, 152, 70, 0.1) !important;
+    color: #065f46 !important;
+}
+
+.chat-msg-row.incoming .is-audio-card .btn-msg-dots {
+    color: #64748b !important;
+    background: transparent !important;
+}
+
+.chat-msg-row.incoming .is-audio-card .btn-msg-dots:hover {
+    background: rgba(0, 0, 0, 0.08) !important;
+    color: #0f172a !important;
 }
 .voice-play-circle-btn {
     width: 42px !important;
@@ -5878,18 +6082,20 @@ body.page-dashboard {
 
 /* TIMER BERADA DI SISI FREKUENSI DENGAN SPACE LEGA */
 .voice-timer-badge {
-    font-size: 0.72rem !important;
+    font-size: 0.74rem !important;
     font-weight: 800 !important;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
     color: #475569 !important;
     white-space: nowrap !important;
     flex-shrink: 0 !important;
-    min-width: 72px !important;
+    min-width: fit-content !important;
+    width: auto !important;
     text-align: right !important;
     user-select: none !important;
     letter-spacing: -0.2px !important;
-    margin-left: 4px !important;
-    margin-right: 4px !important;
+    margin-left: auto !important;
+    margin-right: 0 !important;
+    overflow: visible !important;
 }
 .chat-msg-row.outgoing .voice-timer-badge {
     color: rgba(255, 255, 255, 0.98) !important;
@@ -7644,6 +7850,51 @@ button.swal2-cancel.swal-btn-hidden-force {
 /* =============================================================================
    STYLING PUSAT UJI SISTEM TERPADU & DIAGNOSTIK (SUPER ADMIN)
    ============================================================================= */
+#modalUjiSistemTerpadu .uji-header,
+#modalUjiSistemTerpadu .uji-status-bar,
+#modalUjiSistemTerpadu .uji-tabs-nav,
+#modalUjiSistemTerpadu .uji-footer {
+    flex-shrink: 0 !important;
+}
+
+#modalUjiSistemTerpadu .uji-tabs-nav {
+    min-height: 52px !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    gap: 10px !important;
+    padding: 10px 24px 0 24px !important;
+    background: #ffffff !important;
+    border-bottom: 2px solid #e2e8f0 !important;
+    box-sizing: border-box !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    scrollbar-width: none !important;
+}
+
+#modalUjiSistemTerpadu .uji-tabs-nav::-webkit-scrollbar {
+    display: none !important;
+}
+
+.tab-uji-sistem-btn {
+    padding: 10px 20px !important;
+    border-radius: 12px 12px 0 0 !important;
+    border: 1.5px solid #e2e8f0 !important;
+    border-bottom: 2px solid #e2e8f0 !important;
+    background: #f8fafc !important;
+    font-size: 0.82rem !important;
+    font-weight: 800 !important;
+    color: #475569 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    margin-bottom: -2px !important;
+    position: relative !important;
+    transition: all 0.2s ease !important;
+}
+
 .tab-uji-sistem-btn:hover {
     background: #f1f5f9 !important;
     color: #0f172a !important;
@@ -7653,7 +7904,17 @@ button.swal2-cancel.swal-btn-hidden-force {
     background: #ffffff !important;
     color: #009846 !important;
     border-color: #009846 !important;
-    box-shadow: 0 -2px 6px rgba(0, 152, 70, 0.08);
+    border-bottom: 2px solid #ffffff !important;
+    z-index: 2 !important;
+    box-shadow: 0 -3px 8px rgba(0, 152, 70, 0.08) !important;
+}
+
+#modalUjiSistemTerpadu .uji-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    padding: 20px 24px !important;
+    background: #f8fafc !important;
 }
 
 .uji-card-badge {
@@ -7717,3 +7978,21 @@ button.swal2-cancel.swal-btn-hidden-force {
     }
 }
 
+
+
+/* =============================================================================
+   STYLING SOROTAN AKTIF (HIGHLIGHT) ALAT SIMULASI GANTI ROLE
+   ============================================================================= */
+.is-simulasi-active {
+    position: relative !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.badge-simulasi-aktif {
+    animation: badgePulseSimulasi 2s infinite ease-in-out !important;
+}
+
+@keyframes badgePulseSimulasi {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.08); opacity: 0.9; }
+}

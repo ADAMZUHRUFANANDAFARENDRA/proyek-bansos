@@ -1424,12 +1424,14 @@
 [id^="msg-warga-"].is-audio-card,
 [id^="msg-aduan-"].is-audio-card,
 .is-audio-card {
-    width: 320px !important;
-    min-width: 290px !important;
-    max-width: min(320px, calc(100vw - 36px)) !important;
+    width: 330px !important;
+    min-width: 280px !important;
+    max-width: min(330px, calc(100vw - 36px)) !important;
     box-sizing: border-box !important;
     background: #ffffff !important;
     background-color: #ffffff !important;
+    border: 1.5px solid #e2e8f0 !important;
+    border-radius: 18px !important;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
     position: relative !important;
 }
@@ -2212,10 +2214,12 @@
 
 .chat-msg-row.outgoing .is-emoji-only,
 [id^="msg-warga-"].is-emoji-only[style*="flex-end"] {
-    background: #e6f9f0 !important;
-    border: 1.5px solid #a7f3d0 !important;
+    background: linear-gradient(135deg, #009846, #007a37) !important;
+    border: none !important;
     border-radius: 20px 4px 20px 20px !important;
     padding: 8px 32px 6px 14px !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 10px rgba(0, 152, 70, 0.25) !important;
 }
 
 .chat-msg-row.incoming .is-emoji-only,

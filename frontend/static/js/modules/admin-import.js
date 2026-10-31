@@ -10,6 +10,18 @@ window.stagedUnifiedHeaders = [];
 window.stagedUnifiedFileType = 'excel';
 window.stagedUnifiedFileName = '';
 
+if (typeof window.safeHtml !== 'function') {
+    window.safeHtml = function (str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    };
+}
+
 window.bukaModalPilihFormatImport = function () {
     const modal = document.getElementById('modalPilihFormatImport');
     if (modal) {
@@ -84,25 +96,422 @@ window.handleUnifiedFileImport = async function (input, type) {
 };
 
 // Parser Berkas Excel (.xlsx, .xls, .csv) dengan Deteksi Cerdas Kolom & Angka
+// =========================================================================
+// NORMALIZER CERDAS UNIVERSAL DATA WARGA (EXCEL, WORD, PDF)
+// =========================================================================
+window.normalizeImportCitizenRow = function (r, rowIdx = 0) {
+    if (!r || typeof r !== 'object') return null;
+    const keys = Object.keys(r);
+    if (keys.length === 0) return null;
+
+    // Helper pencarian nilai berdasarkan sinonim / alias
+    function getVal(aliases) {
+        // 1. Pencocokan tepat (Exact Match)
+        for (const alias of aliases) {
+            const cleanAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
+            for (const k of keys) {
+                const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (cleanK === cleanAlias) {
+                    const val = r[k];
+                    if (val !== undefined && val !== null && String(val).trim() !== '') {
+                        return val;
+                    }
+                }
+            }
+        }
+        // 2. Pencocokan substring dengan aturan pengecualian ketat
+        for (const alias of aliases) {
+            const cleanAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
+            for (const k of keys) {
+                const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+                // Alamat tidak boleh mengambil nilai dari kolom email / surel
+                if (cleanAlias.includes('alamat') && (cleanK.includes('email') || cleanK.includes('surel') || cleanK.includes('mail'))) {
+                    continue;
+                }
+                if (cleanAlias.length >= 4 && cleanK.includes(cleanAlias)) {
+                    const val = r[k];
+                    if (val !== undefined && val !== null && String(val).trim() !== '') {
+                        return val;
+                    }
+                }
+            }
+        }
+        return undefined;
+    }
+
+    // 1. Ekstraksi NIK (16 Digit Monospace)
+    let nik = '';
+    const nikVal = getVal(['nik', 'nomorindukkependudukan', 'noktp', 'ktp', 'nonik', 'noidentitas', 'identitas', 'nomor_nik', 'nik16digit', 'no_ktp', 'nomor_identitas']);
+    if (nikVal !== undefined) {
+        let s = String(nikVal).trim();
+        const num = Number(s);
+        if (!isNaN(num) && /e\+/i.test(s)) {
+            s = BigInt(Math.round(num)).toString();
+        }
+        const digits = s.replace(/[^0-9]/g, '');
+        if (digits.length >= 8) nik = digits;
+    }
+    if (!nik) {
+        for (const [k, v] of Object.entries(r)) {
+            const kLow = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (kLow.includes('nik') || kLow.includes('ktp') || kLow.includes('identitas')) {
+                const s = String(v || '').trim();
+                const digits = s.replace(/[^0-9]/g, '');
+                if (digits.length >= 8) { nik = digits; break; }
+            }
+        }
+    }
+    if (!nik) {
+        for (const v of Object.values(r)) {
+            const s = String(v || '').trim();
+            const digits = s.replace(/[^0-9]/g, '');
+            if (digits.length === 16) { nik = digits; break; }
+        }
+    }
+    if (!nik) {
+        const randPart = String(Date.now()).slice(-8) + String(rowIdx).padStart(4, '0');
+        nik = `3515${randPart}`;
+    }
+
+    // 2. Ekstraksi Nama Lengkap (Menjaga Gelar Akademik & Kehormatan)
+    let nama = '';
+    const namaVal = getVal(['nama', 'namalengkap', 'namawarga', 'namapenduduk', 'namapenerima', 'namakk', 'namakrt', 'name', 'nama_lengkap', 'nama_warga', 'nama_penduduk']);
+    if (namaVal !== undefined) {
+        nama = String(namaVal).trim().replace(/^[\d\.\)\s_-]+/, '').trim();
+        nama = nama.replace(/\s+(Ada\s*\([^)]*\)|Ada\s*\(.*|Tidak Ada\b.*)$/i, '').trim();
+    }
+    if (!nama) {
+        for (const [k, v] of Object.entries(r)) {
+            const kLow = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (kLow.includes('nama') && !kLow.includes('ayah') && !kLow.includes('ibu') && !kLow.includes('petugas') && !kLow.includes('operator') && !kLow.includes('desa') && !kLow.includes('kecamatan') && !kLow.includes('kelurahan') && !kLow.includes('bank')) {
+                const s = String(v || '').trim().replace(/^[\d\.\)\s_-]+/, '').trim();
+                if (s.length >= 2 && !/^\d+$/.test(s)) { nama = s; break; }
+            }
+        }
+    }
+    if (!nama) {
+        nama = `Warga (${nik.slice(-4)})`;
+    }
+
+    // 3. Ekstraksi Tempat & Tanggal Lahir (TTL)
+    let tempatLahir = '';
+    let tanggalLahir = '';
+
+    const ttlVal = getVal(['ttl', 'tempattanggallahir', 'tempat_tanggal_lahir', 'tempat_tgl_lahir', 'tempat/tgl lahir', 'tempat / tanggal lahir']);
+    if (ttlVal !== undefined) {
+        const s = String(ttlVal).trim();
+        const parts = s.split(/[,/]/);
+        if (parts.length >= 2) {
+            tempatLahir = parts[0].trim();
+            tanggalLahir = parts.slice(1).join(',').trim();
+        } else {
+            tempatLahir = s;
+        }
+    }
+
+    if (!tempatLahir) {
+        const tVal = getVal(['tempatlahir', 'tempat_lahir', 'tmplahir', 'kotalahir', 'tempat', 'kota_lahir']);
+        if (tVal !== undefined) tempatLahir = String(tVal).trim();
+    }
+    if (!tanggalLahir) {
+        const dVal = getVal(['tanggallahir', 'tanggal_lahir', 'tgllahir', 'tgl_lahir', 'tgl', 'birthdate', 'dob']);
+        if (dVal !== undefined) tanggalLahir = String(dVal).trim();
+    }
+
+    function parseDateToIso(rawDate) {
+        if (!rawDate) return '';
+        if (rawDate instanceof Date && !isNaN(rawDate.getTime())) {
+            return rawDate.toISOString().slice(0, 10);
+        }
+        let s = String(rawDate).trim();
+        const num = Number(s);
+        if (!isNaN(num) && num > 1000 && num < 60000) {
+            const jsDate = new Date(Math.round((num - 25569) * 86400 * 1000));
+            if (!isNaN(jsDate.getTime())) return jsDate.toISOString().slice(0, 10);
+        }
+        const isoMatch = s.match(/\b(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})\b/);
+        if (isoMatch) {
+            return `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}-${isoMatch[3].padStart(2, '0')}`;
+        }
+        const dmyMatch = s.match(/\b(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})\b/);
+        if (dmyMatch) {
+            return `${dmyMatch[3]}-${dmyMatch[2].padStart(2, '0')}-${dmyMatch[1].padStart(2, '0')}`;
+        }
+        const indMonthMatch = s.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+        if (indMonthMatch) {
+            const day = indMonthMatch[1].padStart(2, '0');
+            const mStr = indMonthMatch[2].toLowerCase();
+            const year = indMonthMatch[3];
+            const mIdx = ['jan', 'feb', 'mar', 'apr', 'mei', 'jun', 'jul', 'agu', 'sep', 'okt', 'nov', 'des']
+                .findIndex(m => mStr.startsWith(m));
+            if (mIdx !== -1) {
+                return `${year}-${String(mIdx + 1).padStart(2, '0')}-${day}`;
+            }
+        }
+        return s.slice(0, 10);
+    }
+
+    tanggalLahir = parseDateToIso(tanggalLahir);
+
+    // Deduksi otomatis dari NIK jika tanggal lahir belum tertera
+    if (!tanggalLahir && nik && nik.length === 16 && /^\d{16}$/.test(nik)) {
+        let day = parseInt(nik.slice(6, 8), 10);
+        if (day > 40) day -= 40;
+        const month = parseInt(nik.slice(8, 10), 10);
+        let yearPart = parseInt(nik.slice(10, 12), 10);
+        const year = yearPart > 26 ? (1900 + yearPart) : (2000 + yearPart);
+        if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+            tanggalLahir = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+    }
+    if (!tanggalLahir) tanggalLahir = '1985-05-15';
+    if (!tempatLahir) tempatLahir = 'Sidoarjo';
+
+    // 4. Rekonstruksi Alamat Lengkap Cerdas (Menyatukan Komponen Wilayah)
+    let alamat = '';
+    const directAlamat = getVal(['alamatlengkap', 'alamat_lengkap', 'alamatdomisili', 'alamat_domisili', 'alamatktp', 'alamat_ktp', 'alamat', 'domisili']);
+    if (directAlamat !== undefined && String(directAlamat).trim().length >= 5 && !String(directAlamat).includes('@') && !String(directAlamat).includes('.com') && !String(directAlamat).includes('.id')) {
+        alamat = String(directAlamat).trim();
+    }
+    if (!alamat || alamat.toLowerCase() === 'kabupaten sidoarjo') {
+        const jalan = getVal(['jalan', 'jl', 'nama_jalan', 'namajalan']) || '';
+        const rtRw = getVal(['rt_rw', 'rtrw', 'rt', 'rw']) || '';
+        const desa = getVal(['desa', 'kelurahan', 'desakelurahan', 'desa_kelurahan']) || '';
+        const kec = getVal(['kecamatan', 'kec']) || '';
+        const kab = getVal(['kabupaten', 'kota', 'kab']) || 'Kabupaten Sidoarjo';
+
+        const parts = [];
+        if (jalan) parts.push(String(jalan).trim());
+        if (rtRw) parts.push(`RT/RW ${String(rtRw).trim()}`);
+        if (desa) parts.push(`Desa/Kel. ${String(desa).trim()}`);
+        if (kec) parts.push(`Kec. ${String(kec).trim()}`);
+        if (kab) parts.push(String(kab).trim());
+
+        if (parts.length >= 2) {
+            alamat = parts.join(', ');
+        } else if (desa || kec) {
+            alamat = `Wilayah ${desa ? 'Desa ' + desa : ''} ${kec ? 'Kec. ' + kec : ''}, Kabupaten Sidoarjo`.trim();
+        }
+    }
+    if (!alamat) alamat = 'Kabupaten Sidoarjo';
+
+    // 5. Normalisasi No. WhatsApp / HP (Auto-Prefix 0 & Anti Exponential)
+    let noHp = '';
+    const hpVal = getVal(['nowhatsapp', 'no_whatsapp', 'nowa', 'no_wa', 'nohp', 'no_hp', 'telepon', 'notelepon', 'whatsapp', 'phone', 'hp', 'handphone']);
+    if (hpVal !== undefined) {
+        let s = String(hpVal).trim();
+        const num = Number(s);
+        if (!isNaN(num) && /e\+/i.test(s)) {
+            s = BigInt(Math.round(num)).toString();
+        }
+        let digits = s.replace(/[^0-9]/g, '');
+        if (digits.startsWith('62')) {
+            digits = '0' + digits.slice(2);
+        } else if (digits.length >= 8 && !digits.startsWith('0')) {
+            digits = '0' + digits;
+        }
+        if (digits.length >= 9) noHp = digits;
+    }
+
+    // 6. Normalisasi Email
+    let email = '';
+    const emVal = getVal(['email', 'surel', 'e_mail', 'alamat_email']);
+    if (emVal !== undefined) {
+        email = String(emVal).trim();
+    } else {
+        for (const v of Object.values(r)) {
+            const s = String(v || '').trim();
+            if (/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/.test(s)) {
+                email = s;
+                break;
+            }
+        }
+    }
+
+    // 7. Normalisasi Koordinat GPS
+    let lat = -7.4478;
+    let lng = 112.7183;
+    const latVal = getVal(['garislintang', 'garis_lintang', 'latitude', 'lat', 'lintang']);
+    const lngVal = getVal(['garisbujur', 'garis_bujur', 'longitude', 'long', 'lng', 'bujur']);
+    if (latVal !== undefined) {
+        const p = parseFloat(String(latVal).replace(',', '.'));
+        if (!isNaN(p) && p !== 0) lat = p;
+    }
+    if (lngVal !== undefined) {
+        const p = parseFloat(String(lngVal).replace(',', '.'));
+        if (!isNaN(p) && p !== 0) lng = p;
+    }
+
+    // 8. Normalisasi Nilai Numerik Kriteria SPK (Dukungan Mata Uang Rp & Koma Desimal)
+    function parseNumSafe(val, def = 0) {
+        if (val === null || val === undefined) return def;
+        if (typeof val === 'number') return isFinite(val) ? val : def;
+        let s = String(val).trim();
+        if (!s) return def;
+        s = s.replace(/^(?:rp\.?|idr)\s*/i, '').replace(/[a-zA-Z%]/g, '').trim();
+        if (!s) return def;
+        if (/^\d{1,3}(?:\.\d{3})+(?:,\d+)?$/.test(s)) {
+            s = s.replace(/\./g, '').replace(',', '.');
+        } else if (/^\d+(?:,\d+)$/.test(s)) {
+            s = s.replace(',', '.');
+        } else if (/^\d{1,3}(?:,\d{3})+(?:\.\d+)?$/.test(s)) {
+            s = s.replace(/,/g, '');
+        }
+        const num = Number(s);
+        return isFinite(num) ? num : def;
+    }
+
+    const c1Raw = getVal(['c1_ekonomi', 'c1ekonomi', 'c1_penghasilan_kk', 'c1penghasilankk', 'c1', 'penghasilankk', 'penghasilan_kk', 'penghasilan', 'pendapatan', 'gaji', 'c01', 'k01_penghasilan']);
+    const c1 = c1Raw !== undefined ? parseNumSafe(c1Raw, 1500000) : 1500000;
+
+    const c2Raw = getVal(['c2_aset', 'c2aset', 'c2_luas_lantai', 'c2luaslantai', 'c2_pengeluaran_total', 'c2pengeluarantotal', 'c2', 'aset', 'luas_lantai', 'luaslantai', 'pengeluaran', 'pengeluaran_total', 'c02', 'k01_luas_lantai_kapita', 'k01luaslantaikapita']);
+    const c2 = c2Raw !== undefined ? parseNumSafe(c2Raw, 5000000) : 5000000;
+
+    const c3Raw = getVal(['c3_umur_kk', 'c3umurkk', 'c3_umur', 'c3umur', 'c3_usia_kk', 'c3usiakk', 'c3', 'usia_kk', 'usiakk', 'umur_kk', 'umurkk', 'usia', 'umur', 'c03', 'k03_usia']);
+    const c3 = c3Raw !== undefined ? Math.round(parseNumSafe(c3Raw, 45)) : 45;
+
+    const c4Raw = getVal(['c4_jenis_kelamin', 'c4jeniskelamin', 'c4_kelamin', 'c4_jumlah_tanggungan', 'c4jumlahtanggungan', 'c4_tanggungan', 'c4tanggungan', 'c4', 'jenis_kelamin', 'jumlah_tanggungan', 'jumlahtanggungan', 'tanggungan', 'c04', 'k04_tanggungan']);
+    let c4 = 1;
+    if (c4Raw !== undefined) {
+        const s = String(c4Raw).toLowerCase().trim();
+        if (s === '2' || s.includes('perempuan') || s.includes('wanita') || s === 'p') c4 = 2;
+        else if (s === '1' || s.includes('laki') || s.includes('pria') || s === 'l') c4 = 1;
+        else c4 = Math.round(parseNumSafe(c4Raw, 1));
+    }
+
+    const c5Raw = getVal(['c5_tanggungan', 'c5tanggungan', 'c5_jml_tanggungan', 'c5_daya_listrik', 'c5dayalistrik', 'c5_listrik', 'c5listrik', 'c5', 'tanggungan', 'daya_listrik', 'dayalistrik', 'listrik', 'c05', 'k05_listrik']);
+    let c5 = 3;
+    if (c5Raw !== undefined) {
+        const s = String(c5Raw).toLowerCase().trim();
+        if (s.includes('450')) c5 = 1;
+        else if (s.includes('900')) c5 = 2;
+        else if (s.includes('1300')) c5 = 3;
+        else if (s.includes('2200') || s.includes('>')) c5 = 4;
+        else c5 = Math.round(parseNumSafe(c5Raw, 3));
+    }
+
+    const c6Raw = getVal(['c6_status_kawin', 'c6statuskawin', 'c6_sumber_air', 'c6sumberair', 'c6_air', 'c6air', 'c6', 'status_kawin', 'sumber_air', 'sumberair', 'air', 'c06', 'k06_air']);
+    let c6 = 2;
+    if (c6Raw !== undefined) {
+        const s = String(c6Raw).toLowerCase().trim();
+        if (s.includes('cerai') || s.includes('mati') || s.includes('duda') || s.includes('janda')) c6 = 3;
+        else if (s.includes('kawin') || s.includes('nikah')) c6 = 2;
+        else if (s.includes('belum')) c6 = 1;
+        else c6 = Math.round(parseNumSafe(c6Raw, 2));
+    }
+
+    const c7Raw = getVal(['c7_jml_anak', 'c7jmlanak', 'c7_jumlah_anak', 'c7_kepemilikan_tabungan', 'c7kepemilikantabungan', 'c7_tabungan', 'c7tabungan', 'c7', 'anak', 'tabungan', 'aset', 'c07', 'k07_aset']);
+    const c7 = c7Raw !== undefined ? Math.round(parseNumSafe(c7Raw, 2)) : 2;
+
+    const c8Raw = getVal(['c8_tempat_tinggal', 'c8tempattinggal', 'c8_status_rumah', 'c8statusrumah', 'c8', 'k10_status_rumah', 'k10statusrumah', 'statusrumah', 'status_rumah', 'tempat_tinggal', 'c08']);
+    let c8 = 2;
+    if (c8Raw !== undefined) {
+        const s = String(c8Raw).toLowerCase().trim();
+        if (s === '1' || s.includes('sendiri') || s.includes('milik sendiri') || s.includes('shm')) c8 = 1;
+        else if (s === '3' || s.includes('sewa') || s.includes('rusak') || s.includes('tidak layak') || s.includes('gubuk') || s.includes('bantaran') || s.includes('bukan milik')) c8 = 3;
+        else if (s === '2' || s.includes('numpang') || s.includes('kontrak') || s.includes('dinas')) c8 = 2;
+        else c8 = Math.round(parseNumSafe(c8Raw, 2));
+    }
+
+    const c9Raw = getVal(['c9_pendidikan_kk', 'c9pendidikankk', 'c9', 'pendidikan_kk', 'pendidikankk', 'pendidikan', 'c09']);
+    let c9 = 1;
+    if (c9Raw !== undefined) {
+        const s = String(c9Raw).toLowerCase().trim();
+        if (s.includes('sarjana') || s.includes('diploma') || s.includes('s1') || s.includes('s2') || s.includes('s3') || s.includes('pt') || s.includes('doktor')) c9 = 4;
+        else if (s.includes('sma') || s.includes('smk') || s.includes('aliyah')) c9 = 3;
+        else if (s.includes('smp') || s.includes('mts')) c9 = 2;
+        else if (s.includes('sd') || s.includes('tidak') || s.includes('belum sekolah')) c9 = 1;
+        else c9 = Math.round(parseNumSafe(c9Raw, 1));
+    }
+
+    const c10Raw = getVal(['c10_kesehatan', 'c10kesehatan', 'c10_disabilitas', 'c10disabilitas', 'c10', 'kesehatan', 'disabilitas', 'c010']);
+    let c10 = 1;
+    if (c10Raw !== undefined) {
+        const s = String(c10Raw).toLowerCase().trim();
+        if (s.includes('disabilitas') || s.includes('cacat') || s.includes('lumpuh')) c10 = 3;
+        else if (s.includes('kronis') || s.includes('menahun') || s.includes('sakit')) c10 = 2;
+        else if (s.includes('sehat') || s.includes('normal')) c10 = 1;
+        else c10 = Math.round(parseNumSafe(c10Raw, 1));
+    }
+
+    // Terapkan standardisasi lengkap pada r tanpa menghapus variabel asli
+    r['NIK'] = nik;
+    r['nik'] = nik;
+    r['Nama Lengkap'] = nama;
+    r['Nama'] = nama;
+    r['nama'] = nama;
+    r['Tempat Lahir'] = tempatLahir;
+    r['tempat_lahir'] = tempatLahir;
+    r['Tanggal Lahir'] = tanggalLahir;
+    r['tanggal_lahir'] = tanggalLahir;
+    r['TTL'] = `${tempatLahir}, ${tanggalLahir}`;
+    r['Alamat Lengkap'] = alamat;
+    r['Alamat'] = alamat;
+    r['alamat'] = alamat;
+    r['No WhatsApp'] = noHp;
+    r['No. WA'] = noHp;
+    r['No HP'] = noHp;
+    r['no_hp'] = noHp;
+    r['Email'] = email;
+    r['email'] = email;
+    r['Garis Lintang'] = lat;
+    r['lat'] = lat;
+    r['Garis Bujur'] = lng;
+    r['lng'] = lng;
+    r['C1'] = c1;
+    r['C2'] = c2;
+    r['C3'] = c3;
+    r['C4'] = c4;
+    r['C5'] = c5;
+    r['C6'] = c6;
+    r['C7'] = c7;
+    r['C8'] = c8;
+    r['C9'] = c9;
+    r['C10'] = c10;
+
+    return r;
+};
+
+// =========================================================================
+// 1. PARSER BERKAS EXCEL (.xlsx, .xls, .csv) DENGAN MULTI-SHEET & FORMAT TANGGAL
+// =========================================================================
 window.parseExcelFile = function (file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = function (e) {
             try {
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellNF: false, cellText: true });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellNF: false, cellText: false });
+                
+                // Cari lembar kerja yang memiliki baris data kependudukan
+                let activeSheet = null;
+                let rawAoA = null;
 
-                // Baca baris mentah array of arrays
-                const rawAoA = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                for (const sheetName of workbook.SheetNames) {
+                    const sheet = workbook.Sheets[sheetName];
+                    const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false, dateNF: 'yyyy-mm-dd' });
+                    if (aoa && aoa.length >= 2) {
+                        const sampleText = aoa.slice(0, 10).map(r => Array.isArray(r) ? r.join(' ') : '').join(' ').toLowerCase();
+                        if (sampleText.includes('nik') || sampleText.includes('nama') || sampleText.includes('ktp') || sampleText.includes('alamat')) {
+                            activeSheet = sheet;
+                            rawAoA = aoa;
+                            break;
+                        }
+                    }
+                }
+
+                if (!rawAoA) {
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    rawAoA = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false, dateNF: 'yyyy-mm-dd' });
+                }
+
                 if (!rawAoA || rawAoA.length === 0) {
                     throw new Error('Lembar kerja Excel kosong.');
                 }
 
-                // Cari baris header tabel kependudukan sebenarnya (bisa di baris 0, 1, 2, dst jika ada judul)
+                // Cari baris header tabel kependudukan sebenarnya
                 let headerRowIdx = -1;
-                for (let r = 0; r < Math.min(rawAoA.length, 15); r++) {
+                for (let r = 0; r < Math.min(rawAoA.length, 20); r++) {
                     const rowArr = rawAoA[r];
                     if (Array.isArray(rowArr) && rowArr.length > 0) {
                         const rowStr = rowArr.map(c => String(c || '').toLowerCase()).join(' ');
@@ -116,7 +525,6 @@ window.parseExcelFile = function (file) {
                     }
                 }
 
-                // Jika tidak ditemukan dengan kata kunci, cari baris pertama yang memiliki minimal 2 sel teks
                 if (headerRowIdx === -1) {
                     for (let r = 0; r < Math.min(rawAoA.length, 6); r++) {
                         if (Array.isArray(rawAoA[r]) && rawAoA[r].filter(c => String(c || '').trim().length > 0).length >= 2) {
@@ -152,33 +560,8 @@ window.parseExcelFile = function (file) {
                             obj[h] = cellVal;
                         });
 
-                        // Sinkronkan alias standar agar tabel dan sistem langsung mengenali NIK, Nama, dan Alamat
-                        const keys = Object.keys(obj);
-                        const nikKey = keys.find(k => /^(nik|no_?ktp|nomor_?ktp|no_?nik|nomor_?nik|identitas)$/i.test(k.replace(/[\s\.\/_-]+/g, ''))) ||
-                                       keys.find(k => /nik|ktp/i.test(k) && !/nama|foto|unggah/i.test(k));
-                        const namaKey = keys.find(k => /^(nama|nama_?lengkap|nama_?warga|nama_?penduduk|nama_?penerima|name)$/i.test(k.replace(/[\s\.\/_-]+/g, ''))) ||
-                                        keys.find(k => /nama|name/i.test(k) && !/ayah|ibu|petugas|operator|desa|kecamatan|kelurahan|bank|instansi/i.test(k));
-                        const alamatKey = keys.find(k => /^(alamat|alamat_?lengkap|alamat_?domisili|alamat_?ktp|domisili|desa|kelurahan)$/i.test(k.replace(/[\s\.\/_-]+/g, ''))) ||
-                                          keys.find(k => /alamat|domisili|tempat_tinggal/i.test(k));
-
-                        if (nikKey && obj[nikKey] !== undefined) {
-                            let nVal = String(obj[nikKey]).trim().replace(/[^0-9]/g, '');
-                            if (nVal.length >= 8) {
-                                obj['NIK'] = nVal;
-                                obj['nik'] = nVal;
-                            }
-                        }
-                        if (namaKey && obj[namaKey]) {
-                            obj['Nama'] = String(obj[namaKey]).trim();
-                            obj['Nama Lengkap'] = String(obj[namaKey]).trim();
-                            obj['nama'] = String(obj[namaKey]).trim();
-                        }
-                        if (alamatKey && obj[alamatKey]) {
-                            obj['Alamat'] = String(obj[alamatKey]).trim();
-                            obj['alamat'] = String(obj[alamatKey]).trim();
-                        }
-
-                        rows.push(obj);
+                        const norm = window.normalizeImportCitizenRow(obj, rows.length);
+                        if (norm) rows.push(norm);
                     }
                 }
 
@@ -192,7 +575,9 @@ window.parseExcelFile = function (file) {
     });
 };
 
-// Parser Berkas Word (.docx, .doc) melalui Ekstraksi Tabel & Baris Teks
+// =========================================================================
+// 2. PARSER BERKAS WORD (.docx, .doc) DENGAN NORMALISASI KATEGORI LENGKAP
+// =========================================================================
 window.parseWordFile = function (file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -202,70 +587,80 @@ window.parseWordFile = function (file) {
                 let rows = [];
 
                 if (window.mammoth && typeof window.mammoth.convertToHtml === 'function') {
-                    const result = await window.mammoth.convertToHtml({ arrayBuffer });
+                    const result = await window.mammoth.convertToHtml({ arrayBuffer, buffer: typeof Buffer !== 'undefined' ? Buffer.from(arrayBuffer) : undefined });
                     const html = result.value || '';
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
                     const tables = doc.querySelectorAll('table');
 
-                    // 1. Coba ekstraksi dari Tabel Word
                     if (tables.length > 0) {
+                        const parsedTables = [];
                         for (let tIdx = 0; tIdx < tables.length; tIdx++) {
                             const table = tables[tIdx];
                             const trs = Array.from(table.querySelectorAll('tr'));
                             if (trs.length >= 2) {
-                                // Cari header row
                                 let headerIdx = 0;
-                                for (let r = 0; r < Math.min(trs.length, 4); r++) {
-                                    const text = trs[r].innerText.toLowerCase();
-                                    if (text.includes('nik') || text.includes('nama') || text.includes('alamat')) {
+                                for (let r = 0; r < Math.min(trs.length, 5); r++) {
+                                    const text = (trs[r].textContent || trs[r].innerText || "").toLowerCase();
+                                    if (text.includes('nik') || text.includes('nama') || text.includes('alamat') || text.includes('kriteria') || text.includes('kecamatan') || text.includes('c1_') || text.includes('no')) {
                                         headerIdx = r;
                                         break;
                                     }
                                 }
 
-                                const headerCells = Array.from(trs[headerIdx].querySelectorAll('th, td')).map((c, i) => c.innerText.trim() || `Kolom_${i + 1}`);
+                                const headerCells = Array.from(trs[headerIdx].querySelectorAll('th, td')).map((c, i) => (c.textContent || c.innerText || "").trim() || `Kolom_${i + 1}`);
+                                const tableRows = [];
                                 for (let i = headerIdx + 1; i < trs.length; i++) {
-                                    const cells = Array.from(trs[i].querySelectorAll('td')).map(c => c.innerText.trim());
+                                    const cells = Array.from(trs[i].querySelectorAll('td')).map(c => (c.textContent || c.innerText || "").trim());
                                     if (cells.some(c => c.length > 0)) {
                                         const rowObj = {};
                                         headerCells.forEach((h, hIdx) => {
-                                            rowObj[h] = cells[hIdx] || '';
+                                            rowObj[h] = cells[hIdx] !== undefined ? cells[hIdx] : '';
                                         });
-
-                                        // Normalisasi NIK, Nama, Alamat
-                                        const keys = Object.keys(rowObj);
-                                        const nk = keys.find(k => /nik|ktp/i.test(k));
-                                        const namak = keys.find(k => /nama|name/i.test(k));
-                                        const almk = keys.find(k => /alamat|domisili/i.test(k));
-
-                                        if (nk && rowObj[nk]) {
-                                            const cleanNik = rowObj[nk].replace(/[^0-9]/g, '');
-                                            if (cleanNik.length >= 8) {
-                                                rowObj['NIK'] = cleanNik;
-                                                rowObj['nik'] = cleanNik;
-                                            }
-                                        }
-                                        if (namak && rowObj[namak]) {
-                                            rowObj['Nama Lengkap'] = rowObj[namak];
-                                            rowObj['Nama'] = rowObj[namak];
-                                            rowObj['nama'] = rowObj[namak];
-                                        }
-                                        if (almk && rowObj[almk]) {
-                                            rowObj['Alamat'] = rowObj[almk];
-                                            rowObj['alamat'] = rowObj[almk];
-                                        }
-
-                                        rows.push(rowObj);
+                                        tableRows.push(rowObj);
                                     }
                                 }
+                                if (tableRows.length > 0) {
+                                    parsedTables.push(tableRows);
+                                }
+                            }
+                        }
+
+                        if (parsedTables.length === 1) {
+                            rows = parsedTables[0];
+                        } else if (parsedTables.length > 1) {
+                            // Cek apakah tabel multi-block dari warga yang sama (misal Blok I s/d VII DTSEN)
+                            const isMultiBlock = parsedTables.every(tbl => {
+                                if (tbl.length !== parsedTables[0].length) return false;
+                                const firstRow = tbl[0];
+                                return firstRow['No'] !== undefined || firstRow['Nama Lengkap'] !== undefined || firstRow['Nama'] !== undefined;
+                            });
+
+                            if (isMultiBlock) {
+                                const mergedMap = new Map();
+                                parsedTables.forEach(tbl => {
+                                    tbl.forEach((row, rIdx) => {
+                                        const noVal = row['No'] !== undefined ? String(row['No']).trim() : '';
+                                        const key = /^\d+$/.test(noVal)
+                                            ? `no_${noVal}`
+                                            : (row['Nomor NIK'] || row['NIK'] || row['Nama Lengkap'] || row['Nama'] || `idx_${rIdx}`);
+                                        if (!mergedMap.has(key)) {
+                                            mergedMap.set(key, { ...row });
+                                        } else {
+                                            Object.assign(mergedMap.get(key), row);
+                                        }
+                                    });
+                                });
+                                rows = Array.from(mergedMap.values());
+                            } else {
+                                parsedTables.forEach(tbl => rows.push(...tbl));
                             }
                         }
                     }
 
-                    // 2. Jika tidak ada tabel HTML, parsing paragraf teks terstruktur
+                    // 2. Jika tidak ada tabel multi-kolom, parsing paragraf teks terstruktur
                     if (rows.length === 0) {
-                        const paragraphs = Array.from(doc.querySelectorAll('p, li')).map(p => p.innerText.trim()).filter(Boolean);
+                        const paragraphs = Array.from(doc.querySelectorAll('p, li')).map(p => (p.textContent || p.innerText || "").trim()).filter(Boolean);
                         let currentWarga = null;
                         paragraphs.forEach(p => {
                             const nikMatch = p.match(/(?:nik|ktp|no\.?\s*identitas)\s*[:=]?\s*(\d{10,18})/i);
@@ -280,17 +675,9 @@ window.parseWordFile = function (file) {
                             }
 
                             if (currentWarga) {
-                                if (nikMatch) {
-                                    currentWarga['NIK'] = nikMatch[1];
-                                    currentWarga['nik'] = nikMatch[1];
-                                }
-                                if (namaMatch) {
-                                    currentWarga['Nama Lengkap'] = namaMatch[1].trim();
-                                    currentWarga['Nama'] = namaMatch[1].trim();
-                                }
-                                if (alamatMatch) {
-                                    currentWarga['Alamat'] = alamatMatch[1].trim();
-                                }
+                                if (nikMatch) currentWarga['NIK'] = nikMatch[1];
+                                if (namaMatch) currentWarga['Nama Lengkap'] = namaMatch[1].trim();
+                                if (alamatMatch) currentWarga['Alamat'] = alamatMatch[1].trim();
                             }
                         });
                         if (currentWarga && (currentWarga['NIK'] || currentWarga['Nama'])) {
@@ -300,12 +687,18 @@ window.parseWordFile = function (file) {
                 }
 
                 if (rows.length === 0) {
-                    rows = [
-                        { NIK: '351599******0001', 'Nama Lengkap': 'Warga Contoh (Format Word)', 'Alamat': 'Wilayah Domisili RT 01/RW 01, Sidoarjo', C1: 950000, C2: 2500000, Catatan: 'Impor Dokumen Word Dinas' }
-                    ];
+                    throw new Error('Tidak ditemukan tabel atau data kependudukan yang valid di dalam dokumen Word.');
                 }
 
-                resolve(rows);
+                // Urutkan warga jika ada kolom No
+                rows.sort((a, b) => {
+                    const noA = parseInt(String(a['No'] || '9999'), 10);
+                    const noB = parseInt(String(b['No'] || '9999'), 10);
+                    return noA - noB;
+                });
+
+                const normalizedRows = rows.map((r, i) => window.normalizeImportCitizenRow(r, i)).filter(Boolean);
+                resolve(normalizedRows);
             } catch (err) {
                 reject(new Error('Gagal mengekstrak data dari dokumen Word: ' + err.message));
             }
@@ -315,7 +708,7 @@ window.parseWordFile = function (file) {
     });
 };
 
-// Parser Berkas PDF (.pdf) melalui PDF.js dengan Ekstraksi Rekonstruksi Kolom Lengkap (Setara Excel & Word)
+// =========================================================================
 window.parsePdfFile = function (file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -328,22 +721,20 @@ window.parsePdfFile = function (file) {
                 const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
                 const totalPages = pdf.numPages;
 
-                // 1. Ekstrak seluruh halaman PDF ke dalam struktur baris & item berkoordinat
                 const allPagesLines = [];
                 for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
                     const page = await pdf.getPage(pageNum);
                     const textContent = await page.getTextContent();
                     
-                    // Kelompokkan item teks per baris koordinat Y (toleransi 3.5pt)
                     const lineMap = new Map();
                     textContent.items.forEach(item => {
                         const str = (item.str || '').trim();
-                        if (!str && str !== '0') return; // abaikan whitespace murni
+                        if (!str && str !== '0') return;
                         
                         const y = Math.round(item.transform[5] * 10) / 10;
                         let matchedY = null;
                         for (const key of lineMap.keys()) {
-                            if (Math.abs(key - y) <= 3.5) {
+                            if (Math.abs(key - y) <= 6.5) {
                                 matchedY = key;
                                 break;
                             }
@@ -358,12 +749,10 @@ window.parsePdfFile = function (file) {
                         });
                     });
 
-                    // Urutkan dari atas ke bawah (Y descending)
                     const sortedY = Array.from(lineMap.keys()).sort((a, b) => b - a);
                     sortedY.forEach(y => {
                         const rawItems = lineMap.get(y).sort((a, b) => a.x - b.x);
                         
-                        // Gabungkan item yang bersambung sangat dekat dalam satu sel (gap < 6pt)
                         const mergedItems = [];
                         let cur = null;
                         rawItems.forEach(it => {
@@ -371,7 +760,7 @@ window.parsePdfFile = function (file) {
                                 cur = { ...it, str: it.str.trim() };
                             } else {
                                 const gap = it.x - (cur.x + cur.width);
-                                if (gap < 6 && gap > -5) {
+                                if (gap < 4 && gap > -5) {
                                     cur.str += (cur.str.endsWith(' ') || it.str.startsWith(' ') ? '' : ' ') + it.str.trim();
                                     cur.width = (it.x + it.width) - cur.x;
                                 } else {
@@ -393,316 +782,177 @@ window.parsePdfFile = function (file) {
                     });
                 }
 
-                if (allPagesLines.length === 0) {
-                    throw new Error('Dokumen PDF kosong atau tidak mengandung teks kependudukan yang terbaca.');
-                }
+                let currentBlockColumns = null;
+                const citizenMap = new Map();
+                const unkeyedRows = [];
 
-                // 2. Deteksi Baris Header Kolom Tabel pada Dokumen
-                let headerLineIndex = -1;
-                let detectedColumns = [];
+                if (allPagesLines.length > 0) {
+                    for (let i = 0; i < allPagesLines.length; i++) {
+                        const line = allPagesLines[i];
+                        const txt = line.lineText.toLowerCase().trim();
+                        if (!txt) continue;
 
-                for (let i = 0; i < Math.min(allPagesLines.length, 15); i++) {
-                    const line = allPagesLines[i];
-                    const txt = line.lineText.toLowerCase();
-
-                    // Cek kriteria header: memiliki kata kunci header & BUKAN baris data warga
-                    const hasHeaderKeywords = /(^|\b)(no|nik|nama|alamat|whatsapp|telepon|hp|email|kecamatan|desa|kelurahan|lat|latitude|long|longitude|c01|c1|kriteria|pendapatan|pekerjaan|umur|tanggungan)($|\b)/i.test(txt);
-                    const hasDataPatterns = /\b(35\d{14}|\d{16})\b/.test(txt) || /\S+@\S+\.\S+/.test(txt) || /-7\.\d{3,}/.test(txt);
-
-                    if (hasHeaderKeywords && !hasDataPatterns && line.items.length >= 2) {
-                        headerLineIndex = i;
-                        detectedColumns = line.items.map(it => ({
-                            name: it.str.trim(),
-                            x: it.x,
-                            width: it.width,
-                            rightX: it.x + it.width
-                        }));
-                        break;
-                    }
-                }
-
-                // Cek kemungkinan header multi-baris (misal baris 1: NAMA, baris 2: LENGKAP)
-                if (headerLineIndex >= 0 && headerLineIndex + 1 < allPagesLines.length) {
-                    const nextLine = allPagesLines[headerLineIndex + 1];
-                    const nextTxt = nextLine.lineText.toLowerCase();
-                    const nextHasData = /\b(35\d{14}|\d{16})\b/.test(nextTxt) || /\S+@\S+\.\S+/.test(nextTxt);
-                    const nextHasHeaderWords = /lengkap|kelurahan|whatsapp|wa|jk|umur|status|kriteria|skor|score|c0\d/i.test(nextTxt);
-                    if (!nextHasData && nextHasHeaderWords && nextLine.items.length >= 2) {
-                        nextLine.items.forEach(subIt => {
-                            const closestCol = detectedColumns.reduce((prev, curr) => 
-                                Math.abs(curr.x - subIt.x) < Math.abs(prev.x - subIt.x) ? curr : prev, detectedColumns[0]
-                            );
-                            if (closestCol && Math.abs(closestCol.x - subIt.x) < 45) {
-                                closestCol.name += ' ' + subIt.str.trim();
-                            }
-                        });
-                        headerLineIndex++;
-                    }
-                }
-
-                // Normalisasi dan deduplikasi nama kolom
-                const seenColNames = new Map();
-                detectedColumns.forEach((c, idx) => {
-                    let cleanName = c.name.replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
-                    if (!cleanName) cleanName = `Kolom_${idx + 1}`;
-                    
-                    if (/^(nama|nama\s*warga|nama\s*penduduk)$/i.test(cleanName)) cleanName = 'Nama Lengkap';
-                    if (/^(nik|no\.?\s*ktp|no\.?\s*nik)$/i.test(cleanName)) cleanName = 'NIK';
-                    if (/^(alamat|alamat\s*domisili|alamat\s*ktp)$/i.test(cleanName)) cleanName = 'Alamat';
-                    
-                    const count = (seenColNames.get(cleanName) || 0) + 1;
-                    seenColNames.set(cleanName, count);
-                    if (count > 1) {
-                        cleanName = `${cleanName}_${count}`;
-                    }
-                    c.name = cleanName;
-                });
-
-                // Hitung batas X tiap kolom untuk mapping presisi
-                for (let c = 0; c < detectedColumns.length; c++) {
-                    const col = detectedColumns[c];
-                    const prev = detectedColumns[c - 1];
-                    const next = detectedColumns[c + 1];
-                    col.leftBound = prev ? (prev.rightX + col.x) / 2 : -Infinity;
-                    col.rightBound = next ? (col.rightX + next.x) / 2 : Infinity;
-                }
-
-                // Daftar kecamatan di Kabupaten Sidoarjo untuk identifikasi entitas geografis
-                const SIDOARJO_KEC = ['Sidoarjo', 'Buduran', 'Candi', 'Porong', 'Krembung', 'Tulangan', 'Tanggulangin', 'Jabon', 'Tarik', 'Prambon', 'Krian', 'Balongbendo', 'Wonoayu', 'Sukodono', 'Sedati', 'Waru', 'Gedangan', 'Taman'];
-
-                function decomposeCitizenLine(lineText, colDefs) {
-                    const res = {};
-                    if (!lineText) return res;
-
-                    // 1. Ekstraksi NIK (16 digit atau 12-18 digit)
-                    const nikMatch = lineText.match(/\b(35\d{14}|\d{16})\b/) || lineText.match(/\b\d{12,18}\b/);
-                    const nikVal = nikMatch ? nikMatch[0] : '';
-                    if (nikVal) {
-                        res['NIK'] = nikVal;
-                        res['nik'] = nikVal;
-                    }
-
-                    // 2. Ekstraksi Email
-                    const emailMatch = lineText.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/);
-                    const emailVal = emailMatch ? emailMatch[0] : '';
-                    if (emailVal) {
-                        res['EMAIL'] = emailVal;
-                        res['email'] = emailVal;
-                    }
-
-                    // 3. Ekstraksi No WhatsApp / HP (08... atau 628...)
-                    const phoneMatch = lineText.match(/\b(08\d{8,12}|628\d{8,12})\b/);
-                    const phoneVal = phoneMatch ? phoneMatch[0] : '';
-                    if (phoneVal) {
-                        res['NO_WHATSAPP'] = phoneVal;
-                        res['no_hp'] = phoneVal;
-                    }
-
-                    // 4. Ekstraksi Koordinat GPS (Latitude & Longitude)
-                    const coordMatch = lineText.match(/(-7\.\d{3,8})\s+(112\.\d{3,8})/) || 
-                                       lineText.match(/(-?\d{1,2}\.\d{3,8})\s+(-?\d{2,3}\.\d{3,8})/);
-                    const latVal = coordMatch ? coordMatch[1] : '';
-                    const longVal = coordMatch ? coordMatch[2] : '';
-                    if (latVal) res['LATITUDE'] = latVal;
-                    if (longVal) res['LONGITUDE'] = longVal;
-
-                    // 5. Ekstraksi Nomor Urut
-                    const noMatch = lineText.match(/^(\d{1,5})[\.\)\s]/);
-                    if (noMatch) {
-                        res['No'] = parseInt(noMatch[1], 10);
-                    }
-
-                    // 6. Ekstraksi Nama Lengkap (Pasti Bersih: Posisi sebelum No HP, Email, atau NIK)
-                    const indices = [];
-                    if (phoneVal) {
-                        const pIdx = lineText.indexOf(phoneVal);
-                        if (pIdx > 0) indices.push(pIdx);
-                    }
-                    if (emailVal) {
-                        const eIdx = lineText.indexOf(emailVal);
-                        if (eIdx > 0) indices.push(eIdx);
-                    }
-                    if (nikVal) {
-                        const nIdx = lineText.indexOf(nikVal);
-                        if (nIdx > 0) indices.push(nIdx);
-                    }
-
-                    let cleanName = '';
-                    if (indices.length > 0) {
-                        const firstEntityIdx = Math.min(...indices);
-                        const rawNamePart = lineText.substring(0, firstEntityIdx);
-                        cleanName = rawNamePart.replace(/^\d+[\.\)\s]+/, '').trim().replace(/[,;:_-]+$/, '').trim();
-                    } else {
-                        cleanName = lineText.replace(/^\d+[\.\)\s]+/, '').split(/\s+/).slice(0, 3).join(' ');
-                    }
-
-                    if (cleanName) {
-                        res['Nama Lengkap'] = cleanName;
-                        res['Nama'] = cleanName;
-                        res['nama'] = cleanName;
-                    }
-
-                    // 7. Ekstraksi Kecamatan dan Desa / Kelurahan
-                    let kecVal = '';
-                    let desaVal = '';
-                    if (emailVal || phoneVal) {
-                        const startLoc = emailVal ? (lineText.indexOf(emailVal) + emailVal.length) : (lineText.indexOf(phoneVal) + phoneVal.length);
-                        const endLoc = latVal ? lineText.indexOf(latVal) : (nikVal ? lineText.indexOf(nikVal) : lineText.length);
-                        if (endLoc > startLoc) {
-                            const locSnippet = lineText.substring(startLoc, endLoc).trim();
-                            if (locSnippet) {
-                                const matchedKec = SIDOARJO_KEC.find(k => new RegExp('\\b' + k + '\\b', 'i').test(locSnippet));
-                                if (matchedKec) {
-                                    kecVal = matchedKec;
-                                    desaVal = locSnippet.replace(new RegExp('\\b' + matchedKec + '\\b', 'i'), '').trim().replace(/^[,;\s]+|[,;\s]+$/g, '');
-                                } else {
-                                    const words = locSnippet.split(/\s+/).filter(Boolean);
-                                    kecVal = words[0] || 'Sidoarjo';
-                                    desaVal = words.slice(1).join(' ') || words[0] || 'Sidokumpul';
-                                }
-                            }
-                        }
-                    }
-
-                    if (!kecVal) kecVal = 'Sidoarjo';
-                    if (!desaVal) desaVal = 'Sidokumpul';
-
-                    res['KECAMATAN'] = kecVal;
-                    res['DESA_KELURAHAN'] = desaVal;
-                    res['Alamat'] = `Desa ${desaVal}, Kec. ${kecVal}, Kabupaten Sidoarjo`;
-                    res['alamat'] = `Desa ${desaVal}, Kec. ${kecVal}, Kabupaten Sidoarjo`;
-
-                    // 8. Ekstraksi Seluruh Kriteria (C01 s/d C50 atau Kriteria SPK yang ada setelah NIK)
-                    if (nikVal) {
-                        const nIdx = lineText.indexOf(nikVal);
-                        const afterNik = lineText.substring(nIdx + nikVal.length).trim();
-                        // Ambil token-token kriteria setelah NIK (angka atau skor kategori)
-                        const critTokens = afterNik.split(/\s+/).filter(t => t.length > 0 && (/^-?\d+(?:[\.,]\d+)?$/.test(t) || /^[A-Za-z0-9_-]+$/.test(t)));
-
-                        // Cari apakah ada definisi kolom kriteria pada detectedColumns
-                        const critCols = (colDefs || []).filter(c => /^c0?\d+/i.test(c.name) || /kriteria/i.test(c.name));
-
-                        critTokens.forEach((tokenVal, cIdx) => {
-                            let colName = '';
-                            if (critCols[cIdx]) {
-                                colName = critCols[cIdx].name;
-                            } else {
-                                colName = 'C' + String(cIdx + 1).padStart(2, '0');
-                            }
-                            const num = Number(tokenVal.replace(',', '.'));
-                            res[colName] = !isNaN(num) ? num : tokenVal;
-                        });
-                    }
-
-                    return res;
-                }
-
-                // 3. Iterasi Seluruh Baris Data Kependudukan
-                const startIndex = headerLineIndex >= 0 ? headerLineIndex + 1 : 0;
-                const rows = [];
-
-                for (let i = startIndex; i < allPagesLines.length; i++) {
-                    const line = allPagesLines[i];
-                    const txt = line.lineText.trim();
-                    if (!txt) continue;
-
-                    // Abaikan baris header berulang di halaman baru
-                    if (detectedColumns.length >= 3) {
-                        const headerMatchCount = detectedColumns.filter(c => txt.toLowerCase().includes(c.name.toLowerCase().split(' ')[0])).length;
-                        if (headerMatchCount >= 3 && !/\b(35\d{14}|\d{16})\b/.test(txt)) {
+                        // Abaikan teks judul dokumen / header instansi / footer halaman
+                        if (/^(pemerintah|rekapitulasi|total data|halaman|page|\d+\s*\/\s*\d+)/i.test(txt)) {
                             continue;
                         }
-                    }
+                        if (/^blok\s+[ivx]+\s*:/i.test(txt)) {
+                            continue;
+                        }
 
-                    // Abaikan nomor halaman / footer dokumen
-                    if (/^(halaman|page|\d+\s*\/\s*\d+|\d+)$/i.test(txt)) continue;
-                    if (/dinas sosial|kabupaten sidoarjo|laporan kependudukan/i.test(txt) && !/\b(35\d{14}|\d{16})\b/.test(txt)) continue;
+                        // Deteksi Baris Header Tabel (Dinamis per Blok & per Halaman)
+                        const hasHeaderKeywords = /(^|\b)(no|nik|nomor\s*nik|nama|nama\s*lengkap|alamat|whatsapp|telepon|hp|email|surel|kecamatan|desa|kelurahan|ttl|tempat|tanggal|latitude|longitude|c\d+|c0\d+|kriteria|ekonomi|aset|umur|usia|kelamin|tanggungan|kawin|pendidikan|kesehatan|disabilitas|pangan|dinding|atap|penerangan|daya|air|sanitasi|tabungan|motor)($|\b)/i.test(txt);
+                        const isDataRow = /\b(35\d{14}|\d{16})\b/.test(txt) || /\S+@\S+\.\S+/.test(txt) || /rp\.?\s*\d+/i.test(txt) || /^\d+\s+[A-Za-z\s\.\,\']{3,}/.test(line.lineText.trim());
 
-                    // Cek apakah baris ini memiliki data warga (NIK, nama, atau pola kriteria)
-                    const hasNik = /\b(35\d{14}|\d{16})\b/.test(txt) || /\b\d{12,18}\b/.test(txt);
-                    const hasPhoneOrEmail = /\b08\d{8,12}\b/.test(txt) || /\S+@\S+\.\S+/.test(txt);
-                    const hasMinItems = line.items.length >= 3;
+                        if (hasHeaderKeywords && !isDataRow && line.items.length >= 2) {
+                            // Update batas-batas kolom aktif ke header blok baru ini
+                            const detectedCols = line.items.map(it => ({
+                                name: it.str.trim(),
+                                x: it.x,
+                                width: it.width,
+                                rightX: it.x + it.width
+                            }));
+                            for (let c = 0; c < detectedCols.length; c++) {
+                                const col = detectedCols[c];
+                                const prev = detectedCols[c - 1];
+                                const next = detectedCols[c + 1];
+                                col.leftBound = prev ? (prev.rightX + col.x) / 2 : -Infinity;
+                                col.rightBound = next ? (col.rightX + next.x) / 2 : Infinity;
+                            }
+                            currentBlockColumns = detectedCols;
+                            continue;
+                        }
 
-                    if (!hasNik && !hasPhoneOrEmail && !hasMinItems) continue;
-
-                    let rowObj = {};
-
-                    // Jika kolom terdeteksi cukup (>= 4 kolom)
-                    if (detectedColumns.length >= 4) {
-                        detectedColumns.forEach(c => { rowObj[c.name] = ''; });
-
-                        if (line.items.length === detectedColumns.length) {
-                            detectedColumns.forEach((c, idx) => {
-                                rowObj[c.name] = line.items[idx].str.trim();
-                            });
-                        } else {
-                            line.items.forEach(it => {
-                                const targetCol = detectedColumns.find(c => it.x >= c.leftBound && it.x < c.rightBound) ||
-                                                  detectedColumns.reduce((p, c) => Math.abs(c.x - it.x) < Math.abs(p.x - it.x) ? c : p, detectedColumns[0]);
-                                if (targetCol) {
-                                    const curVal = rowObj[targetCol.name];
-                                    rowObj[targetCol.name] = (curVal ? curVal + ' ' : '') + it.str.trim();
+                        // Ekstraksi data baris jika kolom tabel aktif sudah terdeteksi
+                        if (currentBlockColumns && currentBlockColumns.length >= 2) {
+                            const rowObj = {};
+                            currentBlockColumns.forEach(col => {
+                                const matchingItems = line.items.filter(it => {
+                                    const centerX = it.x + (it.width / 2);
+                                    return centerX >= col.leftBound && centerX < col.rightBound;
+                                });
+                                if (matchingItems.length > 0) {
+                                    const val = matchingItems.map(m => m.str).join(' ').trim();
+                                    if (val) rowObj[col.name] = val;
                                 }
                             });
-                        }
-                    }
 
-                    // Periksa apakah nama warga terkontaminasi atau kolom kriteria perlu diekstrak
-                    const currentName = rowObj['Nama Lengkap'] || rowObj['Nama'] || '';
-                    const isNamePolluted = /\b08\d{8,12}\b/.test(currentName) || /@/.test(currentName) || /-7\.\d+/.test(currentName) || /\b35\d{14}\b/.test(currentName);
-                    const hasMissingCriteria = Object.keys(rowObj).filter(k => /^c0?\d+/i.test(k)).length < 5;
-
-                    if (detectedColumns.length < 4 || isNamePolluted || hasMissingCriteria) {
-                        const decomposed = decomposeCitizenLine(line.lineText, detectedColumns);
-                        if (decomposed && (decomposed['Nama Lengkap'] || decomposed['NIK'])) {
-                            // Terapkan dekomposisi bersih
-                            Object.keys(decomposed).forEach(k => {
-                                if (!rowObj[k] || isNamePolluted || /^c0?\d+/i.test(k)) {
-                                    rowObj[k] = decomposed[k];
+                            // Penanganan pemisahan sel bersebelahan ReportLab (misal: kolom mata uang + teks/status yang menyatu)
+                            for (let c = 0; c < currentBlockColumns.length - 1; c++) {
+                                const colLeft = currentBlockColumns[c].name;
+                                const colRight = currentBlockColumns[c + 1].name;
+                                
+                                // Kasus 1: colLeft kosong, colRight menyerap nilai mata uang colLeft (misal C20 & C21, C47 & C48)
+                                if (!rowObj[colLeft] && rowObj[colRight]) {
+                                    const m = rowObj[colRight].match(/^(Rp\.?\s*[\d\.,]+)\s+(.+)$/);
+                                    if (m) {
+                                        rowObj[colLeft] = m[1].trim();
+                                        rowObj[colRight] = m[2].trim();
+                                    }
                                 }
-                            });
+                                // Kasus 2: colRight kosong, colLeft menyerap nilai colRight (misal C17 & C18 "Rp 0 0")
+                                else if (rowObj[colLeft] && !rowObj[colRight]) {
+                                    const m = rowObj[colLeft].match(/^(Rp\.?\s*[\d\.,]+)\s+(.+)$/);
+                                    if (m) {
+                                        rowObj[colLeft] = m[1].trim();
+                                        rowObj[colRight] = m[2].trim();
+                                    }
+                                }
+                            }
+
+                            if (Object.keys(rowObj).length >= 1) {
+                                const noVal = (rowObj['No'] || '').trim();
+                                let key = '';
+                                if (/^\d{1,4}$/.test(noVal)) {
+                                    key = 'no_' + noVal;
+                                } else {
+                                    const nikRaw = rowObj['Nomor NIK'] || rowObj['NIK'];
+                                    if (nikRaw) {
+                                        const digits = String(nikRaw).replace(/[^0-9]/g, '');
+                                        if (digits.length >= 8) key = 'nik_' + digits;
+                                    }
+                                    if (!key) {
+                                        const nameRaw = rowObj['Nama Lengkap'] || rowObj['Nama'];
+                                        if (nameRaw) {
+                                            const clean = String(nameRaw).toLowerCase().replace(/[^a-z0-9]/g, '');
+                                            if (clean.length >= 3) key = 'name_' + clean;
+                                        }
+                                    }
+                                }
+
+                                if (key) {
+                                    if (citizenMap.has(key)) {
+                                        const existing = citizenMap.get(key);
+                                        // Jangan pernah menimpa identitas pokok (Nama Lengkap, NIK) resmi yang sudah lengkap dari Blok I
+                                        if (existing['Nama Lengkap'] && !/^Warga \(/i.test(existing['Nama Lengkap'])) {
+                                            delete rowObj['Nama Lengkap'];
+                                            delete rowObj['Nama'];
+                                        }
+                                        if (existing['Nomor NIK'] || existing['NIK']) {
+                                            delete rowObj['Nomor NIK'];
+                                            delete rowObj['NIK'];
+                                        }
+                                        Object.assign(existing, rowObj);
+                                    } else {
+                                        citizenMap.set(key, { ...rowObj });
+                                    }
+                                } else if (rowObj['Nomor NIK'] || rowObj['Nama Lengkap'] || rowObj['Nama']) {
+                                    unkeyedRows.push(rowObj);
+                                }
+                            }
                         }
-                    }
-
-                    // Normalisasi standar: NIK, Nama, Alamat
-                    const finalNik = rowObj['NIK'] || rowObj['nik'] || '';
-                    const finalNama = rowObj['Nama Lengkap'] || rowObj['Nama'] || '';
-
-                    if (finalNik || finalNama) {
-                        if (!rowObj['No']) rowObj['No'] = rows.length + 1;
-                        if (!rowObj['Nama Lengkap']) rowObj['Nama Lengkap'] = finalNama || 'Warga Terdata';
-                        rowObj['Nama'] = rowObj['Nama Lengkap'];
-                        rowObj['nama'] = rowObj['Nama Lengkap'];
-
-                        if (finalNik) {
-                            const cleanNik = String(finalNik).replace(/[^0-9]/g, '');
-                            rowObj['NIK'] = cleanNik;
-                            rowObj['nik'] = cleanNik;
-                        }
-
-                        if (!rowObj['Alamat'] && !rowObj['alamat']) {
-                            rowObj['Alamat'] = 'Kabupaten Sidoarjo';
-                            rowObj['alamat'] = 'Kabupaten Sidoarjo';
-                        }
-
-                        rows.push(rowObj);
                     }
                 }
 
-                if (rows.length === 0) {
-                    rows.push({
-                        'No': 1,
-                        'NIK': '351599******0002',
-                        'Nama Lengkap': 'Warga Contoh (Format PDF)',
-                        'Alamat': 'Wilayah Domisili RT 02/RW 01, Sidoarjo',
-                        'NO_WHATSAPP': '0812****0002',
-                        'KECAMATAN': 'Krian',
-                        'DESA_KELURAHAN': 'Krian',
-                        'C01': 1,
-                        'C02': 45
-                    });
+                let mergedRows = Array.from(citizenMap.values());
+                if (unkeyedRows.length > 0) {
+                    mergedRows.push(...unkeyedRows);
                 }
 
+                // Fallback pencarian teks jika PDF tidak berbentuk tabel
+                if (mergedRows.length === 0) {
+                    for (let i = 0; i < allPagesLines.length; i++) {
+                        const line = allPagesLines[i];
+                        const txt = line.lineText;
+                        if (!txt || txt.length < 5) continue;
+                        const nikMatch = txt.match(/\b(35\d{14}|\d{16})\b/) || txt.match(/\b\d{12,18}\b/);
+                        if (nikMatch) {
+                            const rowObj = { lineText: txt };
+                            rowObj['NIK'] = nikMatch[0];
+                            
+                            const pMatch = txt.match(/\b(08\d{8,12}|628\d{8,12})\b/);
+                            if (pMatch) rowObj['No WhatsApp'] = pMatch[0];
+
+                            const eMatch = txt.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/);
+                            if (eMatch) rowObj['Email'] = eMatch[0];
+
+                            const beforeNik = txt.substring(0, txt.indexOf(nikMatch[0])).trim().replace(/^[\d\.\)\s_-]+/, '').trim();
+                            const afterNik = txt.substring(txt.indexOf(nikMatch[0]) + nikMatch[0].length).trim();
+                            
+                            if (beforeNik && beforeNik.length >= 3 && !/^\d+$/.test(beforeNik)) {
+                                rowObj['Nama Lengkap'] = beforeNik;
+                            } else {
+                                const words = afterNik.split(/\s+/).filter(w => !/^\d+$/.test(w));
+                                rowObj['Nama Lengkap'] = words.slice(0, 3).join(' ') || `Warga (${nikMatch[0].slice(-4)})`;
+                            }
+
+                            mergedRows.push(rowObj);
+                        }
+                    }
+                }
+
+                // Urutkan warga berdasarkan nomor urut (jika ada kolom No)
+                mergedRows.sort((a, b) => {
+                    const noA = parseInt(String(a['No'] || '9999'), 10);
+                    const noB = parseInt(String(b['No'] || '9999'), 10);
+                    return noA - noB;
+                });
+
+                if (mergedRows.length === 0) {
+                    throw new Error('Dokumen PDF tidak memiliki teks kependudukan yang dapat dikenali. Pastikan berkas PDF bukan hasil pemindaian/scan foto tanpa lapisan teks OCR.');
+                }
+
+                const rows = mergedRows.map((r, i) => window.normalizeImportCitizenRow(r, i)).filter(Boolean);
                 resolve(rows);
             } catch (err) {
                 reject(new Error('Gagal mengekstrak data dari dokumen PDF: ' + err.message));
@@ -713,49 +963,95 @@ window.parsePdfFile = function (file) {
     });
 };
 
-// Tampilkan Modal Pratinjau Kustom Impor dengan Layout Dinamis, Scrollable, dan Nama Terbuka Jelas
-window.currentImportView = 'table'; // 'table' atau 'cards'
+// =========================================================================
+window.currentImportView = 'table';
+window.customImportSearchQuery = '';
+window._customImportRowLimitVal = '100';
+window._customImportCurrentPage = 1;
 window.customImportStickyName = true;
 window.customImportWrapText = true;
-window.customImportRowLimit = 50;
-window.customImportSearchQuery = '';
+
+window.switchCustomImportView = function (view) {
+    window.currentImportView = view;
+    const btnTable = document.getElementById('btnImportViewTable');
+    const btnCards = document.getElementById('btnImportViewCards');
+    if (btnTable && btnCards) {
+        if (view === 'cards') {
+            btnCards.className = 'btn-import-view active';
+            btnTable.className = 'btn-import-view';
+        } else {
+            btnTable.className = 'btn-import-view active';
+            btnCards.className = 'btn-import-view';
+        }
+    }
+    window.renderCustomImportData();
+};
+
+window.filterCustomImportPreviewRows = function (query) {
+    window.customImportSearchQuery = query || '';
+    window._customImportCurrentPage = 1;
+    window.renderCustomImportData();
+};
+
+window.changeCustomImportRowLimit = function (val) {
+    window._customImportRowLimitVal = val;
+    window._customImportCurrentPage = 1;
+    window.renderCustomImportData();
+};
+
+window.nextCustomImportPage = function () {
+    const rawRows = window.stagedUnifiedImportData || [];
+    const q = (window.customImportSearchQuery || '').toLowerCase().trim();
+    const filteredRows = rawRows.filter((r) => {
+        if (!q) return true;
+        return Object.values(r).map(v => String(v || '')).join(' ').toLowerCase().includes(q);
+    });
+    const limitVal = window._customImportRowLimitVal || '100';
+    if (limitVal === 'all') return;
+    const limit = parseInt(limitVal, 10) || 100;
+    const totalPages = Math.ceil(filteredRows.length / limit) || 1;
+    if ((window._customImportCurrentPage || 1) < totalPages) {
+        window._customImportCurrentPage = (window._customImportCurrentPage || 1) + 1;
+        window.renderCustomImportData();
+    }
+};
+
+window.prevCustomImportPage = function () {
+    if ((window._customImportCurrentPage || 1) > 1) {
+        window._customImportCurrentPage = (window._customImportCurrentPage || 1) - 1;
+        window.renderCustomImportData();
+    }
+};
+
+window.scrollCustomImportTable = function (delta) {
+    const tableContainer = document.getElementById('customImportTableWrapper') || 
+                           document.querySelector('#modalCustomImport .table-container') || 
+                           document.getElementById('customImportPreviewTable')?.parentElement;
+    if (tableContainer) {
+        tableContainer.scrollBy({ left: delta, behavior: 'smooth' });
+    }
+};
+
+window.toggleCustomImportStickyName = function () {
+    window.customImportStickyName = !window.customImportStickyName;
+    const btn = document.getElementById('btnToggleImportSticky');
+    if (btn) btn.innerHTML = `<i class="fas fa-thumbtack"></i> Kunci Nama: ${window.customImportStickyName ? 'ON' : 'OFF'}`;
+    window.renderCustomImportData();
+};
+
+window.toggleCustomImportWrapText = function () {
+    window.customImportWrapText = !window.customImportWrapText;
+    const btn = document.getElementById('btnToggleImportWrap');
+    if (btn) btn.innerHTML = `<i class="fas fa-align-left"></i> Bungkus Teks: ${window.customImportWrapText ? 'ON' : 'OFF'}`;
+    window.renderCustomImportData();
+};
 
 window.openCustomImportPreviewModal = function (rows, fileName, formatType) {
     if (!rows || !rows.length) return;
 
-    // Normalisasi dan pastikan setiap baris memiliki nama, NIK, dan alamat yang terisi
-    rows.forEach(r => {
-        // Cari nama jika belum terstandarisasi
-        if (!r['Nama Lengkap'] && !r['Nama']) {
-            const namaKey = Object.keys(r).find(k => /^(nama|nama_?lengkap|nama_?warga|nama_?penduduk|nama_?penerima|name)$/i.test(k.replace(/[\s\.\/_-]+/g, ''))) ||
-                            Object.keys(r).find(k => /nama|name/i.test(k) && !/ayah|ibu|petugas|operator|desa|kecamatan|kelurahan/i.test(k));
-            if (namaKey && r[namaKey]) {
-                r['Nama Lengkap'] = String(r[namaKey]).trim();
-                r['Nama'] = String(r[namaKey]).trim();
-            }
-        }
-        // Cari NIK jika belum terstandarisasi
-        if (!r['NIK'] && !r['nik']) {
-            const nikKey = Object.keys(r).find(k => /^(nik|no_?ktp|nomor_?ktp|no_?nik|nomor_?nik|identitas)$/i.test(k.replace(/[\s\.\/_-]+/g, ''))) ||
-                           Object.keys(r).find(k => /nik|ktp/i.test(k));
-            if (nikKey && r[nikKey]) {
-                const clean = String(r[nikKey]).replace(/[^0-9]/g, '');
-                if (clean.length >= 8) {
-                    r['NIK'] = clean;
-                    r['nik'] = clean;
-                }
-            }
-        }
-        // Cari Alamat jika belum terstandarisasi
-        if (!r['Alamat'] && !r['alamat']) {
-            const alamatKey = Object.keys(r).find(k => /^(alamat|alamat_?lengkap|alamat_?domisili|alamat_?ktp|domisili)$/i.test(k.replace(/[\s\.\/_-]+/g, ''))) ||
-                              Object.keys(r).find(k => /alamat|domisili|tempat_tinggal/i.test(k));
-            if (alamatKey && r[alamatKey]) {
-                r['Alamat'] = String(r[alamatKey]).trim();
-                r['alamat'] = String(r[alamatKey]).trim();
-            }
-        }
-    });
+    // Normalisasi menyeluruh data kependudukan (identitas, alamat, TTL, No WA, email, kriteria SPK)
+    rows = rows.map((r, i) => window.normalizeImportCitizenRow ? window.normalizeImportCitizenRow(r, i) : r);
+    window.stagedUnifiedImportData = rows;
 
     // 1. Kumpulkan seluruh nama kolom unik dari berkas data
     const rawKeysSet = new Set();
@@ -767,83 +1063,106 @@ window.openCustomImportPreviewModal = function (rows, fileName, formatType) {
     });
     const allRawKeys = Array.from(rawKeysSet);
 
-    // 2. Filter & dedukplikasikan sinonim kolom standar (Nama, NIK, Alamat diutamakan di depan)
-    const hasNama = allRawKeys.find(k => k === 'Nama Lengkap') || 
-                    allRawKeys.find(k => k === 'Nama') || 
-                    allRawKeys.find(k => /^(nama|nama_?lengkap|nama_?warga|nama_?penduduk|nama_?penerima|name)$/i.test(k.replace(/[\s\.\/_-]+/g, ''))) ||
-                    allRawKeys.find(k => /nama|name/i.test(k) && !/ayah|ibu|petugas|operator|desa|kecamatan|kelurahan/i.test(k));
-
-    const hasNIK = allRawKeys.find(k => k === 'NIK') || 
-                   allRawKeys.find(k => /^(nik|no_?ktp|nomor_?ktp|no_?nik|nomor_?nik|identitas)$/i.test(k.replace(/[\s\.\/_-]+/g, ''))) ||
-                   allRawKeys.find(k => /nik|ktp/i.test(k));
-
-    const hasAlamat = allRawKeys.find(k => k === 'Alamat Lengkap') || 
-                      allRawKeys.find(k => k === 'Alamat') || 
-                      allRawKeys.find(k => /^(alamat|alamat_?lengkap|alamat_?domisili|alamat_?ktp|domisili)$/i.test(k.replace(/[\s\.\/_-]+/g, ''))) ||
-                      allRawKeys.find(k => /alamat|domisili/i.test(k));
-
-    const hasNoHp = allRawKeys.find(k => /^(no_?hp|no_?wa|whatsapp|telepon|hp)$/i.test(k.replace(/[\s\.\/_-]+/g, '')));
-
+    // 2. Susun kolom standar teratur di bagian depan (Nama, NIK, TTL, Alamat, No WA, Email, Kriteria SPK)
     const canonicalHeaders = [];
     const usedRawKeys = new Set();
 
-    // Kolom 1: Nama Lengkap (Selalu di depan, sangat jelas dan mudah dibaca)
-    const primaryNameHeader = hasNama || 'Nama Lengkap';
-    canonicalHeaders.push(primaryNameHeader);
+    // Kolom 1: Nama Lengkap
+    canonicalHeaders.push('Nama Lengkap');
+    usedRawKeys.add('Nama Lengkap'); usedRawKeys.add('Nama'); usedRawKeys.add('nama'); usedRawKeys.add('namalengkap'); usedRawKeys.add('name');
+
+    // Kolom 2: NIK
+    canonicalHeaders.push('NIK');
+    usedRawKeys.add('NIK'); usedRawKeys.add('nik'); usedRawKeys.add('noktp'); usedRawKeys.add('ktp'); usedRawKeys.add('no_ktp');
+
+    // Kolom 3: Tempat & Tanggal Lahir (TTL)
+    canonicalHeaders.push('TTL');
+    usedRawKeys.add('TTL'); usedRawKeys.add('ttl'); usedRawKeys.add('Tempat Lahir'); usedRawKeys.add('tempat_lahir');
+    usedRawKeys.add('Tanggal Lahir'); usedRawKeys.add('tanggal_lahir');
+
+    // Kolom 4: Alamat Lengkap
+    canonicalHeaders.push('Alamat Lengkap');
+    usedRawKeys.add('Alamat Lengkap'); usedRawKeys.add('Alamat'); usedRawKeys.add('alamat'); usedRawKeys.add('alamatlengkap');
+    usedRawKeys.add('alamat_lengkap');
+
+    // Kolom 5: No. WhatsApp / HP
+    canonicalHeaders.push('No. WA');
+    usedRawKeys.add('No. WA'); usedRawKeys.add('No WhatsApp'); usedRawKeys.add('No WA'); usedRawKeys.add('nowa');
+    usedRawKeys.add('no_wa'); usedRawKeys.add('No HP'); usedRawKeys.add('no_hp'); usedRawKeys.add('telepon');
+
+    // Kolom 6: Email (jika ada nilai terisi)
+    const hasEmailVal = rows.some(r => r.email || r.Email);
+    if (hasEmailVal) {
+        canonicalHeaders.push('Email');
+        usedRawKeys.add('Email'); usedRawKeys.add('email');
+    }
+
+    // Kolom Geografis / Wilayah (jika ada pada berkas pengguna)
+    const geoCandidates = ['Kecamatan', 'Desa / Kelurahan', 'Latitude', 'Longitude'];
+    geoCandidates.forEach(gk => {
+        const found = allRawKeys.find(k => {
+            const clean = k.toLowerCase().replace(/[\s\._\/-]+/g, '');
+            const target = gk.toLowerCase().replace(/[\s\._\/-]+/g, '');
+            return clean === target || (gk === 'Latitude' && clean === 'garislintang') || (gk === 'Longitude' && clean === 'garisbujur');
+        });
+        if (found) {
+            canonicalHeaders.push(found);
+            usedRawKeys.add(found);
+            if (gk === 'Latitude') { usedRawKeys.add('Latitude'); usedRawKeys.add('latitude'); usedRawKeys.add('lat'); usedRawKeys.add('Garis Lintang'); }
+            if (gk === 'Longitude') { usedRawKeys.add('Longitude'); usedRawKeys.add('longitude'); usedRawKeys.add('lng'); usedRawKeys.add('Garis Bujur'); }
+        }
+    });
+
+    // Kolom Kriteria C (C1 s/d C50 atau lebih) - DIURUTKAN SECARA NUMERIK SEMPURNA TANPA DUPLIKASI
+    const criteriaMap = new Map();
     allRawKeys.forEach(k => {
-        if (/^(nama|nama_?lengkap|nama_?warga|nama_?penduduk|nama_?penerima|name)$/i.test(k.replace(/[\s\.\/_-]+/g, '')) || (/nama|name/i.test(k) && !/ayah|ibu|petugas/i.test(k))) {
+        const m = k.match(/^c0?(\d+)(?:[\s_-]+(.*))?$/i);
+        if (m) {
+            const num = parseInt(m[1], 10);
+            const desc = (m[2] || '').trim();
+            if (!criteriaMap.has(num)) {
+                criteriaMap.set(num, k);
+            } else {
+                // Utamakan nama deskriptif (misal: C1_Ekonomi lebih dipilih dibanding C1 polos)
+                const existing = criteriaMap.get(num);
+                if (/^c0?\d+$/i.test(existing) && desc) {
+                    criteriaMap.set(num, k);
+                }
+            }
+            usedRawKeys.add(k);
+            usedRawKeys.add(`C${num}`);
+            usedRawKeys.add(`c${num}`);
+            usedRawKeys.add(`c0${num}`);
+        }
+    });
+
+    // Urutkan nomor kriteria 1, 2, 3, ... 50 secara ketat
+    const sortedCritNumbers = Array.from(criteriaMap.keys()).sort((a, b) => a - b);
+    sortedCritNumbers.forEach(num => {
+        canonicalHeaders.push(criteriaMap.get(num));
+    });
+
+    // Singkirkan sinonim duplikat kolom standar
+    allRawKeys.forEach(k => {
+        const kLow = k.toLowerCase().replace(/[\s\._\/-]+/g, '');
+        if (/^(no|nik|nomornik|nama|namalengkap|alamat|alamatlengkap|nowa|nowhatsapp|nohp|email|alamatemail|surel|ttl|tempatlahir|tanggallahir|garislintang|garisbujur|lat|lng|latitude|longitude)$/i.test(kLow)) {
             usedRawKeys.add(k);
         }
     });
 
-    // Kolom 2: NIK
-    if (hasNIK) {
-        canonicalHeaders.push(hasNIK);
-        allRawKeys.forEach(k => {
-            if (/^(nik|no_?ktp|nomor_?ktp|no_?nik|nomor_?nik|identitas)$/i.test(k.replace(/[\s\.\/_-]+/g, '')) || /nik|ktp/i.test(k)) {
-                usedRawKeys.add(k);
-            }
-        });
-    }
-
-    // Kolom 3: Alamat
-    if (hasAlamat) {
-        canonicalHeaders.push(hasAlamat);
-        allRawKeys.forEach(k => {
-            if (/^(alamat|alamat_?lengkap|alamat_?domisili|alamat_?ktp|domisili)$/i.test(k.replace(/[\s\.\/_-]+/g, '')) || /alamat|domisili/i.test(k)) {
-                usedRawKeys.add(k);
-            }
-        });
-    }
-
-    // Kolom 4: No HP / WA
-    if (hasNoHp) {
-        canonicalHeaders.push(hasNoHp);
-        allRawKeys.forEach(k => {
-            if (/^(no_?hp|no_?wa|whatsapp|telepon|hp)$/i.test(k.replace(/[\s\.\/_-]+/g, ''))) {
-                usedRawKeys.add(k);
-            }
-        });
-    }
-
-    // Hindari duplikasi kolom 'No' / 'NO' dari berkas
+    // Tambahkan sisa variabel kustom dari berkas pengguna
     allRawKeys.forEach(k => {
-        if (/^no$/i.test(k.trim())) usedRawKeys.add(k);
-    });
-
-    // Masukkan seluruh variabel/kolom kustom lainnya (seperti C1-C10, Pekerjaan, dsb)
-    allRawKeys.forEach(k => {
-        if (!usedRawKeys.has(k)) {
+        if (!usedRawKeys.has(k) && !/^(No|NIK|Nama|Nama Lengkap|TTL|Alamat|Alamat Lengkap|No\. WA|Email)$/i.test(k)) {
             canonicalHeaders.push(k);
             usedRawKeys.add(k);
         }
     });
 
     window.stagedUnifiedHeaders = canonicalHeaders;
-    window.stagedUnifiedPrimaryNameKey = primaryNameHeader;
+    window.stagedUnifiedPrimaryNameKey = 'Nama Lengkap';
 
     // Klasifikasi Variabel & Deteksi Tipe Data
-    const coreKeys = ['nik', 'nama', 'nama_lengkap', 'alamat', 'no_hp', 'email', 'tempat_lahir', 'tanggal_lahir'];
+    const coreKeys = ['nik', 'nama', 'nama_lengkap', 'alamat', 'alamat_lengkap', 'no_hp', 'no_wa', 'email', 'ttl', 'tempat_lahir', 'tanggal_lahir'];
     const kriteriaKeys = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10'];
     
     let coreCount = 0;
@@ -886,7 +1205,7 @@ window.openCustomImportPreviewModal = function (rows, fileName, formatType) {
         } else if (/^\d+(\.\d+)?$/.test(sampleVal) && sampleVal.length < 15) {
             typeLabel = 'Numerik';
             typeColor = '#7c3aed';
-        } else if (/^\d{4}-\d{2}-\d{2}$/.test(sampleVal) || /^\d{2}[\/-]\d{2}[\/-]\d{4}$/.test(sampleVal)) {
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(sampleVal) || /\d{4}/.test(sampleVal)) {
             typeLabel = 'Tanggal';
             typeColor = '#d97706';
         }
@@ -936,10 +1255,14 @@ window.openCustomImportPreviewModal = function (rows, fileName, formatType) {
         btnSubmitFooter.innerHTML = `<i class="fas fa-save" style="font-size:1.1rem;"></i> <span>Submit & Simpan ke Arsip Data Warga</span> <span style="background:rgba(255,255,255,0.25); color:#ffffff; font-size:0.75rem; padding:2px 8px; border-radius:10px; font-weight:900;">${rows.length} Data</span>`;
     }
 
-    // Reset filter pencarian
+    // Reset filter pencarian & inisialisasi batas baris serta paginasi
     const searchInp = document.getElementById('customImportSearchInput');
     if (searchInp) searchInp.value = '';
     window.customImportSearchQuery = '';
+    window._customImportCurrentPage = 1;
+    window._customImportRowLimitVal = '100';
+    const limitSelect = document.getElementById('customImportRowLimit');
+    if (limitSelect) limitSelect.value = '100';
 
     // Render data pratinjau (Tabel / Kartu)
     window.renderCustomImportData();
@@ -965,18 +1288,46 @@ window.renderCustomImportData = function () {
         return text.includes(q);
     });
 
-    // Batasi baris yang ditampilkan sesuai pilihan user
-    const limit = window.customImportRowLimit === 'all' ? filteredRows.length : parseInt(window.customImportRowLimit || 50, 10);
-    const displayRows = filteredRows.slice(0, limit);
+    const selectEl = document.getElementById('customImportRowLimit');
+    const limitVal = window._customImportRowLimitVal || (selectEl ? selectEl.value : '100');
+    const isAll = limitVal === 'all';
+    const limit = isAll ? filteredRows.length : (parseInt(limitVal, 10) || 100);
+    const totalPages = isAll ? 1 : (Math.ceil(filteredRows.length / limit) || 1);
 
-    // Perbarui notice baris
+    if (!window._customImportCurrentPage || window._customImportCurrentPage < 1) {
+        window._customImportCurrentPage = 1;
+    }
+    if (window._customImportCurrentPage > totalPages) {
+        window._customImportCurrentPage = totalPages;
+    }
+    const curPage = window._customImportCurrentPage;
+    const startIndex = isAll ? 0 : (curPage - 1) * limit;
+    const endIndex = isAll ? filteredRows.length : Math.min(startIndex + limit, filteredRows.length);
+    const displayRows = filteredRows.slice(startIndex, endIndex);
+
     const rowCountNotice = document.getElementById('customImportRowCountNotice');
     if (rowCountNotice) {
         if (q) {
-            rowCountNotice.innerHTML = `Ditemukan <b>${filteredRows.length}</b> baris (Menampilkan ${displayRows.length})`;
+            rowCountNotice.innerHTML = `Ditemukan <b>${filteredRows.length}</b> baris (Menampilkan ${displayRows.length > 0 ? (startIndex + 1) : 0}-${endIndex}, Hal ${curPage}/${totalPages})`;
         } else {
-            rowCountNotice.innerHTML = `Menampilkan <b>${displayRows.length}</b> dari <b>${rawRows.length}</b> baris data`;
+            rowCountNotice.innerHTML = `Menampilkan <b>${displayRows.length > 0 ? (startIndex + 1) : 0} - ${endIndex}</b> dari <b>${rawRows.length}</b> baris data${!isAll ? ` (Hal ${curPage}/${totalPages})` : ''}`;
         }
+    }
+
+    // Perbarui Tombol & Status Paginasi
+    const pageLabel = document.getElementById('customImportPageLabel');
+    if (pageLabel) pageLabel.textContent = `${curPage} / ${totalPages}`;
+    const btnPrev = document.getElementById('btnCustomImportPrevPage');
+    if (btnPrev) {
+        btnPrev.disabled = curPage <= 1 || isAll;
+        btnPrev.style.opacity = (curPage <= 1 || isAll) ? '0.45' : '1';
+        btnPrev.style.cursor = (curPage <= 1 || isAll) ? 'not-allowed' : 'pointer';
+    }
+    const btnNext = document.getElementById('btnCustomImportNextPage');
+    if (btnNext) {
+        btnNext.disabled = curPage >= totalPages || isAll;
+        btnNext.style.opacity = (curPage >= totalPages || isAll) ? '0.45' : '1';
+        btnNext.style.cursor = (curPage >= totalPages || isAll) ? 'not-allowed' : 'pointer';
     }
 
     const tableEl = document.getElementById('customImportPreviewTable');
@@ -984,41 +1335,36 @@ window.renderCustomImportData = function () {
     const scrollNavGroup = document.getElementById('customImportScrollNavGroup');
 
     if (window.currentImportView === 'cards') {
-        // ==========================================
-        // MODE 2: KARTU WARGA RESPONSIF (CARD GRID)
-        // ==========================================
         if (tableEl) tableEl.style.display = 'none';
+        if (scrollNavGroup) scrollNavGroup.style.display = 'none';
         if (cardsGrid) {
             cardsGrid.style.display = 'grid';
-            if (scrollNavGroup) scrollNavGroup.style.display = 'none';
-
             if (displayRows.length === 0) {
                 cardsGrid.innerHTML = `
-                    <div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: #94a3b8;">
-                        <i class="fas fa-search" style="font-size: 2.5rem; margin-bottom: 12px; display: block; color: #cbd5e1;"></i>
-                        <div style="font-weight: 800; font-size: 1.05rem; color: #475569;">Tidak ada data warga yang cocok dengan pencarian</div>
-                        <p style="font-size: 0.85rem; margin-top: 4px;">Coba gunakan kata kunci nama atau NIK yang berbeda.</p>
+                    <div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: #94a3b8; background: #f8fafc; border-radius: 16px; border: 1.5px dashed #cbd5e1;">
+                        <i class="fas fa-search" style="font-size: 2.2rem; margin-bottom: 10px; display: block; color: #cbd5e1;"></i>
+                        <div style="font-weight: 800; font-size: 1rem; color: #475569;">Tidak ada baris data yang cocok dengan pencarian</div>
                     </div>
                 `;
                 return;
             }
 
             cardsGrid.innerHTML = displayRows.map((r, i) => {
-                const namaVal = r['Nama Lengkap'] || r['Nama'] || r['nama'] || r['namalengkap'] || 'Warga Terdata';
-                const nikVal = r['NIK'] || r['nik'] || r['No KTP'] || r['noktp'] || '-';
-                const alamatVal = r['Alamat Lengkap'] || r['Alamat'] || r['alamat'] || 'Kabupaten Sidoarjo';
                 const origIndex = rawRows.indexOf(r);
-
-                // Buat avatar inisial
+                const namaVal = r['Nama Lengkap'] || r['Nama'] || r['nama'] || 'Warga Terdata';
+                const nikVal = r['NIK'] || r['nik'] || '-';
+                const alamatVal = r['Alamat Lengkap'] || r['Alamat'] || r['alamat'] || '-';
+                const ttlVal = r['TTL'] || `${r['Tempat Lahir'] || 'Sidoarjo'}, ${r['Tanggal Lahir'] || '-'}`;
+                const noWaVal = r['No. WA'] || r['No WhatsApp'] || r['no_hp'] || '-';
                 const initials = (namaVal || 'W').split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || 'W';
+
                 const avatarColors = [
                     ['#ede9fe', '#6d28d9'], ['#dbeafe', '#1d4ed8'], ['#dcfce7', '#15803d'],
-                    ['#fef3c7', '#b45309'], ['#fce7f3', '#be185d'], ['#e0f2fe', '#0369a1']
+                    ['#fef3c7', '#b45309'], ['#e0f2fe', '#0369a1'], ['#fce7f3', '#be185d']
                 ];
                 const colorPair = avatarColors[i % avatarColors.length];
 
-                // Kumpulkan variabel kustom (selain nama, nik, alamat)
-                const extraVariables = headers.filter(h => !/nama|nik|ktp|alamat/i.test(h) && r[h] !== undefined && r[h] !== null && String(r[h]).trim() !== '');
+                const extraVariables = headers.filter(h => !/nama|nik|ktp|alamat|ttl/i.test(h) && r[h] !== undefined && r[h] !== null && String(r[h]).trim() !== '');
 
                 const varsHtml = extraVariables.slice(0, 8).map(h => {
                     return `
@@ -1034,7 +1380,6 @@ window.renderCustomImportData = function () {
                 return `
                     <div class="import-card-item">
                         <div>
-                            <!-- Header Kartu: Avatar & Nama Jelas Terbuka -->
                             <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                                 <div style="width:44px; height:44px; border-radius:14px; background:${colorPair[0]}; color:${colorPair[1]}; font-weight:900; font-size:1.05rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
                                     ${initials}
@@ -1047,18 +1392,22 @@ window.renderCustomImportData = function () {
                                         <span style="font-family:monospace; font-weight:800; font-size:0.78rem; color:#475569; background:#f1f5f9; padding:1px 6px; border-radius:6px;">
                                             NIK: ${window.safeHtml(nikVal)}
                                         </span>
-                                        <span style="font-size:0.72rem; color:#94a3b8; font-weight:700;">#${i + 1}</span>
+                                        <span style="font-size:0.72rem; color:#94a3b8; font-weight:700;">#${startIndex + i + 1}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Alamat Domisili -->
+                            <div style="font-size:0.78rem; color:#475569; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                                <i class="fas fa-calendar-alt text-warning"></i> <span>${window.safeHtml(ttlVal)}</span>
+                                <span style="margin:0 4px; color:#cbd5e1;">•</span>
+                                <i class="fab fa-whatsapp text-success"></i> <span>${window.safeHtml(noWaVal)}</span>
+                            </div>
+
                             <div style="font-size:0.8rem; color:#475569; margin-bottom:12px; display:flex; align-items:flex-start; gap:6px; background:#f8fafc; padding:8px 10px; border-radius:10px; border:1px solid #f1f5f9;">
                                 <i class="fas fa-map-marker-alt text-danger" style="margin-top:2px; flex-shrink:0;"></i>
                                 <span style="word-break:break-word;">${window.safeHtml(alamatVal)}</span>
                             </div>
 
-                            <!-- Grid Variabel Kustom -->
                             ${extraVariables.length > 0 ? `
                                 <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:6px; margin-bottom:12px;">
                                     ${varsHtml}
@@ -1067,7 +1416,6 @@ window.renderCustomImportData = function () {
                             ${moreCount > 0 ? `<div style="font-size:0.72rem; color:#6d28d9; font-weight:700; margin-bottom:10px;">+${moreCount} variabel lainnya tersimpan</div>` : ''}
                         </div>
 
-                        <!-- Footer Kartu: Tombol Lihat Detail Warga -->
                         <div style="border-top:1px solid #f1f5f9; padding-top:10px; display:flex; justify-content:space-between; align-items:center;">
                             <span style="font-size:0.72rem; color:#10b981; font-weight:800;">
                                 <i class="fas fa-check-circle"></i> Siap Diimpor
@@ -1083,9 +1431,7 @@ window.renderCustomImportData = function () {
         return;
     }
 
-    // ==========================================
     // MODE 1: TABEL DINAMIS (SCROLLABLE TABLE)
-    // ==========================================
     if (cardsGrid) cardsGrid.style.display = 'none';
     if (tableEl) tableEl.style.display = 'table';
     if (scrollNavGroup) scrollNavGroup.style.display = 'inline-flex';
@@ -1097,7 +1443,6 @@ window.renderCustomImportData = function () {
     if (thead) {
         let thHtml = '<tr>';
 
-        // 1. Kolom No
         const noStickyClass = useSticky ? 'import-sticky-no' : '';
         thHtml += `
             <th class="${noStickyClass}" style="top: 0; background: #e2e8f0; width: 58px; min-width: 58px; max-width: 58px; text-align: center; border-bottom: 2.5px solid #94a3b8; border-right: 1.5px solid #cbd5e1; padding: 12px 6px; font-weight: 800; color: #1e293b; box-sizing: border-box;">
@@ -1105,11 +1450,9 @@ window.renderCustomImportData = function () {
             </th>
         `;
 
-        // 2. Kolom-kolom Data (Nama di index 0)
         headers.forEach((h, idx) => {
             const isNameCol = idx === 0;
             if (isNameCol) {
-                // Kolom Nama Lengkap (Lebar, Tegas, Sticky jika aktif, bebas overlap)
                 const namaStickyClass = useSticky ? 'import-sticky-nama' : '';
                 thHtml += `
                     <th class="${namaStickyClass}" style="top: 0; background: #f8fafc; min-width: 270px; text-align: left; border-bottom: 2.5px solid #94a3b8; border-right: 2.5px solid #cbd5e1; padding: 12px 16px; font-weight: 900; color: #0f172a; box-sizing: border-box;">
@@ -1127,10 +1470,34 @@ window.renderCustomImportData = function () {
                         <i class="fas fa-id-card text-success" style="margin-right:6px;"></i> ${window.safeHtml(h)}
                     </th>
                 `;
+            } else if (/ttl|lahir/i.test(h)) {
+                thHtml += `
+                    <th style="position: sticky; top: 0; z-index: 10; background: #f8fafc; border-bottom: 2.5px solid #94a3b8; border-right: 1px solid #e2e8f0; padding: 12px 16px; min-width: 185px; white-space: nowrap; font-weight: 800; color: #1e293b; text-align: left;">
+                        <i class="fas fa-calendar-alt text-warning" style="margin-right:6px;"></i> ${window.safeHtml(h)}
+                    </th>
+                `;
             } else if (/alamat|domisili/i.test(h)) {
                 thHtml += `
-                    <th style="position: sticky; top: 0; z-index: 10; background: #f8fafc; border-bottom: 2.5px solid #94a3b8; border-right: 1px solid #e2e8f0; padding: 12px 16px; min-width: 240px; white-space: nowrap; font-weight: 800; color: #1e293b; text-align: left;">
+                    <th style="position: sticky; top: 0; z-index: 10; background: #f8fafc; border-bottom: 2.5px solid #94a3b8; border-right: 1px solid #e2e8f0; padding: 12px 16px; min-width: 260px; white-space: nowrap; font-weight: 800; color: #1e293b; text-align: left;">
                         <i class="fas fa-map-marker-alt text-danger" style="margin-right:6px;"></i> ${window.safeHtml(h)}
+                    </th>
+                `;
+            } else if (/wa|hp|telepon/i.test(h)) {
+                thHtml += `
+                    <th style="position: sticky; top: 0; z-index: 10; background: #f8fafc; border-bottom: 2.5px solid #94a3b8; border-right: 1px solid #e2e8f0; padding: 12px 16px; min-width: 155px; white-space: nowrap; font-weight: 800; color: #047857; text-align: left;">
+                        <i class="fab fa-whatsapp text-success" style="margin-right:6px;"></i> ${window.safeHtml(h)}
+                    </th>
+                `;
+            } else if (/email|surel/i.test(h)) {
+                thHtml += `
+                    <th style="position: sticky; top: 0; z-index: 10; background: #f8fafc; border-bottom: 2.5px solid #94a3b8; border-right: 1px solid #e2e8f0; padding: 12px 16px; min-width: 190px; white-space: nowrap; font-weight: 800; color: #0369a1; text-align: left;">
+                        <i class="fas fa-envelope text-info" style="margin-right:6px;"></i> ${window.safeHtml(h)}
+                    </th>
+                `;
+            } else if (/^c0?\d+/i.test(h)) {
+                thHtml += `
+                    <th style="position: sticky; top: 0; z-index: 10; background: #f8fafc; border-bottom: 2.5px solid #94a3b8; border-right: 1px solid #e2e8f0; padding: 12px 14px; min-width: 110px; white-space: nowrap; font-weight: 800; color: #1d4ed8; text-align: left;">
+                        <i class="fas fa-chart-bar" style="margin-right:4px;"></i> ${window.safeHtml(h)}
                     </th>
                 `;
             } else {
@@ -1142,7 +1509,6 @@ window.renderCustomImportData = function () {
             }
         });
 
-        // 3. Kolom Aksi Rincian
         thHtml += `
             <th style="position: sticky; top: 0; z-index: 10; background: #f8fafc; border-bottom: 2.5px solid #94a3b8; border-left: 1px solid #e2e8f0; padding: 12px 14px; width: 90px; min-width: 90px; text-align: center; font-weight: 800; color: #334155;">
                 Aksi
@@ -1172,32 +1538,44 @@ window.renderCustomImportData = function () {
             const origIndex = rawRows.indexOf(r);
             let tdHtml = `<tr style="background: ${rowBg}; border-bottom: 1px solid #e2e8f0; transition: background 0.15s ease;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${rowBg}'">`;
 
-            // Cell No
             const noStickyClass = useSticky ? 'import-sticky-no' : '';
             tdHtml += `
                 <td class="${noStickyClass}" style="background: ${rowBg}; width: 58px; min-width: 58px; max-width: 58px; text-align: center; font-weight: 700; color: #64748b; border-bottom: 1px solid #e2e8f0; border-right: 1.5px solid #cbd5e1; padding: 10px 6px; box-sizing: border-box;">
-                    ${i + 1}
+                    ${startIndex + i + 1}
                 </td>
             `;
 
-            // Data Cells
             headers.forEach((h, idx) => {
                 const isNameCol = idx === 0;
                 let cellVal = r[h];
 
-                // Fallback pencarian nilai jika kosong
                 if (isNameCol && (cellVal === undefined || cellVal === '')) {
                     cellVal = r['Nama Lengkap'] || r['Nama'] || r['nama'] || r['namalengkap'] || '-';
                 } else if (/nik|ktp/i.test(h) && (cellVal === undefined || cellVal === '')) {
                     cellVal = r['NIK'] || r['nik'] || r['No KTP'] || r['noktp'] || '-';
+                } else if (/ttl|lahir/i.test(h) && (cellVal === undefined || cellVal === '')) {
+                    cellVal = r['TTL'] || `${r['Tempat Lahir'] || 'Sidoarjo'}, ${r['Tanggal Lahir'] || '-'}`;
                 } else if (/alamat|domisili/i.test(h) && (cellVal === undefined || cellVal === '')) {
                     cellVal = r['Alamat Lengkap'] || r['Alamat'] || r['alamat'] || '-';
+                } else if (/wa|hp|telepon/i.test(h) && (cellVal === undefined || cellVal === '')) {
+                    cellVal = r['No. WA'] || r['No WhatsApp'] || r['no_hp'] || '-';
+                } else if (/email|surel/i.test(h) && (cellVal === undefined || cellVal === '')) {
+                    cellVal = r['Email'] || r['email'] || '-';
+                } else if ((cellVal === undefined || cellVal === null || cellVal === '') && /^c0?\d+/i.test(h)) {
+                    const mCrit = h.match(/^c0?(\d+)/i);
+                    if (mCrit) {
+                        const num = mCrit[1];
+                        cellVal = r[`C${num}`] ?? r[`c${num}`] ?? r[`c0${num}`];
+                        if (cellVal === undefined || cellVal === null || cellVal === '') {
+                            const foundKey = Object.keys(r).find(k => new RegExp(`^c0?${num}(\\b|_|\\s)`, 'i').test(k));
+                            if (foundKey) cellVal = r[foundKey];
+                        }
+                    }
                 }
 
                 const strVal = String(cellVal !== undefined && cellVal !== null ? cellVal : '');
 
                 if (isNameCol) {
-                    // Cell Nama Lengkap (Desain Istimewa: Avatar Inisial, Teks Tebal, Bebas Tumpang Tindih)
                     const initials = (strVal || 'W').split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || 'W';
                     const avatarBg = ['#ede9fe', '#dbeafe', '#dcfce7', '#fef3c7', '#e0f2fe'][i % 5];
                     const avatarFg = ['#6d28d9', '#1d4ed8', '#15803d', '#b45309', '#0369a1'][i % 5];
@@ -1219,22 +1597,43 @@ window.renderCustomImportData = function () {
                         </td>
                     `;
                 } else if (/nik|ktp/i.test(h)) {
-                    // Cell NIK Format Monospace
                     tdHtml += `
                         <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #f1f5f9; font-family: monospace; font-weight: 800; font-size: 0.88rem; color: #1e293b; white-space: nowrap;">
                             ${window.safeHtml(strVal || '-')}
                         </td>
                     `;
+                } else if (/ttl|lahir/i.test(h)) {
+                    tdHtml += `
+                        <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #f1f5f9; color: #1e293b; white-space: nowrap; font-size: 0.88rem;">
+                            <i class="fas fa-calendar-alt text-warning" style="margin-right:5px;"></i> ${window.safeHtml(strVal || '-')}
+                        </td>
+                    `;
                 } else if (/alamat|domisili/i.test(h)) {
-                    // Cell Alamat
                     const wrapStyle = useWrap ? 'white-space: normal; word-break: break-word;' : 'white-space: nowrap;';
                     tdHtml += `
-                        <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #f1f5f9; color: #334155; min-width: 220px; ${wrapStyle}">
+                        <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #f1f5f9; color: #334155; min-width: 240px; ${wrapStyle}">
+                            ${window.safeHtml(strVal || '-')}
+                        </td>
+                    `;
+                } else if (/wa|hp|telepon/i.test(h)) {
+                    tdHtml += `
+                        <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #f1f5f9; font-family: monospace; font-weight: 700; color: #047857; white-space: nowrap; font-size: 0.88rem;">
+                            <i class="fab fa-whatsapp text-success" style="margin-right:5px;"></i> ${window.safeHtml(strVal || '-')}
+                        </td>
+                    `;
+                } else if (/email|surel/i.test(h)) {
+                    tdHtml += `
+                        <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #f1f5f9; color: #0369a1; white-space: nowrap; font-size: 0.88rem;">
+                            <i class="fas fa-envelope text-info" style="margin-right:5px;"></i> ${window.safeHtml(strVal || '-')}
+                        </td>
+                    `;
+                } else if (/^c0?\d+/i.test(h)) {
+                    tdHtml += `
+                        <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #f1f5f9; font-weight: 700; color: #1d4ed8; text-align: right; white-space: nowrap; font-size: 0.88rem;">
                             ${window.safeHtml(strVal || '-')}
                         </td>
                     `;
                 } else {
-                    // Cell Variabel Umum Lainnya
                     const wrapStyle = useWrap ? 'white-space: normal; word-break: break-word;' : 'white-space: nowrap;';
                     tdHtml += `
                         <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #f1f5f9; color: #334155; min-width: 130px; ${wrapStyle}">
@@ -1244,7 +1643,6 @@ window.renderCustomImportData = function () {
                 }
             });
 
-            // Action Button Cell
             tdHtml += `
                 <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: center; white-space: nowrap;">
                     <button type="button" onclick="window.viewCustomImportRowDetail(${origIndex >= 0 ? origIndex : i})" class="btn btn-sm" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:3px 9px; font-size:0.75rem; font-weight:700; color:#475569; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="Lihat semua data variabel warga ini">
@@ -1259,179 +1657,186 @@ window.renderCustomImportData = function () {
     }
 };
 
-// Beralih Tampilan antara Mode Tabel Dinamis dan Mode Kartu Warga
-window.switchCustomImportView = function (mode) {
-    window.currentImportView = mode;
-    const btnTable = document.getElementById('btnImportViewTable');
-    const btnCards = document.getElementById('btnImportViewCards');
-    if (btnTable) {
-        if (mode === 'table') {
-            btnTable.className = 'btn-import-view active';
-            btnTable.style.setProperty('background', '#009846', 'important');
-            btnTable.style.setProperty('color', '#ffffff', 'important');
-            btnTable.style.setProperty('border-color', '#009846', 'important');
-            btnTable.style.setProperty('box-shadow', '0 2px 8px rgba(0, 152, 70, 0.35)', 'important');
-        } else {
-            btnTable.className = 'btn-import-view';
-            btnTable.style.setProperty('background', 'transparent', 'important');
-            btnTable.style.setProperty('color', '#64748b', 'important');
-            btnTable.style.setProperty('border-color', '#cbd5e1', 'important');
-            btnTable.style.setProperty('box-shadow', 'none', 'important');
-        }
-    }
-    if (btnCards) {
-        if (mode === 'cards') {
-            btnCards.className = 'btn-import-view active';
-            btnCards.style.setProperty('background', '#009846', 'important');
-            btnCards.style.setProperty('color', '#ffffff', 'important');
-            btnCards.style.setProperty('border-color', '#009846', 'important');
-            btnCards.style.setProperty('box-shadow', '0 2px 8px rgba(0, 152, 70, 0.35)', 'important');
-        } else {
-            btnCards.className = 'btn-import-view';
-            btnCards.style.setProperty('background', 'transparent', 'important');
-            btnCards.style.setProperty('color', '#64748b', 'important');
-            btnCards.style.setProperty('border-color', '#cbd5e1', 'important');
-            btnCards.style.setProperty('box-shadow', 'none', 'important');
-        }
-    }
-    window.renderCustomImportData();
-};
-
-// Toggle Kunci Kolom Nama (Sticky)
-window.toggleCustomImportStickyName = function () {
-    window.customImportStickyName = !window.customImportStickyName;
-    const textEl = document.getElementById('textToggleStickyName');
-    const btnEl = document.getElementById('btnToggleStickyName');
-    if (textEl) textEl.innerText = `Kunci Nama: ${window.customImportStickyName ? 'ON' : 'OFF'}`;
-    if (btnEl) {
-        btnEl.style.borderColor = window.customImportStickyName ? '#7c3aed' : '#cbd5e1';
-        btnEl.style.background = window.customImportStickyName ? '#faf5ff' : '#ffffff';
-        btnEl.style.color = window.customImportStickyName ? '#6d28d9' : '#334155';
-    }
-    window.renderCustomImportData();
-};
-
-// Toggle Bungkus Teks (Wrap vs No-wrap)
-window.toggleCustomImportWrapText = function () {
-    window.customImportWrapText = !window.customImportWrapText;
-    const textEl = document.getElementById('textToggleWrapText');
-    const btnEl = document.getElementById('btnToggleWrapText');
-    if (textEl) textEl.innerText = `Bungkus Teks: ${window.customImportWrapText ? 'ON' : 'OFF'}`;
-    if (btnEl) {
-        btnEl.style.borderColor = window.customImportWrapText ? '#2563eb' : '#cbd5e1';
-        btnEl.style.background = window.customImportWrapText ? '#eff6ff' : '#ffffff';
-        btnEl.style.color = window.customImportWrapText ? '#1d4ed8' : '#334155';
-    }
-    window.renderCustomImportData();
-};
-
-// Geser Horizontal Tabel Secara Mulus
-window.scrollCustomImportTable = function (offset) {
-    const cont = document.getElementById('customImportTableContainer');
-    if (cont) {
-        cont.scrollBy({ left: offset, behavior: 'smooth' });
-    }
-};
-
-// Ubah Jumlah Baris Tampil
-window.changeCustomImportRowLimit = function (limit) {
-    window.customImportRowLimit = limit;
-    window.renderCustomImportData();
-};
-
-// Filter Pencarian Pratinjau
-window.filterCustomImportPreviewRows = function (query) {
-    window.customImportSearchQuery = query;
-    window.renderCustomImportData();
-};
-
-// Tampilkan Rincian Detail Variabel untuk Satu Baris Tertentu
+// =========================================================================
+// MODAL RINCIAN DETAIL VARIABEL SATU WARGA (POPUP INSPECTOR)
+// =========================================================================
 window.viewCustomImportRowDetail = function (index) {
+    const safeHtml = typeof window.safeHtml === 'function' ? window.safeHtml : (s => String(s !== undefined && s !== null ? s : '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
     const rows = window.stagedUnifiedImportData || [];
     const r = rows[index];
-    if (!r) return;
+    if (!r) {
+        showAdminAlert({ icon: 'warning', title: 'Data Tidak Ditemukan', text: 'Baris data warga ini tidak tersedia.' });
+        return;
+    }
 
-    const namaVal = r['Nama Lengkap'] || r['Nama'] || r['nama'] || 'Warga Terdata';
-    const nikVal = r['NIK'] || r['nik'] || r['No KTP'] || '-';
-    const alamatVal = r['Alamat Lengkap'] || r['Alamat'] || r['alamat'] || '-';
+    const modal = document.getElementById('modalCustomImportRowDetail');
+    const body = document.getElementById('modalCustomImportRowDetailBody');
+    if (!modal || !body) return;
 
-    const modalBody = document.getElementById('modalCustomImportRowDetailBody');
-    if (!modalBody) return;
+    const nama = r['Nama Lengkap'] || r['Nama'] || r['nama'] || 'Warga Terdata';
+    const nik = r['Nomor NIK'] || r['NIK'] || r['nik'] || '-';
+    const noWa = r['No. WhatsApp'] || r['No WhatsApp'] || r['No. WA'] || r['no_hp'] || '-';
+    const email = r['Alamat Email'] || r['Email'] || r['email'] || '-';
+    const alamat = r['Alamat Lengkap'] || r['Alamat'] || r['alamat'] || '-';
+    const ttl = r['TTL'] || `${r['Tempat Lahir'] || r['tempat_lahir'] || 'Sidoarjo'}, ${r['Tanggal Lahir'] || r['tanggal_lahir'] || '-'}`;
+    const lat = r['Latitude'] || r['lat'] || '-';
+    const lng = r['Longitude'] || r['lng'] || '-';
 
-    const keys = Object.keys(r);
-    const keyRows = keys.map(k => {
-        const val = r[k];
-        const strVal = String(val !== undefined && val !== null ? val : '-');
-        const isCore = /nama|nik|alamat|telepon|hp/i.test(k);
-        const isKriteria = /^c\d+/i.test(k);
+    // 10 Kriteria SPK Utama
+    const spkCriteria = [
+        { key: 'C1', label: 'C1 - Kondisi Ekonomi / Penghasilan', val: r['C1_Ekonomi'] !== undefined ? r['C1_Ekonomi'] : (r['C1'] !== undefined ? `Rp ${Number(r['C1']).toLocaleString('id-ID')}` : '-') },
+        { key: 'C2', label: 'C2 - Kepemilikan Aset / Pengeluaran', val: r['C2_Aset'] !== undefined ? r['C2_Aset'] : (r['C2'] !== undefined ? `Rp ${Number(r['C2']).toLocaleString('id-ID')}` : '-') },
+        { key: 'C3', label: 'C3 - Umur / Usia Kepala Keluarga', val: r['C3_Umur KK'] !== undefined ? `${r['C3_Umur KK']} Tahun` : (r['C3'] !== undefined ? `${r['C3']} Tahun` : '-') },
+        { key: 'C4', label: 'C4 - Demografi / Jenis Kelamin', val: r['C4_Jenis Kelamin'] !== undefined ? r['C4_Jenis Kelamin'] : (r['C4'] !== undefined ? (r['C4'] == 2 ? 'Perempuan' : 'Laki-laki') : '-') },
+        { key: 'C5', label: 'C5 - Jumlah Tanggungan / Listrik', val: r['C5_Tanggungan'] !== undefined ? `${r['C5_Tanggungan']} Jiwa` : (r['C5'] !== undefined ? `${r['C5']} Jiwa` : '-') },
+        { key: 'C6', label: 'C6 - Status Pernikahan / Air', val: r['C6_Status Kawin'] !== undefined ? r['C6_Status Kawin'] : (r['C6'] !== undefined ? r['C6'] : '-') },
+        { key: 'C7', label: 'C7 - Kepemilikan Anak / Aset', val: r['C7_Jml Anak'] !== undefined ? `${r['C7_Jml Anak']} Anak` : (r['C7'] !== undefined ? r['C7'] : '-') },
+        { key: 'C8', label: 'C8 - Kelayakan Rumah / Tempat Tinggal', val: r['C8_Tempat Tinggal'] !== undefined ? r['C8_Tempat Tinggal'] : (r['C8_Status Rumah'] !== undefined ? r['C8_Status Rumah'] : (r['C8'] !== undefined ? r['C8'] : '-')) },
+        { key: 'C9', label: 'C9 - Pendidikan Terakhir KK', val: r['C9_Pendidikan KK'] !== undefined ? r['C9_Pendidikan KK'] : (r['C9'] !== undefined ? r['C9'] : '-') },
+        { key: 'C10', label: 'C10 - Kondisi Kesehatan / Disabilitas', val: r['C10_Kesehatan'] !== undefined ? r['C10_Kesehatan'] : (r['C10'] !== undefined ? r['C10'] : '-') }
+    ];
 
-        let badgeBg = '#f1f5f9';
-        let badgeColor = '#475569';
-        if (isCore) {
-            badgeBg = '#dcfce7';
-            badgeColor = '#15803d';
-        } else if (isKriteria) {
-            badgeBg = '#dbeafe';
-            badgeColor = '#1d4ed8';
+    // Filter daftar variabel kustom / impor di luar standar
+    const standardKeys = new Set([
+        'no', 'nik', 'nomor nik', 'nomor_nik', 'nama', 'nama lengkap', 'nama_lengkap',
+        'tempat lahir', 'tempat_lahir', 'tanggal lahir', 'tanggal_lahir', 'ttl',
+        'alamat lengkap', 'alamat', 'alamat_lengkap', 'no whatsapp', 'no. whatsapp',
+        'no wa', 'no. wa', 'no hp', 'no_hp', 'email', 'alamat email', 'alamat_email',
+        'latitude', 'longitude', 'lat', 'lng', 'garis lintang', 'garis bujur',
+        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10',
+        'desil', 'is_layak', 'skor_saw', 'rank_saw', 'is_verified', 'status_validasi',
+        'status_salur', 'status_bansos', 'prioritas', 'keterangan_salur', 'catatan',
+        'extra_data'
+    ]);
+
+    const customVars = [];
+    Object.keys(r).forEach(k => {
+        const cleanKey = k.toLowerCase().trim();
+        if (!standardKeys.has(cleanKey)) {
+            customVars.push({ key: k, val: r[k] });
         }
+    });
 
-        return `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:9px 12px; border-bottom:1px solid #f1f5f9; background:#ffffff;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:0.75rem; font-weight:800; background:${badgeBg}; color:${badgeColor}; padding:2px 8px; border-radius:6px;">
-                        ${window.safeHtml(k)}
+    // Urutkan variabel kustom secara numerik teratur (C11, C12, ... C50)
+    customVars.sort((a, b) => {
+        const mA = a.key.match(/^c0?(\d+)/i);
+        const mB = b.key.match(/^c0?(\d+)/i);
+        if (mA && mB) return parseInt(mA[1], 10) - parseInt(mB[1], 10);
+        if (mA) return -1;
+        if (mB) return 1;
+        return a.key.localeCompare(b.key);
+    });
+
+    let html = `
+        <!-- Identitas Utama Warga -->
+        <div style="background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 1.5px solid #e2e8f0; border-radius: 18px; padding: 14px 18px; margin-bottom: 16px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <div style="font-size:0.75rem; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Identitas Calon Penerima</div>
+                    <div style="font-size:1.18rem; font-weight:900; color:#0f172a; margin-top:2px;">${safeHtml(nama)}</div>
+                    <div style="font-family:monospace; font-size:0.86rem; font-weight:800; color:#475569; margin-top:3px;">
+                        <i class="fas fa-id-card text-primary" style="margin-right:6px;"></i>NIK: <span style="background:#ffffff; border:1px solid #cbd5e1; padding:2px 8px; border-radius:6px; letter-spacing:1px;">${safeHtml(nik)}</span>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <span style="background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; font-size:0.75rem; font-weight:800; padding:4px 12px; border-radius:20px; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-check-circle text-success"></i> Baris #${(index + 1)}
                     </span>
                 </div>
-                <div style="font-weight:700; font-size:0.85rem; color:#0f172a; text-align:right; max-width:60%; word-break:break-word;">
-                    ${window.safeHtml(strVal)}
-                </div>
             </div>
-        `;
-    }).join('');
-
-    modalBody.innerHTML = `
-        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:16px; margin-bottom:16px;">
-            <div style="display:flex; align-items:center; gap:12px;">
-                <div style="width:48px; height:48px; border-radius:14px; background:#ede9fe; color:#6d28d9; font-size:1.3rem; font-weight:900; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                    ${window.safeHtml((namaVal || 'W')[0].toUpperCase())}
-                </div>
-                <div>
-                    <div style="font-weight:900; font-size:1.1rem; color:#0f172a; line-height:1.3;">
-                        ${window.safeHtml(namaVal)}
-                    </div>
-                    <div style="font-size:0.82rem; color:#475569; font-family:monospace; margin-top:2px;">
-                        NIK: <b>${window.safeHtml(nikVal)}</b>
-                    </div>
-                    <div style="font-size:0.8rem; color:#64748b; margin-top:2px;">
-                        <i class="fas fa-map-marker-alt text-danger"></i> ${window.safeHtml(alamatVal)}
-                    </div>
-                </div>
+            <div style="margin-top:12px; display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:10px; font-size:0.82rem; border-top:1px dashed #cbd5e1; padding-top:10px;">
+                <div><b style="color:#64748b;"><i class="fas fa-map-marker-alt text-danger"></i> Alamat:</b><br><span style="color:#1e293b; font-weight:600;">${safeHtml(alamat)}</span></div>
+                <div><b style="color:#64748b;"><i class="fas fa-calendar-alt text-warning"></i> TTL:</b><br><span style="color:#1e293b; font-weight:600;">${safeHtml(ttl)}</span></div>
+                <div><b style="color:#64748b;"><i class="fab fa-whatsapp text-success"></i> WhatsApp:</b><br><span style="color:#1e293b; font-weight:600;">${safeHtml(noWa)}</span></div>
+                <div><b style="color:#64748b;"><i class="fas fa-envelope text-info"></i> Email:</b><br><span style="color:#1e293b; font-weight:600;">${safeHtml(email)}</span></div>
             </div>
         </div>
 
-        <div style="font-weight:800; font-size:0.85rem; color:#334155; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
-            <span>Daftar Seluruh Variabel Berkas (${keys.length} Kolom):</span>
-            <span style="font-size:0.75rem; color:#6d28d9; font-weight:700;">Baris #${index + 1}</span>
-        </div>
-
-        <div style="border:1.5px solid #e2e8f0; border-radius:14px; overflow:hidden; max-height:360px; overflow-y:auto;">
-            ${keyRows}
-        </div>
-
-        <div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:10px 14px; border-radius:12px; border:1px solid #e2e8f0;">
-            <div style="font-size:0.78rem; color:#64748b;">
-                <i class="fas fa-info-circle text-primary"></i> Anda dapat menyimpan warga ini secara mandiri atau menyimpan seluruhnya melalui tombol Submit di pratinjau utama.
+        <!-- Tab Navigasi Mini: Kriteria SPK vs Variabel Impor / Kustom -->
+        <div style="margin-bottom: 14px;">
+            <div style="display:flex; gap:8px; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">
+                <button type="button" id="btnDetailTabSpk" onclick="window.switchDetailTab('spk')" style="background:#ede9fe; color:#6d28d9; border:none; padding:6px 14px; border-radius:10px; font-weight:800; font-size:0.8rem; cursor:pointer;">
+                    <i class="fas fa-calculator"></i> Kriteria SPK (C1 - C10)
+                </button>
+                <button type="button" id="btnDetailTabCustom" onclick="window.switchDetailTab('custom')" style="background:transparent; color:#64748b; border:none; padding:6px 14px; border-radius:10px; font-weight:700; font-size:0.8rem; cursor:pointer;">
+                    <i class="fas fa-list-alt"></i> Variabel Impor / Kustom
+                </button>
             </div>
-            <button type="button" onclick="window.saveSingleCustomImportRow(${index})" class="btn btn-sm btn-primary" style="background:linear-gradient(135deg, #059669, #10b981); border:none; border-radius:10px; font-weight:800; font-size:0.8rem; padding:6px 16px; color:#ffffff; display:inline-flex; align-items:center; gap:6px; cursor:pointer; box-shadow:0 3px 8px rgba(16,185,129,0.3); flex-shrink:0;">
+        </div>
+
+        <!-- Konten 1: Kriteria SPK (C1 - C10) -->
+        <div id="panelDetailTabSpk" style="display:block;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:10px;">
+                ${spkCriteria.map(c => `
+                    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                        <div style="font-size:0.75rem; font-weight:800; color:#7c3aed; text-transform:uppercase;">${c.key}</div>
+                        <div style="font-size:0.78rem; font-weight:600; color:#64748b; margin-top:1px;">${c.label}</div>
+                        <div style="font-size:0.95rem; font-weight:900; color:#0f172a; margin-top:4px;">${safeHtml(String(c.val || '-'))}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <!-- Konten 2: Variabel Impor / Kustom (C11 - C39 dll) -->
+        <div id="panelDetailTabCustom" style="display:none;">
+            ${customVars.length > 0 ? `
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:10px;">
+                    ${customVars.map(v => `
+                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                            <div style="font-size:0.75rem; font-weight:800; color:#0284c7; text-transform:uppercase;">${safeHtml(v.key)}</div>
+                            <div style="font-size:0.9rem; font-weight:700; color:#0f172a; margin-top:4px;">${safeHtml(v.val !== undefined && v.val !== null && String(v.val).trim() !== '' ? String(v.val) : '-')}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : `
+                <div style="text-align:center; padding:30px 20px; color:#94a3b8; font-weight:600;">
+                    <i class="fas fa-info-circle" style="font-size:2rem; margin-bottom:8px; display:block;"></i>
+                    Tidak ada variabel tambahan di luar variabel standar kependudukan.
+                </div>
+            `}
+        </div>
+
+        <!-- Aksi Cepat Simpan Per Warga -->
+        <div style="margin-top:20px; padding-top:14px; border-top:1px dashed #cbd5e1; display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:0.75rem; color:#64748b; font-weight:600;">
+                <i class="fas fa-database text-primary"></i> Data siap disimpan ke basis data arsip
+            </div>
+            <button type="button" onclick="window.saveSingleCustomImportRow(${index})" class="btn btn-sm" style="background: linear-gradient(135deg, #10b981, #059669); color:#ffffff; font-weight:800; border:none; padding:7px 16px; border-radius:12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
                 <i class="fas fa-save"></i> Simpan Warga Ini ke Arsip
             </button>
         </div>
     `;
 
-    const modal = document.getElementById('modalCustomImportRowDetail');
-    if (modal) {
-        modal.style.display = 'flex';
-        modal.style.zIndex = '100005';
+    body.innerHTML = html;
+    modal.style.setProperty('display', 'flex', 'important');
+    modal.style.zIndex = '100005';
+};
+
+window.switchDetailTab = function (tab) {
+    const btnSpk = document.getElementById('btnDetailTabSpk');
+    const btnCustom = document.getElementById('btnDetailTabCustom');
+    const pnlSpk = document.getElementById('panelDetailTabSpk');
+    const pnlCustom = document.getElementById('panelDetailTabCustom');
+    if (!btnSpk || !btnCustom || !pnlSpk || !pnlCustom) return;
+
+    if (tab === 'custom') {
+        btnCustom.style.background = '#ede9fe';
+        btnCustom.style.color = '#6d28d9';
+        btnCustom.style.fontWeight = '800';
+        btnSpk.style.background = 'transparent';
+        btnSpk.style.color = '#64748b';
+        btnSpk.style.fontWeight = '700';
+        pnlCustom.style.display = 'block';
+        pnlSpk.style.display = 'none';
+    } else {
+        btnSpk.style.background = '#ede9fe';
+        btnSpk.style.color = '#6d28d9';
+        btnSpk.style.fontWeight = '800';
+        btnCustom.style.background = 'transparent';
+        btnCustom.style.color = '#64748b';
+        btnCustom.style.fontWeight = '700';
+        pnlSpk.style.display = 'block';
+        pnlCustom.style.display = 'none';
     }
 };
 
@@ -1557,6 +1962,9 @@ window.executeUnifiedCustomImport = async function () {
         // Atur ukuran batch agar progress bar bertambah secara riil dan interaktif
         const BATCH_SIZE = totalCount > 100 ? 50 : (totalCount > 30 ? 20 : totalCount);
         const totalBatches = Math.ceil(totalCount / BATCH_SIZE);
+        if (overwrite && typeof window.sembunyikanHasilSPK === 'function') {
+            window.sembunyikanHasilSPK();
+        }
 
         for (let b = 0; b < totalBatches; b++) {
             if (isCancelled || loader.isCancelled()) {
@@ -1589,6 +1997,7 @@ window.executeUnifiedCustomImport = async function () {
                 body: JSON.stringify({
                     data: chunk,
                     overwrite: overwrite,
+                    replace_all: (overwrite && b === 0),
                     keep_all_vars: keepAllVars,
                     silent: !isLastBatch,
                     is_final: isLastBatch
@@ -1651,8 +2060,11 @@ window.executeUnifiedCustomImport = async function () {
         window.stagedUnifiedImportData = [];
         window._lastLocalActionTime = Date.now();
 
-        // Refresh data dasbor dan tabel arsip
+        // Refresh data dasbor, tabel arsip, dan rekapitulasi triwulan
         await window.loadDashboardData(false);
+        if (typeof window.loadRekapTriwulanData === 'function') {
+            try { await window.loadRekapTriwulanData(); } catch (_) {}
+        }
 
         // Pastikan filter aktif adalah "Semua" agar data baru langsung tampak di tabel arsip
         const filterSemuaBtn = document.querySelector('.filter-btn.filter-kategori');
@@ -1663,17 +2075,17 @@ window.executeUnifiedCustomImport = async function () {
         Swal.fire({
             _isRaw: true,
             icon: 'success',
-            title: 'Data Berhasil Disimpan ke Arsip Warga!',
+            title: 'Data Berhasil Disimpan & Direkap ke Triwulan!',
             html: `
                 <div style="font-size:0.95rem; color:#334155; margin-bottom:12px;">
                     Berhasil memasukkan <b>${totalCount} data kependudukan</b> ke dalam Arsip Data Warga.
                 </div>
                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:12px 16px; font-size:0.84rem; color:#334155; text-align:left;">
                     <div style="font-weight:700; margin-bottom:6px; color:#1e293b;">
-                        Informasi Pembaruan Arsip:
+                        Informasi Pembaruan Arsip &amp; Rekap Triwulanan:
                     </div>
-                    <div style="margin-bottom:4px;">&bull; Seluruh nama lengkap warga dan variabel kependudukan telah terekam.</div>
-                    <div>&bull; Skor kelayakan SPK BWM-SAW otomatis dikalkulasi dan diperbarui.</div>
+                    <div style="margin-bottom:4px;">&bull; Perbandingan <b>Data Lama vs Data Baru</b> (tempat tinggal, alamat, pindah kota, meninggal, kondisi ekonomi) telah direkap otomatis.</div>
+                    <div>&bull; Skor SPK BWM-SAW &amp; <b>Penurunan/Penyesuaian Desil Otomatis</b> telah disinkronkan sesuai kondisi terbaru.</div>
                 </div>
             `,
             showCloseButton: true,

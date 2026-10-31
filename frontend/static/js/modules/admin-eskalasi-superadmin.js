@@ -12,7 +12,14 @@
 
     window.eskalasiListData = [];
     window.inspeksiKodeData = null;
+    function getApiBaseUrl() {
+        return (window.BASE_API_URL || window.API_BASE_URL || window.BASE_URL || window.location.origin || '').replace(/\/+$/, '');
+    }
     window.activeEskalasiTab = 'tiket';
+    window.projectCodeFiles = [];
+    window.currentEditingFile = 'server/store.ts';
+    window.hasUnsavedCodeChanges = false;
+    window.editorViewMode = 'editor'; // 'editor' | 'architecture'
 
     function isSuperAdmin() {
         const role = (localStorage.getItem('role') || localStorage.getItem('user_role') || '').toLowerCase().trim();
@@ -70,7 +77,7 @@
 
         try {
             const token = window.getCleanToken ? window.getCleanToken() : '';
-            const res = await fetch(`${window.BASE_URL}/api/investigasi/eskalasi-list`, {
+            const res = await fetch(`${getApiBaseUrl()}/api/investigasi/eskalasi-list`, {
                 headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
             });
 
@@ -119,7 +126,7 @@
     window.muatDataInspeksiKode = async function () {
         try {
             const token = window.getCleanToken ? window.getCleanToken() : '';
-            const res = await fetch(`${window.BASE_URL}/api/investigasi/inspeksi-kode`, {
+            const res = await fetch(`${getApiBaseUrl()}/api/investigasi/inspeksi-kode`, {
                 headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
             });
             if (res.ok) {
@@ -286,7 +293,7 @@
         if (formValues) {
             try {
                 const currentHandler = (localStorage.getItem('username') || 'Super Admin').toUpperCase();
-                const res = await fetch(`${window.BASE_URL}/api/investigasi/putusan-superadmin`, {
+                const res = await fetch(`${getApiBaseUrl()}/api/investigasi/putusan-superadmin`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -407,6 +414,274 @@ ${(info.cyber_shield?.kategori_serangan_diawasi || []).map(s => `     ✓ Terpro
 `;
     }
 
+    // =========================================================================
+    // CODE STUDIO ENGINE: KONTROL EDITOR & AKSES KESELURUHAN BERKAS SISTEM
+    // =========================================================================
+
+    window.muatDaftarBerkasKode = async function (filterQuery = '') {
+        const listContainer = document.getElementById('codeFilesListContainer');
+        if (!listContainer) return;
+
+        try {
+            const token = window.getCleanToken ? window.getCleanToken() : (localStorage.getItem('token') || '');
+            const res = await fetch(`${getApiBaseUrl()}/api/investigasi/code-files`, {
+                headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+            });
+            if (res.ok) {
+                const json = await res.json();
+                window.projectCodeFiles = json.files || [];
+                window.renderTreeBerkasKode(filterQuery);
+                const countBadge = document.getElementById('totalCodeFilesBadge');
+                if (countBadge) countBadge.textContent = `${window.projectCodeFiles.length} Berkas`;
+            } else {
+                listContainer.innerHTML = '<div style="padding:16px; font-size:0.75rem; color:#ef4444; text-align:center;">Gagal memuat daftar berkas.</div>';
+            }
+        } catch (e) {
+            listContainer.innerHTML = '<div style="padding:16px; font-size:0.75rem; color:#ef4444; text-align:center;">Koneksi API berkas terputus.</div>';
+        }
+    };
+
+    window.renderTreeBerkasKode = function (query = '') {
+        const container = document.getElementById('codeFilesListContainer');
+        if (!container) return;
+
+        let files = [...(window.projectCodeFiles || [])];
+        if (query) {
+            const q = query.toLowerCase().trim();
+            files = files.filter(f => f.path.toLowerCase().includes(q) || f.name.toLowerCase().includes(q));
+        }
+
+        if (!files.length) {
+            container.innerHTML = '<div style="padding:20px 10px; font-size:0.75rem; color:#64748b; text-align:center;">Tidak ada berkas cocok.</div>';
+            return;
+        }
+
+        // Kelompokkan berdasarkan folder
+        const groups = {};
+        files.forEach(f => {
+            const fld = f.folder || 'root';
+            if (!groups[fld]) groups[fld] = [];
+            groups[fld].push(f);
+        });
+
+        const iconMap = {
+            ts: '<i class="fab fa-js text-sky-400" style="color:#38bdf8;"></i>',
+            js: '<i class="fab fa-js text-amber-400" style="color:#fbbf24;"></i>',
+            cjs: '<i class="fab fa-js text-amber-400" style="color:#fbbf24;"></i>',
+            mjs: '<i class="fab fa-js text-amber-400" style="color:#fbbf24;"></i>',
+            html: '<i class="fab fa-html5 text-orange-400" style="color:#f97316;"></i>',
+            css: '<i class="fab fa-css3-alt text-blue-400" style="color:#60a5fa;"></i>',
+            json: '<i class="fas fa-brackets-curly text-emerald-400" style="color:#34d399;"></i>',
+            md: '<i class="fas fa-file-alt text-slate-300" style="color:#cbd5e1;"></i>',
+            txt: '<i class="fas fa-file-alt text-slate-400" style="color:#94a3b8;"></i>'
+        };
+
+        let html = '';
+        Object.keys(groups).sort().forEach(folder => {
+            html += `
+                <div style="margin-bottom:8px;">
+                    <div style="font-size:0.7rem; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; padding:4px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-bottom:3px; display:flex; align-items:center; gap:5px;">
+                        <i class="fas fa-folder-open" style="color:#f59e0b; font-size:0.75rem;"></i> ${folder}
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:2px; padding-left:6px;">
+                        ${groups[folder].map(file => {
+                            const isCurrent = file.path === window.currentEditingFile;
+                            const ic = iconMap[file.ext] || '<i class="fas fa-file-code" style="color:#94a3b8;"></i>';
+                            return `
+                                <button type="button" onclick="window.bukaBerkasKode('${file.path}')" class="btn-code-tree-item ${isCurrent ? 'active' : ''}" style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:5px 8px; border:none; background:${isCurrent ? '#1e293b' : 'transparent'}; color:${isCurrent ? '#38bdf8' : '#cbd5e1'}; border-radius:6px; font-family:'JetBrains Mono', Consolas, monospace; font-size:0.74rem; cursor:pointer; text-align:left; width:100%; transition:all 0.15s; border-left:${isCurrent ? '3px solid #38bdf8' : '3px solid transparent'};">
+                                    <span style="display:flex; align-items:center; gap:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                        ${ic}
+                                        <span title="${file.path}">${file.name}</span>
+                                    </span>
+                                    <span style="font-size:0.65rem; color:#64748b; font-weight:600;">${file.lines}b</span>
+                                </button>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    };
+
+    window.bukaBerkasKode = async function (filePath) {
+        if (window.hasUnsavedCodeChanges) {
+            const confirmLeave = await Swal.fire({
+                title: 'Perubahan Belum Disimpan!',
+                text: 'Ada perubahan pada berkas saat ini yang belum Anda simpan. Tetap beralih?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Beralih (Abaikan Perubahan)',
+                cancelButtonText: 'Batal'
+            });
+            if (!confirmLeave.isConfirmed) return;
+        }
+
+        window.currentEditingFile = filePath;
+        window.hasUnsavedCodeChanges = false;
+        window.renderTreeBerkasKode(document.getElementById('searchCodeFilesInput')?.value || '');
+
+        const statusBadge = document.getElementById('badgeStatusSimpanKode');
+        const pathBadge = document.getElementById('badgeCurrentFilePath');
+        const linesBadge = document.getElementById('badgeCurrentFileLines');
+        const langBadge = document.getElementById('badgeCurrentFileLang');
+        const textarea = document.getElementById('codeEditorTextarea');
+
+        if (statusBadge) {
+            statusBadge.className = 'status-badge-clean';
+            statusBadge.style.background = '#065f46';
+            statusBadge.style.color = '#6ee7b7';
+            statusBadge.innerHTML = '<i class="fas fa-check-circle"></i> Live Valid';
+        }
+        if (pathBadge) pathBadge.innerHTML = `<i class="fas fa-file-code"></i> ${filePath}`;
+        if (textarea) textarea.value = 'Memuat isi berkas dari peladen...';
+
+        try {
+            const token = window.getCleanToken ? window.getCleanToken() : (localStorage.getItem('token') || '');
+            const res = await fetch(`${getApiBaseUrl()}/api/investigasi/code-content?file=${encodeURIComponent(filePath)}`, {
+                headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+            });
+            if (res.ok) {
+                const json = await res.json();
+                if (textarea) {
+                    textarea.value = json.content || '';
+                    window.updateEditorLineNumbers();
+                }
+                if (linesBadge) linesBadge.textContent = `${json.lines || 0} baris`;
+                if (langBadge) langBadge.textContent = (json.language || 'Code').toUpperCase();
+            } else {
+                if (textarea) textarea.value = '// Gagal memuat berkas atau berkas tidak dapat diakses.';
+            }
+        } catch (e) {
+            if (textarea) textarea.value = '// Terjadi kesalahan jaringan saat mengambil berkas.';
+        }
+    };
+
+    window.updateEditorLineNumbers = function () {
+        const textarea = document.getElementById('codeEditorTextarea');
+        const gutter = document.getElementById('codeEditorLineGutter');
+        const linesBadge = document.getElementById('badgeCurrentFileLines');
+        if (!textarea || !gutter) return;
+
+        const lines = (textarea.value || '').split('\n');
+        const lineCount = lines.length;
+        if (linesBadge) linesBadge.textContent = `${lineCount} baris`;
+
+        // Buat nomor baris 1 s/d N
+        gutter.innerHTML = Array.from({ length: lineCount }, (_, i) => `<div>${i + 1}</div>`).join('');
+    };
+
+    window.onCodeTextareaInput = function () {
+        window.hasUnsavedCodeChanges = true;
+        window.updateEditorLineNumbers();
+        const statusBadge = document.getElementById('badgeStatusSimpanKode');
+        if (statusBadge) {
+            statusBadge.style.background = '#b45309';
+            statusBadge.style.color = '#fef3c7';
+            statusBadge.innerHTML = '<i class="fas fa-exclamation-circle"></i> Belum Disimpan';
+        }
+    };
+
+    window.simpanPerubahanKode = async function () {
+        const textarea = document.getElementById('codeEditorTextarea');
+        if (!textarea) return;
+
+        const file = window.currentEditingFile;
+        const content = textarea.value;
+
+        const btnSave = document.getElementById('btnSimpanKodeEditor');
+        if (btnSave) {
+            btnSave.disabled = true;
+            btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+        }
+
+        try {
+            const token = window.getCleanToken ? window.getCleanToken() : (localStorage.getItem('token') || '');
+            const res = await fetch(`${getApiBaseUrl()}/api/investigasi/code-save`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ file, content })
+            });
+
+            const json = await res.json();
+            if (res.ok && json.status === 'success') {
+                window.hasUnsavedCodeChanges = false;
+                const statusBadge = document.getElementById('badgeStatusSimpanKode');
+                if (statusBadge) {
+                    statusBadge.style.background = '#065f46';
+                    statusBadge.style.color = '#6ee7b7';
+                    statusBadge.innerHTML = '<i class="fas fa-check-double"></i> Tersimpan & Live!';
+                }
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Kode Berhasil Disimpan & Aktif!',
+                    html: `Berkas <b>${window.safeHtml(file)}</b> (${json.lines} baris) berhasil disimpan langsung ke disk dan otomatis aktif di sistem.`,
+                    timer: 2500,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                });
+
+                // Update file tree lines count
+                window.muatDaftarBerkasKode(document.getElementById('searchCodeFilesInput')?.value || '');
+            } else {
+                throw new Error(json.message || 'Gagal menyimpan perubahan berkas.');
+            }
+        } catch (e) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal Menyimpan Kode',
+                text: e.message || 'Terjadi kesalahan sistem saat menyimpan berkas.',
+                confirmButtonColor: '#dc2626'
+            });
+        } finally {
+            if (btnSave) {
+                btnSave.disabled = false;
+                btnSave.innerHTML = '<i class="fas fa-save"></i> Simpan Perubahan';
+            }
+        }
+    };
+
+    window.salinKodeSaatIni = function () {
+        const textarea = document.getElementById('codeEditorTextarea');
+        if (!textarea) return;
+        navigator.clipboard.writeText(textarea.value).then(() => {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Kode berhasil disalin ke clipboard!',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        });
+    };
+
+    window.toggleViewModeKode = function () {
+        window.editorViewMode = window.editorViewMode === 'editor' ? 'architecture' : 'editor';
+        const editorBox = document.getElementById('codeEditorActiveWorkspace');
+        const archBox = document.getElementById('codeArchitectureConsole');
+        const btnToggle = document.getElementById('btnToggleEditorArchView');
+
+        if (window.editorViewMode === 'editor') {
+            if (editorBox) editorBox.style.display = 'flex';
+            if (archBox) archBox.style.display = 'none';
+            if (btnToggle) btnToggle.innerHTML = '<i class="fas fa-info-circle"></i> Ringkasan Arsitektur';
+        } else {
+            if (editorBox) editorBox.style.display = 'none';
+            if (archBox) archBox.style.display = 'block';
+            if (btnToggle) btnToggle.innerHTML = '<i class="fas fa-edit"></i> Buka Editor Kode';
+            if (typeof window.muatDataInspeksiKode === 'function') window.muatDataInspeksiKode();
+        }
+    };
+
     window.pilihTabEskalasi = function (tabName) {
         window.activeEskalasiTab = tabName;
         document.querySelectorAll('.tab-btn-eskalasi').forEach(btn => {
@@ -427,7 +702,17 @@ ${(info.cyber_shield?.kategori_serangan_diawasi || []).map(s => `     ✓ Terpro
         const tabDebug = document.getElementById('tabContentEskalasi_debugger');
 
         if (tabTiket) tabTiket.style.display = tabName === 'tiket' ? 'block' : 'none';
-        if (tabKode) tabKode.style.display = tabName === 'kode' ? 'block' : 'none';
+        if (tabKode) {
+            tabKode.style.display = tabName === 'kode' ? 'block' : 'none';
+            if (tabName === 'kode') {
+                if (!window.projectCodeFiles || window.projectCodeFiles.length === 0) {
+                    window.muatDaftarBerkasKode();
+                }
+                if (!document.getElementById('codeEditorTextarea')?.value) {
+                    window.bukaBerkasKode(window.currentEditingFile || 'server/store.ts');
+                }
+            }
+        }
         if (tabDebug) tabDebug.style.display = tabName === 'debugger' ? 'block' : 'none';
     };
 
@@ -500,17 +785,104 @@ ${(info.cyber_shield?.kategori_serangan_diawasi || []).map(s => `     ✓ Terpro
                         </div>
                     </div>
 
-                    <!-- TAB 2: AKSES KESELURUHAN KODE -->
-                    <div id="tabContentEskalasi_kode" style="display:none;">
-                        <div style="background:#0f172a; border-radius:16px; padding:20px; box-shadow:0 4px 20px rgba(0,0,0,0.15);">
+                    <!-- TAB 2: AKSES & EDITOR KESELURUHAN KODE SISTEM -->
+                    <div id="tabContentEskalasi_kode" style="display:none; height:100%; box-sizing:border-box;">
+                        
+                        <!-- VIEW 1: INTERACTIVE LIVE CODE STUDIO -->
+                        <div id="codeEditorActiveWorkspace" style="display:flex; gap:14px; height:calc(88vh - 190px); min-height:520px; box-sizing:border-box;">
+                            
+                            <!-- SIDEBAR: FILE EXPLORER & TREE -->
+                            <div style="width:280px; flex-shrink:0; background:#0f172a; border:1px solid #1e293b; border-radius:16px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.15);">
+                                <div style="padding:12px 14px; border-bottom:1px solid #1e293b; background:rgba(255,255,255,0.02);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                        <span style="font-size:0.8rem; font-weight:800; color:#38bdf8; display:flex; align-items:center; gap:6px;">
+                                            <i class="fas fa-folder-tree"></i> Jelajah Berkas
+                                        </span>
+                                        <span id="totalCodeFilesBadge" style="font-size:0.65rem; background:#1e293b; color:#94a3b8; padding:2px 8px; border-radius:10px; font-weight:700;">Memuat...</span>
+                                    </div>
+                                    <div style="position:relative;">
+                                        <input type="text" id="searchCodeFilesInput" oninput="window.renderTreeBerkasKode(this.value)" placeholder="Cari berkas (store, chat, html)..." style="width:100%; box-sizing:border-box; background:#1e293b; border:1px solid #334155; border-radius:8px; padding:6px 10px 6px 28px; font-size:0.75rem; color:#f8fafc; font-family:'JetBrains Mono', monospace; outline:none;">
+                                        <i class="fas fa-search" style="position:absolute; left:9px; top:8px; font-size:0.7rem; color:#64748b;"></i>
+                                    </div>
+                                </div>
+                                <div id="codeFilesListContainer" style="flex:1; overflow-y:auto; padding:10px; box-sizing:border-box;">
+                                    <div style="text-align:center; padding:30px 10px; font-size:0.75rem; color:#64748b;">
+                                        <i class="fas fa-spinner fa-spin fa-2x" style="margin-bottom:8px; color:#38bdf8; display:block;"></i> Memindai berkas proyek...
+                                    </div>
+                                </div>
+                                <div style="padding:8px 12px; border-top:1px solid #1e293b; background:rgba(0,0,0,0.2); display:flex; justify-content:space-between; align-items:center;">
+                                    <button type="button" onclick="window.muatDaftarBerkasKode(document.getElementById('searchCodeFilesInput')?.value || '')" style="background:none; border:none; color:#94a3b8; font-size:0.72rem; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:5px;" title="Segarkan Berkas">
+                                        <i class="fas fa-sync-alt"></i> Muat Ulang Tree
+                                    </button>
+                                    <span style="font-size:0.65rem; color:#64748b;">Full Workspace</span>
+                                </div>
+                            </div>
+
+                            <!-- MAIN WORKSPACE: CODE EDITOR -->
+                            <div style="flex:1; background:#0b0f19; border:1px solid #1e293b; border-radius:16px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.2);">
+                                
+                                <!-- EDITOR TOOLBAR -->
+                                <div style="background:#0f172a; padding:10px 16px; border-bottom:1px solid #1e293b; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                                        <span id="badgeCurrentFilePath" style="font-family:'JetBrains Mono', Consolas, monospace; font-size:0.8rem; font-weight:800; color:#38bdf8; background:#1e293b; padding:4px 10px; border-radius:8px; border:1px solid #334155; display:inline-flex; align-items:center; gap:6px;">
+                                            <i class="fas fa-file-code"></i> server/store.ts
+                                        </span>
+                                        <span id="badgeCurrentFileLines" style="font-size:0.72rem; color:#94a3b8; font-family:monospace; background:rgba(255,255,255,0.04); padding:3px 8px; border-radius:6px;">- baris</span>
+                                        <span id="badgeCurrentFileLang" style="font-size:0.68rem; font-weight:800; color:#a78bfa; background:#2e1065; padding:2px 8px; border-radius:6px; border:1px solid #6b21a8;">TS</span>
+                                        <span id="badgeStatusSimpanKode" style="font-size:0.7rem; font-weight:800; padding:3px 10px; border-radius:8px; background:#065f46; color:#6ee7b7; display:inline-flex; align-items:center; gap:5px;">
+                                            <i class="fas fa-check-circle"></i> Live Valid
+                                        </span>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <button type="button" id="btnToggleEditorArchView" onclick="window.toggleViewModeKode()" style="background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:8px; padding:6px 12px; font-size:0.75rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px;">
+                                            <i class="fas fa-info-circle"></i> Ringkasan Arsitektur
+                                        </button>
+                                        <button type="button" onclick="window.salinKodeSaatIni()" style="background:#1e293b; color:#cbd5e1; border:1px solid #334155; border-radius:8px; padding:6px 12px; font-size:0.75rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px;" title="Salin Seluruh Kode">
+                                            <i class="fas fa-copy"></i> Salin
+                                        </button>
+                                        <button type="button" onclick="window.bukaBerkasKode(window.currentEditingFile)" style="background:#1e293b; color:#cbd5e1; border:1px solid #334155; border-radius:8px; padding:6px 12px; font-size:0.75rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px;" title="Muat Ulang Berkas Asli">
+                                            <i class="fas fa-sync-alt"></i> Pulihkan
+                                        </button>
+                                        <button type="button" id="btnSimpanKodeEditor" onclick="window.simpanPerubahanKode()" style="background:linear-gradient(135deg, #009846, #057a3b); color:#ffffff; border:none; border-radius:8px; padding:6px 16px; font-size:0.78rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 3px 10px rgba(0,152,70,0.3);">
+                                            <i class="fas fa-save"></i> Simpan Perubahan
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- EDITOR BODY (LINE NUMBERS + TEXTAREA) -->
+                                <div style="flex:1; display:flex; overflow:hidden; position:relative; background:#070b13;">
+                                    <div id="codeEditorLineGutter" style="width:48px; background:#090d16; border-right:1px solid #1e293b; color:#475569; font-family:'JetBrains Mono', Consolas, monospace; font-size:0.8rem; line-height:1.65; padding:12px 6px; text-align:right; user-select:none; overflow:hidden; box-sizing:border-box;">
+                                        <div>1</div>
+                                    </div>
+                                    <textarea id="codeEditorTextarea" oninput="window.onCodeTextareaInput()" onkeydown="if(event.key==='Tab'){event.preventDefault();const s=this.selectionStart;this.value=this.value.substring(0,s)+'  '+this.value.substring(this.selectionEnd);this.selectionStart=this.selectionEnd=s+2;window.onCodeTextareaInput();}" onscroll="document.getElementById('codeEditorLineGutter').scrollTop=this.scrollTop;" spellcheck="false" autocomplete="off" autocapitalize="off" style="flex:1; height:100%; background:transparent; border:none; outline:none; resize:none; padding:12px 14px; font-family:'JetBrains Mono', Consolas, monospace; font-size:0.8rem; line-height:1.65; color:#f1f5f9; tab-size:2; white-space:pre; overflow:auto; box-sizing:border-box;"></textarea>
+                                </div>
+
+                                <!-- EDITOR STATUS FOOTER -->
+                                <div style="background:#0f172a; padding:6px 16px; border-top:1px solid #1e293b; display:flex; justify-content:space-between; align-items:center; font-size:0.7rem; color:#64748b; font-family:monospace;">
+                                    <span style="display:flex; align-items:center; gap:8px;">
+                                        <i class="fas fa-shield-alt text-emerald-400"></i> Mode Pengembang Super Admin Live &bull; UTF-8 &bull; 2 Spaces Indent
+                                    </span>
+                                    <span>Tekan <b>Simpan Perubahan</b> untuk update live ke peladen</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- VIEW 2: ARCHITECTURE SPECIFICATION (TOGGLEABLE) -->
+                        <div id="codeArchitectureConsole" style="display:none; background:#0f172a; border-radius:16px; padding:20px; box-shadow:0 4px 20px rgba(0,0,0,0.15);">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #1e293b; padding-bottom:10px;">
                                 <div style="color:#38bdf8; font-weight:800; font-family:monospace; font-size:0.9rem;">
                                     <i class="fas fa-terminal"></i> LIVE ENGINE & CODE INSPECTION CONSOLE
                                 </div>
-                                <span style="background:#16a34a; color:#ffffff; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:6px;">LIVE CODE VALID</span>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <button type="button" onclick="window.toggleViewModeKode()" style="background:#1e293b; color:#38bdf8; border:1px solid #334155; border-radius:8px; padding:4px 12px; font-size:0.74rem; font-weight:700; cursor:pointer;">
+                                        <i class="fas fa-arrow-left"></i> Kembali ke Editor Kode
+                                    </button>
+                                    <span style="background:#16a34a; color:#ffffff; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:6px;">LIVE CODE VALID</span>
+                                </div>
                             </div>
                             <pre id="preCodeInspection" style="margin:0; font-family:'JetBrains Mono', monospace; font-size:0.82rem; color:#e2e8f0; line-height:1.6; max-height:550px; overflow-y:auto; white-space:pre-wrap;">Memuat status arsitektur kode...</pre>
                         </div>
+
                     </div>
 
                     <!-- TAB 3: SIMULATOR & DEBUGGER DATA WARGA -->

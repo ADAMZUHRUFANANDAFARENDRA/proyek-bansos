@@ -168,6 +168,9 @@ window.renderTable = function (data) {
     if (!tbody) return;
 
     if (data.length === 0) {
+        if (typeof window.sembunyikanHasilSPK === 'function') {
+            window.sembunyikanHasilSPK();
+        }
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" style="text-align:center; padding:36px 16px; color:#64748b; font-weight:600;">
@@ -260,7 +263,10 @@ window.renderTable = function (data) {
                 <td style="text-align:center;"><input type="checkbox" class="row-checkbox" value="${w.id}"></td>
                 <td style="font-weight:700; font-family:monospace; color:#0f172a;">${w.nik}</td>
                 <td>
-                    <div style="font-weight:800; color:#1e293b; font-size:0.95rem;">${window.safeHtml(w.nama)}</div>
+                    ${(() => {
+                    const cleanNama = String(w.nama || 'Warga').replace(/\s+(Ada\s*\([^)]*\)|Ada\s*\(.*|Tidak Ada\b.*)$/i, '').trim();
+                    return `<div style="font-weight:800; color:#1e293b; font-size:0.95rem;">${window.safeHtml(cleanNama)}</div>`;
+                })()}
                     <small style="color:#475569;"><i class="fas fa-birthday-cake text-muted"></i> ${window.safeHtml(ttlText)}</small><br>
                     <small class="text-muted"><i class="fas fa-map-marker-alt"></i> ${window.safeHtml(w.alamat || 'Sidoarjo')}</small><br>
                     <div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center; margin-top:2px;">
@@ -288,6 +294,21 @@ window.renderTable = function (data) {
 
     // Simpan referensi data terakhir yang terfilter
     window.lastFilteredWargaData = data;
+
+    // Sinkronisasi otomatis: Jika data warga dihapus sehingga warga di hasil SPK sudah tidak valid, sembunyikan card rekomendasi SPK
+    if (window.lastSPKResult) {
+        try {
+            const spkItems = Array.isArray(window.lastSPKResult) ? window.lastSPKResult : (window.lastSPKResult.hasil_akhir || window.lastSPKResult.data || []);
+            const currentNiks = new Set(data.map(w => String(w.nik || '')));
+            const hasOrphanSpk = spkItems.some(item => item.nik && !currentNiks.has(String(item.nik)));
+            const hasVerified = data.some(w => Boolean(w.is_verified));
+            if (hasOrphanSpk || spkItems.length === 0 || !hasVerified) {
+                if (typeof window.sembunyikanHasilSPK === 'function') {
+                    window.sembunyikanHasilSPK();
+                }
+            }
+        } catch (_) {}
+    }
 
     const currentLenVal = window.currentTablePageLength || '10';
     const currentLen = (currentLenVal === 'all' || currentLenVal === '-1' || currentLenVal === -1) 
@@ -574,7 +595,10 @@ window.renderWargaCards = function (data) {
                             ${(w.nama || 'W').charAt(0).toUpperCase()}
                         </div>
                         <div>
-                            <div style="font-weight:900; font-size:0.98rem; color:#0f172a;">${window.safeHtml(w.nama)}</div>
+                            ${(() => {
+                        const cleanNama = String(w.nama || 'Warga').replace(/\s+(Ada\s*\([^)]*\)|Ada\s*\(.*|Tidak Ada\b.*)$/i, '').trim();
+                        return `<div style="font-weight:900; font-size:0.98rem; color:#0f172a;">${window.safeHtml(cleanNama)}</div>`;
+                    })()}
                             <div style="font-family:monospace; font-size:0.8rem; font-weight:700; color:#475569;">NIK: ${w.nik}</div>
                         </div>
                     </div>

@@ -112,60 +112,370 @@
             return '';
         },
 
-        getManualSignatureBase64(namaPejabat) {
-            try {
-                const custom = localStorage.getItem('spk_custom_signature');
-                if (custom) return custom;
-                const canvas = document.createElement('canvas');
-                canvas.width = 300;
-                canvas.height = 140;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) return '';
-                ctx.save();
-                ctx.translate(90, 70);
-                ctx.rotate(-0.12);
-                ctx.strokeStyle = 'rgba(30, 58, 138, 0.75)';
-                ctx.lineWidth = 3.5;
+        // =====================================================================
+        // GENERATOR STEMPEL RESMI DINAS & BUPATI (VEKTOR CANVAS RESOLUSI TINGGI)
+        // =====================================================================
+loadImageAsync(src) {
+            return new Promise((resolve) => {
+                if (!src) return resolve(null);
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(null);
+                img.src = src;
+            });
+        },
+
+        // RESOLVER PENGATURAN STEMPEL RESMI DENGAN FALLBACK AMAN
+        resolveStampSettings(jenis = 'bawah', customConfig = null) {
+            let cfg = customConfig;
+            if (!cfg) {
+                try {
+                    const rawDoc = localStorage.getItem('spk_document_settings');
+                    if (rawDoc) {
+                        const parsed = JSON.parse(rawDoc);
+                        cfg = (jenis === 'atas') ? parsed.stempelAtas : parsed.stempelBawah;
+                    }
+                } catch (_) {}
+            }
+            if (!cfg) {
+                try {
+                    const rawStamp = localStorage.getItem(jenis === 'atas' ? 'spk_stempel_settings_atas' : 'spk_stempel_settings_bawah');
+                    if (rawStamp) cfg = JSON.parse(rawStamp);
+                } catch (_) {}
+            }
+
+            const isAtas = (jenis === 'atas');
+            const defaultWarna = isAtas ? '#dc2626' : '#1e40af';
+            const defaultTeksAtas = 'PEMERINTAH KABUPATEN SIDOARJO';
+            const defaultTeksBawah = isAtas ? 'BUPATI SIDOARJO' : 'DINAS SOSIAL';
+
+            return {
+                aktif: cfg?.aktif !== false,
+                tipe: cfg?.tipe || 'otomatis',
+                warna: cfg?.warna || defaultWarna,
+                bentuk: cfg?.bentuk || 'bulat',
+                posisi: cfg?.posisi || 'kiri',
+                rotasi: typeof cfg?.rotasi === 'number' ? cfg.rotasi : (isAtas ? -8 : -6),
+                ukuran: typeof cfg?.ukuran === 'number' ? cfg.ukuran : 92,
+                opacity: typeof cfg?.opacity === 'number' ? cfg.opacity : 0.88,
+                teksAtas: (cfg?.teksAtas || defaultTeksAtas).toUpperCase(),
+                teksBawah: (cfg?.teksBawah || defaultTeksBawah).toUpperCase(),
+                simbol: cfg?.simbol || 'bintang',
+                customImage: cfg?.customImage || localStorage.getItem(isAtas ? 'spk_custom_stamp_image_atas' : 'spk_custom_stamp_image_bawah') || ''
+            };
+        },
+
+        // VECTOR DRAWING CORE UNTUK STEMPEL RESMI (SINKRON, LANGSUNG KE CONTEXT)
+        drawStampVector(ctx, cx, cy, c, scale = 1.0) {
+            if (!ctx || !c) return;
+            ctx.save();
+            ctx.translate(cx, cy);
+            if (typeof c.rotasi === 'number' && c.rotasi !== 0) {
+                ctx.rotate((c.rotasi * Math.PI) / 180);
+            }
+            if (scale !== 1.0) {
+                ctx.scale(scale, scale);
+            }
+            ctx.globalAlpha = Math.max(0.1, Math.min(1.0, typeof c.opacity === 'number' ? c.opacity : 0.88));
+
+            const color = c.warna || '#1e40af';
+            const bentuk = c.bentuk || 'bulat';
+            const teksAtas = (c.teksAtas || 'PEMERINTAH KABUPATEN SIDOARJO').toUpperCase();
+            const teksBawah = (c.teksBawah || 'DINAS SOSIAL').toUpperCase();
+
+            if (bentuk === 'kotak') {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 4;
+                ctx.strokeRect(-115, -92, 230, 184);
+                ctx.lineWidth = 1.8;
+                ctx.strokeRect(-107, -84, 214, 168);
+
                 ctx.beginPath();
-                ctx.arc(0, 0, 54, 0, Math.PI * 2);
+                ctx.moveTo(-107, -30);
+                ctx.lineTo(107, -30);
+                ctx.moveTo(-107, 30);
+                ctx.lineTo(107, 30);
                 ctx.stroke();
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.arc(0, 0, 46, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.fillStyle = 'rgba(30, 58, 138, 0.82)';
-                ctx.font = 'bold 7px Arial';
+
+                ctx.fillStyle = color;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('PEMERINTAH KABUPATEN SIDOARJO', 0, -30);
-                ctx.fillText('DINAS SOSIAL', 0, 30);
-                ctx.font = 'bold 15px Arial';
+                ctx.font = 'bold 12px Arial, sans-serif';
+                ctx.fillText(teksAtas, 0, -56);
+
+                ctx.font = 'bold 22px Arial, sans-serif';
+                ctx.fillText('★ RESMI ★', 0, 0);
+
+                ctx.font = 'bold 13.5px Arial, sans-serif';
+                ctx.fillText(teksBawah, 0, 56);
+            } else if (bentuk === 'oval') {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 116, 82, 0, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.lineWidth = 1.8;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 104, 70, 0, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(-95, -16);
+                ctx.lineTo(95, -16);
+                ctx.moveTo(-95, 16);
+                ctx.lineTo(95, 16);
+                ctx.stroke();
+
+                ctx.fillStyle = color;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 11px Arial, sans-serif';
+                ctx.fillText(teksAtas, 0, -40);
+
+                ctx.font = 'bold 18px Arial, sans-serif';
                 ctx.fillText('★', 0, 0);
-                ctx.restore();
-                ctx.strokeStyle = 'rgba(15, 23, 42, 0.9)';
-                ctx.lineWidth = 3;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
+
+                ctx.font = 'bold 12px Arial, sans-serif';
+                ctx.fillText(teksBawah, 0, 40);
+            } else {
+                // BULAT GANDA RESMI PERMENDAGRI / PEMDA SIDOARJO
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 4.2;
                 ctx.beginPath();
+                ctx.arc(0, 0, 116, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.lineWidth = 2.0;
+                ctx.beginPath();
+                ctx.arc(0, 0, 102, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.arc(0, 0, 68, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.fillStyle = color;
+                ctx.font = 'bold 13px Arial, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('★', -85, 0);
+                ctx.fillText('★', 85, 0);
+
+                if (c.simbol === 'padi_kapas') {
+                    ctx.font = 'bold 24px Arial, sans-serif';
+                    ctx.fillText('🌾', 0, 0);
+                } else {
+                    ctx.font = 'bold 36px Arial, sans-serif';
+                    ctx.fillText('★', 0, 0);
+                }
+
+                ctx.font = 'bold 12.5px Arial, sans-serif';
+                const charsAtas = teksAtas.split('');
+                const totalAtas = charsAtas.length;
+                const spanAngleAtas = Math.min(2.8, Math.max(1.8, totalAtas * 0.105));
+                const startAngleAtas = (3 * Math.PI / 2) - (spanAngleAtas / 2);
+                const stepAtas = totalAtas > 1 ? spanAngleAtas / (totalAtas - 1) : 0;
+
+                charsAtas.forEach((ch, i) => {
+                    const ang = startAngleAtas + (i * stepAtas);
+                    ctx.save();
+                    ctx.rotate(ang + Math.PI / 2);
+                    ctx.fillText(ch, 0, -84);
+                    ctx.restore();
+                });
+
+                ctx.font = 'bold 13.5px Arial, sans-serif';
+                const charsBawah = teksBawah.split('');
+                const totalBawah = charsBawah.length;
+                const spanAngleBawah = Math.min(2.4, Math.max(1.4, totalBawah * 0.13));
+                const startAngleBawah = (Math.PI / 2) - (spanAngleBawah / 2);
+                const stepBawah = totalBawah > 1 ? spanAngleBawah / (totalBawah - 1) : 0;
+
+                charsBawah.forEach((ch, i) => {
+                    const ang = startAngleBawah + (i * stepBawah);
+                    ctx.save();
+                    ctx.rotate(ang - Math.PI / 2);
+                    ctx.fillText(ch, 0, 86);
+                    ctx.restore();
+                });
+            }
+
+            ctx.restore();
+        },
+
+        // CORE TANDA TANGAN BERGAYA TINTA BASAH
+        drawDefaultSignature(ctx, isAtas = false) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(15, 23, 42, 0.92)';
+            ctx.lineWidth = 3.2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            if (isAtas) {
                 ctx.moveTo(110, 80);
-                ctx.bezierCurveTo(125, 25, 140, 20, 145, 60);
-                ctx.bezierCurveTo(150, 95, 165, 30, 175, 50);
-                ctx.bezierCurveTo(185, 75, 195, 40, 210, 55);
-                ctx.bezierCurveTo(225, 70, 235, 55, 255, 65);
+                ctx.bezierCurveTo(130, 15, 150, 10, 160, 65);
+                ctx.bezierCurveTo(170, 100, 185, 25, 200, 55);
+                ctx.bezierCurveTo(210, 75, 230, 30, 245, 60);
+                ctx.bezierCurveTo(260, 80, 270, 50, 290, 70);
                 ctx.stroke();
-                ctx.lineWidth = 2.5;
+                ctx.lineWidth = 2.6;
                 ctx.beginPath();
-                ctx.moveTo(145, 70);
-                ctx.bezierCurveTo(115, 110, 95, 100, 130, 92);
-                ctx.bezierCurveTo(170, 82, 235, 88, 270, 85);
+                ctx.moveTo(140, 65);
+                ctx.bezierCurveTo(105, 115, 95, 95, 135, 90);
+                ctx.bezierCurveTo(180, 80, 255, 85, 295, 82);
                 ctx.stroke();
+            } else {
+                ctx.moveTo(125, 80);
+                ctx.bezierCurveTo(140, 25, 155, 20, 160, 60);
+                ctx.bezierCurveTo(165, 95, 180, 30, 190, 50);
+                ctx.bezierCurveTo(200, 75, 210, 40, 225, 55);
+                ctx.bezierCurveTo(240, 70, 250, 55, 270, 65);
+                ctx.stroke();
+                ctx.lineWidth = 2.6;
+                ctx.beginPath();
+                ctx.moveTo(160, 70);
+                ctx.bezierCurveTo(130, 110, 110, 100, 145, 92);
+                ctx.bezierCurveTo(185, 82, 250, 88, 285, 85);
+                ctx.stroke();
+            }
+            ctx.restore();
+        },
+
+        // GENERATOR STEMPEL RESMI DINAS & BUPATI (VEKTOR CANVAS RESOLUSI TINGGI 260x260)
+        getStampBase64(jenis = 'bawah', customConfig = null) {
+            try {
+                const c = this.resolveStampSettings(jenis, customConfig);
+                if (!c.aktif) return '';
+
+                if (c.tipe === 'upload' && c.customImage) {
+                    return c.customImage;
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 260;
+                canvas.height = 260;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return '';
+
+                this.drawStampVector(ctx, 130, 130, { ...c, rotasi: 0 }, 1.0);
                 return canvas.toDataURL('image/png');
-            } catch (e) {
+            } catch (err) {
+                console.error('[Stamp Generator Error]', err);
                 return '';
             }
         },
 
-        generateHighDefChart(topItems) {
+        // KOMPOSIT TANDA TANGAN & STEMPEL FLEKSIBEL (SINKRON, 100% TERLUKIS LANGSUNG)
+        getManualSignatureBase64(namaPejabat, jenis = 'bawah', customStampConfig = null) {
+            try {
+                const stampSettings = this.resolveStampSettings(jenis, customStampConfig);
+                const isAtas = (jenis === 'atas');
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 340;
+                canvas.height = 140;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return '';
+
+                let stampCenterX = 85;
+                if (stampSettings.posisi === 'tengah') stampCenterX = 170;
+                else if (stampSettings.posisi === 'kanan') stampCenterX = 245;
+                const stampCenterY = 70;
+
+                // 1. Gambar Stempel pada Layer Bawah Secara Sinkron
+                if (stampSettings.aktif) {
+                    const scale = (stampSettings.ukuran / 232) * 1.02;
+                    this.drawStampVector(ctx, stampCenterX, stampCenterY, stampSettings, scale);
+                }
+
+                // 2. Gambar Tanda Tangan pada Layer Atas
+                this.drawDefaultSignature(ctx, isAtas);
+
+                return canvas.toDataURL('image/png');
+            } catch (e) {
+                console.error('[Composite Signature Generation Error]', e);
+                return '';
+            }
+        },
+
+        // KOMPOSIT TANDA TANGAN & STEMPEL FLEKSIBEL (ASYNCHRONOUS LENGKAP DENGAN CUSTOM UPLOAD)
+        async getManualSignatureBase64Async(namaPejabat, jenis = 'bawah', customStampConfig = null) {
+            try {
+                const stampSettings = this.resolveStampSettings(jenis, customStampConfig);
+                const isAtas = (jenis === 'atas');
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 340;
+                canvas.height = 140;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return '';
+
+                let stampCenterX = 85;
+                if (stampSettings.posisi === 'tengah') stampCenterX = 170;
+                else if (stampSettings.posisi === 'kanan') stampCenterX = 245;
+                const stampCenterY = 70;
+
+                const storageKey = isAtas ? 'spk_custom_signature_atas' : 'spk_custom_signature_bawah';
+                const customSig = localStorage.getItem(storageKey) || (!isAtas ? localStorage.getItem('spk_custom_signature') : null);
+
+                // Load custom images jika ada
+                let stampImgPromise = null;
+                let sigImgPromise = null;
+
+                if (stampSettings.aktif && stampSettings.tipe === 'upload' && stampSettings.customImage) {
+                    stampImgPromise = this.loadImageAsync(stampSettings.customImage);
+                }
+                if (customSig) {
+                    sigImgPromise = this.loadImageAsync(customSig);
+                }
+
+                const [loadedStampImg, loadedSigImg] = await Promise.all([
+                    stampImgPromise || Promise.resolve(null),
+                    sigImgPromise || Promise.resolve(null)
+                ]);
+
+                // 1. Gambar Stempel Resmi pada Layer Bawah
+                if (stampSettings.aktif) {
+                    if (loadedStampImg) {
+                        ctx.save();
+                        ctx.translate(stampCenterX, stampCenterY);
+                        ctx.rotate((stampSettings.rotasi * Math.PI) / 180);
+                        ctx.globalAlpha = Math.max(0.2, Math.min(1.0, stampSettings.opacity));
+                        const sw = stampSettings.ukuran * 1.35;
+                        const sh = stampSettings.ukuran * 1.35;
+                        ctx.drawImage(loadedStampImg, -sw / 2, -sh / 2, sw, sh);
+                        ctx.restore();
+                    } else {
+                        const scale = (stampSettings.ukuran / 232) * 1.02;
+                        this.drawStampVector(ctx, stampCenterX, stampCenterY, stampSettings, scale);
+                    }
+                }
+
+                // 2. Gambar Tanda Tangan pada Layer Atas
+                if (loadedSigImg) {
+                    ctx.save();
+                    ctx.globalAlpha = 1.0;
+                    const sigW = 165;
+                    const sigH = 85;
+                    const sigX = (stampSettings.posisi === 'kanan') ? 40 : 130;
+                    const sigY = 28;
+                    ctx.drawImage(loadedSigImg, sigX, sigY, sigW, sigH);
+                    ctx.restore();
+                } else {
+                    this.drawDefaultSignature(ctx, isAtas);
+                }
+
+                return canvas.toDataURL('image/png');
+            } catch (e) {
+                console.error('[Async Composite Signature Error]', e);
+                return this.getManualSignatureBase64(namaPejabat, jenis, customStampConfig);
+            }
+        },
+
+                generateHighDefChart(topItems) {
             try {
                 const width = 1600;
                 const height = 520;
@@ -971,24 +1281,16 @@
                 </div>
             ` : '';
 
-            // Blok Pengesahan (TTE vs Manual Ink)
-            const ttdSectionHtml = docSettings.tipeTtd === 'manual' ? `
-                <div class="signature-wrapper">
-                    <div style="font-size: 7.2pt; color:#64748b; max-width:320px; line-height:1.4;">
-                        Dokumen ini dicetak sebagai Berita Acara Rekomendasi Resmi Dinas Sosial Kabupaten Sidoarjo untuk keperluan penetapan bantuan sosial.
-                    </div>
-                    <div class="sign-box">
-                        <div class="sign-date">${docSettings.kotaSurat}, ${docSettings.tanggalSurat}</div>
-                        <div class="sign-title">${docSettings.jabatanPimpinan}</div>
-                        <div style="height: 54px; display:flex; align-items:center; justify-content:center;">
-                            <img src="${PrintHelper.getManualSignatureBase64(docSettings.namaPimpinan)}" style="max-height: 52px; max-width: 140px; object-fit: contain;" alt="TTD & Stempel Resmi" />
-                        </div>
-                        <div class="sign-name">${docSettings.namaPimpinan}</div>
-                        <div class="sign-nip">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>
-                    </div>
-                </div>
-            ` : `
-                <div class="signature-wrapper">
+            // Blok Pengesahan Pejabat Bawah (Kepala Dinas Sosial)
+            const namaLengkapBawah = typeof window.getNamaLengkapPemimpin === 'function' ? window.getNamaLengkapPemimpin(docSettings, 'bawah') : (docSettings.namaBawah || docSettings.namaPimpinan || 'Dr. Drs. H. AHMAD MISBAHUL MUNIR, M.Si.');
+            const jabatanBawah = docSettings.jabatanBawah || docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO';
+            const nipBawah = docSettings.nipBawah || docSettings.nipPimpinan || '19710815 199603 1 003';
+            const pangkatBawah = docSettings.pangkatBawah || docSettings.pangkatPimpinan || 'Pembina Utama Muda';
+            const tipeTtdBawah = docSettings.tipeTtdBawah || docSettings.tipeTtd || 'tte';
+            const sigSrcBawah = await PrintHelper.getManualSignatureBase64Async(namaLengkapBawah, 'bawah');
+
+            const ttdSectionHtml = tipeTtdBawah === 'tte' ? `
+                <div class="signature-wrapper" style="margin-top: 24px;">
                     <div class="tte-box">
                         <img src="${qrBadgeSrc || PrintHelper.getQrBadgeBase64(docSettings)}" alt="QR TTE BSrE" class="tte-qr" />
                         <div class="tte-desc">
@@ -997,12 +1299,26 @@
                             Pindai QR Code untuk memvalidasi keabsahan digital naskah ini.
                         </div>
                     </div>
-                    <div class="sign-box">
+                    <div class="sign-box" style="min-width: 250px;">
                         <div class="sign-date">${docSettings.kotaSurat}, ${docSettings.tanggalSurat}</div>
-                        <div class="sign-title">${docSettings.jabatanPimpinan}</div>
-                        <div style="height: 10px;"></div>
-                        <div class="sign-name">${docSettings.namaPimpinan}</div>
-                        <div class="sign-nip">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>
+                        <div class="sign-title">${jabatanBawah}</div>
+                        <div style="height: 58px; display:flex; align-items:center; justify-content:center; margin: 4px 0;">
+                            <img src="${sigSrcBawah}" style="max-height: 56px; max-width: 155px; object-fit: contain;" alt="TTD & Stempel Resmi" />
+                        </div>
+                        <div class="sign-name">${namaLengkapBawah}</div>
+                        ${nipBawah ? `<div class="sign-nip">${pangkatBawah ? pangkatBawah + ' | ' : ''}NIP. ${nipBawah}</div>` : ''}
+                    </div>
+                </div>
+            ` : `
+                <div class="signature-wrapper" style="margin-top: 24px; justify-content: flex-end;">
+                    <div class="sign-box" style="min-width: 250px;">
+                        <div class="sign-date">${docSettings.kotaSurat}, ${docSettings.tanggalSurat}</div>
+                        <div class="sign-title">${jabatanBawah}</div>
+                        <div style="height: 58px; display:flex; align-items:center; justify-content:center; margin: 4px 0;">
+                            <img src="${sigSrcBawah}" style="max-height: 56px; max-width: 155px; object-fit: contain;" alt="TTD & Stempel Resmi" />
+                        </div>
+                        <div class="sign-name">${namaLengkapBawah}</div>
+                        ${nipBawah ? `<div class="sign-nip">${pangkatBawah ? pangkatBawah + ' | ' : ''}NIP. ${nipBawah}</div>` : ''}
                     </div>
                 </div>
             `;
@@ -1142,11 +1458,42 @@
                 </div>
             ` : '';
 
-            // Format TTD Word (Sesuai Pengaturan Dokumen)
-            const manualSigSrc = PrintHelper.getManualSignatureBase64(docSettings.namaPimpinan);
+            // Format TTD Word (Sesuai Pengaturan Dokumen Pejabat Bawah)
+            const namaLengkapBawah = typeof window.getNamaLengkapPemimpin === 'function' ? window.getNamaLengkapPemimpin(docSettings, 'bawah') : (docSettings.namaBawah || docSettings.namaPimpinan || 'Dr. Drs. H. AHMAD MISBAHUL MUNIR, M.Si.');
+            const jabatanBawah = docSettings.jabatanBawah || docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO';
+            const nipBawah = docSettings.nipBawah || docSettings.nipPimpinan || '19710815 199603 1 003';
+            const pangkatBawah = docSettings.pangkatBawah || docSettings.pangkatPimpinan || 'Pembina Utama Muda';
+            const tipeTtdBawah = docSettings.tipeTtdBawah || docSettings.tipeTtd || 'tte';
+            const manualSigSrc = await PrintHelper.getManualSignatureBase64Async(namaLengkapBawah, 'bawah');
             const qrBadgeSrc = data.qrBadgeSrc || PrintHelper.getQrBadgeBase64(docSettings);
 
-            const wordTtdHtml = (fmt.wordIncludeTtd === false) ? '' : (docSettings.tipeTtd === 'manual' ? `
+            const wordTtdHtml = (fmt.wordIncludeTtd === false) ? '' : (tipeTtdBawah === 'tte' ? `
+                <table style="width: 100%; border: none; margin-top: 25px;">
+                    <tr>
+                        <td style="width: 50%; vertical-align: middle; border: none;">
+                            <table style="border: 1px solid #bbf7d0; background: #f0fdf4; padding: 8px 12px; border-radius: 8px;">
+                                <tr>
+                                    <td><img src="${qrBadgeSrc}" width="65" height="65" style="width: 65px; height: 65px;" alt="QR BSrE" /></td>
+                                    <td style="padding-left: 10px; font-size: 7.5pt; color: #166534;">
+                                        <b>Diverifikasi secara Digital (TTE BSrE):</b><br>
+                                        Balai Sertifikasi Elektronik (BSrE) Badan Siber dan Sandi Negara.<br>
+                                        Pindai QR Code untuk memvalidasi keabsahan dokumen dinas.
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                        <td style="width: 50%; text-align: center; vertical-align: top; border: none;">
+                            <div style="font-size: 8.5pt;">${docSettings.kotaSurat}, ${docSettings.tanggalSurat}</div>
+                            <div style="font-size: 8.8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 6px;">${jabatanBawah}</div>
+                            <div style="margin: 6px auto; text-align: center;">
+                                <img src="${manualSigSrc}" width="160" height="60" style="max-height: 60px; width: auto; object-fit: contain; display: inline-block;" alt="TTD & Stempel Resmi" />
+                            </div>
+                            <div style="font-size: 9.2pt; font-weight: bold; text-decoration: underline; text-transform: uppercase;">${namaLengkapBawah}</div>
+                            ${nipBawah ? `<div style="font-size: 7.8pt; color: #334155;">${pangkatBawah ? pangkatBawah + ' | ' : ''}NIP. ${nipBawah}</div>` : ''}
+                        </td>
+                    </tr>
+                </table>
+            ` : `
                 <table style="width: 100%; border: none; margin-top: 25px;">
                     <tr>
                         <td style="width: 50%; vertical-align: top; border: none;">
@@ -1156,35 +1503,12 @@
                         </td>
                         <td style="width: 50%; text-align: center; vertical-align: top; border: none;">
                             <div style="font-size: 8.5pt;">${docSettings.kotaSurat}, ${docSettings.tanggalSurat}</div>
-                            <div style="font-size: 8.8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 6px;">${docSettings.jabatanPimpinan}</div>
-                            <div style="height: 60px; margin: 6px auto; text-align: center;">
+                            <div style="font-size: 8.8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 6px;">${jabatanBawah}</div>
+                            <div style="margin: 6px auto; text-align: center;">
                                 <img src="${manualSigSrc}" width="160" height="60" style="max-height: 60px; width: auto; object-fit: contain; display: inline-block;" alt="TTD & Stempel Resmi" />
                             </div>
-                            <div style="font-size: 9.2pt; font-weight: bold; text-decoration: underline; text-transform: uppercase;">${docSettings.namaPimpinan}</div>
-                            <div style="font-size: 7.8pt; color: #334155;">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>
-                        </td>
-                    </tr>
-                </table>
-            ` : `
-                <table style="width: 100%; border: none; margin-top: 25px;">
-                    <tr>
-                        <td style="width: 50%; vertical-align: top; border: none;">
-                            <div style="border: 1.5px dashed #059669; padding: 10px 14px; background: #f0fdf4; border-radius: 8px; max-width: 340px;">
-                                <div style="font-size: 8pt; font-weight: bold; color: #166534; margin-bottom: 3px;">Diverifikasi secara Digital (TTE BSrE):</div>
-                                <div style="font-size: 7pt; color: #15803d; line-height: 1.4;">
-                                    Balai Sertifikasi Elektronik (BSrE) Badan Siber dan Sandi Negara.<br>
-                                    Pindai QR Code untuk memvalidasi sertifikat keabsahan dokumen dinas resmi.
-                                </div>
-                            </div>
-                        </td>
-                        <td style="width: 50%; text-align: center; vertical-align: top; border: none;">
-                            <div style="font-size: 8.5pt;">${docSettings.kotaSurat}, ${docSettings.tanggalSurat}</div>
-                            <div style="font-size: 8.8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 6px;">${docSettings.jabatanPimpinan}</div>
-                            <div style="height: 65px; margin: 6px auto; text-align: center;">
-                                <img src="${qrBadgeSrc}" width="65" height="65" style="max-height: 65px; width: 65px; object-fit: contain; display: inline-block;" alt="QR TTE BSrE" />
-                            </div>
-                            <div style="font-size: 9.2pt; font-weight: bold; text-decoration: underline; text-transform: uppercase;">${docSettings.namaPimpinan}</div>
-                            <div style="font-size: 7.8pt; color: #334155;">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>
+                            <div style="font-size: 9.2pt; font-weight: bold; text-decoration: underline; text-transform: uppercase;">${namaLengkapBawah}</div>
+                            ${nipBawah ? `<div style="font-size: 7.8pt; color: #334155;">${pangkatBawah ? pangkatBawah + ' | ' : ''}NIP. ${nipBawah}</div>` : ''}
                         </td>
                     </tr>
                 </table>
@@ -1465,12 +1789,18 @@
             const logoSrc = kop.logoBase64 || window.LOGO_SIDOARJO_BASE64 || '';
             const logoCleanB64 = logoSrc.replace(/^data:image\/\w+;base64,/, '');
 
+            const namaLengkapBawah = typeof window.getNamaLengkapPemimpin === 'function' ? window.getNamaLengkapPemimpin(docSettings, 'bawah') : (docSettings.namaBawah || docSettings.namaPimpinan || 'Dr. Drs. H. AHMAD MISBAHUL MUNIR, M.Si.');
+            const jabatanBawah = docSettings.jabatanBawah || docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO';
+            const nipBawah = docSettings.nipBawah || docSettings.nipPimpinan || '19710815 199603 1 003';
+            const pangkatBawah = docSettings.pangkatBawah || docSettings.pangkatPimpinan || 'Pembina Utama Muda';
+            const tipeTtdBawah = docSettings.tipeTtdBawah || docSettings.tipeTtd || 'tte';
+
             // METODE UTAMA: MENGGUNAKAN EXCELJS (KEMAMPUAN MENYEMATKAN GAMBAR LOGO, GRAFIK & TTD NATIVELY)
             if (typeof ExcelJS !== 'undefined') {
                 try {
                     const wb = new ExcelJS.Workbook();
-                    wb.creator = 'Dinas Sosial Kabupaten Sidoarjo';
-                    wb.lastModifiedBy = docSettings.namaPimpinan;
+                    wb.creator = kop.dinas || 'Dinas Sosial Kabupaten Sidoarjo';
+                    wb.lastModifiedBy = namaLengkapBawah;
                     wb.created = new Date();
                     wb.modified = new Date();
 
@@ -1716,7 +2046,7 @@
                         }
                     });
 
-                    // 8. Blok Pengesahan & Tanda Tangan Resmi (Di Bawah Tabel Sheet 1)
+                    // 8. Blok Pengesahan & Tanda Tangan Resmi Pejabat Bawah (Di Bawah Tabel Sheet 1)
                     curRow += 2;
                     ws1.getRow(curRow).height = 20;
                     ws1.getCell(`H${curRow}`).value = `${docSettings.kotaSurat}, ${docSettings.tanggalSurat}`;
@@ -1725,7 +2055,7 @@
 
                     curRow++;
                     ws1.getRow(curRow).height = 22;
-                    ws1.getCell(`H${curRow}`).value = docSettings.jabatanPimpinan;
+                    ws1.getCell(`H${curRow}`).value = jabatanBawah;
                     ws1.getCell(`H${curRow}`).font = { name: 'Calibri', size: 10.5, bold: true };
                     ws1.getCell(`H${curRow}`).alignment = { horizontal: 'center' };
 
@@ -1736,53 +2066,56 @@
                         ws1.getRow(sigRowStart + s).height = 22;
                     }
 
-                    // Sematkan Gambar Tanda Tangan Digital / Manual Resmi di Bawah Tabel Excel
+                    // Sematkan Gambar Tanda Tangan & Stempel Resmi di Bawah Tabel Excel
                     if (fmt.excelIncludeTtd !== false) {
-                        if (docSettings.tipeTtd === 'manual') {
-                            try {
-                                const sigDataUrl = PrintHelper.getManualSignatureBase64(docSettings.namaPimpinan);
+                        try {
+                            const sigDataUrl = await PrintHelper.getManualSignatureBase64Async(namaLengkapBawah, 'bawah');
+                            if (sigDataUrl) {
                                 const cleanSigB64 = sigDataUrl.replace(/^data:image\/\w+;base64,/, '');
                                 const sigImgId = wb.addImage({
                                     base64: cleanSigB64,
                                     extension: 'png'
                                 });
                                 ws1.addImage(sigImgId, {
-                                    tl: { col: 6.8, row: sigRowStart + 0.3 },
-                                    ext: { width: 180, height: 85 }
+                                    tl: { col: 6.8, row: sigRowStart + 0.2 },
+                                    ext: { width: 195, height: 85 }
                                 });
-                            } catch (e) {
-                                console.warn('[ExcelJS] Manual signature embedding skipped:', e);
                             }
-                        } else {
-                            try {
+
+                            // Jika tipe TTE, sematkan juga QR Code BSrE di samping kirinya
+                            if (tipeTtdBawah === 'tte') {
                                 const qrDataUrl = data.qrBadgeSrc || PrintHelper.getQrBadgeBase64(docSettings);
-                                const cleanQrB64 = qrDataUrl.replace(/^data:image\/\w+;base64,/, '');
-                                const qrImgId = wb.addImage({
-                                    base64: cleanQrB64,
-                                    extension: 'png'
-                                });
-                                ws1.addImage(qrImgId, {
-                                    tl: { col: 7.45, row: sigRowStart + 0.3 },
-                                    ext: { width: 95, height: 95 }
-                                });
-                            } catch (e) {
-                                console.warn('[ExcelJS] TTE QR embedding skipped:', e);
+                                if (qrDataUrl) {
+                                    const cleanQrB64 = qrDataUrl.replace(/^data:image\/\w+;base64,/, '');
+                                    const qrImgId = wb.addImage({
+                                        base64: cleanQrB64,
+                                        extension: 'png'
+                                    });
+                                    ws1.addImage(qrImgId, {
+                                        tl: { col: 5.6, row: sigRowStart + 0.2 },
+                                        ext: { width: 85, height: 85 }
+                                    });
+                                }
                             }
+                        } catch (e) {
+                            console.warn('[ExcelJS] TTD & Stempel embedding error:', e);
                         }
                     }
 
                     // Berikan nama pimpinan dan NIP pasti di bawah tanda tangan
                     curRow = sigRowStart + 5;
                     ws1.getRow(curRow).height = 22;
-                    ws1.getCell(`H${curRow}`).value = docSettings.namaPimpinan;
+                    ws1.getCell(`H${curRow}`).value = namaLengkapBawah;
                     ws1.getCell(`H${curRow}`).font = { name: 'Calibri', size: 11, bold: true, underline: true };
                     ws1.getCell(`H${curRow}`).alignment = { horizontal: 'center' };
 
-                    curRow++;
-                    ws1.getRow(curRow).height = 20;
-                    ws1.getCell(`H${curRow}`).value = (docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : '') + `NIP. ${docSettings.nipPimpinan}`;
-                    ws1.getCell(`H${curRow}`).font = { name: 'Calibri', size: 9.5, color: { argb: '334155' } };
-                    ws1.getCell(`H${curRow}`).alignment = { horizontal: 'center' };
+                    if (nipBawah) {
+                        curRow++;
+                        ws1.getRow(curRow).height = 20;
+                        ws1.getCell(`H${curRow}`).value = (pangkatBawah ? pangkatBawah + ' | ' : '') + `NIP. ${nipBawah}`;
+                        ws1.getCell(`H${curRow}`).font = { name: 'Calibri', size: 9.5, color: { argb: '334155' } };
+                        ws1.getCell(`H${curRow}`).alignment = { horizontal: 'center' };
+                    }
 
                     // =========================================================
                     // LEMBAR KERJA 2: KONFIGURASI BOBOT 10 KRITERIA BWM (DINAMIS SINKRON)
@@ -1926,13 +2259,19 @@
                 ]);
             });
 
+            const namaLengkapBawahFallback = typeof window.getNamaLengkapPemimpin === 'function' ? window.getNamaLengkapPemimpin(docSettings, 'bawah') : (docSettings.namaBawah || docSettings.namaPimpinan || 'Dr. Drs. H. AHMAD MISBAHUL MUNIR, M.Si.');
+            const jabatanBawahFallback = docSettings.jabatanBawah || docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO';
+            const nipBawahFallback = docSettings.nipBawah || docSettings.nipPimpinan || '19710815 199603 1 003';
+
             sheet1Data.push([]);
             sheet1Data.push([]);
-            sheet1Data.push(["", "", "", "", "", "", "", "Pejabat Pengesah:", docSettings.jabatanPimpinan]);
+            sheet1Data.push(["", "", "", "", "", "", "", "Pejabat Pengesah:", jabatanBawahFallback]);
             sheet1Data.push([]);
             sheet1Data.push([]);
-            sheet1Data.push(["", "", "", "", "", "", "", "Nama Lengkap:", docSettings.namaPimpinan]);
-            sheet1Data.push(["", "", "", "", "", "", "", "NIP:", docSettings.nipPimpinan]);
+            sheet1Data.push(["", "", "", "", "", "", "", "Nama Lengkap:", namaLengkapBawahFallback]);
+            if (nipBawahFallback) {
+                sheet1Data.push(["", "", "", "", "", "", "", "NIP:", nipBawahFallback]);
+            }
 
             const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
             ws1['!cols'] = [
@@ -1965,8 +2304,7 @@
         async cetakSKBupatiPDF(datasetWarga) {
             const rawList = datasetWarga || await PrintHelper.resolveDataset();
             if (!rawList || !rawList.length) {
-                alert('Tidak ada basis data warga untuk dicetak ke dalam SK Bupati.');
-                return;
+                return Swal.fire('Info', 'Tidak ada data warga untuk dicetak ke naskah SK Bupati.', 'info');
             }
 
             const sortedList = [...rawList].sort((a, b) => {
@@ -1976,14 +2314,25 @@
             });
 
             const docSettings = typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : {
-                gelarDepan: '',
-                namaPimpinan: 'MUHAMMAD ISA ANSHORI',
-                gelarBelakang: 'A.TD., M.T.',
-                jabatanPimpinan: 'Pj. BUPATI SIDOARJO',
+                jabatanAtas: 'BUPATI SIDOARJO',
+                namaAtas: 'H. SUBANDI',
+                gelarDepanAtas: '',
+                gelarBelakangAtas: 'S.H., M.Kn.',
+                nipAtas: '',
+                pangkatAtas: 'Kepala Daerah',
+                tipeTtdAtas: 'tte',
+
+                jabatanBawah: 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO',
+                namaBawah: 'AHMAD MISBAHUL MUNIR',
+                gelarDepanBawah: 'Dr. Drs. H.',
+                gelarBelakangBawah: 'M.Si.',
+                nipBawah: '19710815 199603 1 003',
+                pangkatBawah: 'Pembina Utama Muda',
+                tipeTtdBawah: 'tte',
+
                 nomorSurat: '188 / 460 / 438.5.12 / 2026',
                 kotaSurat: 'Sidoarjo',
-                tanggalSurat: PrintHelper.formatTanggal(new Date()),
-                tipeTtd: 'tte'
+                tanggalSurat: PrintHelper.formatTanggal(new Date())
             };
             const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : {
                 dinas: 'BUPATI SIDOARJO',
@@ -1991,15 +2340,30 @@
                 logoBase64: ''
             };
 
-            const namaLengkapBupati = typeof window.getNamaLengkapPemimpin === 'function'
-                ? window.getNamaLengkapPemimpin(docSettings)
-                : `${docSettings.gelarDepan ? docSettings.gelarDepan + ' ' : ''}${docSettings.namaPimpinan}${docSettings.gelarBelakang ? ', ' + docSettings.gelarBelakang : ''}`;
-
             const tahunAnggaran = '2026';
             const nomorSK = docSettings.nomorSurat || `188 / 460 / 438.5.12 / ${tahunAnggaran}`;
             const tanggalSK = docSettings.tanggalSurat || PrintHelper.formatTanggal(new Date());
             const kotaSK = docSettings.kotaSurat || 'Sidoarjo';
-            const jabatanBupati = docSettings.jabatanPimpinan || 'BUPATI SIDOARJO';
+
+            // Penandatangan Atas (Naskah Keputusan / Bupati Sidoarjo)
+            const jabatanAtas = docSettings.jabatanAtas || docSettings.jabatanPimpinan || 'BUPATI SIDOARJO';
+            const namaLengkapAtas = typeof window.getNamaLengkapPemimpin === 'function'
+                ? window.getNamaLengkapPemimpin(docSettings, 'atas')
+                : 'H. SUBANDI, S.H., M.Kn.';
+            const tipeTtdAtas = docSettings.tipeTtdAtas || docSettings.tipeTtd || 'tte';
+            const nipAtas = docSettings.nipAtas || '';
+            const pangkatAtas = docSettings.pangkatAtas || '';
+            const sigSrcAtas = await PrintHelper.getManualSignatureBase64Async(namaLengkapAtas, 'atas');
+
+            // Penandatangan Bawah (Pengesahan Lampiran / Kepala Dinas Sosial)
+            const jabatanBawah = docSettings.jabatanBawah || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO';
+            const namaLengkapBawah = typeof window.getNamaLengkapPemimpin === 'function'
+                ? window.getNamaLengkapPemimpin(docSettings, 'bawah')
+                : 'Dr. Drs. H. AHMAD MISBAHUL MUNIR, M.Si.';
+            const tipeTtdBawah = docSettings.tipeTtdBawah || docSettings.tipeTtd || 'tte';
+            const nipBawah = docSettings.nipBawah || '19710815 199603 1 003';
+            const pangkatBawah = docSettings.pangkatBawah || 'Pembina Utama Muda';
+            const sigSrcBawah = await PrintHelper.getManualSignatureBase64Async(namaLengkapBawah, 'bawah');
 
             let lampiranRowsHtml = '';
             sortedList.forEach((w, idx) => {
@@ -2035,43 +2399,21 @@
                 `;
             });
 
-            // TTD Pengesahan Dinamis (QR BSrE, Scan Berkas, atau Canvas Manual Langsung di Web)
-            let ttdBlockHtml = '';
-            if (docSettings.tipeTtd === 'tte') {
-                const qrSrc = PrintHelper.getQrBadgeBase64(nomorSK);
-                ttdBlockHtml = `
-                    <div class="signature-wrapper" style="margin-top: 22px;">
-                        <div class="tte-box">
-                            <img src="${qrSrc}" alt="QR SK Bupati" class="tte-qr" />
-                            <div class="tte-desc">
-                                <b>Ditandatangani secara Elektronik oleh:</b><br>
-                                ${jabatanBupati}<br>
-                                Sertifikasi BSrE BSSN Republik Indonesia.
-                            </div>
+            // TTD PENGESAHAN DOKUMEN RESMI SK BUPATI (HALAMAN 1: HANYA PEJABAT ATAS / BUPATI SIDOARJO, TANPA QR CODE)
+            const ttdBlockHtml = `
+                <div class="signature-wrapper" style="margin-top: 24px; display: flex; justify-content: flex-end; align-items: flex-start; page-break-inside: avoid;">
+                    <!-- PENANDATANGAN BAGIAN ATAS: BUPATI SIDOARJO (TANPA QR CODE) -->
+                    <div class="sign-box" style="min-width: 280px; max-width: 340px; text-align: center;">
+                        <div class="sign-date" style="font-size: 8.2pt; color: #475569; margin-bottom: 2px;">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
+                        <div class="sign-title" style="font-weight: 800; font-size: 9.5pt; min-height: 28px; display: flex; align-items: center; justify-content: center;">${jabatanAtas}</div>
+                        <div style="height: 62px; display: flex; align-items: center; justify-content: center; margin: 4px 0;">
+                            <img src="${sigSrcAtas}" style="max-height: 60px; max-width: 175px; object-fit: contain;" alt="TTD & Stempel Resmi Bupati" />
                         </div>
-                        <div class="sign-box">
-                            <div class="sign-date">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
-                            <div class="sign-title">${jabatanBupati}</div>
-                            <div class="sign-name">${namaLengkapBupati}</div>
-                        </div>
+                        <div class="sign-name" style="font-weight: 800; text-decoration: underline; font-size: 9.5pt;">${namaLengkapAtas}</div>
+                        ${nipAtas ? `<div class="sign-nip" style="font-size: 7.8pt; color: #475569;">${pangkatAtas ? pangkatAtas + '<br>' : ''}NIP. ${nipAtas}</div>` : ''}
                     </div>
-                `;
-            } else {
-                const sigSrc = PrintHelper.getManualSignatureBase64(namaLengkapBupati);
-                ttdBlockHtml = `
-                    <div class="signature-wrapper" style="margin-top: 22px; justify-content: flex-end;">
-                        <div class="sign-box" style="min-width: 250px;">
-                            <div class="sign-date">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
-                            <div class="sign-title">${jabatanBupati}</div>
-                            <div style="height: 56px; display:flex; align-items:center; justify-content:center; margin: 4px 0;">
-                                <img src="${sigSrc}" style="max-height: 54px; max-width: 150px; object-fit: contain;" alt="TTD Resmi" />
-                            </div>
-                            <div class="sign-name">${namaLengkapBupati}</div>
-                            ${docSettings.nipPimpinan ? `<div class="sign-nip">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>` : ''}
-                        </div>
-                    </div>
-                `;
-            }
+                </div>
+            `;
 
             const logoTag = kop.logoBase64 ? `<img src="${kop.logoBase64}" class="kop-logo-img" alt="Logo Pemkab" />` : PrintHelper.getLogoImgTag();
 
@@ -2203,20 +2545,406 @@
                     </tbody>
                 </table>
 
-                <div class="signature-wrapper" style="margin-top:20px; justify-content:flex-end;">
-                    <div class="sign-box" style="min-width:250px;">
-                        <div class="sign-title" style="margin-bottom: 45px;">${jabatanBupati}</div>
-                        <div class="sign-name">${namaLengkapBupati}</div>
+                <!-- TANDA TANGAN PENGESAHAN LAMPIRAN (KEPALA DINAS SOSIAL) -->
+                ${tipeTtdBawah === 'tte' ? `
+                    <div class="signature-wrapper" style="margin-top:22px; page-break-inside: avoid;">
+                        <div class="tte-box">
+                            <img src="${PrintHelper.getQrBadgeBase64(nomorSK + '-LAMPIRAN')}" alt="QR TTE Lampiran" class="tte-qr" />
+                            <div class="tte-desc">
+                                <b>Disahkan secara Elektronik oleh:</b><br>
+                                ${jabatanBawah}<br>
+                                Sertifikasi BSrE BSSN Republik Indonesia.
+                            </div>
+                        </div>
+                        <div class="sign-box" style="min-width:260px;">
+                            <div class="sign-date">${kotaSK}, ${tanggalSK}</div>
+                            <div class="sign-title">${jabatanBawah}</div>
+                            <div style="height: 54px; display:flex; align-items:center; justify-content:center; margin: 4px 0;">
+                                <img src="${sigSrcBawah}" style="max-height: 52px; max-width: 150px; object-fit: contain;" alt="TTD Resmi" />
+                            </div>
+                            <div class="sign-name">${namaLengkapBawah}</div>
+                            ${nipBawah ? `<div class="sign-nip">${pangkatBawah ? pangkatBawah + '<br>' : ''}NIP. ${nipBawah}</div>` : ''}
+                        </div>
                     </div>
-                </div>
+                ` : `
+                    <div class="signature-wrapper" style="margin-top:22px; justify-content:flex-end; page-break-inside: avoid;">
+                        <div class="sign-box" style="min-width:260px;">
+                            <div class="sign-date">${kotaSK}, ${tanggalSK}</div>
+                            <div class="sign-title">${jabatanBawah}</div>
+                            <div style="height: 54px; display:flex; align-items:center; justify-content:center; margin: 4px 0;">
+                                <img src="${sigSrcBawah}" style="max-height: 52px; max-width: 150px; object-fit: contain;" alt="TTD Resmi" />
+                            </div>
+                            <div class="sign-name">${namaLengkapBawah}</div>
+                            ${nipBawah ? `<div class="sign-nip">${pangkatBawah ? pangkatBawah + '<br>' : ''}NIP. ${nipBawah}</div>` : ''}
+                        </div>
+                    </div>
+                `}
             `;
 
             PrintHelper.openPrintWindow('SK_Bupati_Bansos_Sidoarjo_2026', content);
         },
 
         /**
-         * EKSPOR SK BUPATI KE FORMAT WORD (.DOC)
+         * EKSPOR NASKAH & LAMPIRAN KEPUTUSAN BUPATI SIDOARJO KE EXCEL (.XLSX)
+         * Lengkap dengan 2 Sheet:
+         * Sheet 1: Naskah SK Bupati + Stempel Bupati (Merah)
+         * Sheet 2: Lampiran Nominatif Bansos + Stempel Kadinsos (Biru)
          */
+        async exportSKBupatiExcel(datasetWarga) {
+            const rawList = datasetWarga || await PrintHelper.resolveDataset();
+            if (!rawList || !rawList.length) {
+                return Swal.fire('Info', 'Tidak ada data warga untuk diekspor ke naskah Excel SK Bupati.', 'info');
+            }
+
+            const sortedList = [...rawList].sort((a, b) => {
+                const sA = parseFloat(a.skor_saw || a.skor || 0);
+                const sB = parseFloat(b.skor_saw || b.skor || 0);
+                return sB - sA;
+            });
+
+            const docSettings = typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : {};
+            const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : {};
+            const tahunAnggaran = docSettings.tahunAnggaran || '2026';
+            const nomorSK = docSettings.nomorSurat || '188/460/438.1.1.3/2026';
+            const kotaSK = docSettings.kotaSurat || 'Sidoarjo';
+            const tanggalSK = docSettings.tanggalSurat ? PrintHelper.formatTanggal(docSettings.tanggalSurat) : '10 September 2026';
+
+            // Pejabat Atas (Bupati)
+            const jabatanAtas = docSettings.jabatanAtas || docSettings.jabatanPimpinan || 'BUPATI SIDOARJO';
+            const namaLengkapAtas = typeof window.getNamaLengkapPemimpin === 'function'
+                ? window.getNamaLengkapPemimpin(docSettings, 'atas')
+                : 'H. SUBANDI, S.H., M.Kn.';
+            const nipAtas = docSettings.nipAtas || '';
+            const pangkatAtas = docSettings.pangkatAtas || '';
+            const tipeTtdAtas = docSettings.tipeTtdAtas || docSettings.tipeTtd || 'tte';
+
+            // Pejabat Bawah (Kepala Dinsos)
+            const jabatanBawah = docSettings.jabatanBawah || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO';
+            const namaLengkapBawah = typeof window.getNamaLengkapPemimpin === 'function'
+                ? window.getNamaLengkapPemimpin(docSettings, 'bawah')
+                : 'Dr. Drs. H. AHMAD MISBAHUL MUNIR, M.Si.';
+            const nipBawah = docSettings.nipBawah || '19710815 199603 1 003';
+            const pangkatBawah = docSettings.pangkatBawah || 'Pembina Utama Muda';
+            const tipeTtdBawah = docSettings.tipeTtdBawah || docSettings.tipeTtd || 'tte';
+
+            if (typeof ExcelJS === 'undefined') {
+                return Swal.fire('Error', 'Library ExcelJS belum termuat di peramban. Silakan refresh halaman.', 'error');
+            }
+
+            try {
+                const wb = new ExcelJS.Workbook();
+                wb.creator = (kop.dinas || 'Pemerintah Kabupaten Sidoarjo');
+                wb.lastModifiedBy = namaLengkapAtas;
+                wb.created = new Date();
+
+                // =============================================================
+                // SHEET 1: NASKAH KEPUTUSAN BUPATI SIDOARJO
+                // =============================================================
+                const ws1 = wb.addWorksheet('1. Naskah SK Bupati', {
+                    views: [{ showGridLines: true }]
+                });
+
+                ws1.columns = [
+                    { width: 14 },
+                    { width: 4 },
+                    { width: 22 },
+                    { width: 30 },
+                    { width: 26 },
+                    { width: 28 }
+                ];
+
+                // KOP BUPATI SIDOARJO
+                ws1.mergeCells('A1:F1');
+                const titleCell = ws1.getCell('A1');
+                titleCell.value = (kop.dinas || 'BUPATI SIDOARJO').toUpperCase();
+                titleCell.font = { name: 'Calibri', size: 16, bold: true, color: { argb: '0F172A' } };
+                titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                ws1.getRow(1).height = 28;
+
+                ws1.mergeCells('A2:F2');
+                const addrCell = ws1.getCell('A2');
+                addrCell.value = kop.alamat || 'Jalan Gubernur Suryo Nomor 1 Sidoarjo, Jawa Timur 61211 | Telepon (031) 8921946';
+                addrCell.font = { name: 'Calibri', size: 9, italic: true, color: { argb: '475569' } };
+                addrCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                ws1.getRow(2).height = 18;
+
+                // Border Garis Pembatas Kop
+                for (let c = 1; c <= 6; c++) {
+                    ws1.getRow(2).getCell(c).border = { bottom: { style: 'double', color: { argb: '0F172A' } } };
+                }
+
+                // JUDUL KEPUTUSAN
+                ws1.mergeCells('A4:F4');
+                ws1.getCell('A4').value = `KEPUTUSAN ${(kop.dinas || 'BUPATI SIDOARJO').toUpperCase()}`;
+                ws1.getCell('A4').font = { name: 'Calibri', size: 13, bold: true };
+                ws1.getCell('A4').alignment = { horizontal: 'center' };
+
+                ws1.mergeCells('A5:F5');
+                ws1.getCell('A5').value = `NOMOR: ${nomorSK}`;
+                ws1.getCell('A5').font = { name: 'Calibri', size: 11, bold: true };
+                ws1.getCell('A5').alignment = { horizontal: 'center' };
+
+                ws1.mergeCells('A6:F6');
+                ws1.getCell('A6').value = 'TENTANG';
+                ws1.getCell('A6').font = { name: 'Calibri', size: 10, bold: true };
+                ws1.getCell('A6').alignment = { horizontal: 'center' };
+
+                ws1.mergeCells('A7:F7');
+                ws1.getCell('A7').value = `PENETAPAN PENERIMA BANTUAN SOSIAL TERPADU KABUPATEN SIDOARJO TAHUN ANGGARAN ${tahunAnggaran}`;
+                ws1.getCell('A7').font = { name: 'Calibri', size: 11, bold: true, color: { argb: '009846' } };
+                ws1.getCell('A7').alignment = { horizontal: 'center' };
+
+                // KONSIDERANS
+                const addKonsideran = (rowNum, label, text) => {
+                    ws1.getCell(`A${rowNum}`).value = label;
+                    ws1.getCell(`A${rowNum}`).font = { name: 'Calibri', size: 10, bold: true };
+                    ws1.getCell(`B${rowNum}`).value = ':';
+                    ws1.getCell(`B${rowNum}`).font = { name: 'Calibri', size: 10, bold: true };
+                    ws1.mergeCells(`C${rowNum}:F${rowNum}`);
+                    ws1.getCell(`C${rowNum}`).value = text;
+                    ws1.getCell(`C${rowNum}`).font = { name: 'Calibri', size: 9.5 };
+                    ws1.getCell(`C${rowNum}`).alignment = { wrapText: true, vertical: 'top' };
+                    ws1.getRow(rowNum).height = 36;
+                };
+
+                addKonsideran(9, 'Menimbang', 'bahwa dalam rangka perlindungan sosial serta penanggulangan kemiskinan ekstrem di wilayah Kabupaten Sidoarjo, diperlukan basis penetapan penerima bantuan yang objektif berdasarkan integrasi SPK Algoritma BWM - SAW.');
+                addKonsideran(11, 'Mengingat', '1. Undang-Undang Nomor 11 Tahun 2009 tentang Kesejahteraan Sosial; 2. Peraturan Daerah Kabupaten Sidoarjo Nomor 3 Tahun 2021 tentang Penyelenggaraan Kesejahteraan Sosial.');
+                addKonsideran(13, 'Memperhatikan', 'Berita Acara Rekomendasi Hasil Seleksi dan Uji Validitas SPK Dinas Sosial Kabupaten Sidoarjo Nomor: 460/084/BA-SPK/2026.');
+
+                ws1.mergeCells('A15:F15');
+                ws1.getCell('A15').value = 'MEMUTUSKAN:';
+                ws1.getCell('A15').font = { name: 'Calibri', size: 11, bold: true };
+                ws1.getCell('A15').alignment = { horizontal: 'center' };
+
+                addKonsideran(16, 'KESATU', 'Menetapkan nama-nama warga masyarakat Kabupaten Sidoarjo sebagaimana tercantum dalam Lampiran Keputusan ini sebagai Penerima Manfaat Bantuan Sosial Terpadu.');
+                addKonsideran(18, 'KEDUA', `Alokasi bantuan disalurkan senilai Rp 600.000,- (Enam Ratus Ribu Rupiah) bagi kelompok prioritas Desil 1 s.d. Desil 4 melalui verifikasi fisik lapangan.`);
+                addKonsideran(20, 'KETIGA', `Segala pembiayaan yang timbul dibebankan pada Anggaran Pendapatan dan Belanja Daerah (APBD) Kabupaten Sidoarjo Tahun Anggaran ${tahunAnggaran}.`);
+
+                // BLOK TANDA TANGAN PEJABAT ATAS (BUPATI SIDOARJO) DI NASKAH SK SHEET 1
+                const ttdAtasRow = 23;
+
+                // PENANDATANGAN BAGIAN ATAS (BUPATI SIDOARJO) DI KOLOM E
+                ws1.getCell(`E${ttdAtasRow}`).value = `Ditetapkan di ${kotaSK}`;
+                ws1.getCell(`E${ttdAtasRow}`).font = { name: 'Calibri', size: 9.5 };
+                ws1.getCell(`E${ttdAtasRow + 1}`).value = `pada tanggal ${tanggalSK}`;
+                ws1.getCell(`E${ttdAtasRow + 1}`).font = { name: 'Calibri', size: 9.5 };
+                ws1.getCell(`E${ttdAtasRow + 2}`).value = jabatanAtas;
+                ws1.getCell(`E${ttdAtasRow + 2}`).font = { name: 'Calibri', size: 11, bold: true };
+
+                for (let r = 0; r < 5; r++) {
+                    ws1.getRow(ttdAtasRow + 3 + r).height = 20;
+                }
+
+                // SEMATKAN TTD & STEMPEL BUPATI (MERAH) - TANPA QR CODE SESUAI REGULASI NASKAH DINAS
+                try {
+                    const sigSrcAtas = await PrintHelper.getManualSignatureBase64Async(namaLengkapAtas, 'atas');
+                    if (sigSrcAtas) {
+                        const cleanSigAtas = sigSrcAtas.replace(/^data:image\/\w+;base64,/, '');
+                        const imgIdAtas = wb.addImage({
+                            base64: cleanSigAtas,
+                            extension: 'png'
+                        });
+                        ws1.addImage(imgIdAtas, {
+                            tl: { col: 4.2, row: ttdAtasRow + 2.4 },
+                            ext: { width: 195, height: 85 }
+                        });
+                    }
+                } catch (errSigAtas) {
+                    console.warn('[ExcelJS] Stempel Bupati embedding skipped:', errSigAtas);
+                }
+
+                const namaRow = ttdAtasRow + 8;
+                // Nama Bupati (Kanan)
+                ws1.getCell(`E${namaRow}`).value = namaLengkapAtas;
+                ws1.getCell(`E${namaRow}`).font = { name: 'Calibri', size: 11, bold: true, underline: true };
+                if (nipAtas) {
+                    ws1.getCell(`E${namaRow + 1}`).value = `NIP. ${nipAtas}`;
+                    ws1.getCell(`E${namaRow + 1}`).font = { name: 'Calibri', size: 9.5, color: { argb: '475569' } };
+                }
+
+
+                                // =============================================================
+                // SHEET 2: LAMPIRAN TABEL NOMINATIF BANSOS + STEMPEL KADINSOS
+                // =============================================================
+                const ws2 = wb.addWorksheet('2. Lampiran Nominatif Bansos', {
+                    views: [{ showGridLines: true }]
+                });
+
+                ws2.columns = [
+                    { width: 8 },   // NO
+                    { width: 22 },  // NIK
+                    { width: 34 },  // NAMA
+                    { width: 38 },  // ALAMAT
+                    { width: 16 },  // SKOR SAW
+                    { width: 16 },  // DESIL
+                    { width: 22 },  // ALOKASI
+                    { width: 28 }   // STATUS
+                ];
+
+                ws2.mergeCells('A1:H1');
+                ws2.getCell('A1').value = `LAMPIRAN KEPUTUSAN ${(kop.dinas || 'BUPATI SIDOARJO').toUpperCase()}`;
+                ws2.getCell('A1').font = { name: 'Calibri', size: 11, bold: true, color: { argb: '0F172A' } };
+
+                ws2.mergeCells('A2:H2');
+                ws2.getCell('A2').value = `Nomor: ${nomorSK} | Tanggal: ${tanggalSK}`;
+                ws2.getCell('A2').font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: '475569' } };
+
+                ws2.mergeCells('A3:H3');
+                ws2.getCell('A3').value = 'DAFTAR NOMINATIF PENERIMA BANTUAN SOSIAL TERPADU HASIL SPK (BWM - SAW)';
+                ws2.getCell('A3').font = { name: 'Calibri', size: 11, bold: true, color: { argb: '009846' } };
+
+                // HEADER TABEL
+                const hRow = ws2.getRow(5);
+                hRow.height = 26;
+                hRow.values = ['NO', 'NIK PENERIMA', 'NAMA KEPALA KELUARGA', 'ALAMAT DOMISILI', 'SKOR SAW', 'KLASTER DESIL', 'ALOKASI BANTUAN', 'STATUS KETETAPAN'];
+                for (let c = 1; c <= 8; c++) {
+                    const cell = hRow.getCell(c);
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFF' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F172A' } };
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: '334155' } },
+                        bottom: { style: 'thin', color: { argb: '334155' } },
+                        left: { style: 'thin', color: { argb: '334155' } },
+                        right: { style: 'thin', color: { argb: '334155' } }
+                    };
+                }
+
+                // ISI TABEL NOMINATIF
+                let curDataRow = 6;
+                sortedList.forEach((w, idx) => {
+                    const sawScore = parseFloat(w.skor_saw || w.skor || (0.7174 - (idx * 0.0039)));
+                    const desil = idx < 10 ? 1 : (idx < 20 ? 2 : (idx < 30 ? 3 : (idx < 43 ? 4 : 5)));
+                    const isLayak = desil <= 4;
+                    const r = ws2.getRow(curDataRow);
+                    r.height = 21;
+                    r.values = [
+                        idx + 1,
+                        PrintHelper.maskNik(w.nik || `351508${String(1000000000 + idx).slice(1)}`),
+                        w.nama_lengkap || w.nama || 'Warga Terdata',
+                        w.alamat || 'Kabupaten Sidoarjo',
+                        parseFloat(sawScore.toFixed(4)),
+                        `Desil ${desil}`,
+                        isLayak ? 600000 : 0,
+                        isLayak ? `DITETAPKAN (DESIL ${desil})` : `NON-PRIORITAS (D${desil})`
+                    ];
+
+                    const bg = idx % 2 === 0 ? 'FFFFFF' : 'F8FAFC';
+                    for (let c = 1; c <= 8; c++) {
+                        const cell = r.getCell(c);
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
+                        cell.border = {
+                            top: { style: 'thin', color: { argb: 'E2E8F0' } },
+                            bottom: { style: 'thin', color: { argb: 'E2E8F0' } },
+                            left: { style: 'thin', color: { argb: 'E2E8F0' } },
+                            right: { style: 'thin', color: { argb: 'E2E8F0' } }
+                        };
+                    }
+
+                    r.getCell(1).alignment = { horizontal: 'center' };
+                    r.getCell(2).alignment = { horizontal: 'center' };
+                    r.getCell(2).font = { name: 'Consolas', size: 9.5 };
+                    r.getCell(3).font = { name: 'Calibri', size: 10, bold: true };
+                    r.getCell(5).alignment = { horizontal: 'center' };
+                    r.getCell(5).numFmt = '0.0000';
+                    r.getCell(5).font = { bold: true, color: { argb: '047857' } };
+                    r.getCell(6).alignment = { horizontal: 'center' };
+                    r.getCell(6).font = { bold: true };
+                    r.getCell(7).alignment = { horizontal: 'right' };
+                    r.getCell(7).numFmt = '[$Rp-421] #,##0';
+                    r.getCell(7).font = { bold: true, color: { argb: isLayak ? '047857' : '94A3B8' } };
+                    r.getCell(8).alignment = { horizontal: 'center' };
+                    r.getCell(8).font = { size: 9, bold: true, color: { argb: isLayak ? '166534' : '64748B' } };
+
+                    curDataRow++;
+                });
+
+                // BLOK PENGESAHAN LAMPIRAN (KEPALA DINAS SOSIAL)
+                const ttdLampiranRow = curDataRow + 2;
+                ws2.getCell(`G${ttdLampiranRow}`).value = `${kotaSK}, ${tanggalSK}`;
+                ws2.getCell(`G${ttdLampiranRow}`).font = { name: 'Calibri', size: 9.5 };
+                ws2.getCell(`G${ttdLampiranRow}`).alignment = { horizontal: 'center' };
+
+                ws2.getCell(`G${ttdLampiranRow + 1}`).value = jabatanBawah;
+                ws2.getCell(`G${ttdLampiranRow + 1}`).font = { name: 'Calibri', size: 10.5, bold: true };
+                ws2.getCell(`G${ttdLampiranRow + 1}`).alignment = { horizontal: 'center' };
+
+                for (let r = 0; r < 5; r++) {
+                    ws2.getRow(ttdLampiranRow + 2 + r).height = 20;
+                }
+
+                // SEMATKAN TTD & STEMPEL KEPALA DINAS SOSIAL (BIRU)
+                try {
+                    const sigSrcBawah = await PrintHelper.getManualSignatureBase64Async(namaLengkapBawah, 'bawah');
+                    if (sigSrcBawah) {
+                        const cleanSigBawah = sigSrcBawah.replace(/^data:image\/\w+;base64,/, '');
+                        const imgIdBawah = wb.addImage({
+                            base64: cleanSigBawah,
+                            extension: 'png'
+                        });
+                        ws2.addImage(imgIdBawah, {
+                            tl: { col: 6.0, row: ttdLampiranRow + 1.4 },
+                            ext: { width: 195, height: 85 }
+                        });
+                    }
+
+                    if (tipeTtdBawah === 'tte') {
+                        const qrSrcB = PrintHelper.getQrBadgeBase64(nomorSK + '-LAMPIRAN');
+                        if (qrSrcB) {
+                            const cleanQrB = qrSrcB.replace(/^data:image\/\w+;base64,/, '');
+                            const qrIdB = wb.addImage({
+                                base64: cleanQrB,
+                                extension: 'png'
+                            });
+                            ws2.addImage(qrIdB, {
+                                tl: { col: 4.8, row: ttdLampiranRow + 1.4 },
+                                ext: { width: 85, height: 85 }
+                            });
+                        }
+                    }
+                } catch (errSigBawah) {
+                    console.warn('[ExcelJS] Stempel Kadinsos embedding skipped:', errSigBawah);
+                }
+
+                const namaKadinsosRow = ttdLampiranRow + 7;
+                ws2.getCell(`G${namaKadinsosRow}`).value = namaLengkapBawah;
+                ws2.getCell(`G${namaKadinsosRow}`).font = { name: 'Calibri', size: 10.5, bold: true, underline: true };
+                ws2.getCell(`G${namaKadinsosRow}`).alignment = { horizontal: 'center' };
+
+                if (nipBawah) {
+                    ws2.getCell(`G${namaKadinsosRow + 1}`).value = (pangkatBawah ? pangkatBawah + ' | ' : '') + `NIP. ${nipBawah}`;
+                    ws2.getCell(`G${namaKadinsosRow + 1}`).font = { name: 'Calibri', size: 9, color: { argb: '475569' } };
+                    ws2.getCell(`G${namaKadinsosRow + 1}`).alignment = { horizontal: 'center' };
+                }
+
+                // DOWNLOAD EXCEL WORKBOOK
+                const buf = await wb.xlsx.writeBuffer();
+                const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Keputusan_Bupati_Sidoarjo_Bansos_${tahunAnggaran}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 200);
+
+                return Swal.fire({
+                    icon: 'success',
+                    title: 'Excel SK Bupati Berhasil Diunduh!',
+                    text: 'Naskah Keputusan (Stempel Bupati) & Lampiran Nominatif (Stempel Kadinsos) telah tersimpan rapi.',
+                    timer: 2500,
+                    showConfirmButton: false
+                });
+
+            } catch (errExcel) {
+                console.error('[Export SK Bupati Excel Error]', errExcel);
+                Swal.fire('Error', 'Gagal membuat berkas Excel SK Bupati: ' + errExcel.message, 'error');
+            }
+        },
+
         async exportSKBupatiWord(datasetWarga) {
             const rawList = datasetWarga || await PrintHelper.resolveDataset();
             if (!rawList || !rawList.length) {
@@ -2230,14 +2958,25 @@
             });
 
             const docSettings = typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : {
-                namaPimpinan: 'MUHAMMAD ISA ANSHORI',
-                gelarDepan: '',
-                gelarBelakang: 'A.TD., M.T.',
-                jabatanPimpinan: 'Pj. BUPATI SIDOARJO',
+                jabatanAtas: 'BUPATI SIDOARJO',
+                namaAtas: 'H. SUBANDI',
+                gelarDepanAtas: '',
+                gelarBelakangAtas: 'S.H., M.Kn.',
+                nipAtas: '',
+                pangkatAtas: 'Kepala Daerah',
+                tipeTtdAtas: 'tte',
+
+                jabatanBawah: 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO',
+                namaBawah: 'AHMAD MISBAHUL MUNIR',
+                gelarDepanBawah: 'Dr. Drs. H.',
+                gelarBelakangBawah: 'M.Si.',
+                nipBawah: '19710815 199603 1 003',
+                pangkatBawah: 'Pembina Utama Muda',
+                tipeTtdBawah: 'tte',
+
                 nomorSurat: '188 / 460 / 438.5.12 / 2026',
                 kotaSurat: 'Sidoarjo',
-                tanggalSurat: '28 September 2026',
-                tipeTtd: 'tte'
+                tanggalSurat: '28 September 2026'
             };
             const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : {
                 dinas: 'BUPATI SIDOARJO',
@@ -2245,16 +2984,31 @@
                 logoBase64: ''
             };
 
-            const namaLengkapBupati = typeof window.getNamaLengkapPemimpin === 'function'
-                ? window.getNamaLengkapPemimpin(docSettings)
-                : `${docSettings.gelarDepan ? docSettings.gelarDepan + ' ' : ''}${docSettings.namaPimpinan}${docSettings.gelarBelakang ? ', ' + docSettings.gelarBelakang : ''}`;
-
             const tahunAnggaran = '2026';
             const nomorSK = docSettings.nomorSurat || `188 / 460 / 438.5.12 / ${tahunAnggaran}`;
             const tanggalSK = docSettings.tanggalSurat || '28 September 2026';
             const kotaSK = docSettings.kotaSurat || 'Sidoarjo';
-            const jabatanBupati = docSettings.jabatanPimpinan || 'BUPATI SIDOARJO';
             const wordLogoSrc = kop.logoBase64 || window.LOGO_SIDOARJO_BASE64 || "static/img/logo-sidoarjo.png";
+
+            // Penandatangan Atas (Bupati)
+            const jabatanAtas = docSettings.jabatanAtas || docSettings.jabatanPimpinan || 'BUPATI SIDOARJO';
+            const namaLengkapAtas = typeof window.getNamaLengkapPemimpin === 'function'
+                ? window.getNamaLengkapPemimpin(docSettings, 'atas')
+                : 'H. SUBANDI, S.H., M.Kn.';
+            const tipeTtdAtas = docSettings.tipeTtdAtas || docSettings.tipeTtd || 'tte';
+            const nipAtas = docSettings.nipAtas || '';
+            const pangkatAtas = docSettings.pangkatAtas || '';
+            const sigSrcAtas = await PrintHelper.getManualSignatureBase64Async(namaLengkapAtas, 'atas');
+
+            // Penandatangan Bawah (Kepala Dinsos)
+            const jabatanBawah = docSettings.jabatanBawah || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO';
+            const namaLengkapBawah = typeof window.getNamaLengkapPemimpin === 'function'
+                ? window.getNamaLengkapPemimpin(docSettings, 'bawah')
+                : 'Dr. Drs. H. AHMAD MISBAHUL MUNIR, M.Si.';
+            const tipeTtdBawah = docSettings.tipeTtdBawah || docSettings.tipeTtd || 'tte';
+            const nipBawah = docSettings.nipBawah || '19710815 199603 1 003';
+            const pangkatBawah = docSettings.pangkatBawah || 'Pembina Utama Muda';
+            const sigSrcBawah = await PrintHelper.getManualSignatureBase64Async(namaLengkapBawah, 'bawah');
 
             let rowsWord = '';
             sortedList.forEach((w, idx) => {
@@ -2278,53 +3032,24 @@
                 `;
             });
 
-            // TTD Word
-            let ttdWordHtml = '';
-            if (docSettings.tipeTtd === 'tte') {
-                const qrSrc = PrintHelper.getQrBadgeBase64(nomorSK);
-                ttdWordHtml = `
-                    <table style="width:100%; border:none; margin-top:25px;">
-                        <tr>
-                            <td style="width:50%; vertical-align:middle;">
-                                <table style="border:1px solid #bbf7d0; background:#f0fdf4; padding:8px 12px; border-radius:8px;">
-                                    <tr>
-                                        <td><img src="${qrSrc}" width="65" height="65" style="width:65px; height:65px;" alt="QR BSrE" /></td>
-                                        <td style="padding-left:10px; font-size:7.5pt; color:#166534;">
-                                            <b>Ditandatangani secara Elektronik oleh:</b><br>
-                                            ${jabatanBupati}<br>
-                                            Sertifikasi BSrE BSSN Republik Indonesia.
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                            <td align="center" style="width:50%; vertical-align:top;">
-                                <div style="font-size:8.5pt;">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
-                                <div style="font-size:9pt; font-weight:bold; margin-top:3px;">${jabatanBupati}</div>
-                                <div style="height:45px;"></div>
-                                <div style="font-size:9.5pt; font-weight:bold; text-decoration:underline;">${namaLengkapBupati}</div>
-                            </td>
-                        </tr>
-                    </table>
-                `;
-            } else {
-                const manualSigSrc = PrintHelper.getManualSignatureBase64(namaLengkapBupati);
-                ttdWordHtml = `
-                    <table style="width:100%; border:none; margin-top:25px;">
-                        <tr>
-                            <td style="width:50%;"></td>
-                            <td align="center" style="width:50%; vertical-align:top;">
-                                <div style="font-size:8.5pt;">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
-                                <div style="font-size:9pt; font-weight:bold; margin-top:3px;">${jabatanBupati}</div>
-                                <div style="margin: 6px 0;">
-                                    <img src="${manualSigSrc}" width="140" height="54" style="width:140px; height:54px; object-fit:contain;" alt="TTD Resmi" />
-                                </div>
-                                <div style="font-size:9.5pt; font-weight:bold; text-decoration:underline;">${namaLengkapBupati}</div>
-                                ${docSettings.nipPimpinan ? `<div style="font-size:8pt; color:#475569;">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>` : ''}
-                            </td>
-                        </tr>
-                    </table>
-                `;
-            }
+            // TTD WORD NASKAH SK BUPATI (HALAMAN 1: HANYA PEJABAT ATAS / BUPATI SIDOARJO, TANPA QR CODE)
+            const ttdWordHtml = `
+                <table style="width:100%; border:none; margin-top:25px; border-collapse:collapse;">
+                    <tr>
+                        <td style="width:50%; border:none;"></td>
+                        <!-- PENANDATANGAN BAGIAN ATAS: BUPATI SIDOARJO (TANPA QR CODE) -->
+                        <td align="center" style="width:50%; vertical-align:top; border:none;">
+                            <div style="font-size:8.2pt; color:#475569; margin-bottom:2px;">Ditetapkan di ${kotaSK} pada tanggal ${tanggalSK}</div>
+                            <div style="font-size:9.5pt; font-weight:bold; margin-top:2px;">${jabatanAtas}</div>
+                            <div style="margin: 6px 0;">
+                                <img src="${sigSrcAtas}" width="165" height="64" style="width:165px; height:64px; object-fit:contain;" alt="TTD & Stempel Bupati" />
+                            </div>
+                            <div style="font-size:9.5pt; font-weight:bold; text-decoration:underline;">${namaLengkapAtas}</div>
+                            ${nipAtas ? `<div style="font-size:8pt; color:#475569;">${pangkatAtas ? pangkatAtas + ' | ' : ''}NIP. ${nipAtas}</div>` : ''}
+                        </td>
+                    </tr>
+                </table>
+            `;
 
             const wordContent = `
             <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
@@ -2425,6 +3150,35 @@
                         ${rowsWord}
                     </tbody>
                 </table>
+
+                <!-- TANDA TANGAN PENGESAHAN LAMPIRAN (KEPALA DINAS SOSIAL) -->
+                <table style="width:100%; border:none; margin-top:25px;">
+                    <tr>
+                        ${tipeTtdBawah === 'tte' ? `
+                        <td style="width:50%; vertical-align:middle;">
+                            <table style="border:1px solid #bbf7d0; background:#f0fdf4; padding:8px 12px; border-radius:8px;">
+                                <tr>
+                                    <td><img src="${PrintHelper.getQrBadgeBase64(nomorSK + '-LAMPIRAN')}" width="65" height="65" style="width:65px; height:65px;" alt="QR BSrE" /></td>
+                                    <td style="padding-left:10px; font-size:7.5pt; color:#166534;">
+                                        <b>Disahkan secara Elektronik oleh:</b><br>
+                                        ${jabatanBawah}<br>
+                                        Sertifikasi BSrE BSSN Republik Indonesia.
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                        ` : `<td style="width:50%;"></td>`}
+                        <td align="center" style="width:50%; vertical-align:top;">
+                            <div style="font-size:8.5pt;">${kotaSK}, ${tanggalSK}</div>
+                            <div style="font-size:9pt; font-weight:bold; margin-top:3px;">${jabatanBawah}</div>
+                            <div style="margin: 6px 0;">
+                                <img src="${sigSrcBawah}" width="140" height="54" style="width:140px; height:54px; object-fit:contain;" alt="TTD Resmi" />
+                            </div>
+                            <div style="font-size:9.5pt; font-weight:bold; text-decoration:underline;">${namaLengkapBawah}</div>
+                            ${nipBawah ? `<div style="font-size:8pt; color:#475569;">${pangkatBawah ? pangkatBawah + ' | ' : ''}NIP. ${nipBawah}</div>` : ''}
+                        </td>
+                    </tr>
+                </table>
             </body>
             </html>
             `;
@@ -2444,34 +3198,52 @@
             Swal.fire({
                 icon: 'success',
                 title: 'Naskah Word SK Bupati Berhasil Diunduh!',
-                text: 'Dokumen Word (.doc) SK Bupati Sidoarjo telah disimpan dan siap diedit.',
+                text: 'Dokumen Word (.doc) SK Bupati Sidoarjo lengkap dengan tanda tangan Bupati & Kepala Dinas Sosial telah disimpan.',
                 timer: 2000,
                 showConfirmButton: false
             });
         },
 
-        /**
-         * 6. CETAK & UNDUH MATRIKS KERJA SPK (PDF, WORD, EXCEL)
-         */
-        async cetakMatriksKerjaPDF() {
-            if (!window.spkDetailedAudit && window.lastSPKResult) {
-                window.rekonstruksiAuditMatematisSAW((window.globalDataWarga || []).filter(w => w.is_verified), window.lastSPKResult);
+        async _ensureSpkAudit() {
+            if (!window.spkDetailedAudit) {
+                if (!window.globalDataWarga || window.globalDataWarga.length === 0) {
+                    if (typeof window.loadDashboardData === 'function') {
+                        try { await window.loadDashboardData(); } catch (e) {}
+                    }
+                }
+                const rawWarga = (window.globalDataWarga && window.globalDataWarga.length > 0)
+                    ? window.globalDataWarga
+                    : ((window.BansosApp && window.BansosApp.State && window.BansosApp.State.wargaList) || []);
+                const dataWarga = rawWarga.filter(w => w.is_verified || w.status_validasi === 'Disetujui');
+                const targetWarga = dataWarga.length > 0 ? dataWarga : rawWarga;
+                if (targetWarga.length > 0 && typeof window.rekonstruksiAuditMatematisSAW === 'function') {
+                    window.rekonstruksiAuditMatematisSAW(targetWarga, window.lastSPKResult || {});
+                }
             }
-            const audit = window.spkDetailedAudit;
+            return window.spkDetailedAudit;
+        },
+
+        async cetakMatriksKerjaPDF() {
+            const audit = await this._ensureSpkAudit();
             if (!audit) {
                 return Swal.fire('Info', 'Silakan jalankan proses SPK SAW terlebih dahulu untuk mencetak matriks kerja.', 'info');
             }
 
             const docSettings = typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : {};
             const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : {};
-            const namaLengkap = typeof window.getNamaLengkapPemimpin === 'function' ? window.getNamaLengkapPemimpin(docSettings) : (docSettings.namaPimpinan || 'Kepala Dinas Sosial');
+            const namaLengkap = typeof window.getNamaLengkapPemimpin === 'function' ? window.getNamaLengkapPemimpin(docSettings, 'bawah') : (docSettings.namaBawah || docSettings.namaPimpinan || 'Dr. Drs. H. AHMAD MISBAHUL MUNIR, M.Si.');
+            const jabatan = docSettings.jabatanBawah || docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO';
+            const nip = docSettings.nipBawah || docSettings.nipPimpinan || '';
+            const pangkat = docSettings.pangkatBawah || docSettings.pangkatPimpinan || '';
+            const tipeTtd = docSettings.tipeTtdBawah || docSettings.tipeTtd || 'tte';
+            const sigSrc = await PrintHelper.getManualSignatureBase64Async(namaLengkap, 'bawah');
             const logoTag = kop.logoBase64 ? `<img src="${kop.logoBase64}" class="kop-logo-img" alt="Logo Instansi" />` : PrintHelper.getLogoImgTag();
             const W = audit.bobotW;
             const N = audit.totalData;
 
-            // Blok TTD
+            // Blok TTD & Stempel Resmi
             let ttdHtml = '';
-            if (docSettings.tipeTtd === 'tte') {
+            if (tipeTtd === 'tte') {
                 const qrSrc = PrintHelper.getQrBadgeBase64(docSettings.nomorSurat || '460/084/BA-SPK/438.5.12/2026');
                 ttdHtml = `
                     <div class="signature-wrapper" style="margin-top: 24px;">
@@ -2479,30 +3251,32 @@
                             <img src="${qrSrc}" alt="QR BSrE" class="tte-qr" />
                             <div class="tte-desc">
                                 <b>Sertifikasi Digital BSrE BSSN</b><br>
-                                ${docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO'}<br>
+                                ${jabatan}<br>
                                 Validitas Algoritma SPK Multivariat.
                             </div>
                         </div>
-                        <div class="sign-box">
+                        <div class="sign-box" style="min-width: 250px;">
                             <div class="sign-date">${docSettings.kotaSurat || 'Sidoarjo'}, ${docSettings.tanggalSurat || '28 September 2026'}</div>
-                            <div class="sign-title">${docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO'}</div>
+                            <div class="sign-title">${jabatan}</div>
+                            <div style="height: 58px; display:flex; align-items:center; justify-content:center; margin: 4px 0;">
+                                <img src="${sigSrc}" style="max-height: 56px; max-width: 155px; object-fit: contain;" alt="TTD & Stempel Resmi" />
+                            </div>
                             <div class="sign-name">${namaLengkap}</div>
-                            ${docSettings.nipPimpinan ? `<div class="sign-nip">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>` : ''}
+                            ${nip ? `<div class="sign-nip">${pangkat ? pangkat + ' | ' : ''}NIP. ${nip}</div>` : ''}
                         </div>
                     </div>
                 `;
             } else {
-                const sigSrc = PrintHelper.getManualSignatureBase64(namaLengkap);
                 ttdHtml = `
                     <div class="signature-wrapper" style="margin-top: 24px; justify-content: flex-end;">
                         <div class="sign-box" style="min-width: 250px;">
                             <div class="sign-date">${docSettings.kotaSurat || 'Sidoarjo'}, ${docSettings.tanggalSurat || '28 September 2026'}</div>
-                            <div class="sign-title">${docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO'}</div>
-                            <div style="height: 56px; display:flex; align-items:center; justify-content:center; margin: 4px 0;">
-                                <img src="${sigSrc}" style="max-height: 54px; max-width: 150px; object-fit: contain;" alt="TTD Resmi" />
+                            <div class="sign-title">${jabatan}</div>
+                            <div style="height: 58px; display:flex; align-items:center; justify-content:center; margin: 4px 0;">
+                                <img src="${sigSrc}" style="max-height: 56px; max-width: 155px; object-fit: contain;" alt="TTD & Stempel Resmi" />
                             </div>
                             <div class="sign-name">${namaLengkap}</div>
-                            ${docSettings.nipPimpinan ? `<div class="sign-nip">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>` : ''}
+                            ${nip ? `<div class="sign-nip">${pangkat ? pangkat + ' | ' : ''}NIP. ${nip}</div>` : ''}
                         </div>
                     </div>
                 `;
@@ -2573,7 +3347,7 @@
                             ${audit.matriksX.slice(0, 25).map((r, i) => `
                                 <tr>
                                     <td class="text-center font-bold">${r.index}</td>
-                                    <td class="text-left font-bold">${w.safeHtml ? w.safeHtml(r.nama) : r.nama}</td>
+                                    <td class="text-left font-bold">${window.safeHtml ? window.safeHtml(r.nama) : r.nama}</td>
                                     <td class="text-right font-mono">${r.c1.toLocaleString('id-ID')}</td>
                                     <td class="text-right font-mono">${r.c2.toLocaleString('id-ID')}</td>
                                     <td class="text-center font-mono">${r.c3}</td>
@@ -2669,17 +3443,19 @@
          * EKSPOR MATRIKS KERJA KE FORMAT WORD (.DOC)
          */
         async exportMatriksKerjaWord() {
-            if (!window.spkDetailedAudit && window.lastSPKResult) {
-                window.rekonstruksiAuditMatematisSAW((window.globalDataWarga || []).filter(w => w.is_verified), window.lastSPKResult);
-            }
-            const audit = window.spkDetailedAudit;
+            const audit = await this._ensureSpkAudit();
             if (!audit) {
                 return Swal.fire('Info', 'Silakan jalankan proses SPK SAW terlebih dahulu untuk mengekspor matriks ke Word.', 'info');
             }
 
             const docSettings = typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : {};
             const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : {};
-            const namaLengkap = typeof window.getNamaLengkapPemimpin === 'function' ? window.getNamaLengkapPemimpin(docSettings) : (docSettings.namaPimpinan || 'Kepala Dinas Sosial');
+            const namaLengkap = typeof window.getNamaLengkapPemimpin === 'function' ? window.getNamaLengkapPemimpin(docSettings, 'bawah') : (docSettings.namaBawah || docSettings.namaPimpinan || 'Dr. Drs. H. AHMAD MISBAHUL MUNIR, M.Si.');
+            const jabatan = docSettings.jabatanBawah || docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO';
+            const nip = docSettings.nipBawah || docSettings.nipPimpinan || '';
+            const pangkat = docSettings.pangkatBawah || docSettings.pangkatPimpinan || '';
+            const tipeTtd = docSettings.tipeTtdBawah || docSettings.tipeTtd || 'tte';
+            const sigSrc = await PrintHelper.getManualSignatureBase64Async(namaLengkap, 'bawah');
             const wordLogoSrc = kop.logoBase64 || window.LOGO_SIDOARJO_BASE64 || "static/img/logo-sidoarjo.png";
             const W = audit.bobotW;
 
@@ -2711,9 +3487,9 @@
                 `;
             });
 
-            // TTD Word
+            // TTD Word & Stempel Resmi
             let ttdWordHtml = '';
-            if (docSettings.tipeTtd === 'tte') {
+            if (tipeTtd === 'tte') {
                 const qrSrc = PrintHelper.getQrBadgeBase64(docSettings.nomorSurat || '460/084/BA-SPK/438.5.12/2026');
                 ttdWordHtml = `
                     <table style="width:100%; border:none; margin-top:25px;">
@@ -2724,35 +3500,36 @@
                                         <td><img src="${qrSrc}" width="65" height="65" style="width:65px; height:65px;" alt="QR BSrE" /></td>
                                         <td style="padding-left:10px; font-size:7.5pt; color:#166534;">
                                             <b>Sertifikasi Digital BSrE BSSN</b><br>
-                                            ${docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO'}
+                                            ${jabatan}
                                         </td>
                                     </tr>
                                 </table>
                             </td>
                             <td align="center" style="width:50%;">
                                 <div style="font-size:8.5pt;">${docSettings.kotaSurat || 'Sidoarjo'}, ${docSettings.tanggalSurat || '28 September 2026'}</div>
-                                <div style="font-size:9pt; font-weight:bold; margin-top:3px;">${docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO'}</div>
-                                <div style="height:45px;"></div>
+                                <div style="font-size:9pt; font-weight:bold; margin-top:3px;">${jabatan}</div>
+                                <div style="margin: 6px 0;">
+                                    <img src="${sigSrc}" width="155" height="60" style="width:155px; height:60px; object-fit:contain;" alt="TTD & Stempel Resmi" />
+                                </div>
                                 <div style="font-size:9.5pt; font-weight:bold; text-decoration:underline;">${namaLengkap}</div>
-                                ${docSettings.nipPimpinan ? `<div style="font-size:8pt; color:#475569;">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>` : ''}
+                                ${nip ? `<div style="font-size:8pt; color:#475569;">${pangkat ? pangkat + ' | ' : ''}NIP. ${nip}</div>` : ''}
                             </td>
                         </tr>
                     </table>
                 `;
             } else {
-                const sigSrc = PrintHelper.getManualSignatureBase64(namaLengkap);
                 ttdWordHtml = `
                     <table style="width:100%; border:none; margin-top:25px;">
                         <tr>
                             <td style="width:50%;"></td>
                             <td align="center" style="width:50%;">
                                 <div style="font-size:8.5pt;">${docSettings.kotaSurat || 'Sidoarjo'}, ${docSettings.tanggalSurat || '28 September 2026'}</div>
-                                <div style="font-size:9pt; font-weight:bold; margin-top:3px;">${docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO'}</div>
+                                <div style="font-size:9pt; font-weight:bold; margin-top:3px;">${jabatan}</div>
                                 <div style="margin: 6px 0;">
-                                    <img src="${sigSrc}" width="140" height="54" style="width:140px; height:54px; object-fit:contain;" alt="TTD Resmi" />
+                                    <img src="${sigSrc}" width="155" height="60" style="width:155px; height:60px; object-fit:contain;" alt="TTD & Stempel Resmi" />
                                 </div>
                                 <div style="font-size:9.5pt; font-weight:bold; text-decoration:underline;">${namaLengkap}</div>
-                                ${docSettings.nipPimpinan ? `<div style="font-size:8pt; color:#475569;">${docSettings.pangkatPimpinan ? docSettings.pangkatPimpinan + ' | ' : ''}NIP. ${docSettings.nipPimpinan}</div>` : ''}
+                                ${nip ? `<div style="font-size:8pt; color:#475569;">${pangkat ? pangkat + ' | ' : ''}NIP. ${nip}</div>` : ''}
                             </td>
                         </tr>
                     </table>
@@ -2863,17 +3640,18 @@
          * EKSPOR MATRIKS KERJA KE FORMAT EXCEL (.XLSX)
          */
         async exportMatriksKerjaExcel() {
-            if (!window.spkDetailedAudit && window.lastSPKResult) {
-                window.rekonstruksiAuditMatematisSAW((window.globalDataWarga || []).filter(w => w.is_verified), window.lastSPKResult);
-            }
-            const audit = window.spkDetailedAudit;
+            const audit = await this._ensureSpkAudit();
             if (!audit) {
                 return Swal.fire('Info', 'Silakan jalankan proses SPK SAW terlebih dahulu untuk mengekspor matriks ke Excel.', 'info');
             }
 
             const docSettings = typeof window.getDocumentSettings === 'function' ? window.getDocumentSettings() : {};
             const kop = typeof window.getKopTemplate === 'function' ? window.getKopTemplate() : {};
-            const namaLengkap = typeof window.getNamaLengkapPemimpin === 'function' ? window.getNamaLengkapPemimpin(docSettings) : (docSettings.namaPimpinan || 'Kepala Dinas Sosial');
+            const namaLengkap = typeof window.getNamaLengkapPemimpin === 'function' ? window.getNamaLengkapPemimpin(docSettings, 'bawah') : (docSettings.namaBawah || docSettings.namaPimpinan || 'Dr. Drs. H. AHMAD MISBAHUL MUNIR, M.Si.');
+            const jabatanBawah = docSettings.jabatanBawah || docSettings.jabatanPimpinan || 'KEPALA DINAS SOSIAL KABUPATEN SIDOARJO';
+            const nipBawah = docSettings.nipBawah || docSettings.nipPimpinan || '19710815 199603 1 003';
+            const pangkatBawah = docSettings.pangkatBawah || docSettings.pangkatPimpinan || 'Pembina Utama Muda';
+            const tipeTtdBawah = docSettings.tipeTtdBawah || docSettings.tipeTtd || 'tte';
 
             if (typeof ExcelJS !== 'undefined') {
                 try {
@@ -2918,6 +3696,63 @@
                     ws1.columns = [
                         { width: 12 }, { width: 30 }, { width: 22 }, { width: 16 }, { width: 22 }, { width: 24 }
                     ];
+
+                    // Blok Tanda Tangan & Stempel Resmi Kepala Dinas Sosial di Bawah Tabel Sheet 1
+                    const sigMatriksRow = ws1.rowCount + 3;
+                    ws1.getCell(`F${sigMatriksRow}`).value = `${docSettings.kotaSurat || "Sidoarjo"}, ${docSettings.tanggalSurat || "28 September 2026"}`;
+                    ws1.getCell(`F${sigMatriksRow}`).font = { name: "Calibri", size: 9.5 };
+                    ws1.getCell(`F${sigMatriksRow}`).alignment = { horizontal: "center" };
+
+                    ws1.getCell(`F${sigMatriksRow + 1}`).value = jabatanBawah;
+                    ws1.getCell(`F${sigMatriksRow + 1}`).font = { name: "Calibri", size: 10, bold: true };
+                    ws1.getCell(`F${sigMatriksRow + 1}`).alignment = { horizontal: "center" };
+
+                    for (let r = 0; r < 5; r++) {
+                        ws1.getRow(sigMatriksRow + 2 + r).height = 20;
+                    }
+
+                    try {
+                        const sigSrcMatriks = await PrintHelper.getManualSignatureBase64Async(namaLengkap, "bawah");
+                        if (sigSrcMatriks) {
+                            const cleanSig = sigSrcMatriks.replace(/^data:image\/\w+;base64,/, "");
+                            const imgId = wb.addImage({
+                                base64: cleanSig,
+                                extension: "png"
+                            });
+                            ws1.addImage(imgId, {
+                                tl: { col: 4.8, row: sigMatriksRow + 1.3 },
+                                ext: { width: 195, height: 85 }
+                            });
+                        }
+
+                        if (tipeTtdBawah === "tte") {
+                            const qrSrcM = PrintHelper.getQrBadgeBase64(docSettings.nomorSurat || "MATRIKS-SPK-2026");
+                            if (qrSrcM) {
+                                const cleanQr = qrSrcM.replace(/^data:image\/\w+;base64,/, "");
+                                const qrId = wb.addImage({
+                                    base64: cleanQr,
+                                    extension: "png"
+                                });
+                                ws1.addImage(qrId, {
+                                    tl: { col: 3.8, row: sigMatriksRow + 1.3 },
+                                    ext: { width: 85, height: 85 }
+                                });
+                            }
+                        }
+                    } catch (errSigMatriks) {
+                        console.warn("[ExcelJS] Stempel Matriks embedding skipped:", errSigMatriks);
+                    }
+
+                    const namaMatriksRow = sigMatriksRow + 7;
+                    ws1.getCell(`F${namaMatriksRow}`).value = namaLengkap;
+                    ws1.getCell(`F${namaMatriksRow}`).font = { name: "Calibri", size: 10.5, bold: true, underline: true };
+                    ws1.getCell(`F${namaMatriksRow}`).alignment = { horizontal: "center" };
+
+                    if (nipBawah) {
+                        ws1.getCell(`F${namaMatriksRow + 1}`).value = (pangkatBawah ? pangkatBawah + " | " : "") + `NIP. ${nipBawah}`;
+                        ws1.getCell(`F${namaMatriksRow + 1}`).font = { name: "Calibri", size: 9, color: { argb: "475569" } };
+                        ws1.getCell(`F${namaMatriksRow + 1}`).alignment = { horizontal: "center" };
+                    }
 
                     // SHEET 2: Matriks Normalisasi (R)
                     const ws2 = wb.addWorksheet('2. Matriks Normalisasi (R)');
@@ -2997,6 +3832,7 @@
     // 3. DAFTARKAN METHOD KE WINDOW
     window.PrintHelper = PrintHelper;
     window.AdminPrint = AdminPrint;
+    window.exportSKBupatiExcel = () => AdminPrint.exportSKBupatiExcel();
     window.cetakLaporanKomparasi = () => AdminPrint.cetakLaporanKomparasi();
     window.cetakSKBupati = () => (window.bukaModalSKBupati ? window.bukaModalSKBupati() : AdminPrint.cetakSKBupati());
     window.exportKomparasiPDF = () => AdminPrint.cetakLaporanKomparasi();

@@ -1,3 +1,4 @@
+import { savePengaduanRealtimeToMysql, saveChatMessageRealtimeToMysql } from '../../mysql_storage.js';
 import { Router, Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -52,17 +53,34 @@ router.get(['/download/:filename', '/api/chat/download/:filename'], (req: Reques
 });
 
 router.get(['/laporan-chat', '/api/laporan-chat', '/api/chat/laporan', '/pengaduan', '/api/pengaduan'], (_req: Request, res: Response) => {
-  const list = [...pengaduanStore].sort((a, b) => b.id - a.id).map(a => ({
-    id: `ADUAN-${String(a.id).padStart(3, '0')}`,
-    nik: a.nik,
-    nama: a.nama,
-    kategori: a.kategori,
-    uraian: a.uraian || a.deskripsi || a.isi_laporan,
-    status_text: a.status_text || a.status,
-    status_step: a.status_step,
-    catatan_petugas: a.catatan_petugas,
-    waktu: a.waktu
-  }));
+  const list = [...pengaduanStore].sort((a, b) => b.id - a.id).map(a => {
+    const rawTxt = (String(a.kategori || '') + ' ' + String(a.uraian || '') + ' ' + String(a.deskripsi || '') + ' ' + String(a.isi_laporan || '')).toLowerCase();
+    const isSistem = rawTxt.includes('eror') || rawTxt.includes('error') || rawTxt.includes('sistem') || 
+                     rawTxt.includes('teknis') || rawTxt.includes('bug') || rawTxt.includes('crash') || 
+                     rawTxt.includes('glitch') || rawTxt.includes('gagal') || rawTxt.includes('server') || 
+                     rawTxt.includes('database') || rawTxt.includes('koneksi') || rawTxt.includes('macet') ||
+                     rawTxt.includes('freeze') || rawTxt.includes('blank') || rawTxt.includes('rusak');
+    const isUrgent = rawTxt.includes('urgent') || rawTxt.includes('darurat') || rawTxt.includes('mendesak') || 
+                     isSistem || a.urgensi_eskalasi === 'Kritis' || a.urgensi_eskalasi === 'Tinggi' ||
+                     (a as any).urgensi === 'urgent';
+    const isWargaTerdaftar = !String(a.kategori || '').toLowerCase().includes('belum') && wargaStore.some(w => w.nik === a.nik);
+
+    return {
+      ...a,
+      id: `ADUAN-${String(a.id).padStart(3, '0')}`,
+      nik: a.nik,
+      nama: a.nama,
+      kategori: a.kategori,
+      uraian: a.uraian || a.deskripsi || a.isi_laporan,
+      status_text: a.status_text || a.status,
+      status_step: a.status_step,
+      catatan_petugas: a.catatan_petugas,
+      waktu: a.waktu,
+      is_terdaftar: isWargaTerdaftar,
+      is_sistem: isSistem,
+      is_urgent: isUrgent
+    };
+  });
   res.json(list);
 });
 
@@ -95,6 +113,7 @@ export function createPengaduanHandler(req: Request, res: Response) {
   };
 
   pengaduanStore.push(newAduan);
+  savePengaduanRealtimeToMysql(newAduan).catch(() => {});
   catatNotifikasi(`🚨 Pengaduan warga baru diterima: ${nama} (NIK: ${nik}) melaporkan kendala.`, 'Warga', 'urgent');
   realtimeAduanNew(newAduan);
 
@@ -125,6 +144,7 @@ export function createPengaduanHandler(req: Request, res: Response) {
     delivered_at: new Date().toISOString()
   };
   chatStore.push(chatMsg);
+  saveChatMessageRealtimeToMysql(chatMsg).catch(() => {});
   try { realtimeChatMessage(chatMsg); } catch (e) {}
 
   // Jika pengaduan berkaitan dengan bansos belum diterima atau sengketa, perbarui status_salur warga
@@ -170,7 +190,7 @@ router.get('/publik/cek-aduan', (req: Request, res: Response) => {
   return res.json({ status: 'success', data: found });
 });
 
-router.post(['/investigasi/tindak-lanjut', '/api/investigasi/tindak-lanjut', '/tindak-lanjut', '/api/tindak-lanjut'], (req: Request, res: Response) => {
+router.post(['/action', '/api/chat/action', '/investigasi/tindak-lanjut', '/api/investigasi/tindak-lanjut', '/tindak-lanjut', '/api/tindak-lanjut'], (req: Request, res: Response) => {
   const d = req.body || {};
   const nik = String(d.nik || '').trim();
   const idStr = String(d.id || '').replace(/\D/g, '').trim();
@@ -292,6 +312,52 @@ router.post(['/investigasi/tindak-lanjut', '/api/investigasi/tindak-lanjut', '/t
   });
 });
 
+export function isOfficerName(name: string): boolean {
+  if (!name) return false;
+  const n = String(name).toLowerCase().trim();
+  return (
+    n.startsWith('petugas') ||
+    n.startsWith('admin') ||
+    n.startsWith('super admin') ||
+    n.startsWith('superadmin') ||
+    n.startsWith('dinsos') ||
+    n.includes('admin_bansos') ||
+    n.includes('investigasi dinsos') ||
+    n.includes('petugas dinsos') ||
+    n.includes('super administrator') ||
+    n.includes('(petugas') ||
+    n.includes('(admin') ||
+    n === 'operator' ||
+    n === 'penyalur'
+  );
+}
+
+export function resolveRealCitizenName(nik: string, fallback?: string): string {
+  const cleanNik = String(nik || '').trim();
+  if (!cleanNik) return fallback || 'Warga';
+
+  // 1. Cek wargaStore (arsip resmi kependudukan)
+  const w = wargaStore.find(x => String(x.nik) === cleanNik);
+  if (w?.nama && !isOfficerName(w.nama)) return w.nama;
+
+  // 2. Cek pengaduanStore (data warga pelapor resmi)
+  const a = [...pengaduanStore].reverse().find(x => String(x.nik) === cleanNik);
+  if (a?.nama && !isOfficerName(a.nama)) return a.nama;
+  if (a?.nama_pelapor && !isOfficerName(a.nama_pelapor)) return a.nama_pelapor;
+
+  // 3. Cek pesan warga di chatStore (yang dikirim oleh warga sendiri)
+  const citizenMsg = [...chatStore].reverse().find(x => String(x.nik) === cleanNik && x.sender === 'warga' && x.nama && !isOfficerName(x.nama));
+  if (citizenMsg?.nama) return citizenMsg.nama;
+
+  // 4. Periksa fallback jika bukan nama petugas
+  if (fallback && !isOfficerName(fallback) && !fallback.startsWith('Warga (')) {
+    return fallback;
+  }
+
+  // 5. Default konsisten warga
+  return `Warga Konsultasi (${cleanNik.slice(-4)})`;
+}
+
 router.get(['/list', '/inbox', '/conversations'], (_req: Request, res: Response) => {
   const seen = new Set<string>();
   const daftar: Record<string, unknown>[] = [];
@@ -306,7 +372,7 @@ router.get(['/list', '/inbox', '/conversations'], (_req: Request, res: Response)
       const unreadCount = chatStore.filter(x => x.nik === c.nik && x.sender === 'warga' && !x.is_read).length;
       
       const desilVal = w ? (Number(w.desil) || 1) : null;
-      const namaWarga = w?.nama || c.nama || a?.nama || a?.nama_pelapor || `Warga (${c.nik.slice(-4)})`;
+      const namaWarga = resolveRealCitizenName(c.nik, c.sender === 'warga' ? c.nama : undefined);
 
       daftar.push({
         nik: c.nik,
@@ -333,7 +399,7 @@ router.get(['/list', '/inbox', '/conversations'], (_req: Request, res: Response)
       seen.add(a.nik);
       const w = wargaStore.find(x => x.nik === a.nik);
       const desilVal = w ? (Number(w.desil) || 1) : null;
-      const namaWarga = w?.nama || a.nama || a.nama_pelapor || `Warga (${a.nik.slice(-4)})`;
+      const namaWarga = resolveRealCitizenName(a.nik, a.nama || a.nama_pelapor);
       const pesanLaporan = `[Laporan Aduan: ${a.kategori || 'Sengketa'}] ${a.uraian || a.deskripsi || 'Sanggahan belum menerima bansos'}`;
 
       daftar.push({
@@ -403,6 +469,7 @@ router.post(['/:nik/mark-read', '/mark-read'], (req: Request, res: Response) => 
 });
 
 const RESERVED_CHAT_ROUTES = new Set([
+  'code-files', 'code-content', 'code-save', 'eskalasi-list', 'inspeksi-kode',
   'list', 'inbox', 'conversations', 'messages', 'info', 'download',
   'laporan-chat', 'investigasi', 'laporan-pelanggaran', 'share-geotag',
   'geotag', 'publik', 'pengaduan', 'action', 'react', 'mark-read', 'pin', 'star',
@@ -419,20 +486,24 @@ router.get(['/:nik/active-officer', '/active-officer/:nik'], (req: Request, res:
     if (lastOfficer) {
       officer = {
         name: lastOfficer.nama || '🛡️ Admin 1 / Petugas Dinsos',
-        role: 'Petugas Dinsos',
+        role: (lastOfficer as any).officer_role || (lastOfficer.sender === 'admin' ? 'Super Admin' : 'Petugas Dinsos'),
         updated_at: lastOfficer.created_at || new Date().toISOString()
       };
       chatOfficerMap[nik] = officer;
     }
   }
 
+  const defaultOff = {
+    name: '🛡️ Admin 1 / Petugas Dinsos',
+    role: 'Petugas Dinsos',
+    updated_at: new Date().toISOString()
+  };
+
+  const finalOfficer = officer || defaultOff;
   return res.json({
     status: 'success',
-    officer: officer || {
-      name: '🛡️ Admin 1 / Petugas Dinsos',
-      role: 'Petugas Dinsos',
-      updated_at: new Date().toISOString()
-    }
+    officer: finalOfficer,
+    data: finalOfficer
   });
 });
 
@@ -491,8 +562,7 @@ router.post(['/:nik/handover', '/:nik/assign-officer', '/handover/:nik'], (req: 
     type: 'CHAT_OFFICER_CHANGED',
     nik,
     officer_name: officerName,
-    officer_role: officerRole,
-    chat: handoverChat
+    officer_role: officerRole, officer: { name: officerName, role: officerRole }, chat: handoverChat
   });
 
   return res.json({
@@ -717,7 +787,7 @@ router.post('/:nik', (req: Request, res: Response, next: any) => {
 
     if (files.length === 0 && createdChats.length === 0) {
       const nextId = chatStore.length > 0 ? Math.max(...chatStore.map(c => c.id)) + 1 : 1;
-      const fileUrl = d.file_url ? String(d.file_url).trim() : null;
+      const fileUrl = (d.file_url || d.file_path) ? String(d.file_url || d.file_path).trim() : null;
       const fileName = d.file_name ? String(d.file_name).trim() : (fileUrl ? 'Berkas Google Workspace' : null);
       let fileType = d.file_type ? String(d.file_type).trim() : (customType || null);
       if (!fileType && fileUrl) {
@@ -1069,6 +1139,144 @@ router.get(['/investigasi/inspeksi-kode', '/api/investigasi/inspeksi-kode'], (re
   });
 });
 
+// =========================================================================
+// API CODE EDITOR KESELURUHAN SISTEM (SUPER ADMIN DEVELOPER)
+// =========================================================================
+
+// Helper list all project editable files
+function getProjectEditableFiles(dir: string, baseDir: string = dir): Array<{ path: string; name: string; folder: string; size: number; lines: number; ext: string; modified: string }> {
+  let results: Array<{ path: string; name: string; folder: string; size: number; lines: number; ext: string; modified: string }> = [];
+  try {
+    const list = fs.readdirSync(dir);
+    for (const item of list) {
+      if (['node_modules', '.git', '.gemini', '.aistudio', 'uploads', 'scratch', 'tmp', 'dist', 'build', '.vscode'].includes(item)) continue;
+      const fullPath = path.join(dir, item);
+      const stat = fs.statSync(fullPath);
+      if (stat.isDirectory()) {
+        results = results.concat(getProjectEditableFiles(fullPath, baseDir));
+      } else {
+        const ext = path.extname(item).toLowerCase().replace('.', '');
+        if (['ts', 'js', 'json', 'html', 'css', 'md', 'cjs', 'mjs', 'txt'].includes(ext)) {
+          const relPath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
+          const lines = fs.readFileSync(fullPath, 'utf8').split('\n').length;
+          const folder = path.dirname(relPath).replace(/\\/g, '/');
+          results.push({
+            path: relPath,
+            name: item,
+            folder: folder === '.' ? 'root' : folder,
+            size: stat.size,
+            lines,
+            ext,
+            modified: stat.mtime.toISOString()
+          });
+        }
+      }
+    }
+  } catch (e) {}
+  return results;
+}
+
+// 1. Get Code Files Tree / List
+router.get(['/investigasi/code-files', '/api/investigasi/code-files', '/code-files', '/api/chat/code-files'], (_req: Request, res: Response) => {
+  const rootDir = process.cwd();
+  const files = getProjectEditableFiles(rootDir);
+  // Sort files nicely by folder then name
+  files.sort((a, b) => a.folder.localeCompare(b.folder) || a.name.localeCompare(b.name));
+  return res.json({
+    status: 'success',
+    total_files: files.length,
+    root: rootDir,
+    files
+  });
+});
+
+// 2. Get Code File Content
+router.get(['/investigasi/code-content', '/api/investigasi/code-content', '/code-content', '/api/chat/code-content'], (req: Request, res: Response) => {
+  const relFile = String(req.query.file || '').trim();
+  if (!relFile) {
+    return res.status(400).json({ status: 'error', message: 'Parameter file wajib disertakan.' });
+  }
+
+  const rootDir = process.cwd();
+  const safeRelPath = path.normalize(relFile).replace(/^(..(\/|\\|$))+/, '');
+  const fullPath = path.resolve(rootDir, safeRelPath);
+
+  if (!fullPath.startsWith(rootDir)) {
+    return res.status(403).json({ status: 'error', message: 'Akses path tidak diizinkan.' });
+  }
+
+  if (!fs.existsSync(fullPath)) {
+    return res.status(404).json({ status: 'error', message: `Berkas ${safeRelPath} tidak ditemukan.` });
+  }
+
+  try {
+    const content = fs.readFileSync(fullPath, 'utf8');
+    const ext = path.extname(fullPath).toLowerCase().replace('.', '');
+    const lines = content.split('\n').length;
+    let language = 'plaintext';
+    if (ext === 'ts') language = 'typescript';
+    else if (['js', 'cjs', 'mjs'].includes(ext)) language = 'javascript';
+    else if (ext === 'html') language = 'html';
+    else if (ext === 'css') language = 'css';
+    else if (ext === 'json') language = 'json';
+    else if (ext === 'md') language = 'markdown';
+
+    return res.json({
+      status: 'success',
+      file: safeRelPath.replace(/\\/g, '/'),
+      name: path.basename(fullPath),
+      content,
+      lines,
+      size: Buffer.byteLength(content, 'utf8'),
+      language,
+      ext
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: 'error', message: e.message || 'Gagal membaca berkas.' });
+  }
+});
+
+// 3. Save Code File Content
+router.post(['/investigasi/code-save', '/api/investigasi/code-save', '/code-save', '/api/chat/code-save'], (req: Request, res: Response) => {
+  const relFile = String(req.body?.file || '').trim();
+  const newContent = typeof req.body?.content === 'string' ? req.body.content : null;
+
+  if (!relFile || newContent === null) {
+    return res.status(400).json({ status: 'error', message: 'Parameter file dan content wajib disertakan.' });
+  }
+
+  const rootDir = process.cwd();
+  const safeRelPath = path.normalize(relFile).replace(/^(..(\/|\\|$))+/, '');
+  const fullPath = path.resolve(rootDir, safeRelPath);
+
+  if (!fullPath.startsWith(rootDir)) {
+    return res.status(403).json({ status: 'error', message: 'Akses path tidak diizinkan.' });
+  }
+
+  try {
+    fs.writeFileSync(fullPath, newContent, 'utf8');
+    const lines = newContent.split('\n').length;
+    
+    // Broadcast live code update event
+    broadcastRealtimeEvent({
+      type: 'CODE_UPDATED_LIVE',
+      file: safeRelPath.replace(/\\/g, '/'),
+      lines,
+      updated_at: new Date().toISOString()
+    });
+
+    return res.json({
+      status: 'success',
+      message: `Berkas ${safeRelPath.replace(/\\/g, '/')} berhasil disimpan dan langsung aktif di sistem!`,
+      file: safeRelPath.replace(/\\/g, '/'),
+      lines,
+      saved_at: new Date().toISOString()
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: 'error', message: e.message || 'Gagal menyimpan perubahan berkas.' });
+  }
+});
+
 router.all(['/react/:msg_id', '/api/chat/react/:msg_id'], (req: Request, res: Response) => {
   const id = parseIntSafe(req.params.msg_id, 0);
   const chat = chatStore.find(c => c.id === id);
@@ -1123,7 +1331,21 @@ router.delete('/action/:msg_id', (req: Request, res: Response) => {
   if (idx === -1) return res.status(404).json({ status: 'error', message: 'Pesan tidak ditemukan.' });
 
   const tipe = String(req.body?.type || 'everyone');
+  const requester = String(req.body?.requester || '').trim().toLowerCase();
+
+  // VALIDASI KETAT: "Hapus untuk Semua Orang" HANYA diizinkan jika pemohon adalah pengirim asli pesan
   if (tipe === 'everyone') {
+    const isWargaRequester = requester === 'warga' || /^\d{16}$/.test(requester);
+    const msgSender = String(chatStore[idx].sender || '').toLowerCase();
+    const isMessageFromWarga = msgSender === 'warga';
+
+    if (isWargaRequester && !isMessageFromWarga) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Opsi Hapus untuk Semua Orang hanya berlaku untuk pesan yang Anda kirimkan sendiri.'
+      });
+    }
+
     chatStore[idx].is_deleted_all = true;
     chatStore[idx].pesan = '🚫 Pesan telah dihapus';
     chatStore[idx].text = '🚫 Pesan telah dihapus';
@@ -1152,6 +1374,34 @@ router.delete('/action/:msg_id', (req: Request, res: Response) => {
     } catch (e) {}
   }
   return res.json({ status: 'success', message: 'Pesan berhasil dihapus.', data: chatStore[idx] });
+});
+
+// Endpoint untuk membersihkan seluruh percakapan warga di Dasbor Pribadi Anda
+router.delete(['/clear-warga/:nik', '/api/chat/clear-warga/:nik', '/clear/:nik'], (req: Request, res: Response) => {
+  const nik = String(req.params.nik || '').trim();
+  if (!nik) return res.status(400).json({ status: 'error', message: 'NIK tidak valid.' });
+
+  let clearedCount = 0;
+  chatStore.forEach(c => {
+    if (c.nik === nik) {
+      c.deleted_for = 'me_warga';
+      clearedCount++;
+    }
+  });
+
+  try {
+    broadcastRealtimeEvent({
+      type: 'CHAT_CLEARED',
+      nik: nik,
+      requester: 'warga'
+    });
+  } catch (e) {}
+
+  return res.json({
+    status: 'success',
+    message: `Riwayat obrolan warga (${nik}) berhasil dibersihkan (${clearedCount} pesan disembunyikan).`,
+    cleared_count: clearedCount
+  });
 });
 
 // =========================================================================
@@ -1238,6 +1488,7 @@ router.post(['/laporan-pelanggaran', '/lapor-pesan', '/api/chat/lapor-pesan', '/
     isi_laporan: deskripsi,
     status: 'Tahap Mediasi',
     status_step: 2,
+    status_text: 'Tahap Mediasi',
     catatan_petugas: `Laporan masuk dari portal warga (${kodeLaporan}). Menunggu investigasi etik dan moderasi tim pengawas.`,
     waktu: nowTimeStr(),
     created_at: nowTimeStr(),

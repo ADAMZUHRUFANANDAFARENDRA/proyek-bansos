@@ -1,0 +1,10 @@
+{
+  "host": "localhost",
+  "port": 3306,
+  "user": "root",
+  "password": "YOUR_MYSQL_PASSWORD_HERE",
+  "database": "bansos",
+  "enabled": true,
+  "auto_sync": true,
+  "last_sync": "31/10/2026, 00.00.00"
+}

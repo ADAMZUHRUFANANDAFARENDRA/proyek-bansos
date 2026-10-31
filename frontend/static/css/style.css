@@ -328,19 +328,18 @@ tbody tr:last-child td { border-bottom: none; }
     height: 100%; 
     object-fit: cover; 
 }
-.video-area-modern video#localVideo { 
-    position: absolute; 
-    bottom: 20px; 
-    right: 20px; 
-    width: 110px; 
-    height: 150px; 
-    object-fit: cover; 
-    border-radius: 16px; 
-    border: 2px solid rgba(255,255,255,0.8); 
-    box-shadow: 0 8px 16px rgba(0,0,0,0.5); 
-    background: #1e293b; 
-    transition: filter 0.3s ease; 
-    z-index: 10;
+.video-area-modern video#localVideo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+    border: none;
+    box-shadow: none;
+    background: #1e293b;
+    transition: filter 0.3s ease;
+    z-index: 2;
 }
 .video-area-modern video#localVideo.blurred { 
     filter: blur(10px); 
@@ -710,43 +709,29 @@ img, svg, video, canvas {
     opacity: 1 !important;
     width: auto !important;
     height: auto !important;
-    padding: 13px 40px !important;
-    margin: 6px !important;
+    min-height: 48px !important;
+    min-width: 155px !important;
+    padding: 13px 36px !important;
+    margin: 0 !important;
     cursor: pointer !important;
 }
 
-/* TOMBOL SILANG (X) */
-.swal2-popup .swal2-close {
-    width: 38px !important;
-    height: 38px !important;
-    line-height: 36px !important;
-    border-radius: 50% !important;
-    top: 14px !important;
-    right: 14px !important;
-    color: #64748b !important;
-    font-size: 20px !important;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
-    font-weight: 700 !important;
-    background: #f1f5f9 !important;
-    border: 1px solid #e2e8f0 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
-    outline: none !important;
-    cursor: pointer !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
-    z-index: 10 !important;
+/* HILANGKAN TOMBOL SILANG (X) PADA POP-UP MODAL AGAR TIDAK DOUBLE FUNGSI */
+.swal2-popup:not(.swal2-toast) .swal2-close,
+.swal2-popup .swal-close-modern,
+.swal-close-btn-hidden {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
 }
 
-.swal2-popup .swal2-close:hover {
-    color: #ef4444 !important;
-    background: #fee2e2 !important;
-    border-color: #fca5a5 !important;
-    transform: rotate(90deg) scale(1.08) !important;
-}
-
-/* TOMBOL BATALKAN */
+/* TOMBOL BATALKAN / TUTUP SELARAS & SEJAJAR */
 .swal-btn-hidden-force,
 button.swal2-cancel[style*="display: none"],
 button.swal2-cancel[style*="display:none"],
@@ -761,7 +746,31 @@ button.swal2-cancel:empty {
     pointer-events: none !important;
 }
 
-.swal2-popup:not(.swal-no-cancel) .swal2-cancel.swal-btn-pill-cancel:not([style*="display: none"]):not([style*="display:none"]),
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading):not(.swal-no-cancel) .swal2-cancel:not([style*="display: none"]):not([style*="display:none"]):not(.swal-btn-hidden-force),
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading):not(.swal-no-cancel) .swal2-cancel.swal-btn-pill-cancel:not([style*="display: none"]):not([style*="display:none"]):not(.swal-btn-hidden-force) {
+    border-radius: 9999px !important;
+    min-height: 48px !important;
+    min-width: 155px !important;
+    padding: 13px 36px !important;
+    margin: 0 !important;
+    font-size: 0.94rem !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.25px !important;
+    background: #ffffff !important;
+    color: #dc2626 !important;
+    border: 2px solid #fca5a5 !important;
+    cursor: pointer !important;
+    box-shadow: 0 8px 24px -4px rgba(220, 38, 38, 0.16) !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    outline: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+}
+
 .swal2-popup.swal-modern-loading-card .swal2-cancel:not([style*="display: none"]):not([style*="display:none"]),
 .swal2-loading .swal2-cancel:not([style*="display: none"]):not([style*="display:none"]) {
     border-radius: 9999px !important;
@@ -782,14 +791,15 @@ button.swal2-cancel:empty {
     margin: 14px auto 2px auto !important;
 }
 
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading) .swal2-cancel:hover,
 .swal2-popup .swal2-cancel.swal-btn-pill-cancel:hover,
 .swal2-popup.swal-modern-loading-card .swal2-cancel:hover,
 .swal2-loading .swal2-cancel:hover {
     background: #fef2f2 !important;
     color: #b91c1c !important;
     border-color: #f87171 !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 6px 16px rgba(220, 38, 38, 0.16) !important;
+    transform: translateY(-2px) scale(1.01) !important;
+    box-shadow: 0 12px 28px -4px rgba(220, 38, 38, 0.24) !important;
 }
 
 /* ANIMASI LOADING MODERN SINGLE */

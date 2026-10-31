@@ -7,6 +7,58 @@
 // =========================================================================
 window.allLaporanChatData = [];
 window.activeInvestigasiFilter = 'all';
+window.activePanelWargaFilter = 'all';
+window.activeSearchInvestigasiQuery = '';
+
+window.isSelesaiAduan = function (item) {
+    if (!item) return false;
+    const currentStep = Number(item.status_step) || (item.status === 'Selesai' ? 5 : 2);
+    return item.status === 'Selesai' || currentStep === 5 || String(item.status_text || '').toLowerCase().includes('selesai');
+};
+
+window.isSystemIssue = function (item) {
+    if (!item) return false;
+    if (item.is_sistem === true) return true;
+    const kat = String(item.kategori || '').toLowerCase();
+    if (kat.includes('sistem') || kat.includes('teknis') || kat.includes('error') || kat.includes('eror') || kat.includes('bug')) return true;
+    const raw = (String(item.kategori || '') + ' ' + String(item.uraian || '') + ' ' + String(item.deskripsi || '') + ' ' + String(item.isi_laporan || '')).toLowerCase();
+    return raw.includes('eror') || raw.includes('error') || raw.includes('sistem') ||
+           raw.includes('teknis') || raw.includes('bug') || raw.includes('crash') ||
+           raw.includes('glitch') || raw.includes('gagal') || raw.includes('server') ||
+           raw.includes('database') || raw.includes('koneksi') || raw.includes('macet') ||
+           raw.includes('freeze') || raw.includes('blank') || raw.includes('rusak') ||
+           raw.includes('hang');
+};
+
+window.isItemUrgent = function (item) {
+    if (!item) return false;
+    if (window.isSelesaiAduan(item)) return false;
+    // KETENTUAN UTAMA: Persoalan sistem eror / masalah teknis otomatis masuk kategori URGENT
+    if (window.isSystemIssue(item)) return true;
+    if (item.is_urgent === true) return true;
+    if (item.urgensi === 'urgent' || item.urgensi === 'kritis' || item.urgensi === 'tinggi') return true;
+    if (item.urgensi_eskalasi === 'Kritis' || item.urgensi_eskalasi === 'Tinggi') return true;
+    const raw = (String(item.kategori || '') + ' ' + String(item.uraian || '') + ' ' + String(item.deskripsi || '') + ' ' + String(item.isi_laporan || '')).toLowerCase();
+    return raw.includes('urgent') || raw.includes('darurat') || raw.includes('mendesak') || raw.includes('kritis');
+};
+
+window.isWargaRegistered = function (item) {
+    if (!item) return false;
+    if (typeof item.is_terdaftar === 'boolean') return item.is_terdaftar;
+    const kat = String(item.kategori || '').toLowerCase();
+    if (kat.includes('belum terdaftar') || kat.includes('belum terdata') || kat.includes('non-terdaftar') || kat.includes('gagal daftar')) {
+        return false;
+    }
+    const cleanNik = String(item.nik || '').trim();
+    if (cleanNik && Array.isArray(window.globalDataWarga) && window.globalDataWarga.length > 0) {
+        const found = window.globalDataWarga.some(w => String(w.nik).trim() === cleanNik);
+        if (found) return true;
+    }
+    if (kat.includes('penyaluran') || kat.includes('sengketa') || kat.includes('desil') || kat.includes('bansos sembako')) {
+        return true;
+    }
+    return false;
+};
 
 window.bukaModalLaporanChat = function () {
     const modal = document.getElementById('modalLaporanChat');
@@ -19,18 +71,15 @@ window.bukaModalLaporanChat = function () {
 window.loadLaporanChatData = async function () {
     const container = document.getElementById('laporanChatList');
     if (!container) return;
-
     try {
         const token = window.getCleanToken();
-        const headers = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' };
-
+        const headers = { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' };
         const laporanEndpoints = [
-            `${window.BASE_URL}/api/laporan-chat`,
-            `${window.BASE_URL}/api/chat/laporan`,
-            `${window.BASE_URL}/api/pengaduan`,
-            `${window.BASE_URL}/laporan-chat`
+            window.BASE_URL + '/api/laporan-chat',
+            window.BASE_URL + '/api/chat/laporan',
+            window.BASE_URL + '/api/pengaduan',
+            window.BASE_URL + '/laporan-chat'
         ];
-
         let res = null;
         for (const url of laporanEndpoints) {
             try {
@@ -44,14 +93,11 @@ window.loadLaporanChatData = async function () {
                 }
             } catch (e) {}
         }
-
         if (res && res.ok) {
             const resJson = await res.json();
             window.allLaporanChatData = Array.isArray(resJson) ? resJson : (resJson.data || []);
-            
-            // Update KPI Counter Metrik
             window.updateInvestigasiKPIMetrics(window.allLaporanChatData);
-            window.renderLaporanChat(window.allLaporanChatData);
+            window.applyCombinedInvestigasiFilter();
         } else {
             container.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8;">Belum ada laporan sengketa atau aduan warga yang masuk.</div>';
         }
@@ -63,19 +109,32 @@ window.loadLaporanChatData = async function () {
 window.updateInvestigasiKPIMetrics = function (data) {
     if (!Array.isArray(data)) return;
     const total = data.length;
-    const selesai = data.filter(x => (x.status === 'Selesai' || x.status_step === 5 || String(x.status_text || '').toLowerCase().includes('selesai'))).length;
-    const urgent = data.filter(x => (String(x.kategori || '').toLowerCase().includes('urgent') || String(x.uraian || '').toLowerCase().includes('urgent')) && x.status !== 'Selesai' && x.status_step !== 5).length;
+    const selesai = data.filter(x => window.isSelesaiAduan(x)).length;
+    const urgent = data.filter(x => window.isItemUrgent(x)).length;
+    const sistem = data.filter(x => window.isSystemIssue(x)).length;
+    const terdaftar = data.filter(x => window.isWargaRegistered(x)).length;
+    const belum = total - terdaftar;
     const proses = total - selesai;
 
     const elTotal = document.getElementById('kpiInvestigasiTotal');
     const elProses = document.getElementById('kpiInvestigasiProses');
     const elUrgent = document.getElementById('kpiInvestigasiUrgent');
+    const elSistem = document.getElementById('kpiInvestigasiSistem');
     const elSelesai = document.getElementById('kpiInvestigasiSelesai');
+
+    const elCountSemua = document.getElementById('countPanelSemuaWarga');
+    const elCountTerdaftar = document.getElementById('countPanelWargaTerdaftar');
+    const elCountBelum = document.getElementById('countPanelWargaBelum');
 
     if (elTotal) elTotal.innerText = total;
     if (elProses) elProses.innerText = proses;
     if (elUrgent) elUrgent.innerText = urgent;
+    if (elSistem) elSistem.innerText = sistem;
     if (elSelesai) elSelesai.innerText = selesai;
+
+    if (elCountSemua) elCountSemua.innerText = total;
+    if (elCountTerdaftar) elCountTerdaftar.innerText = terdaftar;
+    if (elCountBelum) elCountBelum.innerText = belum;
 };
 
 window.bukaChatDariAduan = function (nik) {
@@ -347,8 +406,10 @@ function renderLaporanChat(data) {
 
     container.innerHTML = data.map(item => {
         const currentStep = Number(item.status_step) || (item.status === 'Selesai' ? 5 : 2);
-        const isSelesai = item.status === 'Selesai' || currentStep === 5 || String(item.status_text || '').toLowerCase().includes('selesai');
-        const isUrgent = String(item.kategori || '').toLowerCase().includes('urgent') || String(item.uraian || '').toLowerCase().includes('urgent');
+        const isSelesai = window.isSelesaiAduan(item);
+        const isUrgent = window.isItemUrgent(item);
+        const isSistem = window.isSystemIssue(item);
+        const isTerdaftar = window.isWargaRegistered(item);
         
         let statusBadge = '';
         if (isSelesai) {
@@ -364,12 +425,14 @@ function renderLaporanChat(data) {
         }
 
         return `
-            <div class="card" style="padding:18px 22px; margin-bottom:16px; border:1.5px solid ${isSelesai ? '#bbf7d0' : (isUrgent ? '#fca5a5' : '#e2e8f0')}; border-radius:20px; background:${isSelesai ? '#ffffff' : '#ffffff'}; box-shadow:0 4px 16px rgba(15,23,42,0.04); transition:transform 0.15s ease;">
+            <div class="card" style="padding:18px 22px; margin-bottom:16px; border:1.5px solid ${isSelesai ? '#bbf7d0' : (isUrgent ? '#fca5a5' : '#e2e8f0')}; ${isUrgent && !isSelesai ? 'border-left:5px solid #dc2626;' : ''} border-radius:20px; background:${isSelesai ? '#ffffff' : '#ffffff'}; box-shadow:0 4px 16px rgba(15,23,42,0.04); transition:transform 0.15s ease;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
-                    <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                         <span style="font-weight:800; font-size:0.85rem; color:#dc2626;"><i class="fas fa-shield-virus"></i> ${item.id}</span>
                         <span style="background:#f1f5f9; color:#475569; padding:2px 10px; border-radius:10px; font-weight:700; font-size:0.75rem;">${item.kategori || 'Sengketa Penyaluran'}</span>
-                        ${isUrgent ? '<span style="background:#fee2e2; color:#ef4444; border:1px solid #fca5a5; font-weight:800; font-size:0.68rem; padding:1px 6px; border-radius:6px;">URGENT</span>' : ''}
+                        ${isTerdaftar ? `<span class="badge" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-weight:800; font-size:0.72rem; padding:2px 8px; border-radius:8px;"><i class="fas fa-user-check"></i> Terdaftar</span>` : `<span class="badge" style="background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; font-weight:800; font-size:0.72rem; padding:2px 8px; border-radius:8px;"><i class="fas fa-user-plus"></i> Belum Terdaftar</span>`}
+                        ${isSistem ? `<span class="badge" style="background:#f5f3ff; color:#7c3aed; border:1px solid #ddd6fe; font-weight:800; font-size:0.72rem; padding:2px 8px; border-radius:8px;"><i class="fas fa-laptop-code"></i> Kendala Sistem</span>` : ''}
+                        ${isUrgent ? `<span class="badge" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:800; font-size:0.68rem; padding:1px 6px; border-radius:6px;"><i class="fas fa-exclamation-triangle"></i> URGENT</span>` : ''}
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
                         ${statusBadge}
@@ -469,35 +532,111 @@ function renderLaporanChat(data) {
     container.scrollTop = prevScrollTop;
 }
 
-window.filterInvestigasi = function (filterType, btn) {
-    window.activeInvestigasiFilter = filterType;
-    if (btn && btn.parentElement) {
-        btn.parentElement.querySelectorAll('button').forEach(b => {
-            b.className = 'btn btn-secondary btn-sm';
-            b.style.color = '';
-            b.style.borderColor = '';
-            b.style.borderRadius = '20px';
-        });
-        btn.className = 'btn btn-primary btn-sm';
-        btn.style.borderRadius = '20px';
+window.switchPanelWargaInvestigasi = function (panelType, btn) {
+    window.activePanelWargaFilter = panelType || 'all';
+
+    const btnAll = document.getElementById('btnPanelWarga_all');
+    const btnTerdaftar = document.getElementById('btnPanelWarga_terdaftar');
+    const btnBelum = document.getElementById('btnPanelWarga_belum');
+
+    [btnAll, btnTerdaftar, btnBelum].forEach(b => {
+        if (b) {
+            b.style.background = 'transparent';
+            b.style.boxShadow = 'none';
+            b.style.fontWeight = '700';
+        }
+    });
+
+    if (btnAll) btnAll.style.color = '#64748b';
+    if (btnTerdaftar) btnTerdaftar.style.color = '#047857';
+    if (btnBelum) btnBelum.style.color = '#c2410c';
+
+    const activeBtn = (panelType === 'terdaftar') ? btnTerdaftar : ((panelType === 'belum') ? btnBelum : btnAll);
+    if (activeBtn) {
+        activeBtn.style.background = '#ffffff';
+        activeBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.08)';
+        activeBtn.style.fontWeight = '800';
+        if (panelType === 'all') activeBtn.style.color = '#0f172a';
     }
 
-    let filtered = window.allLaporanChatData || [];
-    if (filterType === 'urgent') {
-        filtered = filtered.filter(x => (String(x.kategori || '').toLowerCase().includes('urgent')) || (String(x.uraian || '').toLowerCase().includes('urgent')));
-    } else if (filterType === 'sengketa') {
-        filtered = filtered.filter(x => (String(x.kategori || '').toLowerCase().includes('sengketa')) || (String(x.kategori || '').toLowerCase().includes('salur')));
-    } else if (filterType === 'selesai') {
-        filtered = filtered.filter(x => x.status === 'Selesai' || x.status_step === 4 || String(x.status_text || '').toLowerCase().includes('selesai'));
-    } else if (filterType === 'proses') {
-        filtered = filtered.filter(x => x.status !== 'Selesai' && x.status_step !== 4 && !String(x.status_text || '').toLowerCase().includes('selesai'));
+    const badge = document.getElementById('panelWargaInfoBadge');
+    if (badge) {
+        if (panelType === 'terdaftar') {
+            badge.innerHTML = '<i class="fas fa-user-check text-success"></i> Panel Khusus: Menampilkan aduan warga yang telah terdaftar dalam database bansos (KPM).';
+        } else if (panelType === 'belum') {
+            badge.innerHTML = '<i class="fas fa-user-plus text-warning"></i> Panel Khusus: Menampilkan aduan kendala dari warga yang belum mendaftar / pemohon baru.';
+        } else {
+            badge.innerHTML = '<i class="fas fa-info-circle text-primary"></i> Menampilkan semua aduan warga terdata maupun pemohon baru.';
+        }
     }
-    renderLaporanChat(filtered);
+
+    window.applyCombinedInvestigasiFilter();
+};
+
+window.filterInvestigasi = function (filterType, btn) {
+    window.activeInvestigasiFilter = filterType || 'all';
+
+    const filterBtns = [
+        { id: 'btnFilterInv_all', color: '' },
+        { id: 'btnFilterInv_proses', color: '#d97706' },
+        { id: 'btnFilterInv_urgent', color: '#dc2626' },
+        { id: 'btnFilterInv_sistem', color: '#7c3aed' },
+        { id: 'btnFilterInv_sengketa', color: '' },
+        { id: 'btnFilterInv_selesai', color: '#16a34a' }
+    ];
+
+    filterBtns.forEach(item => {
+        const b = document.getElementById(item.id);
+        if (b) {
+            b.className = 'btn btn-secondary btn-sm';
+            b.style.color = item.color;
+            b.style.borderRadius = '20px';
+            b.style.fontWeight = '700';
+            b.style.borderColor = '';
+        }
+    });
+
+    const curBtn = btn || document.getElementById('btnFilterInv_' + filterType);
+    if (curBtn) {
+        curBtn.className = 'btn btn-primary btn-sm';
+        curBtn.style.color = '#ffffff';
+        curBtn.style.borderRadius = '20px';
+        curBtn.style.fontWeight = '800';
+    }
+
+    window.applyCombinedInvestigasiFilter();
 };
 
 window.filterInvestigasiSearch = function (query) {
-    const q = (query || '').toLowerCase().trim();
+    window.activeSearchInvestigasiQuery = query || '';
+    window.applyCombinedInvestigasiFilter();
+};
+
+window.applyCombinedInvestigasiFilter = function () {
     let list = window.allLaporanChatData || [];
+
+    // 1. Filter Panel Status Kepesertaan Warga
+    if (window.activePanelWargaFilter === 'terdaftar') {
+        list = list.filter(x => window.isWargaRegistered(x));
+    } else if (window.activePanelWargaFilter === 'belum') {
+        list = list.filter(x => !window.isWargaRegistered(x));
+    }
+
+    // 2. Filter Kategori Aduan
+    if (window.activeInvestigasiFilter === 'urgent') {
+        list = list.filter(x => window.isItemUrgent(x));
+    } else if (window.activeInvestigasiFilter === 'sistem') {
+        list = list.filter(x => window.isSystemIssue(x));
+    } else if (window.activeInvestigasiFilter === 'sengketa') {
+        list = list.filter(x => (String(x.kategori || '').toLowerCase().includes('sengketa')) || (String(x.kategori || '').toLowerCase().includes('salur')));
+    } else if (window.activeInvestigasiFilter === 'selesai') {
+        list = list.filter(x => window.isSelesaiAduan(x));
+    } else if (window.activeInvestigasiFilter === 'proses') {
+        list = list.filter(x => !window.isSelesaiAduan(x));
+    }
+
+    // 3. Filter Search Input
+    const q = (window.activeSearchInvestigasiQuery || '').toLowerCase().trim();
     if (q) {
         list = list.filter(item => 
             String(item.nik || '').includes(q) ||
@@ -507,6 +646,7 @@ window.filterInvestigasiSearch = function (query) {
             String(item.id || '').toLowerCase().includes(q)
         );
     }
+
     renderLaporanChat(list);
 };
 
@@ -528,6 +668,10 @@ window.closeLightbox = function (e) {
 };
 
 window.bukaWilayahDetail = function (kecamatanNama) {
+    if (typeof window.bukaRincianWilayah === 'function') {
+        window.bukaRincianWilayah(kecamatanNama || 'Sidoarjo');
+        return;
+    }
     const modal = document.getElementById('modalWilayahDetail');
     const titleEl = document.getElementById('modalWilayahTitle');
     const tbody = document.getElementById('wilayahDetailTbody');
@@ -546,8 +690,8 @@ window.bukaWilayahDetail = function (kecamatanNama) {
                 <td><b>${window.safeHtml(w.nama)}</b><br><small class="text-muted font-mono">${w.nik}</small></td>
                 <td>${window.safeHtml(w.alamat || '-')}</td>
                 <td style="text-align:center;"><span class="badge badge-blue">Desil ${w.desil || 5}</span></td>
-                <td>${w.status_salur === 'Telah Menerima' ? 'Telah Menerima' : 'Belum Salur'}</td>
-                <td>Rp 600.000,-</td>
+                <td>Awal: Tahap I (Rp 750.000) &rarr; Akhir: Tahap IV (${(w.desil || 5) <= 4 ? 'Rp 750.000' : 'Rp 0'})</td>
+                <td>Total: ${(w.desil || 5) <= 4 ? 'Rp 3.000.000' : 'Rp 2.250.000'} &bull; Tunai PKH/BLT &amp; Sembako Beras 10 Kg</td>
                 <td style="text-align:center;">${w.bukti_salur ? '<i class="fas fa-check text-success"></i>' : '-'}</td>
                 <td style="text-align:center;">${w.lat && w.lng ? `${Number(w.lat).toFixed(4)},${Number(w.lng).toFixed(4)}` : '-'}</td>
             </tr>

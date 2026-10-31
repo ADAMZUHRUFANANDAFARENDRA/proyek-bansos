@@ -118,3 +118,13 @@ gunicorn_error.log
 ehthumbs.db
 Thumbs.db
 desktop.ini
+
+
+# 13. Kredensial Database Lokal, Token & File Pengujian Sementara
+mysql-config.json
+valid_token.txt
+scratch/
+
+# Folder unggahan media lokal
+uploads/*
+!uploads/.gitkeep

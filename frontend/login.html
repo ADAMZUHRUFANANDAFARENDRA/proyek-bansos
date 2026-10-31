@@ -418,6 +418,105 @@
             .login-header-title { font-size: 1.75rem; }
         }
     </style>
+
+    <!-- Styling Panduan Login Interaktif & Spotlight Penunjuk Arah -->
+    <style>
+        .login-guide-spotlight {
+            position: relative !important;
+            box-shadow: 0 0 0 4px #009846, 0 0 30px rgba(0, 152, 70, 0.55) !important;
+            border-color: #009846 !important;
+            border-radius: 14px !important;
+            animation: guideSpotlightPulse 1.6s infinite alternate !important;
+            z-index: 1000 !important;
+        }
+
+        @keyframes guideSpotlightPulse {
+            0% { box-shadow: 0 0 0 3px #009846, 0 0 16px rgba(0, 152, 70, 0.4); transform: scale(1); }
+            100% { box-shadow: 0 0 0 6px #10b981, 0 0 32px rgba(16, 185, 129, 0.7); transform: scale(1.018); }
+        }
+
+        .btn-guide-step-pill {
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            padding: 3px 9px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-guide-step-pill:hover, .btn-guide-step-pill.active {
+            background: #009846;
+            color: #ffffff;
+            border-color: #009846;
+            box-shadow: 0 2px 6px rgba(0, 152, 70, 0.3);
+        }
+
+        .btn-guide-direct {
+            background: #f8fafc;
+            color: #0284c7;
+            border: 1.5px solid #bae6fd;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 0.76rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            margin-top: 8px;
+        }
+
+        .btn-guide-direct:hover {
+            background: #0284c7;
+            color: #ffffff;
+            border-color: #0284c7;
+            box-shadow: 0 3px 8px rgba(2, 132, 199, 0.25);
+            transform: translateY(-1px);
+        }
+
+        /* Floating interactive guide balloon */
+        #loginGuideFloatingBalloon {
+            position: absolute;
+            z-index: 100001;
+            background: #ffffff;
+            border: 2px solid #009846;
+            border-radius: 18px;
+            padding: 16px 18px;
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(0, 152, 70, 0.15);
+            max-width: 390px;
+            width: calc(100% - 32px);
+            box-sizing: border-box;
+            animation: cardFade 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #loginGuideFloatingBalloon::before {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: #ffffff;
+            border: 2px solid #009846;
+            transform: rotate(45deg);
+        }
+
+        #loginGuideFloatingBalloon.balloon-bottom::before {
+            top: -9px;
+            left: 40px;
+            border-bottom: none;
+            border-right: none;
+        }
+
+        #loginGuideFloatingBalloon.balloon-top::before {
+            bottom: -9px;
+            left: 40px;
+            border-top: none;
+            border-left: none;
+        }
+    </style>
 </head>
 <body class="page-login" style="padding-top:70px;">
     <script>
@@ -444,8 +543,13 @@
             </div>
         </div>
 
-        <div class="header-badge-sub" style="font-size:0.76rem; font-weight:700; color:#1e293b; background:#f8fafc; border:1px solid #e2e8f0; padding:6px 14px; border-radius:20px;">
-            Lingkungan Terenkripsi &bull; Akses Khusus Pegawai
+        <div style="display:flex; align-items:center; gap:10px;">
+            <button type="button" id="btnHeaderPanduanLogin" onclick="window.panduanArahkanKe('role')" style="background:linear-gradient(135deg, #0f172a, #1e293b); color:#ffffff; border:1.5px solid #334155; padding:8px 18px; border-radius:20px; font-size:0.78rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 3px 10px rgba(15,23,42,0.18); transition:all 0.2s;" title="Mulai Panduan Login Petugas (Arahkan Langsung ke Kotak Formulir)">
+                Panduan Login Petugas
+            </button>
+            <div class="header-badge-sub" style="font-size:0.76rem; font-weight:700; color:#1e293b; background:#f8fafc; border:1px solid #e2e8f0; padding:6px 14px; border-radius:20px;">
+                Lingkungan Terenkripsi &bull; Akses Khusus Petugas
+            </div>
         </div>
     </header>
 
@@ -536,7 +640,7 @@
                 MASUK DASHBOARD APARATUR
             </button>
 
-            <div style="margin-top:16px; text-align:center; font-size:0.74rem; color:#94a3b8; line-height:1.4;">
+            <div style="margin-top:12px; text-align:center; font-size:0.74rem; color:#94a3b8; line-height:1.4;">
                 Akses terbatas aparatur resmi Dinas Sosial Kabupaten Sidoarjo.
             </div>
         </form>
@@ -1245,6 +1349,343 @@
                     confirmButtonColor: '#ef4444'
                 });
             }
+        };
+    </script>
+
+    <!-- =========================================================================
+         MODAL PANDUAN LOGIN AKSES PETUGAS & APARATUR DINAS SOSIAL (INTERAKTIF)
+         ========================================================================= -->
+    <div id="modalPanduanLoginPetugas" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.7); backdrop-filter:blur(8px); z-index:999999; justify-content:center; align-items:center; padding:24px 16px; box-sizing:border-box;" onclick="if(event.target===this) window.tutupModalPanduanLoginPetugas()">
+        <div style="background:#ffffff; border-radius:24px; width:100%; max-width:620px; max-height:90vh; box-shadow:0 25px 60px -15px rgba(0,0,0,0.35); border:1.5px solid #cbd5e1; display:flex; flex-direction:column; overflow:hidden; animation:cardFade 0.2s ease-out; margin:auto;">
+            <!-- Header Panduan -->
+            <div style="background:linear-gradient(135deg, #0f172a, #1e293b); color:#ffffff; padding:18px 24px; display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg, #009846, #047857); color:white; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">
+                        <i class="fas fa-book-reader"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin:0; font-size:1.1rem; font-weight:800; color:#ffffff;">Panduan Akses Masuk Aparatur Dinas</h3>
+                        <p style="margin:0; font-size:0.75rem; color:#94a3b8;">Sistem Informasi Pelayanan Bantuan Sosial (SIP-BANSOS) Kab. Sidoarjo</p>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button type="button" onclick="window.panduanArahkanKe('role')" style="background:linear-gradient(135deg, #009846, #047857); color:#ffffff; border:none; padding:7px 15px; border-radius:20px; font-size:0.75rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 3px 8px rgba(0,152,70,0.35);">
+                        <i class="fas fa-play-circle"></i> Mulai Tur Pemandu &rarr;
+                    </button>
+                    <button type="button" onclick="window.tutupModalPanduanLoginPetugas()" style="background:rgba(255,255,255,0.15); border:none; font-size:1.3rem; color:#ffffff; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer;">&times;</button>
+                </div>
+            </div>
+
+            <!-- Body Panduan (Scrollable) -->
+            <div style="padding:22px 24px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px; background:#f8fafc;">
+                
+                <!-- BANNER FITUR INTERAKTIF -->
+                <div style="background:linear-gradient(135deg, #ecfdf5, #d1fae5); border:1.5px solid #86efac; border-radius:14px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:1.4rem;">🎯</span>
+                        <div>
+                            <div style="font-size:0.82rem; font-weight:800; color:#065f46;">Panduan Interaktif Langsung ke Formulir</div>
+                            <div style="font-size:0.74rem; color:#047857;">Klik tombol pada tiap langkah untuk langsung menyorot posisi kolom di layar Anda.</div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="window.panduanArahkanKe('role')" style="background:#009846; color:#ffffff; border:none; padding:7px 14px; border-radius:10px; font-size:0.75rem; font-weight:800; cursor:pointer; white-space:nowrap; box-shadow:0 2px 6px rgba(0,152,70,0.25);">
+                        Mulai Langkah 1 &rarr;
+                    </button>
+                </div>
+
+                <!-- 1. Kategori Role -->
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                    <div style="font-weight:800; font-size:0.92rem; color:#0f172a; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="width:24px; height:24px; border-radius:50%; background:#e0f2fe; color:#0284c7; display:inline-flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:800;">1</span>
+                            <span>Pilih Kategori Akses Kedinasan</span>
+                        </div>
+                        <span style="font-size:0.68rem; font-weight:800; background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:8px;">Bagian Atas Formulir</span>
+                    </div>
+                    <p style="font-size:0.82rem; color:#64748b; margin:0 0 10px 0; line-height:1.45;">
+                        Sebelum memasukkan kredensial, tentukan salah satu dari 3 kategori hak akses aparatur sesuai SK tugas Anda:
+                    </p>
+                    <div style="display:flex; flex-direction:column; gap:8px; font-size:0.8rem; margin-bottom:10px;">
+                        <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:8px 12px; color:#991b1b;">
+                            <b>🛡️ Super Admin:</b> Otoritas tertinggi pengelola sistem, perumusan bobot BWM, manajemen akun aparatur, dan penetapan SK Bupati.
+                        </div>
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:8px 12px; color:#166534;">
+                            <b>👤 Admin Bansos:</b> Pengelolaan basis data arsip warga, impor data Excel/Word/PDF, audit komputasi SAW, dan penanganan sengketa.
+                        </div>
+                        <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:8px 12px; color:#075985;">
+                            <b>📋 Petugas:</b> Verifikasi faktual lapangan, peninjauan kelayakan fisik rumah tangga kependudukan, serta mediasi obrolan langsung & panggilan dinas.
+                        </div>
+                    </div>
+                    <button type="button" class="btn-guide-direct" onclick="window.panduanArahkanKe('role')">
+                        <i class="fas fa-crosshairs text-sky-500"></i> Arahkan & Tunjukkan Tombol Kategori Akses di Formulir &rarr;
+                    </button>
+                </div>
+
+                <!-- 2. Kredensial Login -->
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                    <div style="font-weight:800; font-size:0.92rem; color:#0f172a; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="width:24px; height:24px; border-radius:50%; background:#e0f2fe; color:#0284c7; display:inline-flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:800;">2</span>
+                            <span>Kredensial Username & Kata Sandi</span>
+                        </div>
+                        <span style="font-size:0.68rem; font-weight:800; background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:8px;">Kolom Tengah</span>
+                    </div>
+                    <p style="font-size:0.82rem; color:#64748b; margin:0 0 10px 0; line-height:1.45;">
+                        Masukkan username resmi kedinasan dan kata sandi yang telah didaftarkan. Gunakan tombol mata di samping kolom kata sandi untuk memeriksa ejaan teks sandi.
+                    </p>
+                    <button type="button" class="btn-guide-direct" onclick="window.panduanArahkanKe('kredensial')">
+                        <i class="fas fa-crosshairs text-sky-500"></i> Arahkan & Tunjukkan Kolom Username & Sandi &rarr;
+                    </button>
+                </div>
+
+                <!-- 3. Verifikasi Captcha Matematika -->
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                    <div style="font-weight:800; font-size:0.92rem; color:#0f172a; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="width:24px; height:24px; border-radius:50%; background:#e0f2fe; color:#0284c7; display:inline-flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:800;">3</span>
+                            <span>Verifikasi Keamanan Captcha Matematika</span>
+                        </div>
+                        <span style="font-size:0.68rem; font-weight:800; background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:8px;">Kotak Kuning/Oranye</span>
+                    </div>
+                    <p style="font-size:0.82rem; color:#64748b; margin:0 0 10px 0; line-height:1.45;">
+                        Ketik hasil perhitungan matematika sederhana yang ditampilkan pada kartu captcha (contoh: <code>6 + 4 = 10</code>) untuk memvalidasi bahwa sesi dilakukan oleh manusia, bukan bot.
+                    </p>
+                    <button type="button" class="btn-guide-direct" onclick="window.panduanArahkanKe('captcha')">
+                        <i class="fas fa-crosshairs text-sky-500"></i> Arahkan & Tunjukkan Kotak Captcha &rarr;
+                    </button>
+                </div>
+
+                <!-- 4. Tombol Masuk / Login -->
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                    <div style="font-weight:800; font-size:0.92rem; color:#0f172a; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="width:24px; height:24px; border-radius:50%; background:#e0f2fe; color:#0284c7; display:inline-flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:800;">4</span>
+                            <span>Tombol Masuk Dashboard & Proteksi Brute-Force</span>
+                        </div>
+                        <span style="font-size:0.68rem; font-weight:800; background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:8px;">Tombol Hijau Utama</span>
+                    </div>
+                    <p style="font-size:0.82rem; color:#64748b; margin:0 0 10px 0; line-height:1.45;">
+                        Tekan tombol hijau <b>"MASUK DASHBOARD APARATUR"</b> setelah seluruh data terisi. Sistem membatasi percobaan salah maksimal 5 kali berturut-turut untuk melindungi akun Anda.
+                    </p>
+                    <button type="button" class="btn-guide-direct" onclick="window.panduanArahkanKe('submit')">
+                        <i class="fas fa-crosshairs text-sky-500"></i> Arahkan & Tunjukkan Tombol Masuk &rarr;
+                    </button>
+                </div>
+
+                <!-- 5. Lupa Sandi & Pemulihan Akun -->
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                    <div style="font-weight:800; font-size:0.92rem; color:#0f172a; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="width:24px; height:24px; border-radius:50%; background:#e0f2fe; color:#0284c7; display:inline-flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:800;">5</span>
+                            <span>Lupa Sandi & Pemulihan Akun Darurat</span>
+                        </div>
+                        <span style="font-size:0.68rem; font-weight:800; background:#fef2f2; color:#dc2626; padding:2px 8px; border-radius:8px;">Darurat</span>
+                    </div>
+                    <p style="font-size:0.82rem; color:#64748b; margin:0 0 10px 0; line-height:1.45;">
+                        Apabila Anda lupa kata sandi atau kehilangan akses, klik tautan <b>"Lupa Sandi?"</b> untuk membuka modal pemulihan akun darurat dengan kunci otoritas kedinasan.
+                    </p>
+                    <button type="button" class="btn-guide-direct" onclick="window.panduanArahkanKe('lupa_sandi')">
+                        <i class="fas fa-key text-red-500"></i> Tunjukkan Letak Tombol Lupa Sandi &rarr;
+                    </button>
+                </div>
+
+                <!-- 6. Navigasi ke Portal Publik -->
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                    <div style="font-weight:800; font-size:0.92rem; color:#0f172a; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+                        <span style="width:24px; height:24px; border-radius:50%; background:#e0f2fe; color:#0284c7; display:inline-flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:800;">6</span>
+                        <span>Akses Portal Layanan Warga (Publik)</span>
+                    </div>
+                    <p style="font-size:0.82rem; color:#64748b; margin:0 0 10px 0; line-height:1.45;">
+                        Untuk memeriksa alur pelayanan dari sisi masyarakat (cek NIK, pendaftaran mandiri, atau pantauan aduan warga), Anda dapat beralih ke Portal Publik kapan saja:
+                    </p>
+                    <a href="publik.html" style="display:inline-flex; align-items:center; gap:6px; background:#e6f9f0; color:#007a37; border:1px solid #a7f3d0; padding:8px 16px; border-radius:10px; font-weight:800; font-size:0.8rem; text-decoration:none;">
+                        <i class="fas fa-external-link-alt"></i> Menuju Portal Layanan Bantuan Sosial &rarr;
+                    </a>
+                </div>
+            </div>
+
+            <!-- Footer Panduan -->
+            <div style="padding:14px 24px; background:#ffffff; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:0.75rem; color:#64748b;">
+                    <i class="fas fa-info-circle text-sky-500"></i> Gunakan tombol pemandu di tiap langkah untuk navigasi langsung.
+                </span>
+                <button type="button" onclick="window.tutupModalPanduanLoginPetugas()" style="background:#009846; color:#ffffff; border:none; border-radius:12px; padding:9px 24px; font-size:0.84rem; font-weight:800; cursor:pointer;">
+                    Mengerti & Kembali ke Login
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Kontrol Panduan Login Interaktif -->
+    <script>
+        window.bukaModalPanduanLoginPetugas = function () {
+            window.bersihkanPanduanSpotlight();
+            const m = document.getElementById('modalPanduanLoginPetugas');
+            if (m) m.style.display = 'flex';
+        };
+
+        window.tutupModalPanduanLoginPetugas = function () {
+            const m = document.getElementById('modalPanduanLoginPetugas');
+            if (m) m.style.display = 'none';
+        };
+
+        window.bersihkanPanduanSpotlight = function () {
+            document.querySelectorAll('.login-guide-spotlight').forEach(el => {
+                el.classList.remove('login-guide-spotlight');
+            });
+            const oldBalloon = document.getElementById('loginGuideFloatingBalloon');
+            if (oldBalloon) oldBalloon.remove();
+        };
+
+        window.panduanArahkanKe = function (stepKey) {
+            window.tutupModalPanduanLoginPetugas();
+            window.bersihkanPanduanSpotlight();
+
+            const steps = {
+                role: {
+                    selector: '#rolePresetsContainer',
+                    stepNumber: 'Kotak 1 dari 5',
+                    title: 'KOTAK 1: PILIH KATEGORI AKSES APARATUR',
+                    desc: 'Tentukan kategori akses kedinasan Anda: Super Admin (merah), Admin Bansos (hijau), atau Petugas (biru) sesuai SK penugasan Anda sebelum mengisi formulir.',
+                    prevKey: null,
+                    nextKey: 'username',
+                    focusInput: null
+                },
+                username: {
+                    selector: '#username',
+                    stepNumber: 'Kotak 2 dari 5',
+                    title: 'KOTAK 2: USERNAME PEGAWAI',
+                    desc: 'Ketikkan username pegawai resmi yang telah didaftarkan oleh Dinas Sosial (contoh: superadmin, admin_bansos, atau petugas1).',
+                    prevKey: 'role',
+                    nextKey: 'password',
+                    focusInput: '#username'
+                },
+                password: {
+                    selector: '#password',
+                    stepNumber: 'Kotak 3 dari 5',
+                    title: 'KOTAK 3: KATA SANDI AKSES',
+                    desc: 'Ketikkan kata sandi Anda. Anda dapat mengeklik ikon mata di kanan untuk memeriksa teks sandi, atau klik \'Lupa Sandi?\' jika perlu pemulihan akun darurat.',
+                    prevKey: 'username',
+                    nextKey: 'captcha',
+                    focusInput: '#password'
+                },
+                captcha: {
+                    selector: '#captchaBox',
+                    stepNumber: 'Kotak 4 dari 5',
+                    title: 'KOTAK 4: CAPTCHA KEAMANAN SIBER',
+                    desc: 'Hitung hasil soal matematika sederhana yang ditampilkan pada kartu kuning ini (contoh: 8 + 6 = 14) lalu ketik hasilnya pada kolom \'Hasil?\'.',
+                    prevKey: 'password',
+                    nextKey: 'submit',
+                    focusInput: '#captchaAnswer'
+                },
+                submit: {
+                    selector: '#btnSubmit',
+                    stepNumber: 'Kotak 5 dari 5',
+                    title: 'KOTAK 5: TOMBOL MASUK DASHBOARD',
+                    desc: 'Setelah seluruh kotak di atas terisi dengan lengkap dan benar, tekan tombol hijau ini untuk masuk langsung ke sistem operasional Bansos Sidoarjo.',
+                    prevKey: 'captcha',
+                    nextKey: null,
+                    focusInput: null
+                },
+                lupa_sandi: {
+                    selector: '.link-forgot-pass',
+                    stepNumber: 'Bantuan Darurat',
+                    title: 'TAUTAN PEMULIHAN AKUN (LUPA SANDI)',
+                    desc: 'Klik tautan ini jika Anda lupa kata sandi atau akun aparatur terkunci untuk membuka formulir pemulihan darurat menggunakan Kunci Otoritas Dinsos.',
+                    prevKey: 'password',
+                    nextKey: null,
+                    focusInput: null
+                }
+            };
+
+            const targetInfo = steps[stepKey];
+            if (!targetInfo) return;
+
+            const targetEl = document.querySelector(targetInfo.selector);
+            if (!targetEl) return;
+
+            // Tambahkan efek sorotan spotlight menyala
+            targetEl.classList.add('login-guide-spotlight');
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            if (targetInfo.focusInput) {
+                setTimeout(() => {
+                    const inp = document.querySelector(targetInfo.focusInput);
+                    if (inp) inp.focus();
+                }, 400);
+            }
+
+            // Buat floating interactive guide balloon
+            setTimeout(() => {
+                const rect = targetEl.getBoundingClientRect();
+                const scrollY = window.scrollY || window.pageYOffset;
+                const scrollX = window.scrollX || window.pageXOffset;
+
+                const balloon = document.createElement('div');
+                balloon.id = 'loginGuideFloatingBalloon';
+
+                // Tentukan posisi balloon di atas atau bawah target
+                const spaceBelow = window.innerHeight - rect.bottom;
+                const placeBelow = spaceBelow > 240 || rect.top < 240;
+
+                const leftPos = Math.max(16, Math.min(window.innerWidth - 406, rect.left + scrollX - 16));
+                balloon.style.left = leftPos + 'px';
+                balloon.style.visibility = 'hidden';
+
+                balloon.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+                        <span style="font-size:0.7rem; font-weight:800; background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:10px; border:1px solid #86efac; display:inline-flex; align-items:center; gap:4px;">
+                            <i class="fas fa-crosshairs"></i> ${targetInfo.stepNumber}
+                        </span>
+                        <button type="button" onclick="window.bersihkanPanduanSpotlight()" style="background:none; border:none; font-size:1.2rem; color:#94a3b8; cursor:pointer; line-height:1;" title="Tutup Panduan">&times;</button>
+                    </div>
+
+                    <!-- Quick Jump Step Pills -->
+                    <div style="display:flex; gap:4px; margin-bottom:8px; flex-wrap:wrap;">
+                        <button type="button" class="btn-guide-step-pill ${stepKey==='role'?'active':''}" onclick="window.panduanArahkanKe('role')">1. Kategori</button>
+                        <button type="button" class="btn-guide-step-pill ${stepKey==='username'?'active':''}" onclick="window.panduanArahkanKe('username')">2. Username</button>
+                        <button type="button" class="btn-guide-step-pill ${stepKey==='password'?'active':''}" onclick="window.panduanArahkanKe('password')">3. Sandi</button>
+                        <button type="button" class="btn-guide-step-pill ${stepKey==='captcha'?'active':''}" onclick="window.panduanArahkanKe('captcha')">4. Captcha</button>
+                        <button type="button" class="btn-guide-step-pill ${stepKey==='submit'?'active':''}" onclick="window.panduanArahkanKe('submit')">5. Masuk</button>
+                    </div>
+
+                    <div style="font-size:0.86rem; font-weight:800; color:#0f172a; margin-bottom:4px;">
+                        ${targetInfo.title}
+                    </div>
+                    <div style="font-size:0.77rem; color:#475569; line-height:1.45; margin-bottom:12px;">
+                        ${targetInfo.desc}
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; justify-content:flex-end;">
+                        ${targetInfo.prevKey ? `
+                        <button type="button" onclick="window.panduanArahkanKe('${targetInfo.prevKey}')" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:10px; padding:7px 14px; font-size:0.75rem; font-weight:700; cursor:pointer;">
+                            &larr; Kembali
+                        </button>
+                        ` : ''}
+                        ${targetInfo.nextKey ? `
+                        <button type="button" onclick="window.panduanArahkanKe('${targetInfo.nextKey}')" style="background:linear-gradient(135deg, #009846, #047857); color:#ffffff; border:none; border-radius:10px; padding:7px 16px; font-size:0.76rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 3px 8px rgba(0,152,70,0.25);">
+                            Lanjut Langkah Berikutnya &rarr;
+                        </button>
+                        ` : `
+                        <button type="button" onclick="window.bersihkanPanduanSpotlight()" style="background:linear-gradient(135deg, #009846, #047857); color:#ffffff; border:none; border-radius:10px; padding:7px 16px; font-size:0.76rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                            <i class="fas fa-check"></i> Selesai &amp; Mulai Login
+                        </button>
+                        `}
+                    </div>
+                `;
+
+                document.body.appendChild(balloon);
+
+                let topPos = 0;
+                if (placeBelow) {
+                    balloon.className = 'balloon-bottom';
+                    topPos = rect.bottom + scrollY + 14;
+                } else {
+                    balloon.className = 'balloon-top';
+                    topPos = rect.top + scrollY - balloon.offsetHeight - 14;
+                }
+                balloon.style.top = topPos + 'px';
+                balloon.style.visibility = 'visible';
+            }, 300);
         };
     </script>
 </body>

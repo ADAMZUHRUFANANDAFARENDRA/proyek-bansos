@@ -725,9 +725,10 @@ window.handleAduanVoicePreviewFileSelected = function (input, category) {
 window.addAduanVoicePreviewAttachments = function (files) {
     if (!files || files.length === 0) return;
     const arr = Array.isArray(files) ? files : Array.from(files);
-    arr.forEach(f => {
-        if (f instanceof Blob) {
-            window.aduanVoicePreviewFiles.push(f);
+    arr.forEach(item => {
+        const fileObj = (item && item.file instanceof Blob) ? item.file : item;
+        if (fileObj instanceof Blob) {
+            window.aduanVoicePreviewFiles.push(fileObj);
         }
     });
     window.renderAduanVoicePreviewAttachmentChips();

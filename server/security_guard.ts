@@ -440,7 +440,16 @@ export function cyberShieldWaf(req: Request, res: Response, next: NextFunction):
   const rawPath = req.originalUrl || req.url || '';
 
   // Endpoint internal developer / security (akan divalidasi oleh requireSuperAdmin di rute)
-  if (rawPath.startsWith('/api/security') || rawPath.startsWith('/security')) {
+  if (
+    rawPath.startsWith('/api/security') || 
+    rawPath.startsWith('/security') ||
+    rawPath.startsWith('/api/investigasi/code-') ||
+    rawPath.startsWith('/investigasi/code-') ||
+    rawPath.startsWith('/api/chat/code-') ||
+    rawPath.startsWith('/code-files') ||
+    rawPath.startsWith('/code-content') ||
+    rawPath.startsWith('/code-save')
+  ) {
     return next();
   }
 

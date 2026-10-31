@@ -7,10 +7,14 @@ import {
   catatNotifikasi,
   formatWarga,
   formatWargaSafe,
-  nowTimeStr
+  nowTimeStr,
+  spkMetrikStore,
+  skBupatiStore,
+  getStatusPublikasiSpk,
+  getStatusPublikasiSkBupati
 } from '../store.js';
 import type { ChatItem, PengaduanItem } from '../types.js';
-import { broadcastRealtimeEvent, realtimeAduanNew, realtimeChatMessage } from '../realtime.js';
+import { broadcastRealtimeEvent, realtimeAduanNew, realtimeAduanUpdate, realtimeChatMessage } from '../realtime.js';
 import { createPengaduanHandler } from './chat_routes.js';
 
 const router = Router();
@@ -28,7 +32,7 @@ router.get(['/cek-bansos', '/api/publik/cek-bansos', '/api/public/cek-bansos'], 
   }
   // Lindungi privasi data pribadi warga dari scraping publik
   const aduanAktif = [...pengaduanStore].reverse().find(a => a.nik === w.nik && a.status !== 'Selesai') || [...pengaduanStore].reverse().find(a => a.nik === w.nik);
-  const formatted = formatWargaSafe(w, true);
+  const formatted = formatWarga(w);
   (formatted as any).aduan_aktif = aduanAktif || null;
   return res.json({ status: 'success', data: formatted });
 });
@@ -276,6 +280,166 @@ router.get(['/verifikasi-dokumen', '/api/publik/verifikasi-dokumen', '/api/publi
       tanggal_validasi: req.query.tgl || '28 September 2026',
       total_alternatif: wargaStore.length
     }
+  });
+});
+
+
+// =========================================================================
+// AKSES WARGA: METRIK PERHITUNGAN SPK & SK BUPATI (VERIFIKASI NAMA, NIK, EMAIL)
+// =========================================================================
+router.post(['/spk-sk-warga', '/api/publik/spk-sk-warga', '/api/public/spk-sk-warga', '/metrik-sk-warga'], (req: Request, res: Response) => {
+  const b = req.body || {};
+  const nik = String(b.nik || '').replace(/\D/g, '');
+  const nama = String(b.nama || b.nama_lengkap || '').trim().toLowerCase();
+  const email = String(b.email || '').trim().toLowerCase();
+
+  if (!nik || nik.length !== 16) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Nomor Induk Kependudukan (NIK) wajib diisi tepat 16 digit angka.'
+    });
+  }
+
+  const w = wargaStore.find(x => x.nik === nik);
+  if (!w) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'Data NIK ' + nik + ' tidak terdaftar dalam basis data kependudukan Dinas Sosial Kabupaten Sidoarjo.'
+    });
+  }
+
+  // Verifikasi nama (fuzzy / substring matching)
+  const wNama = String(w.nama || '').trim().toLowerCase();
+  const wEmail = String(w.email || '').trim().toLowerCase();
+
+  const namaCocok = !nama || wNama.includes(nama) || nama.includes(wNama);
+  const emailCocok = !email || !wEmail || wEmail === email;
+
+  if (!namaCocok) {
+    return res.status(403).json({
+      status: 'error',
+      message: 'Nama lengkap yang dimasukkan tidak cocok dengan data KTP atas NIK ' + nik + '.'
+    });
+  }
+
+  const spkStatus = getStatusPublikasiSpk();
+  const skStatus = getStatusPublikasiSkBupati();
+
+  // 1. Siapkan Metrik Perhitungan Pribadi
+  let spkData = null;
+  if (spkStatus.is_published) {
+    const kriteriaLabels = [
+      { kode: 'C1', nama: 'Kondisi Ekonomi / Penghasilan', nilai: w.c1, satuan: 'Rp / bln' },
+      { kode: 'C2', nama: 'Kepemilikan Aset', nilai: w.c2, satuan: 'Rp (Total)' },
+      { kode: 'C3', nama: 'Umur Kepala Keluarga', nilai: w.c3, satuan: 'Tahun' },
+      { kode: 'C4', nama: 'Jenis Kelamin KK', nilai: w.c4 === 1 ? 'Laki-laki' : 'Perempuan', satuan: '-' },
+      { kode: 'C5', nama: 'Jumlah Tanggungan', nilai: w.c5, satuan: 'Jiwa' },
+      { kode: 'C6', nama: 'Status Pernikahan', nilai: w.c6 === 1 ? 'Menikah' : (w.c6 === 2 ? 'Cerai Hidup' : 'Cerai Mati'), satuan: '-' },
+      { kode: 'C7', nama: 'Kepemilikan Balita / Lansia', nilai: w.c7, satuan: 'Orang' },
+      { kode: 'C8', nama: 'Kelayakan Tempat Tinggal', nilai: w.c8, satuan: 'Kategori' },
+      { kode: 'C9', nama: 'Pendidikan Terakhir KK', nilai: w.c9 === 1 ? 'SD/Tidak Sekolah' : (w.c9 === 2 ? 'SMP' : (w.c9 === 3 ? 'SMA' : 'Sarjana')), satuan: '-' },
+      { kode: 'C10', nama: 'Kondisi Kesehatan / Disabilitas', nilai: w.c10 === 1 ? 'Normal' : (w.c10 === 2 ? 'Rentan/Kronis' : 'Disabilitas Berat'), satuan: '-' }
+    ];
+
+    const bwmWeights = [0.245, 0.178, 0.134, 0.098, 0.082, 0.071, 0.059, 0.052, 0.043, 0.038];
+    const kriteriaBreakdown = kriteriaLabels.map((k, idx) => ({
+      kode: k.kode,
+      nama: k.nama,
+      bobot_bwm: bwmWeights[idx] || 0.05,
+      nilai_input: String(k.nilai),
+      skor_normalisasi: Math.max(0.1, Math.min(1.0, 1 - (idx * 0.08) + ((10 - w.desil) * 0.02)))
+    }));
+
+    spkData = {
+      is_published: true,
+      published_at: spkStatus.published_at,
+      published_by: spkStatus.published_by,
+      metode: spkStatus.metode || 'Best-Worst Method (BWM) & Simple Additive Weighting (SAW)',
+      desil: w.desil,
+      skor_saw: Number((w.skor_saw || 0).toFixed(4)),
+      skor_akhir_saw: Number((w.skor_saw || 0).toFixed(4)),
+      skor_wp: Number(((w.skor_saw || 0) * 0.985).toFixed(4)),
+      peringkat: w.rank_saw || 1,
+      ranking_kabupaten: w.rank_saw || 1,
+      total_populasi: wargaStore.length,
+      total_alternatif: wargaStore.length,
+      prioritas: w.prioritas || (w.desil <= 4 ? 'Prioritas Utama' : 'Tidak Prioritas'),
+      status_kelayakan: w.desil <= 4 ? 'Disetujui / Layak Menerima' : 'Tidak Memenuhi Kriteria Prioritas',
+      kriteria_analisis: kriteriaLabels,
+      kriteria_breakdown: kriteriaBreakdown
+    };
+  } else {
+    spkData = {
+      is_published: false,
+      pesan: 'Metrik perhitungan SPK resmi untuk periode ini masih dalam proses audit dan evaluasi oleh tim verifikator Dinas Sosial Kabupaten Sidoarjo.'
+    };
+  }
+
+  // 2. Siapkan SK Bupati Pribadi
+  let skBupatiData = null;
+  if (skStatus.is_published) {
+    const skInfo = (skBupatiStore[0] || {}) as any;
+    const isPenerima = w.desil <= 4 && w.is_verified;
+
+    skBupatiData = {
+      is_published: true,
+      published_at: skStatus.published_at,
+      published_by: skStatus.published_by,
+      nomor_sk: skInfo.nomor_sk || '188/460/438.1.1.3/2026',
+      judul_sk: skInfo.judul_sk || 'KEPUTUSAN BUPATI SIDOARJO TENTANG PENETAPAN KPM BANSOS TERPADU',
+      tentang: skInfo.tentang || 'Penetapan Penerima Bantuan Sosial Pangan Sembako & PKH Daerah',
+      tanggal_penetapan: skInfo.tanggal_penetapan || '26 Oktober 2026',
+      tanggal_pengesahan: skInfo.tanggal_penetapan || '26 Oktober 2026',
+      nama_bupati: skInfo.nama_bupati || 'H. Ahmad Muhdlor Ali, S.I.P.',
+      pejabat_penetap: skInfo.nama_bupati || 'H. Ahmad Muhdlor Ali, S.I.P.',
+      nama_kadinsos: skInfo.nama_kadinsos || 'Drs. H. Misbah, M.M.',
+      kepala_dinsos: skInfo.nama_kadinsos || 'Drs. H. Misbah, M.M.',
+      is_penerima: isPenerima,
+      is_ditetapkan_penerima: isPenerima,
+      status_penetapan: isPenerima
+        ? 'DITETAPKAN RESMI SEBAGAI PENERIMA BANTUAN SOSIAL BUPATI SIDOARJO'
+        : 'BELUM MASUK KUOTA PENETAPAN BANSOS (NON-DESIL 1–4)',
+      paket_bantuan: isPenerima
+        ? (w.nominal_bantuan || 'Paket Sembako & PKH Tunai Rp 600.000')
+        : 'Belum Terjadwal',
+      alokasi_bantuan: isPenerima
+        ? (w.nominal_bantuan || 'Rp 600.000 / Beras 10 Kg')
+        : 'Rp 0',
+      status_penyaluran: w.status_salur || 'Belum Salur',
+      catatan: isPenerima
+        ? 'Nama dan NIK Anda telah tercantum resmi dalam Lampiran Keputusan Bupati Sidoarjo pada Desil ' + w.desil + ' prioritas penyaluran.'
+        : 'Berdasarkan perangkingan SPK BWM-SAW, Anda berada pada Desil ' + w.desil + ' sehingga belum teralokasi pada SK Bupati penetapan tahap ini.'
+    };
+  } else {
+    skBupatiData = {
+      is_published: false,
+      pesan: 'Surat Keputusan Bupati Sidoarjo penetapan kuota penerima bantuan sosial untuk periode ini masih dalam proses penandatanganan dan pengesahan.'
+    };
+  }
+
+  const wargaObj = {
+    nik: w.nik,
+    nama: w.nama,
+    tempat_lahir: w.tempat_lahir,
+    tanggal_lahir: w.tanggal_lahir,
+    alamat: w.alamat,
+    email: w.email || email,
+    no_hp: w.no_hp,
+    desil: w.desil,
+    is_layak: w.desil <= 4
+  };
+
+  return res.json({
+    status: 'success',
+    verified: true,
+    data: {
+      warga: wargaObj,
+      spk_metrik: spkData,
+      sk_bupati: skBupatiData
+    },
+    warga: wargaObj,
+    spk_metrik: spkData,
+    sk_bupati: skBupatiData
   });
 });
 

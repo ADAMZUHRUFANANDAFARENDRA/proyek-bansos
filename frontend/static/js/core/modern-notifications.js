@@ -351,32 +351,13 @@ window.dismissModernToast = function (targetEl, ev) {
                 container.style.setProperty('background-color', 'transparent', 'important');
             }
 
-            // 1. Tombol silang (X) terpasang responsif dan menutup modal seketika
+            // 1. Hilangkan tombol silang (X) karena sudah ada tombol aksi/tutup di bawah
             const closeBtns = popup.querySelectorAll('.swal2-close, .swal-close-modern, [aria-label="Close this dialog"]');
             closeBtns.forEach((closeBtn) => {
-                closeBtn.removeAttribute('disabled');
-                closeBtn.setAttribute('title', 'Tutup Notifikasi');
-                closeBtn.setAttribute('aria-label', 'Tutup Notifikasi');
-                closeBtn.style.setProperty('display', 'flex', 'important');
-                closeBtn.style.setProperty('visibility', 'visible', 'important');
-                closeBtn.style.setProperty('opacity', '1', 'important');
-                closeBtn.style.setProperty('cursor', 'pointer', 'important');
-                closeBtn.style.setProperty('pointer-events', 'auto', 'important');
-                closeBtn.style.setProperty('z-index', '999999', 'important');
-
-                closeBtn.onclick = () => {
-                    try {
-                        if (typeof Swal !== 'undefined' && typeof Swal.close === 'function') {
-                            Swal.close();
-                        }
-                    } catch (_) {}
-                    setTimeout(() => {
-                        const c = document.querySelector('.swal2-container');
-                        if (c && (!Swal.isVisible || !Swal.isVisible())) {
-                            c.style.setProperty('display', 'none', 'important');
-                        }
-                    }, 120);
-                };
+                closeBtn.style.setProperty('display', 'none', 'important');
+                closeBtn.style.setProperty('visibility', 'hidden', 'important');
+                closeBtn.style.setProperty('opacity', '0', 'important');
+                closeBtn.style.setProperty('pointer-events', 'none', 'important');
             });
 
             // 2. Tombol konfirmasi responsif dan mengeksekusi onConfirm lalu menutup
@@ -388,6 +369,7 @@ window.dismissModernToast = function (targetEl, ev) {
                 confirmBtn.style.setProperty('opacity', '1', 'important');
                 confirmBtn.style.setProperty('cursor', 'pointer', 'important');
                 confirmBtn.style.setProperty('pointer-events', 'auto', 'important');
+                confirmBtn.style.setProperty('margin', '0', 'important');
                 confirmBtn.style.setProperty('z-index', '999999', 'important');
 
                 confirmBtn.onclick = () => {
@@ -424,10 +406,9 @@ window.dismissModernToast = function (targetEl, ev) {
                 container: 'swal-no-dark-backdrop swal2-center',
                 popup: 'swal-modern-success-popup swal-modern-rounded',
                 confirmButton: 'swal-btn-modern-success swal-btn-pill-confirm swal-btn-pill-oke',
-                closeButton: 'swal-close-modern'
+                closeButton: 'swal-close-btn-hidden'
             },
-            showCloseButton: true,
-            closeButtonHtml: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
+            showCloseButton: false,
             allowOutsideClick: true,
             allowEscapeKey: true,
             timer: timer,
@@ -469,6 +450,19 @@ window.dismissModernToast = function (targetEl, ev) {
 
             // A. KASUS TOAST (toast: true):
             if (typeof firstArg === 'object' && firstArg !== null && firstArg.toast) {
+                try {
+                    const activePopup = typeof Swal.getPopup === 'function' ? Swal.getPopup() : document.querySelector('.swal2-popup');
+                    if (activePopup && !window._isImportProcessing && !window._isProcessingData) {
+                        const isBulkCard = activePopup.classList.contains('swal-modern-loading-card');
+                        if (!isBulkCard) {
+                            if (typeof Swal.close === 'function') Swal.close();
+                            document.querySelectorAll('.swal2-container').forEach(el => {
+                                try { el.remove(); } catch (e) {}
+                            });
+                            document.body.classList.remove('swal2-shown', 'swal2-height-auto', 'swal2-no-backdrop', 'swal2-loading');
+                        }
+                    }
+                } catch (e) {}
                 return createFloatingToast(firstArg);
             }
 
@@ -492,14 +486,24 @@ window.dismissModernToast = function (targetEl, ev) {
                 return showModernSuccessPanel(titleStr, bodyStr);
             }
 
-            // C. ALERT NON-TOAST LAINNYA (error, warning, info, loading):
+            // C. ALERT NON-TOAST LAINNYA (error, warning, info, question, loading):
             if (typeof firstArg === 'object' && firstArg !== null && !firstArg.toast) {
                 if (!firstArg.backdrop || firstArg.backdrop === true) {
                     firstArg.backdrop = 'transparent';
                 }
+                firstArg.showCloseButton = false;
+                firstArg.buttonsStyling = false;
+
                 const existingClass = firstArg.customClass || {};
+                const isCancelShown = Boolean(firstArg.showCancelButton);
+                const isDenyShown = Boolean(firstArg.showDenyButton);
                 firstArg.customClass = Object.assign({}, existingClass, {
-                    container: ((existingClass.container ? existingClass.container + ' ' : '') + 'swal-no-dark-backdrop').trim()
+                    container: ((existingClass.container ? existingClass.container + ' ' : '') + 'swal-no-dark-backdrop').trim(),
+                    popup: existingClass.popup ? existingClass.popup : `swal-modern-rounded ${isCancelShown ? 'swal-has-cancel' : 'swal-no-cancel'}`,
+                    confirmButton: existingClass.confirmButton ? existingClass.confirmButton : 'swal-btn-pill-confirm',
+                    cancelButton: existingClass.cancelButton ? existingClass.cancelButton : (isCancelShown ? 'swal-btn-pill-cancel' : 'swal-btn-hidden-force'),
+                    denyButton: isDenyShown ? (existingClass.denyButton || 'swal-btn-pill-danger') : 'swal-btn-hidden-force',
+                    closeButton: 'swal-close-btn-hidden'
                 });
                 
                 const origOpen = firstArg.didOpen;
@@ -512,21 +516,30 @@ window.dismissModernToast = function (targetEl, ev) {
                             document.body.classList.remove('swal2-loading');
                         }
 
+                        // Pastikan tombol silang (X) di pojok kanan atas selalu disembunyikan agar tidak double fungsi
                         const closeBtns = popup.querySelectorAll('.swal2-close, .swal-close-modern');
                         closeBtns.forEach((closeBtn) => {
-                            closeBtn.removeAttribute('disabled');
-                            closeBtn.style.setProperty('cursor', 'pointer', 'important');
-                            closeBtn.style.setProperty('pointer-events', 'auto', 'important');
-                            closeBtn.style.setProperty('z-index', '999999', 'important');
-                            closeBtn.style.setProperty('display', 'flex', 'important');
-                            closeBtn.onclick = () => {
-                                try {
-                                    if (typeof Swal !== 'undefined' && typeof Swal.close === 'function') {
-                                        Swal.close();
-                                    }
-                                } catch (_) {}
-                            };
+                            closeBtn.style.setProperty('display', 'none', 'important');
+                            closeBtn.style.setProperty('visibility', 'hidden', 'important');
+                            closeBtn.style.setProperty('opacity', '0', 'important');
+                            closeBtn.style.setProperty('pointer-events', 'none', 'important');
                         });
+
+                        if (!isDenyShown) {
+                            const denyBtns = popup.querySelectorAll('.swal2-deny');
+                            denyBtns.forEach((denyBtn) => {
+                                denyBtn.style.setProperty('display', 'none', 'important');
+                                denyBtn.style.setProperty('visibility', 'hidden', 'important');
+                            });
+                        }
+
+                        if (!isCancelShown && !isLoading) {
+                            const cancelBtns = popup.querySelectorAll('.swal2-cancel');
+                            cancelBtns.forEach((cancelBtn) => {
+                                cancelBtn.style.setProperty('display', 'none', 'important');
+                                cancelBtn.style.setProperty('visibility', 'hidden', 'important');
+                            });
+                        }
 
                         const confirmBtns = popup.querySelectorAll('.swal2-confirm, .swal-btn-pill-oke, .swal-btn-pill-confirm, .swal-btn-pill-primary');
                         confirmBtns.forEach((confirmBtn) => {
@@ -534,7 +547,21 @@ window.dismissModernToast = function (targetEl, ev) {
                             confirmBtn.style.setProperty('cursor', 'pointer', 'important');
                             confirmBtn.style.setProperty('pointer-events', 'auto', 'important');
                             confirmBtn.style.setProperty('z-index', '99999999', 'important');
+                            if (!isLoading) {
+                                confirmBtn.style.setProperty('margin', '0', 'important');
+                            }
                         });
+
+                        if (!isLoading && isCancelShown) {
+                            const cancelBtns = popup.querySelectorAll('.swal2-cancel');
+                            cancelBtns.forEach((cancelBtn) => {
+                                cancelBtn.removeAttribute('disabled');
+                                cancelBtn.style.setProperty('cursor', 'pointer', 'important');
+                                cancelBtn.style.setProperty('pointer-events', 'auto', 'important');
+                                cancelBtn.style.setProperty('margin', '0', 'important');
+                                cancelBtn.style.setProperty('z-index', '99999999', 'important');
+                            });
+                        }
                     };
 
                     bindButtons();

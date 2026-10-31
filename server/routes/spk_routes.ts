@@ -3,8 +3,16 @@ import {
   kriteriaStore,
   wargaStore,
   catatNotifikasi,
-  formatWarga
+  formatWarga,
+  spkMetrikStore,
+  skBupatiStore,
+  getStatusPublikasiSpk,
+  setStatusPublikasiSpk,
+  getStatusPublikasiSkBupati,
+  setStatusPublikasiSkBupati
 } from '../store.js';
+import { saveSpkMetrikRealtimeToMysql, saveSkBupatiRealtimeToMysql } from '../../mysql_storage.js';
+import { broadcastRealtimeEvent } from '../realtime.js';
 import {
   parseFloatSafe,
   parseIntSafe,
@@ -21,6 +29,7 @@ router.get(['/init-kriteria', '/api/init-kriteria'], (_req: Request, res: Respon
 router.get(['/', '/kriteria', '/api/kriteria', '/bobot', '/api/bobot'], (_req: Request, res: Response) => {
   res.json(kriteriaStore);
 });
+
 
 router.get(['/bobot-bwm', '/api/bobot-bwm'], (_req: Request, res: Response) => {
   res.json({ status: 'success', bobot: kriteriaStore.map(k => k.bobot) });
@@ -156,6 +165,94 @@ router.get(['/sk-bupati', '/api/sk-bupati', '/api/spk/sk-bupati', '/api/export/s
     nomor_sk: `188/BANSOS-SPK/${new Date().getFullYear()}`,
     total_penetapan: layak.length,
     data: layak.map(formatWarga)
+  });
+});
+
+
+// =========================================================================
+// ROUTE KONTROL PUBLIKASI METRIK SPK & SK BUPATI RESMI
+// =========================================================================
+
+router.get(['/status-publikasi', '/api/spk/status-publikasi'], (_req: Request, res: Response) => {
+  res.json({
+    status: 'success',
+    spk: getStatusPublikasiSpk()
+  });
+});
+
+router.post(['/publish', '/api/spk/publish'], async (req: Request, res: Response) => {
+  const isPub = Boolean(req.body.is_published);
+  const actor = String(req.body.actor || 'Administrator Utama');
+
+  const updated = setStatusPublikasiSpk(isPub, actor);
+  try {
+    if (spkMetrikStore[0]) {
+      await saveSpkMetrikRealtimeToMysql(spkMetrikStore[0]);
+    }
+  } catch (err: any) {
+    console.error('Gagal simpan status SPK ke MySQL:', err.message);
+  }
+
+  broadcastRealtimeEvent({
+    type: 'SPK_METRIK_PUBLISHED',
+    is_published: isPub,
+    published_by: actor,
+    timestamp: new Date().toISOString()
+  });
+
+  catatNotifikasi(
+    isPub ? 'success' : 'info',
+    isPub ? 'Metrik SPK Diterbitkan' : 'Publikasi Metrik SPK Ditarik',
+    `${actor} ${isPub ? 'menerbitkan' : 'menarik'} metrik perhitungan SPK (BWM-SAW & WP) untuk akses publik warga.`
+  );
+
+  res.json({
+    status: 'success',
+    message: isPub ? 'Metrik perhitungan SPK berhasil dipublikasikan ke Portal Warga secara realtime.' : 'Publikasi metrik SPK berhasil ditarik menjadi draft internal.',
+    data: updated
+  });
+});
+
+router.get(['/sk-bupati/status-publikasi', '/api/sk-bupati/status-publikasi', '/status-publikasi-sk'], (_req: Request, res: Response) => {
+  const status = getStatusPublikasiSkBupati();
+  res.json({
+    status: 'success',
+    ...status,
+    decree: skBupatiStore[0] || null
+  });
+});
+
+router.post(['/sk-bupati/publish', '/api/sk-bupati/publish', '/publish-sk'], async (req: Request, res: Response) => {
+  const isPub = Boolean(req.body.is_published);
+  const actor = String(req.body.actor || 'Super Administrator');
+
+  const updated = setStatusPublikasiSkBupati(isPub, actor);
+  try {
+    if (skBupatiStore[0]) {
+      await saveSkBupatiRealtimeToMysql(skBupatiStore[0]);
+    }
+  } catch (err: any) {
+    console.error('Gagal simpan status SK Bupati ke MySQL:', err.message);
+  }
+
+  broadcastRealtimeEvent({
+    type: 'SK_BUPATI_PUBLISHED',
+    is_published: isPub,
+    published_by: actor,
+    nomor_sk: skBupatiStore[0]?.nomor_sk,
+    timestamp: new Date().toISOString()
+  });
+
+  catatNotifikasi(
+    isPub ? 'success' : 'warning',
+    isPub ? 'SK Bupati Diterbitkan Resmi' : 'Publikasi SK Bupati Ditarik',
+    `${actor} ${isPub ? 'menerbitkan secara resmi' : 'menarik status publikasi'} Keputusan Bupati Sidoarjo TA 2026 ke portal publik.`
+  );
+
+  res.json({
+    status: 'success',
+    message: isPub ? 'Surat Keputusan Bupati Sidoarjo resmi berhasil diterbitkan ke Portal Warga.' : 'Publikasi Surat Keputusan Bupati Sidoarjo berhasil ditarik menjadi arsip internal.',
+    data: updated
   });
 });
 

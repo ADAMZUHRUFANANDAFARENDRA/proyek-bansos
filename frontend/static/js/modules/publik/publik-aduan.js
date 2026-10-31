@@ -78,7 +78,7 @@ window.lacakAduanWarga = async function (e) {
     }
 };
 
-window.masukDashboardPengaduan = function (nik, nama, uraian, isNewReport = false) {
+window.masukDashboardPengaduan = function (nik, nama, uraian, isNewReport = false, customKategori = null) {
     window.sesiAduanAktif = { nik, nama, uraian };
     sesiAduanAktif = window.sesiAduanAktif;
     try {
@@ -103,14 +103,19 @@ window.masukDashboardPengaduan = function (nik, nama, uraian, isNewReport = fals
     }
 
     if (isNewReport) {
+        const rawLow = String(uraian || '').toLowerCase();
+        const isSys = rawLow.includes('eror') || rawLow.includes('error') || rawLow.includes('sistem') || rawLow.includes('teknis') || rawLow.includes('bug') || rawLow.includes('gagal');
+        const finalKategori = customKategori || (isSys ? 'Aduan Sistem & Kendala Teknis' : 'Aduan Belum Terdaftar');
+
         fetch(`${API_URL}/api/publik/pengaduan`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 nik: nik,
                 nama_pelapor: nama,
-                kategori: 'Aduan Belum Terdaftar',
-                isi_laporan: uraian
+                kategori: finalKategori,
+                isi_laporan: uraian,
+                urgensi: isSys ? 'urgent' : 'normal'
             })
         }).catch(() => {});
     }
@@ -227,23 +232,44 @@ window.keluarDashboardPengaduan = function () {
 // SINKRONISASI STEPPER ADUAN (STEP 4 HIJAU DENGAN CENTANG GANDA)
 // =========================================================================
 window.sinkronStatusStepperAduan = async function () {
-    if (!sesiAduanAktif) return;
+    const currentNik = (window.sesiAduanAktif && window.sesiAduanAktif.nik) ||
+                      (typeof sesiAduanAktif !== 'undefined' && sesiAduanAktif && sesiAduanAktif.nik) ||
+                      (window.getActiveNikChat ? window.getActiveNikChat() : '') ||
+                      document.getElementById('aduanNikDisplay')?.innerText?.replace(/\D/g, '') ||
+                      '';
+    if (!currentNik) return;
     try {
-        const res = await fetch(`${API_URL}/api/publik/cek-aduan?nik=${encodeURIComponent(sesi.nik)}`);
+        const res = await fetch(`${API_URL}/api/publik/cek-aduan?nik=${encodeURIComponent(currentNik)}`);
         const json = await res.json();
         if (json.status === 'success' && json.data) {
             const d = json.data;
             const step = parseInt(d.status_step || 2, 10);
+            const isSelesai = step >= 4 ||
+                              String(d.status || '').toLowerCase().includes('selesai') ||
+                              String(d.status_text || '').toLowerCase().includes('selesai') ||
+                              String(d.status_text || '').toLowerCase().includes('ditutup');
             
             const badge = document.getElementById('aduanStatusTextBadge');
             if (badge) {
-                badge.innerText = d.status_text || 'Ditinjau Petugas';
-                badge.style.background = (step === 4) ? '#e6f9f0' : '#fee2e2';
-                badge.style.color = (step === 4) ? '#009846' : '#dc2626';
+                if (isSelesai) {
+                    badge.innerText = 'Laporan Selesai & Ditutup';
+                    badge.style.background = '#e6f9f0';
+                    badge.style.color = '#009846';
+                } else {
+                    badge.innerText = d.status_text || 'Ditinjau Petugas';
+                    badge.style.background = (step === 3) ? '#eff6ff' : '#fee2e2';
+                    badge.style.color = (step === 3) ? '#1d4ed8' : '#dc2626';
+                }
             }
             
             const catatan = document.getElementById('aduanCatatanPetugasDisplay');
-            if (catatan) catatan.innerText = d.catatan_petugas || 'Petugas sedang meninjau berkas Anda.';
+            if (catatan) {
+                if (isSelesai) {
+                    catatan.innerText = d.catatan_petugas || 'Penyelesaian kasus telah disetujui resmi oleh Dinas Sosial Sidoarjo.';
+                } else {
+                    catatan.innerText = d.catatan_petugas || 'Petugas sedang meninjau berkas Anda.';
+                }
+            }
 
             for (let i = 1; i <= 4; i++) {
                 const node = document.getElementById(`stepNode${i}`);
@@ -252,7 +278,7 @@ window.sinkronStatusStepperAduan = async function () {
 
                 node.classList.remove('done', 'active');
 
-                if (step === 4) {
+                if (isSelesai) {
                     node.classList.add('done');
                     circle.style.background = '#009846';
                     circle.style.boxShadow = '0 0 14px rgba(0, 152, 70, 0.4)';
@@ -273,8 +299,18 @@ window.sinkronStatusStepperAduan = async function () {
                     circle.innerText = i;
                 }
             }
+
+            const stepperLine = document.getElementById('aduanStepperProgressLine');
+            if (stepperLine) {
+                if (isSelesai) stepperLine.style.width = '100%';
+                else if (step === 3) stepperLine.style.width = '66%';
+                else if (step === 2) stepperLine.style.width = '33%';
+                else stepperLine.style.width = '10%';
+            }
         }
-    } catch (e) {}
+    } catch (e) {
+        console.warn('[sinkronStatusStepperAduan Error]', e);
+    }
 };
 
 // =========================================================================

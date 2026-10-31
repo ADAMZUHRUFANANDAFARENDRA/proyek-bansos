@@ -9,6 +9,8 @@
 (function (window) {
     'use strict';
 
+    window.mySessionSocketId = window.mySessionSocketId || ('sock_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9));
+
     const processedEventIds = new Set();
     const eventListeners = new Map();
     let ws = null;
@@ -516,16 +518,33 @@
                           (window.sesiWargaAktif && window.sesiWargaAktif.nik) || 
                           null;
 
+            const cleanMyNik = String(myNik || '').replace(/\D/g, '');
+            const cleanCallerNik = String(event.caller_nik || '').replace(/\D/g, '');
+            const cleanTargetNik = String(event.target_nik || '').replace(/\D/g, '');
+
             if (isWargaPortal) {
-                // Sisi Warga: Terima panggilan dari Aparatur (Super Admin / Admin Bansos / Petugas)
-                if (event.target_nik && myNik && String(event.target_nik) !== String(myNik)) {
-                    return; // Bukan ditujukan untuk NIK warga ini
+                // Sisi Warga: HANYA terima panggilan masuk jika berasal dari Aparatur
+                // 1. Jika ini panggilan yang diinisiasi oleh warga ini sendiri, ABAIKAN! (Cegah loopback echo)
+                if (cleanCallerNik && cleanMyNik && cleanCallerNik === cleanMyNik) {
+                    return;
+                }
+                // 2. Warga tidak menerima panggilan masuk dari sesama warga atau jika targetnya aparatur
+                if (event.caller_role === 'warga' || event.target_role === 'aparatur') {
+                    return;
+                }
+                // 3. Jika ditujukan ke NIK tertentu, pastikan cocok dengan NIK warga saat ini
+                if (cleanTargetNik && cleanMyNik && cleanTargetNik !== cleanMyNik) {
+                    return;
                 }
                 if (typeof window.terimaPanggilanMasukWarga === 'function') {
                     window.terimaPanggilanMasukWarga(event);
                 }
             } else {
                 // Sisi Aparatur (Super Admin / Admin / Petugas): Terima panggilan masuk dari Warga
+                // Cegah loopback jika aparatur itu sendiri yang memanggil
+                if (event.caller_id && window.currentUserId && String(event.caller_id) === String(window.currentUserId)) {
+                    return;
+                }
                 if (event.caller_role === 'warga' || event.target_role === 'aparatur') {
                     if (typeof window.terimaPanggilanMasukAparatur === 'function') {
                         window.terimaPanggilanMasukAparatur(event);
@@ -547,8 +566,63 @@
         }
 
         if (event.type === 'CALL_DECLINE' || event.type === 'CALL_END') {
+            if (event.sender_socket && event.sender_socket === window.mySessionSocketId) {
+                // Echo dari socket peramban/tab sendiri, abaikan
+                return;
+            }
             if (typeof window.handleCallEndedSignal === 'function') {
                 window.handleCallEndedSignal(event);
+            }
+            if (typeof window.handleCallEndedSignalWarga === 'function') {
+                window.handleCallEndedSignalWarga(event);
+            }
+        }
+
+        if (event.type === 'CALL_MEDIA_STATE') {
+            if (event.sender_socket && event.sender_socket === window.mySessionSocketId) {
+                return;
+            }
+            if (typeof window.handleCallMediaStateSignal === 'function') {
+                window.handleCallMediaStateSignal(event);
+            }
+            if (typeof window.handleCallMediaStateSignalWarga === 'function') {
+                window.handleCallMediaStateSignalWarga(event);
+            }
+        }
+
+        if (event.type === 'CALL_SWITCH_MODE') {
+            if (event.sender_socket && event.sender_socket === window.mySessionSocketId) {
+                return;
+            }
+            if (typeof window.handleCallSwitchModeSignal === 'function') {
+                window.handleCallSwitchModeSignal(event);
+            }
+            if (typeof window.handleCallSwitchModeSignalWarga === 'function') {
+                window.handleCallSwitchModeSignalWarga(event);
+            }
+        }
+
+        if (event.type === 'CALL_SWITCH_REQUEST') {
+            if (event.sender_socket && event.sender_socket === window.mySessionSocketId) {
+                return;
+            }
+            if (typeof window.handleCallSwitchRequestSignal === 'function') {
+                window.handleCallSwitchRequestSignal(event);
+            }
+            if (typeof window.handleCallSwitchRequestSignalWarga === 'function') {
+                window.handleCallSwitchRequestSignalWarga(event);
+            }
+        }
+
+        if (event.type === 'CALL_SWITCH_RESPONSE') {
+            if (event.sender_socket && event.sender_socket === window.mySessionSocketId) {
+                return;
+            }
+            if (typeof window.handleCallSwitchResponseSignal === 'function') {
+                window.handleCallSwitchResponseSignal(event);
+            }
+            if (typeof window.handleCallSwitchResponseSignalWarga === 'function') {
+                window.handleCallSwitchResponseSignalWarga(event);
             }
         }
 
@@ -811,12 +885,39 @@
         },
         send: function (payload) {
             if (!payload || !payload.type) return false;
+            if (!payload.sender_socket) {
+                payload.sender_socket = window.mySessionSocketId;
+            }
+            if (!payload.id) {
+                payload.id = 'evt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+            }
+            if (!payload.timestamp) {
+                payload.timestamp = new Date().toISOString();
+            }
+
+            // Jalur 1: BroadcastChannel (Sinkronisasi antar-tab seketika 0ms di browser yang sama)
+            try {
+                if (typeof BroadcastChannel !== 'undefined') {
+                    const bc = new BroadcastChannel('bansos_realtime');
+                    bc.postMessage(payload);
+                    bc.close();
+                }
+            } catch (e) {}
+
+            // Jalur 2: Storage Event Fallback
+            try {
+                localStorage.setItem('bansos_realtime_signal', JSON.stringify(payload));
+                localStorage.removeItem('bansos_realtime_signal');
+            } catch (e) {}
+
+            // Jalur 3: WebSocket Server
             if (ws && ws.readyState === WebSocket.OPEN) {
                 try {
                     ws.send(JSON.stringify(payload));
                     return true;
                 } catch (e) {}
             }
+            // Jalur 4: HTTP POST API Fallback
             try {
                 fetch('/api/realtime/call-signal', {
                     method: 'POST',

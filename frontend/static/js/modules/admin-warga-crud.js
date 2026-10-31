@@ -534,6 +534,8 @@ window.tambahData = async function (e) {
         c8: parseInt(document.getElementById('inputC8')?.value || 1),
         c9: parseInt(document.getElementById('inputC9')?.value || 1),
         c10: parseInt(document.getElementById('inputC10')?.value || 1),
+        status_mutasi: document.getElementById('statusMutasiForm')?.value || '',
+        kota_tujuan: document.getElementById('kotaTujuanForm')?.value.trim() || '',
         catatan: document.getElementById('catatan')?.value.trim() || ''
     };
 
@@ -580,7 +582,12 @@ window.tambahData = async function (e) {
         if (res && res.ok) {
             showAdminAlert({ icon: 'success', title: 'Berhasil', text: json.message || 'Data warga berhasil disimpan!' });
             document.getElementById('bansosForm')?.reset();
+            const boxKota = document.getElementById('boxKotaTujuanForm');
+            if (boxKota) boxKota.style.display = 'none';
             window.loadDashboardData();
+            if (typeof window.loadRekapTriwulanData === 'function') {
+                window.loadRekapTriwulanData();
+            }
         } else {
             showAdminAlert({ icon: 'error', title: 'Gagal', text: json.message || 'Gagal menyimpan data.' });
         }
@@ -792,6 +799,10 @@ window.hapusSemuaWargaAman = async function (e) {
             window.cachedWarga = [];
             localStorage.removeItem('bansos_warga_cache');
             localStorage.removeItem('bansos_data_warga');
+            localStorage.removeItem('cachedDataWarga');
+            if (typeof window.sembunyikanHasilSPK === 'function') {
+                window.sembunyikanHasilSPK();
+            }
 
             // Kosongkan tabel DataTables
             if (window.$ && $.fn && $.fn.DataTable && $.fn.DataTable.isDataTable('#dataTable')) {
@@ -895,6 +906,9 @@ window.bulkProcess = async function (action) {
                 }
 
                 await window.loadDashboardData(false);
+                if (typeof window.sembunyikanHasilSPK === 'function') {
+                    window.sembunyikanHasilSPK();
+                }
                 Swal.fire({
                     icon: 'success',
                     title: 'Data Berhasil Dihapus',
@@ -1017,9 +1031,20 @@ window.bukaModalEdit = function (id) {
     if (document.getElementById('editTglLahir')) document.getElementById('editTglLahir').value = w.tanggal_lahir || '';
     if (document.getElementById('editAlamat')) document.getElementById('editAlamat').value = w.alamat || '';
 
-    if (document.getElementById('editC1')) document.getElementById('editC1').value = w.c1 !== undefined ? w.c1 : 1500000;
-    if (document.getElementById('editC2')) document.getElementById('editC2').value = w.c2 !== undefined ? w.c2 : 5000000;
-    if (document.getElementById('editC3')) document.getElementById('editC3').value = w.c3 !== undefined ? w.c3 : 45;
+    const resolveWargaVarVal = (keys, fallback) => {
+        for (const k of keys) {
+            if (w[k] !== undefined && w[k] !== null && String(w[k]).trim() !== '') return w[k];
+            if (w.extra_data && w.extra_data[k] !== undefined && w.extra_data[k] !== null && String(w.extra_data[k]).trim() !== '') return w.extra_data[k];
+        }
+        return fallback;
+    };
+    const c1ValResolved = (w.c1 !== undefined && w.c1 !== null && w.c1 !== 1500000) ? w.c1 : resolveWargaVarVal(['C1_Ekonomi', 'C1_EKONOMI', 'C1', 'penghasilan', 'gaji'], w.c1 !== undefined ? w.c1 : 1500000);
+    const c2ValResolved = (w.c2 !== undefined && w.c2 !== null && w.c2 !== 5000000) ? w.c2 : resolveWargaVarVal(['C2_Aset', 'C2_ASET', 'C2', 'aset'], w.c2 !== undefined ? w.c2 : 5000000);
+    const c3ValResolved = (w.c3 !== undefined && w.c3 !== null && w.c3 !== 45) ? w.c3 : resolveWargaVarVal(['C3_Umur_KK', 'C3_UMUR_KK', 'C3_Umur', 'C3_UMUR', 'C3', 'umur', 'usia'], w.c3 !== undefined ? w.c3 : 45);
+
+    if (document.getElementById('editC1')) document.getElementById('editC1').value = c1ValResolved;
+    if (document.getElementById('editC2')) document.getElementById('editC2').value = c2ValResolved;
+    if (document.getElementById('editC3')) document.getElementById('editC3').value = c3ValResolved;
     if (document.getElementById('editC4')) document.getElementById('editC4').value = w.c4 !== undefined ? w.c4 : 1;
     if (document.getElementById('editC5')) document.getElementById('editC5').value = w.c5 !== undefined ? w.c5 : 3;
     if (document.getElementById('editC6')) document.getElementById('editC6').value = w.c6 !== undefined ? w.c6 : 2;
@@ -1135,17 +1160,40 @@ window.bukaModalEdit = function (id) {
     if (namaTitle) namaTitle.innerText = w.nama || 'Warga';
     if (nikBadge) nikBadge.innerText = `NIK: ${w.nik || '-'}`;
 
-    // Ekstraksi SELURUH Variabel Tambahan / Dinamis (Mendukung 20, 39, 50, atau 100+ variabel!)
+    // Helper untuk mendeteksi apakah variabel merupakan Kriteria SPK Inti (C1-C10)
+    // Kriteria SPK C1-C10 sudah memiliki Tab tersendiri sehingga TIDAK boleh masuk ke Tab Variabel Impor/Kustom
+    const isKriteriaSpkKeyFilter = function(k) {
+        if (!k) return false;
+        const clean = String(k).trim().toLowerCase().replace(/[\s-]+/g, '_');
+        if (/^c0?([1-9]|10)(?:$|[^0-9])/.test(clean)) return true;
+        const spkWords = [
+            'kondisi_ekonomi', 'penghasilan', 'pendapatan', 'gaji', 'penghasilan_per_bulan',
+            'kepemilikan_aset', 'nilai_aset', 'aset',
+            'umur_kepala_keluarga', 'umur_kk', 'usia_kk',
+            'jenis_kelamin_kk', 'jenis_kelamin',
+            'jumlah_tanggungan', 'tanggungan', 'jml_tanggungan',
+            'status_pernikahan', 'status_kawin', 'pernikahan',
+            'kepemilikan_anak', 'balita', 'jml_anak',
+            'kelayakan_tempat_tinggal', 'kelayakan_rumah', 'tempat_tinggal',
+            'tingkat_pendidikan', 'pendidikan_kk', 'pendidikan_terakhir',
+            'kondisi_kesehatan', 'kesehatan_disabilitas', 'disabilitas'
+        ];
+        return spkWords.includes(clean);
+    };
+
+    // Ekstraksi SELURUH Variabel Tambahan / Dinamis Murni (Di luar C1-C10 & Identitas Inti)
     const coreKeys = new Set([
         'id', 'nama', 'nama_lengkap', 'nik', 'no_hp', 'email', 'tempat_lahir', 'tanggal_lahir', 'alamat',
         'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10',
+        'c1_ekonomi', 'c2_aset', 'c3_umur', 'c4_jenis_kelamin', 'c5_tanggungan', 'c6_status_pernikahan',
+        'c7_kepemilikan_anak', 'c8_tempat_tinggal', 'c9_pendidikan', 'c10_kesehatan',
         'catatan', 'nominal_bantuan', 'status_validasi', 'status_salur', 'tanggal_salur',
         'is_verified', 'is_layak', 'created_at', 'bukti_salur', 'keterangan_salur', 'konfirmasi_warga', 'waktu_konfirmasi_warga',
         'skor_saw', 'desil', 'rank_saw', 'ranking_saw', 'lat', 'lng',
         'extra_data', 'custom_fields'
     ]);
 
-    // Kumpulkan SEMUA nama variabel dinamis dari seluruh data yang ada dan data yang pernah diimpor
+    // Kumpulkan SEMUA nama variabel dinamis kustom sejati (seperti C11 s/d C20, Kategori, Wilayah, dsb)
     const allDatasetVars = new Set();
 
     // 1. Dari header impor yang pernah dimasukkan
@@ -1154,7 +1202,7 @@ window.bukaModalEdit = function (id) {
             if (!h) return;
             const hClean = h.trim();
             const hLow = hClean.toLowerCase().replace(/[^a-z0-9]/g, '_');
-            if (!coreKeys.has(hLow) && !coreKeys.has(hClean) && !hClean.startsWith('_')) {
+            if (!coreKeys.has(hLow) && !coreKeys.has(hClean) && !hClean.startsWith('_') && !isKriteriaSpkKeyFilter(hClean)) {
                 allDatasetVars.add(hClean);
             }
         });
@@ -1165,7 +1213,7 @@ window.bukaModalEdit = function (id) {
         Object.keys(item).forEach(k => {
             const kClean = k.trim();
             const kLow = kClean.toLowerCase().replace(/[^a-z0-9]/g, '_');
-            if (!coreKeys.has(kLow) && !coreKeys.has(kClean) && !kClean.startsWith('_')) {
+            if (!coreKeys.has(kLow) && !coreKeys.has(kClean) && !kClean.startsWith('_') && !isKriteriaSpkKeyFilter(kClean)) {
                 allDatasetVars.add(kClean);
             }
         });
@@ -1173,7 +1221,7 @@ window.bukaModalEdit = function (id) {
             Object.keys(item.extra_data).forEach(ek => {
                 const ekClean = ek.trim();
                 const ekLow = ekClean.toLowerCase().replace(/[^a-z0-9]/g, '_');
-                if (!coreKeys.has(ekLow) && !coreKeys.has(ekClean) && !ekClean.startsWith('_')) {
+                if (!coreKeys.has(ekLow) && !coreKeys.has(ekClean) && !ekClean.startsWith('_') && !isKriteriaSpkKeyFilter(ekClean)) {
                     allDatasetVars.add(ekClean);
                 }
             });
@@ -1184,7 +1232,7 @@ window.bukaModalEdit = function (id) {
     Object.keys(w).forEach(k => {
         const kClean = k.trim();
         const kLow = kClean.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        if (!coreKeys.has(kLow) && !coreKeys.has(kClean) && !kClean.startsWith('_')) {
+        if (!coreKeys.has(kLow) && !coreKeys.has(kClean) && !kClean.startsWith('_') && !isKriteriaSpkKeyFilter(kClean)) {
             allDatasetVars.add(kClean);
         }
     });
@@ -1192,7 +1240,7 @@ window.bukaModalEdit = function (id) {
         Object.keys(w.extra_data).forEach(ek => {
             const ekClean = ek.trim();
             const ekLow = ekClean.toLowerCase().replace(/[^a-z0-9]/g, '_');
-            if (!coreKeys.has(ekLow) && !coreKeys.has(ekClean) && !ekClean.startsWith('_')) {
+            if (!coreKeys.has(ekLow) && !coreKeys.has(ekClean) && !ekClean.startsWith('_') && !isKriteriaSpkKeyFilter(ekClean)) {
                 allDatasetVars.add(ekClean);
             }
         });
@@ -1348,11 +1396,17 @@ window.simpanEdit = async function (e) {
     // Kumpulkan SELURUH Variabel Dinamis & Kustom dari Kartu Input
     const dynamicCards = document.querySelectorAll('#editDynamicVarsContainer .custom-var-card');
     let customCount = 0;
+    const isSpkKeySave = function(k) {
+        if (!k) return false;
+        const clean = String(k).trim().toLowerCase().replace(/[\s-]+/g, '_');
+        return /^c0?([1-9]|10)(?:$|[^0-9])/.test(clean);
+    };
     dynamicCards.forEach(card => {
         const keyInp = card.querySelector('.custom-var-key');
         const valInp = card.querySelector('.custom-var-val');
         if (keyInp && keyInp.value.trim()) {
             const rawKey = keyInp.value.trim();
+            if (isSpkKeySave(rawKey)) return; // Jangan izinkan kriteria SPK masuk ke extra_data kustom
             const cleanKey = rawKey.replace(/\s+/g, '_');
             const val = valInp ? valInp.value.trim() : '';
             payload.extra_data[cleanKey] = val;
@@ -1488,6 +1542,9 @@ window.hapusData = async function (id, nikParam) {
             }
 
             await window.loadDashboardData(false);
+            if (typeof window.sembunyikanHasilSPK === 'function') {
+                window.sembunyikanHasilSPK();
+            }
 
             Swal.fire({
                 icon: 'success',

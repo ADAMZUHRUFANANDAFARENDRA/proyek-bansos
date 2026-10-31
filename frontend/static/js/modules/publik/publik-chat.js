@@ -1060,7 +1060,19 @@ window.kirimLokasiGeotagWarga = async function () {
 };
 
 window.confirmSendWargaLoc = async function (type) {
-    Swal.close();
+    function dismissGpsLoadingPopup() {
+        try {
+            if (typeof Swal !== 'undefined' && typeof Swal.close === 'function') {
+                Swal.close();
+            }
+            document.querySelectorAll('.swal2-container').forEach(el => {
+                try { el.remove(); } catch (e) {}
+            });
+            document.body.classList.remove('swal2-shown', 'swal2-height-auto', 'swal2-no-backdrop', 'swal2-loading');
+        } catch (e) {}
+    }
+
+    dismissGpsLoadingPopup();
     const nik = getActiveNikChat();
     const nama = getActiveNamaChat();
     if (!nik) return;
@@ -1074,6 +1086,7 @@ window.confirmSendWargaLoc = async function (type) {
             title: 'Mendeteksi Posisi GPS...',
             text: 'Mengambil titik koordinat satelit GPS perangkat Anda...',
             allowOutsideClick: false,
+            showConfirmButton: false,
             didOpen: () => Swal.showLoading()
         });
 
@@ -1098,7 +1111,11 @@ window.confirmSendWargaLoc = async function (type) {
                     })
                 });
 
+                dismissGpsLoadingPopup();
+
                 if (sendRes.ok) {
+                    if (typeof window.loadChatMessagesWarga === 'function') window.loadChatMessagesWarga(true);
+                    if (typeof window.muatPesanAduan === 'function' && sesiAduanAktif) window.muatPesanAduan();
                     Swal.fire({
                         toast: true,
                         position: 'top-end',
@@ -1107,15 +1124,15 @@ window.confirmSendWargaLoc = async function (type) {
                         timer: 3000,
                         showConfirmButton: false
                     });
-                    if (typeof window.loadChatMessagesWarga === 'function') window.loadChatMessagesWarga(true);
-                    if (typeof window.muatPesanAduan === 'function' && sesiAduanAktif) window.muatPesanAduan();
                 } else {
                     showPortalAlert({ icon: 'error', title: 'Gagal', text: 'Gagal membagikan lokasi GPS.' });
                 }
             } catch (err) {
+                dismissGpsLoadingPopup();
                 showPortalAlert({ icon: 'error', title: 'Error', text: 'Terjadi gangguan koneksi.' });
             }
         }, (err) => {
+            dismissGpsLoadingPopup();
             Swal.fire('Gagal Mendeteksi GPS', `Tidak dapat mengambil lokasi perangkat: ${err.message}. Pastikan izin lokasi aktif.`, 'error');
         }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
     } else {
@@ -1132,7 +1149,11 @@ window.confirmSendWargaLoc = async function (type) {
                 })
             });
 
+            dismissGpsLoadingPopup();
+
             if (sendRes.ok) {
+                if (typeof window.loadChatMessagesWarga === 'function') window.loadChatMessagesWarga(true);
+                if (typeof window.muatPesanAduan === 'function' && sesiAduanAktif) window.muatPesanAduan();
                 Swal.fire({
                     toast: true,
                     position: 'top-end',
@@ -1141,12 +1162,11 @@ window.confirmSendWargaLoc = async function (type) {
                     timer: 3000,
                     showConfirmButton: false
                 });
-                if (typeof window.loadChatMessagesWarga === 'function') window.loadChatMessagesWarga(true);
-                if (typeof window.muatPesanAduan === 'function' && sesiAduanAktif) window.muatPesanAduan();
             } else {
                 showPortalAlert({ icon: 'error', title: 'Gagal', text: 'Gagal membagikan lokasi arsip.' });
             }
         } catch (err) {
+            dismissGpsLoadingPopup();
             showPortalAlert({ icon: 'error', title: 'Error', text: 'Terjadi gangguan koneksi.' });
         }
     }
@@ -1551,6 +1571,45 @@ window.muatPesanAduan = async function (forceScroll = false) {
         }
         lastAduanChatHash = currentHash;
 
+        // Pembaruan Dinamis Respon Resmi Petugas Penangan Aduan
+        let aduanOfficerName = '';
+        let aduanOfficerRole = '';
+        try {
+            const offRes = await fetch(`${API_URL}/api/chat/${encodeURIComponent(sesi.nik)}/active-officer`).catch(() => null);
+            if (offRes && offRes.ok) {
+                const offJson = await offRes.json();
+                const off = offJson.officer || offJson.data;
+                if (off && off.name) {
+                    aduanOfficerName = off.name;
+                    aduanOfficerRole = off.role || '';
+                }
+            }
+        } catch (e) {}
+
+        const lastHandoverAduan = [...chats].reverse().find(c => c && (c.is_handover || (c.pesan && c.pesan.includes('[PENGALIHAN RESMI]'))));
+        if (lastHandoverAduan) {
+            const match = (lastHandoverAduan.pesan || '').match(/ditangani oleh:\s*([^()]+)(?:\(([^()]+)\))?/i);
+            if (match) {
+                aduanOfficerName = match[1].trim();
+                if (match[2]) aduanOfficerRole = match[2].trim();
+            } else if (lastHandoverAduan.nama) {
+                aduanOfficerName = lastHandoverAduan.nama;
+                if (lastHandoverAduan.officer_role) aduanOfficerRole = lastHandoverAduan.officer_role;
+            }
+        } else if (!aduanOfficerName) {
+            const lastOfficerMsg = [...chats].reverse().find(c => c.sender !== 'warga' && c.sender !== 'system');
+            if (lastOfficerMsg) {
+                aduanOfficerName = lastOfficerMsg.nama || (lastOfficerMsg.sender === 'admin' ? '🛡️ Admin 1 (Super Admin)' : '👮 Petugas Investigasi');
+                aduanOfficerRole = lastOfficerMsg.officer_role || (lastOfficerMsg.sender === 'admin' ? 'Super Admin' : 'Petugas Investigasi');
+            }
+        }
+        if (!aduanOfficerName) aduanOfficerName = '🛡️ Petugas Investigasi Dinsos';
+
+        const aduanBadgeEl = document.getElementById('aduanOfficerNameBadge');
+        if (aduanBadgeEl) {
+            aduanBadgeEl.innerHTML = `<i class="fas fa-user-shield" style="color:#2563eb;"></i> ${safeHtml(aduanOfficerName)}${aduanOfficerRole ? ` <span style="font-size:0.7rem; font-weight:600; opacity:0.85;">(${safeHtml(aduanOfficerRole)})</span>` : ''}`;
+        }
+
         // Notifikasi tanggapan baru dari petugas investigasi
         const lastAdminMsg = [...chats].reverse().find(c => c.sender !== 'warga');
         if (lastAdminMsg && window.lastSeenAduanOfficerMsgId && lastAdminMsg.id > window.lastSeenAduanOfficerMsgId) {
@@ -1953,10 +2012,10 @@ window.muatPesanAduan = async function (forceScroll = false) {
                     : `background:#ffffff !important; color:#0f172a !important; border:1px solid #e2e8f0 !important; border-radius:4px 16px 16px 16px !important; width:${vidBubbleWidth} !important; max-width:min(${vidBubbleWidth}, 85vw) !important; box-sizing:border-box !important; padding:6px 8px 6px 26px !important;`;
             } else if (isAudioAduan) {
                 const audioBubbleWidth = '320px';
-                // Tampilan presisi, seimbang, rapi dan elegan, tidak mengecil atau membesar
+                // Tampilan rapi, modern, elegan, selaras dan proporsional tanpa border bertingkat
                 bubbleStylesAduan = isMe
-                    ? `background:#ffffff !important; color:#0f172a !important; border:1.5px solid #fecdd3 !important; border-top:3px solid #dc2626 !important; border-radius:16px 4px 16px 16px !important; width:${audioBubbleWidth} !important; min-width:290px !important; max-width:min(${audioBubbleWidth}, calc(100vw - 36px)) !important; box-sizing:border-box !important; padding:8px 24px 6px 10px !important; box-shadow:0 4px 14px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04) !important;`
-                    : `background:#ffffff !important; color:#0f172a !important; border:1.5px solid #e2e8f0 !important; border-top:3px solid #0284c7 !important; border-radius:4px 16px 16px 16px !important; width:${audioBubbleWidth} !important; min-width:290px !important; max-width:min(${audioBubbleWidth}, calc(100vw - 36px)) !important; box-sizing:border-box !important; padding:8px 10px 6px 24px !important; box-shadow:0 4px 14px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04) !important;`;
+                    ? `background:#ffffff !important; color:#0f172a !important; border:1.5px solid #e2e8f0 !important; border-radius:18px 4px 18px 18px !important; width:${audioBubbleWidth} !important; min-width:280px !important; max-width:min(${audioBubbleWidth}, calc(100vw - 36px)) !important; box-sizing:border-box !important; padding:8px 30px 8px 12px !important; box-shadow:0 4px 14px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04) !important;`
+                    : `background:#ffffff !important; color:#0f172a !important; border:1.5px solid #e2e8f0 !important; border-radius:4px 18px 18px 18px !important; width:${audioBubbleWidth} !important; min-width:280px !important; max-width:min(${audioBubbleWidth}, calc(100vw - 36px)) !important; box-sizing:border-box !important; padding:8px 12px 8px 30px !important; box-shadow:0 4px 14px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04) !important;`;
             }
 
             const baseBubbleWidthAduan = (isFixedMediaBubbleAduan || isEmojiOnlyAduan) ? '' : 'width:fit-content; max-width:min(68%, 380px);';
@@ -2074,24 +2133,38 @@ window.loadChatMessagesWarga = async function (forceScroll = false) {
         // Identifikasi & Notifikasi Petugas yang Merespon
         let activeOfficerName = '';
         let activeOfficerRole = '';
+        const lastAdminMsg = [...chats].reverse().find(c => c && c.sender !== 'warga' && c.sender !== 'system') || null;
 
         // 1. Coba ambil dari cache server active-officer
         try {
             const offRes = await fetch(`${API_URL}/api/chat/${encodeURIComponent(activeNik)}/active-officer`).catch(() => null);
             if (offRes && offRes.ok) {
                 const offJson = await offRes.json();
-                if (offJson && offJson.data && offJson.data.name) {
-                    activeOfficerName = offJson.data.name;
-                    activeOfficerRole = offJson.data.role || '';
+                const off = offJson.officer || offJson.data;
+                if (off && off.name) {
+                    activeOfficerName = off.name;
+                    activeOfficerRole = off.role || '';
                 }
             }
         } catch (e) {}
 
-        // 2. Fallback: Cari dari pesan admin/petugas terbaru non-system
-        const lastAdminMsg = [...chats].reverse().find(c => c.sender !== 'warga' && c.sender !== 'system');
-        if (!activeOfficerName && lastAdminMsg) {
-            activeOfficerName = lastAdminMsg.nama || (lastAdminMsg.sender === 'admin' ? '🛡️ Admin 1 (Super Admin)' : '👮 Petugas Dinsos');
-            activeOfficerRole = lastAdminMsg.officer_role || (lastAdminMsg.sender === 'admin' ? 'Super Admin' : 'Petugas Dinsos');
+        // 2. Cek jika ada pesan pengalihan resmi (handover) terbaru di riwayat pesan
+        const lastHandoverMsg = [...chats].reverse().find(c => c && (c.is_handover || (c.pesan && c.pesan.includes('[PENGALIHAN RESMI]'))));
+        if (lastHandoverMsg) {
+            const match = (lastHandoverMsg.pesan || '').match(/ditangani oleh:\s*([^()]+)(?:\(([^()]+)\))?/i);
+            if (match) {
+                activeOfficerName = match[1].trim();
+                if (match[2]) activeOfficerRole = match[2].trim();
+            } else if (lastHandoverMsg.nama) {
+                activeOfficerName = lastHandoverMsg.nama;
+                if (lastHandoverMsg.officer_role) activeOfficerRole = lastHandoverMsg.officer_role;
+            }
+        } else if (!activeOfficerName || activeOfficerName.includes('Admin 1 / Petugas Dinsos')) {
+            // 3. Fallback: Cari dari pesan admin/petugas terbaru non-system
+            if (lastAdminMsg) {
+                activeOfficerName = lastAdminMsg.nama || (lastAdminMsg.sender === 'admin' ? '🛡️ Admin 1 (Super Admin)' : '👮 Petugas Dinsos');
+                activeOfficerRole = lastAdminMsg.officer_role || (lastAdminMsg.sender === 'admin' ? 'Super Admin' : 'Petugas Dinsos');
+            }
         }
         if (!activeOfficerName) {
             activeOfficerName = '🛡️ Admin 1 / Petugas Dinsos';
@@ -3263,6 +3336,7 @@ window.konfirmasiHapusPesanWarga = function (id, isMe) {
                         </div>
                     </div>
 
+                    ${isMe ? `
                     <div onclick="window.eksekusiHapusPesanWarga(${id}, 'everyone')" style="display:flex; align-items:center; gap:12px; padding:12px 14px; border:1.5px solid #e2e8f0; border-radius:12px; cursor:pointer; background:#f8fafc; transition:all 0.2s;" onmouseover="this.style.borderColor='#ef4444'; this.style.background='#fef2f2';" onmouseout="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc';">
                         <div style="width:38px; height:38px; border-radius:10px; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0;">
                             <i class="fas fa-users-slash"></i>
@@ -3272,6 +3346,12 @@ window.konfirmasiHapusPesanWarga = function (id, isMe) {
                             <div style="font-size:0.76rem; color:#64748b;">Pesan ditarik untuk semua pihak dan diganti dengan <i>"🚫 Pesan telah dihapus"</i>.</div>
                         </div>
                     </div>
+                    ` : `
+                    <div style="font-size:0.76rem; color:#64748b; background:#f1f5f9; padding:10px 14px; border-radius:10px; border:1px solid #cbd5e1; display:flex; align-items:flex-start; gap:8px;">
+                        <i class="fas fa-info-circle text-primary" style="margin-top:2px;"></i>
+                        <div><b>Opsi Terbatas:</b> Pesan ini dikirim oleh petugas/orang lain. Anda hanya berhak menghapus pesan dari tampilan layar Anda sendiri ("Hapus untuk Saya").</div>
+                    </div>
+                    `}
                 </div>
             `,
             showConfirmButton: false,
@@ -3287,19 +3367,32 @@ window.konfirmasiHapusPesanWarga = function (id, isMe) {
             }
         });
     } else {
-        const choice = confirm('Pilih OK untuk Hapus untuk Semua Orang, atau Batal untuk Hapus untuk Saya saja.');
-        window.eksekusiHapusPesanWarga(id, choice ? 'everyone' : 'me');
+        if (isMe) {
+            const choice = confirm('Pilih OK untuk Hapus untuk Semua Orang, atau Batal untuk Hapus untuk Saya saja.');
+            window.eksekusiHapusPesanWarga(id, choice ? 'everyone' : 'me');
+        } else {
+            if (confirm('Hapus pesan ini dari tampilan Anda? (Pesan dari orang lain hanya dapat dihapus untuk diri sendiri)')) {
+                window.eksekusiHapusPesanWarga(id, 'me');
+            }
+        }
     }
 };
 
 window.eksekusiHapusPesanWarga = async function (id, tipe) {
     if (typeof Swal !== 'undefined') Swal.close();
     try {
-        await fetch(`${API_URL}/api/chat/action/${id}`, {
+        const res = await fetch(`${API_URL}/api/chat/action/${id}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: tipe, requester: 'warga' })
         });
+        const json = await res.json();
+        if (!res.ok) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'error', title: 'Gagal Menghapus', text: json.message || 'Tidak dapat menghapus pesan.' });
+            }
+            return;
+        }
         window.lastChatHashWarga = '';
         window.lastAduanChatHash = '';
         await window.loadChatMessagesWarga(false);
@@ -3320,6 +3413,538 @@ window.hapusPesanWarga = function (id, tipe) {
 
 window.hapusPesanAduan = function (id, tipe) {
     window.eksekusiHapusPesanWarga(id, tipe);
+};
+
+// =========================================================================
+// BERSIHKAN SELURUH OBROLAN DI DASHBOARD PRIBADI ANDA
+// =========================================================================
+window.konfirmasiBersihkanSeluruhChatWarga = async function () {
+    const nik = (typeof getActiveNikChat === 'function' ? getActiveNikChat() : '') ||
+                window.currentWargaNik ||
+                (window.sesiWargaAktif && (window.sesiWargaAktif.nik_asli || window.sesiWargaAktif.nik)) ||
+                (window.sesiAduanAktif && window.sesiAduanAktif.nik) ||
+                localStorage.getItem('wargaNik') ||
+                localStorage.getItem('nik_warga') ||
+                sessionStorage.getItem('wargaNik') ||
+                sessionStorage.getItem('nik_warga') ||
+                (document.getElementById('wNik')?.innerText || '').replace(/\D/g, '') ||
+                (document.getElementById('dashWargaNik')?.innerText || '').replace(/\D/g, '') ||
+                (window.wargaChatRawData && window.wargaChatRawData[0] && window.wargaChatRawData[0].nik) ||
+                '';
+
+    let confirmClear = false;
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title: '<div style="font-size:1.15rem; font-weight:800; color:#dc2626;"><i class="fas fa-trash-alt"></i> Bersihkan Seluruh Obrolan?</div>',
+            html: `
+                <div style="text-align:left; font-size:0.86rem; color:#475569;">
+                    <p style="margin-bottom:8px;">Apakah Anda yakin ingin membersihkan seluruh obrolan pada <b>Dashboard Pribadi Anda</b>?</p>
+                    <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:10px 12px; color:#991b1b; font-size:0.78rem;">
+                        <i class="fas fa-exclamation-triangle"></i> Seluruh pesan teks, media, dan suara akan dibersihkan dari layar Anda. Lawan bicara (petugas) tetap memiliki arsip resmi kependudukan.
+                    </div>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Bersihkan Semua',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#94a3b8',
+            customClass: { popup: 'swal2-border-radius-16' }
+        });
+        confirmClear = result.isConfirmed;
+    } else {
+        confirmClear = confirm('Apakah Anda yakin ingin membersihkan seluruh obrolan di layar Anda?');
+    }
+
+    if (!confirmClear) return;
+
+    // Bersihkan tampilan chat seketika dari layar tanpa menunggu
+    const box = document.getElementById('wargaChatMessages') || document.getElementById('chatMessagesWarga') || document.getElementById('chatBoxWarga');
+    if (box) {
+        box.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:0.85rem; margin:auto; padding:20px;">Riwayat obrolan di layar Anda telah dibersihkan. Petugas tetap memiliki arsip resmi kependudukan.</div>`;
+    }
+    window.lastChatHashWarga = '';
+    window.wargaChatRawData = [];
+
+    if (nik) {
+        try {
+            await fetch(`${API_URL}/api/chat/clear-warga/${encodeURIComponent(nik)}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requester: 'warga' })
+            });
+        } catch (e) {
+            console.error('[Bersihkan Chat Error]', e);
+        }
+    }
+
+    if (typeof showPortalToast === 'function') {
+        showPortalToast('Seluruh riwayat obrolan Anda telah dibersihkan', 'success');
+    } else if (typeof Swal !== 'undefined') {
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Obrolan Berhasil Dibersihkan', timer: 2000, showConfirmButton: false });
+    }
+};
+
+// =========================================================================
+// BERSIHKAN SELURUH OBROLAN DI DASHBOARD PANTAUAN PENGADUAN
+// =========================================================================
+window.konfirmasiBersihkanSeluruhChatAduan = async function () {
+    const nik = (window.sesiAduanAktif && window.sesiAduanAktif.nik) ||
+                (typeof sesiAduanAktif !== 'undefined' && sesiAduanAktif && sesiAduanAktif.nik) ||
+                (typeof getActiveNikChat === 'function' ? getActiveNikChat() : '') ||
+                (document.getElementById('aduanNikDisplay')?.innerText || '').replace(/\D/g, '') ||
+                (window.wargaChatRawData && window.wargaChatRawData[0] && window.wargaChatRawData[0].nik) ||
+                '';
+
+    let confirmClear = false;
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title: '<div style="font-size:1.15rem; font-weight:800; color:#dc2626;"><i class="fas fa-trash-alt"></i> Bersihkan Obrolan Pengaduan?</div>',
+            html: `
+                <div style="text-align:left; font-size:0.86rem; color:#475569;">
+                    <p style="margin-bottom:8px;">Apakah Anda yakin ingin membersihkan seluruh tampilan percakapan pada <b>Ruang Koordinasi Pengaduan</b>?</p>
+                    <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:10px 12px; color:#991b1b; font-size:0.78rem;">
+                        <i class="fas fa-exclamation-triangle"></i> Seluruh pesan teks, rekaman suara, foto, emoji, dan lampiran berkas akan dibersihkan dari layar Anda. Berkas aduan tetap tersimpan aman di dinas sosial.
+                    </div>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Bersihkan Semua',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#94a3b8',
+            customClass: { popup: 'swal2-border-radius-16' }
+        });
+        confirmClear = result.isConfirmed;
+    } else {
+        confirmClear = confirm('Bersihkan seluruh tampilan obrolan pengaduan?');
+    }
+
+    if (!confirmClear) return;
+
+    const box = document.getElementById('aduanChatMessages');
+    if (box) {
+        box.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:0.85rem; margin:auto; padding:20px;">Riwayat koordinasi pengaduan di layar Anda telah dibersihkan. Berkas pengaduan tetap diproses oleh petugas dinas sosial.</div>`;
+    }
+    window.lastAduanChatHash = '';
+
+    if (nik) {
+        try {
+            await fetch(`${API_URL}/api/chat/clear-warga/${encodeURIComponent(nik)}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requester: 'aduan' })
+            });
+        } catch (e) {
+            console.error('[Bersihkan Chat Aduan Error]', e);
+        }
+    }
+
+    if (typeof showPortalToast === 'function') {
+        showPortalToast('Seluruh riwayat obrolan pengaduan telah dibersihkan', 'success');
+    } else if (typeof Swal !== 'undefined') {
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Obrolan Pengaduan Dibersihkan', timer: 2000, showConfirmButton: false });
+    }
+};
+
+// Navigasi modal profil petugas dari banner Respon Resmi
+window.bukaProfilPetugasDariBanner = function (channel) {
+    let targetEl = channel === 'aduan' ? document.getElementById('aduanOfficerNameBadge') : document.getElementById('wargaOfficerNameBadge');
+    let text = targetEl?.innerText || 'Petugas Investigasi Dinsos';
+    text = text.replace(/^[^\w\s]+/, '').trim();
+    if (typeof window.bukaProfilPetugas === 'function') {
+        window.bukaProfilPetugas(text);
+    }
+};
+
+// =========================================================================
+// MODAL PROFIL RESMI PETUGAS / APARATUR DINAS SOSIAL
+// =========================================================================
+window.bukaProfilPetugas = function (roleOrName) {
+    let officerName = roleOrName || 'Petugas Lapangan Dinsos';
+    let roleTitle = 'Petugas Verifikator & Pendampingan Warga';
+    let nip = '19870415 201001 1 008';
+    let divisi = 'Bidang Penanganan Fakir Miskin & Perlindungan Jaminan Sosial';
+    let badgeColor = '#0284c7';
+
+    const lower = String(officerName).toLowerCase();
+    if (lower.includes('superadmin') || lower.includes('super admin')) {
+        officerName = 'Super Administrator Sistem';
+        roleTitle = 'Otoritas Pengendali Sistem SPK & Audit Pemkab Sidoarjo';
+        nip = '19820311 200501 1 003';
+        divisi = 'Sekretariat Utama & Pusat Pengendali Data Bansos';
+        badgeColor = '#dc2626';
+    } else if (lower.includes('admin')) {
+        officerName = 'Administrator Bansos Sidoarjo';
+        roleTitle = 'Pengelola Kebijakan & Verifikasi Bantuan Sosial';
+        nip = '19850920 200801 2 004';
+        divisi = 'Bidang Penyaluran Bantuan & Kesejahteraan Keluarga';
+        badgeColor = '#009846';
+    }
+
+    const modal = document.getElementById('modalProfilPetugasResmi');
+    const content = document.getElementById('bodyProfilPetugasResmi');
+    if (content) {
+        content.innerHTML = `
+            <div style="text-align:center; margin-bottom:18px;">
+                <div style="width:72px; height:72px; border-radius:50%; background:linear-gradient(135deg, ${badgeColor}, #0f172a); color:white; font-size:2rem; font-weight:800; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 6px 18px rgba(0,0,0,0.18); margin-bottom:10px;">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <h3 style="margin:0 0 4px 0; font-size:1.25rem; font-weight:800; color:#0f172a;">${officerName}</h3>
+                <div style="font-size:0.8rem; font-weight:700; color:${badgeColor}; margin-bottom:6px;">${roleTitle}</div>
+                <span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; padding:3px 12px; border-radius:20px; font-size:0.72rem; font-weight:800; display:inline-flex; align-items:center; gap:5px;">
+                    <i class="fas fa-certificate text-primary"></i> Aparatur Resmi Terakreditasi
+                </span>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px; font-size:0.82rem; margin-bottom:16px;">
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center;">
+                    <span style="color:#64748b; font-size:0.75rem;"><i class="fas fa-id-badge text-muted"></i> NIP Kedinasan:</span>
+                    <b style="font-family:monospace; color:#0f172a;">${nip}</b>
+                </div>
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px;">
+                    <span style="color:#64748b; font-size:0.75rem; display:block;"><i class="fas fa-building text-muted"></i> Satuan Kerja / Instansi:</span>
+                    <b style="color:#0f172a;">Dinas Sosial Pemerintah Kabupaten Sidoarjo</b>
+                    <div style="font-size:0.74rem; color:#64748b; margin-top:2px;">${divisi}</div>
+                </div>
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px;">
+                    <span style="color:#64748b; font-size:0.75rem; display:block;"><i class="fas fa-map-marker-alt text-danger"></i> Wilayah Pelayanan & Tugas:</span>
+                    <b style="color:#0f172a;">18 Kecamatan Seluruh Wilayah Kabupaten Sidoarjo</b>
+                </div>
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center;">
+                    <span style="color:#64748b; font-size:0.75rem;"><i class="fas fa-headset text-success"></i> Saluran Resmi Pengaduan:</span>
+                    <b style="color:#009846;">Halo Dinsos (031) 8921234 / 112</b>
+                </div>
+            </div>
+
+            <div style="background:#ecfdf5; border:1.5px solid #a7f3d0; border-radius:14px; padding:12px 14px; font-size:0.78rem; color:#065f46; line-height:1.5;">
+                <div style="font-weight:800; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-shield-alt text-success"></i> Komitmen Bebas Pungutan Liar (Pungli):
+                </div>
+                Seluruh pelayanan bantuan sosial, verifikasi faktual lapangan, konsultasi chat, serta pemantauan pengaduan oleh aparatur Pemerintah Kabupaten Sidoarjo adalah <b>100% GRATIS</b> tanpa dipungut biaya apapun.
+            </div>
+        `;
+    }
+
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+};
+
+window.bukaProfilPetugasDariBanner = function (source) {
+    let name = 'Petugas Lapangan Dinsos';
+    if (source === 'warga') {
+        const badge = document.getElementById('wargaOfficerNameBadge');
+        if (badge) name = badge.innerText.replace(/^[^w]+/, '').trim();
+    } else {
+        const badge = document.getElementById('aduanOfficerNameBadge');
+        if (badge) name = badge.innerText.replace(/^[^w]+/, '').trim();
+    }
+    window.bukaProfilPetugas(name);
+};
+
+window.tutupProfilPetugas = function () {
+    const m = document.getElementById('modalProfilPetugasResmi');
+    if (m) m.style.display = 'none';
+};
+
+// =========================================================================
+// MODAL PROFIL WARGA LENGKAP DI DASHBOARD PANTAUAN PENGADUAN
+// =========================================================================
+window.bukaProfilWargaPelaporAduan = async function () {
+    const nik = document.getElementById('aduanNikDisplay')?.innerText?.trim() || window.currentAduanItem?.nik || window.currentWargaNik;
+    if (!nik || nik === '-') {
+        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Data Belum Tersedia', text: 'NIK pelapor belum dimuat.' });
+        return;
+    }
+
+    const modal = document.getElementById('modalProfilWargaAduan');
+    const bodyEl = document.getElementById('bodyProfilWargaAduan');
+    if (modal) modal.style.display = 'flex';
+    if (!bodyEl) return;
+
+    bodyEl.innerHTML = `
+        <div style="text-align:center; padding:36px 20px; color:#64748b;">
+            <div class="spinner-border text-danger" role="status" style="width:2.2rem; height:2.2rem; border-width:3px; margin-bottom:10px;"></div>
+            <div style="font-weight:700; font-size:0.9rem; color:#0f172a;">Memuat Profil Lengkap Pelapor...</div>
+        </div>
+    `;
+
+    let warga = null;
+    try {
+        const res = await fetch(`${API_URL}/api/warga/${nik}`);
+        if (res.ok) {
+            const json = await res.json();
+            warga = json.data || json;
+        }
+    } catch (e) {
+        console.warn('[Profil Pelapor] Gagal fetch:', e);
+    }
+
+    const nama = warga?.nama || warga?.nama_lengkap || document.getElementById('aduanNamaDisplay')?.innerText?.trim() || 'Warga Pelapor';
+    const noKk = warga?.no_kk || warga?.kk || null;
+    const desil = warga?.desil !== undefined && warga?.desil !== null ? parseInt(warga.desil, 10) : null;
+    const isPrioritas = desil !== null ? desil <= 4 : false;
+    const statusVerif = warga?.is_verified ? 'Terverifikasi Lapangan' : 'Menunggu Verifikasi Fisik';
+
+    // Variabel Kriteria C1 - C50 yang ada nilainya saja
+    const critList = [];
+    if (warga) {
+        for (let i = 1; i <= 50; i++) {
+            const keyLower = `c${i}`;
+            const keyUpper = `C${i}`;
+            let val = warga[keyLower] !== undefined ? warga[keyLower] : warga[keyUpper];
+            if (val === undefined && warga.extra_data) val = warga.extra_data[keyLower] || warga.extra_data[keyUpper];
+            if (val !== undefined && val !== null && String(val).trim() !== '' && String(val).trim() !== '-') {
+                critList.push({ code: `C${i}`, label: `Kriteria C${i}`, val: String(val) });
+            }
+        }
+    }
+
+    let html = `
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid #f1f5f9;">
+            <div style="width:58px; height:58px; border-radius:50%; background:linear-gradient(135deg, #dc2626, #991b1b); color:white; font-size:1.6rem; font-weight:800; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(220,38,38,0.25); flex-shrink:0;">
+                ${nama.charAt(0).toUpperCase()}
+            </div>
+            <div style="flex:1;">
+                <h3 style="margin:0 0 4px 0; font-size:1.15rem; font-weight:800; color:#0f172a;">${nama}</h3>
+                <div style="font-size:0.78rem; color:#64748b;">NIK: <b style="font-family:monospace; color:#0f172a;">${nik}</b> ${noKk ? `· KK: <b style="font-family:monospace; color:#0f172a;">${noKk}</b>` : ''}</div>
+                <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">
+                    ${desil !== null ? `<span style="background:${isPrioritas ? '#dcfce7' : '#f1f5f9'}; color:${isPrioritas ? '#15803d' : '#64748b'}; border:1px solid ${isPrioritas ? '#86efac' : '#cbd5e1'}; padding:2px 8px; border-radius:12px; font-weight:800; font-size:0.7rem;">Desil ${desil}</span>` : ''}
+                    <span style="background:#fee2e2; color:#dc2626; border:1px solid #fecaca; padding:2px 8px; border-radius:12px; font-weight:800; font-size:0.7rem;">Pelapor Terverifikasi</span>
+                    <span style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; padding:2px 8px; border-radius:12px; font-weight:700; font-size:0.7rem;">${statusVerif}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Domisili & Identitas (Hanya yang ada) -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-bottom:14px; font-size:0.8rem;">
+            ${warga?.tempat_lahir || warga?.tanggal_lahir ? `
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px;">
+                    <span style="color:#64748b; font-size:0.7rem; display:block;">Tempat, Tgl Lahir:</span>
+                    <b style="color:#0f172a;">${warga.tempat_lahir || ''}${warga.tempat_lahir && warga.tanggal_lahir ? ', ' : ''}${warga.tanggal_lahir || ''}</b>
+                </div>
+            ` : ''}
+            ${warga?.no_hp || warga?.telepon ? `
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px;">
+                    <span style="color:#64748b; font-size:0.7rem; display:block;">No. Kontak:</span>
+                    <b style="color:#009846;">${warga.no_hp || warga.telepon}</b>
+                </div>
+            ` : ''}
+            ${warga?.pekerjaan ? `
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px;">
+                    <span style="color:#64748b; font-size:0.7rem; display:block;">Pekerjaan:</span>
+                    <b style="color:#0f172a;">${warga.pekerjaan}</b>
+                </div>
+            ` : ''}
+            ${warga?.alamat ? `
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; grid-column:1 / -1;">
+                    <span style="color:#64748b; font-size:0.7rem; display:block;">Alamat:</span>
+                    <b style="color:#0f172a;"><i class="fas fa-map-marker-alt text-danger"></i> ${warga.alamat}${warga.desa ? `, Desa ${warga.desa}` : ''}${warga.kecamatan ? `, Kec. ${warga.kecamatan}` : ''}</b>
+                </div>
+            ` : ''}
+        </div>
+
+        ${critList.length > 0 ? `
+            <div style="margin-bottom:14px;">
+                <div style="font-size:0.75rem; font-weight:800; color:#475569; margin-bottom:6px; text-transform:uppercase;">Variabel Kriteria Terdata (${critList.length}):</div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:6px; max-height:180px; overflow-y:auto;">
+                    ${critList.map(c => `
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:6px 10px; font-size:0.74rem;">
+                            <span style="color:#64748b; font-size:0.68rem; display:block;">${c.code}:</span>
+                            <b style="color:#0f172a;">${c.val}</b>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        ` : ''}
+    `;
+
+    bodyEl.innerHTML = html;
+};
+
+window.tutupProfilWargaAduan = function () {
+    const m = document.getElementById('modalProfilWargaAduan');
+    if (m) m.style.display = 'none';
+};
+
+// =========================================================================
+// EKSPOR CHAT MULTIMODA KESELURUHAN (TEKS, MEDIA, SUARA, DOKUMEN, EMOJI)
+// =========================================================================
+window.eksporChatUniversal = function (tipeChat) {
+    const isAduan = tipeChat === 'aduan';
+    const containerId = isAduan ? 'aduanChatBox' : 'wargaChatMessages';
+    const container = document.getElementById(containerId);
+    if (!container) {
+        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Belum Ada Percakapan', text: 'Ruang obrolan belum dimuat.' });
+        return;
+    }
+
+    const bubbles = Array.from(container.children).filter(el => el.id && (el.id.startsWith('msg-warga-') || el.id.startsWith('msg-aduan-')));
+    if (bubbles.length === 0) {
+        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'info', title: 'Obrolan Kosong', text: 'Tidak ada pesan yang dapat diekspor.' });
+        return;
+    }
+
+    const titleReport = isAduan ? 'Transkrip Ruang Koordinasi & Investigasi Pengaduan Warga' : 'Transkrip Layanan Obrolan Langsung Bantuan Sosial Warga';
+    const nik = (isAduan ? document.getElementById('aduanNikDisplay')?.innerText : window.currentWargaNik) || '3515XXXXXXXXXXXX';
+    const namaWarga = (isAduan ? document.getElementById('aduanNamaDisplay')?.innerText : (document.getElementById('dashWargaNama')?.innerText || 'Warga')) || 'Warga Sidoarjo';
+    const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'medium' });
+
+    // Bangun HTML Ekspor Interaktif Mandiri
+    let htmlContent = `<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>${titleReport} - ${namaWarga}</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background:#f8fafc; color:#0f172a; margin:0; padding:24px; line-height:1.5; }
+        .export-header { background:#ffffff; border:1.5px solid #e2e8f0; border-radius:16px; padding:20px 24px; margin-bottom:24px; box-shadow:0 4px 16px rgba(15,23,42,0.06); }
+        .export-title { font-size:1.3rem; font-weight:800; color:#0f172a; margin:0 0 6px 0; }
+        .export-meta { font-size:0.85rem; color:#64748b; display:flex; flex-wrap:wrap; gap:16px; margin-top:8px; }
+        .chat-flow { display:flex; flex-direction:column; gap:14px; max-width:820px; margin:0 auto; }
+        .bubble-row { display:flex; flex-direction:column; width:100%; box-sizing:border-box; }
+        .bubble-row.me { align-items:flex-end; }
+        .bubble-row.other { align-items:flex-start; }
+        .bubble-card { max-width:75%; padding:10px 16px; border-radius:18px; font-size:0.9rem; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        .bubble-row.me .bubble-card { background:#e6f9f0; color:#065f46; border:1px solid #bbf7d0; border-bottom-right-radius:4px; }
+        .bubble-row.other .bubble-card { background:#ffffff; color:#0f172a; border:1px solid #e2e8f0; border-bottom-left-radius:4px; }
+        .sender-tag { font-size:0.75rem; font-weight:800; color:#0284c7; margin-bottom:4px; }
+        .time-tag { font-size:0.7rem; color:#94a3b8; margin-top:4px; text-align:right; font-family:monospace; }
+        .media-preview-box { margin-top:8px; border-radius:10px; overflow:hidden; }
+        .media-preview-box img { max-width:100%; border-radius:8px; border:1px solid #cbd5e1; }
+        .media-preview-box audio { width:100%; margin-top:4px; }
+        .media-preview-box video { max-width:100%; border-radius:8px; }
+        .doc-pill { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; background:#f1f5f9; border-radius:10px; text-decoration:none; color:#0f172a; font-weight:700; font-size:0.82rem; margin-top:6px; }
+        .reactions-pill { font-size:0.85rem; background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; padding:2px 8px; width:fit-content; margin-top:4px; }
+        @media print { body { background:white; padding:0; } .export-header { box-shadow:none; border-color:#cbd5e1; } }
+    </style>
+</head>
+<body>
+    <div class="export-header">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+            <div style="font-size:1.8rem;">🇮🇩</div>
+            <div>
+                <div style="font-size:0.75rem; font-weight:800; color:#64748b; letter-spacing:0.5px;">PEMERINTAH KABUPATEN SIDOARJO &bull; DINAS SOSIAL</div>
+                <div class="export-title">${titleReport}</div>
+            </div>
+        </div>
+        <div class="export-meta">
+            <div><b>Warga / Pelapor:</b> ${namaWarga}</div>
+            <div><b>NIK:</b> ${nik}</div>
+            <div><b>Total Pesan:</b> ${bubbles.length} Pesan</div>
+            <div><b>Waktu Unduh:</b> ${nowStr}</div>
+        </div>
+    </div>
+    <div class="chat-flow">
+`;
+
+    // TXT format juga
+    let txtContent = `========================================================================\n`;
+    txtContent += `${titleReport.toUpperCase()}\n`;
+    txtContent += `Pemerintah Kabupaten Sidoarjo - Dinas Sosial\n`;
+    txtContent += `Warga / Pelapor : ${namaWarga}\n`;
+    txtContent += `NIK             : ${nik}\n`;
+    txtContent += `Waktu Unduh     : ${nowStr}\n`;
+    txtContent += `Total Pesan     : ${bubbles.length}\n`;
+    txtContent += `========================================================================\n\n`;
+
+    bubbles.forEach(b => {
+        const isMe = b.style.alignSelf === 'flex-end' || b.classList.contains('is-me') || (b.style.justifyContent === 'flex-end');
+        const timeEl = b.querySelector('.chat-time-stamp') || b.querySelector('[data-time]');
+        const timeStr = timeEl ? (timeEl.innerText || timeEl.getAttribute('data-time') || '') : '';
+        const senderTag = isMe ? 'Anda (Warga)' : 'Petugas / Aparatur Dinsos';
+
+        // Teks pesan
+        let textContent = '';
+        const textEl = b.querySelector('.chat-msg-text') || b.querySelector('p');
+        if (textEl) {
+            textContent = textEl.innerText.trim();
+        } else {
+            // Ambil dari teks bubble
+            const clone = b.cloneNode(true);
+            clone.querySelectorAll('button, .aduan-dropdown-menu, audio, video, img').forEach(el => el.remove());
+            textContent = clone.innerText.replace(timeStr, '').trim();
+        }
+
+        // Cek media
+        let mediaHtmlBlock = '';
+        let mediaTxt = '';
+        const imgEl = b.querySelector('img:not(.avatar)');
+        if (imgEl && imgEl.src) {
+            mediaHtmlBlock += `<div class="media-preview-box"><img src="${imgEl.src}" alt="Lampiran Foto" /></div>`;
+            mediaTxt += ` [Foto: ${imgEl.src}]`;
+        }
+        const audioEl = b.querySelector('audio');
+        if (audioEl && audioEl.src) {
+            mediaHtmlBlock += `<div class="media-preview-box"><audio controls src="${audioEl.src}"></audio></div>`;
+            mediaTxt += ` [Pesan Suara / Voice Note: ${audioEl.src}]`;
+        }
+        const vidEl = b.querySelector('video');
+        if (vidEl && vidEl.src) {
+            mediaHtmlBlock += `<div class="media-preview-box"><video controls src="${vidEl.src}" style="max-height:240px;"></video></div>`;
+            mediaTxt += ` [Video: ${vidEl.src}]`;
+        }
+        const docLink = b.querySelector('a[download]');
+        if (docLink && docLink.href) {
+            const docName = docLink.getAttribute('download') || 'Dokumen';
+            mediaHtmlBlock += `<div class="media-preview-box"><a class="doc-pill" href="${docLink.href}" target="_blank">📄 ${docName}</a></div>`;
+            mediaTxt += ` [Dokumen: ${docName}]`;
+        }
+
+        // Cek emoji reaksi
+        const reactEl = b.querySelector('.chat-reaction-badge, [id^="reactions_"]');
+        let reactHtml = '';
+        if (reactEl && reactEl.innerText.trim()) {
+            reactHtml = `<div class="reactions-pill">${reactEl.innerText.trim()}</div>`;
+            mediaTxt += ` (Reaksi: ${reactEl.innerText.trim()})`;
+        }
+
+        htmlContent += `
+        <div class="bubble-row ${isMe ? 'me' : 'other'}">
+            <div class="bubble-card">
+                <div class="sender-tag">${senderTag}</div>
+                <div>${textContent ? textContent.replace(/\n/g, '<br>') : ''}</div>
+                ${mediaHtmlBlock}
+                ${reactHtml}
+                <div class="time-tag">${timeStr}</div>
+            </div>
+        </div>
+        `;
+
+        txtContent += `[${timeStr}] ${senderTag}: ${textContent}${mediaTxt}\n\n`;
+    });
+
+    htmlContent += `
+    </div>
+    <div style="text-align:center; font-size:0.75rem; color:#94a3b8; margin-top:36px; padding-top:16px; border-top:1px solid #e2e8f0;">
+        Dokumen ini diterbitkan secara otomatis oleh Sistem Terpadu Bantuan Sosial & Mediasi Pengaduan Kabupaten Sidoarjo.
+    </div>
+</body>
+</html>`;
+
+    // Download file HTML
+    const blobHtml = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    const urlHtml = URL.createObjectURL(blobHtml);
+    const linkHtml = document.createElement('a');
+    linkHtml.href = urlHtml;
+    linkHtml.download = `Transkrip_Chat_${isAduan ? 'Aduan_' : 'Warga_'}${nik}_${Date.now()}.html`;
+    document.body.appendChild(linkHtml);
+    linkHtml.click();
+    document.body.removeChild(linkHtml);
+    URL.revokeObjectURL(urlHtml);
+
+    if (typeof showPortalToast === 'function') {
+        showPortalToast('Transkrip lengkap percakapan & media berhasil diunduh (.html)', 'success');
+    }
+};
+
+window.eksporSeluruhChatWarga = function () {
+    window.eksporChatUniversal('warga');
+};
+
+window.eksporSeluruhChatAduan = function () {
+    window.eksporChatUniversal('aduan');
 };
 
 window.laporkanPesanWarga = function (id, pesanKutipan, terlaporNama) {
@@ -4614,7 +5239,7 @@ window.bukaProfilLengkapWarga = async function () {
         else if (c10Val >= 3) c10Text = 'Disabilitas / Penyakit Kronis';
 
         const rawNikVal = wargaData.nik || currentNik || '';
-        const nikFormat = rawNikVal.length >= 16 ? `${rawNikVal.slice(0, 6)}******${rawNikVal.slice(12)}` : (rawNikVal || '3515************');
+        const nikFormat = rawNikVal || '-';
         const tempatLahir = wargaData.tempat_lahir || 'Sidoarjo';
         const tglLahir = wargaData.tanggal_lahir || '-';
 

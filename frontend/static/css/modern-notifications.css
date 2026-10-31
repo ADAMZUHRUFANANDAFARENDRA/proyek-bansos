@@ -270,36 +270,44 @@
 }
 
 /* =============================================================================
-   6. TOMBOL AKSI MODERN & MEMBULAT
+   6. TOMBOL AKSI MODERN & MEMBULAT (SELARAS KONFIRMASI & BATAL/TUTUP)
    ============================================================================= */
-.swal2-popup .swal2-actions,
+.swal2-popup:not(.swal2-toast) .swal2-actions,
 .swal2-popup.swal-modern-success-popup .swal2-actions,
 .swal2-popup:has(.swal2-icon.swal2-success) .swal2-actions {
-    margin: 16px auto 4px auto !important;
+    margin: 22px auto 4px auto !important;
+    padding: 0 !important;
     width: 100% !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
     justify-content: center !important;
     align-items: center !important;
-    gap: 10px !important;
-    display: flex !important;
+    gap: 14px !important;
     pointer-events: auto !important;
     position: relative !important;
     z-index: 999999 !important;
 }
 
 .swal-btn-modern-success,
-.swal2-popup .swal2-confirm,
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading) .swal2-confirm,
 .swal2-popup.swal-modern-success-popup .swal2-confirm,
 .swal2-popup:has(.swal2-icon.swal2-success) .swal2-confirm,
 .swal-btn-pill-confirm,
+.swal-btn-pill-primary,
 .swal-btn-pill-oke {
     border-radius: 9999px !important;
-    padding: 13px 40px !important;
+    min-height: 48px !important;
+    min-width: 155px !important;
+    padding: 13px 36px !important;
+    margin: 0 !important;
     font-size: 0.94rem !important;
     font-weight: 800 !important;
+    line-height: 1.2 !important;
     letter-spacing: 0.25px !important;
     background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
     color: #ffffff !important;
-    border: none !important;
+    border: 2px solid transparent !important;
     cursor: pointer !important;
     box-shadow: 0 8px 24px -4px rgba(5, 150, 105, 0.45) !important;
     transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
@@ -311,14 +319,16 @@
     align-items: center !important;
     justify-content: center !important;
     gap: 8px !important;
+    box-sizing: border-box !important;
     z-index: 999999 !important;
 }
 
 .swal-btn-modern-success:hover,
-.swal2-popup .swal2-confirm:hover,
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading) .swal2-confirm:hover,
 .swal2-popup.swal-modern-success-popup .swal2-confirm:hover,
 .swal2-popup:has(.swal2-icon.swal2-success) .swal2-confirm:hover,
 .swal-btn-pill-confirm:hover,
+.swal-btn-pill-primary:hover,
 .swal-btn-pill-oke:hover {
     transform: translateY(-2px) scale(1.01) !important;
     box-shadow: 0 12px 28px -4px rgba(5, 150, 105, 0.55) !important;
@@ -326,64 +336,121 @@
 }
 
 .swal-btn-modern-success:active,
-.swal2-popup .swal2-confirm:active,
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading) .swal2-confirm:active,
 .swal2-popup.swal-modern-success-popup .swal2-confirm:active,
 .swal2-popup:has(.swal2-icon.swal2-success) .swal2-confirm:active,
 .swal-btn-pill-confirm:active,
+.swal-btn-pill-primary:active,
 .swal-btn-pill-oke:active {
     transform: translateY(0) scale(0.99) !important;
 }
 
-/* Tombol Silang (Close) Modern & Responsif */
-.swal2-popup .swal2-close,
-.swal-close-modern,
-.swal2-popup.swal-modern-success-popup .swal2-close,
-.swal2-popup:has(.swal2-icon.swal2-success) .swal2-close {
-    position: absolute !important;
-    top: 14px !important;
-    right: 14px !important;
-    width: 38px !important;
-    height: 38px !important;
-    min-width: 38px !important;
-    min-height: 38px !important;
-    border-radius: 50% !important;
-    background: #f1f5f9 !important;
-    border: 1px solid #e2e8f0 !important;
-    color: #64748b !important;
-    font-size: 18px !important;
-    line-height: 1 !important;
-    display: flex !important;
+/* Tombol Batal / Tutup Selaras & Sejajar Sempurna dengan Tombol Konfirmasi */
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading):not(.swal-no-cancel) .swal2-cancel:not([style*="display: none"]):not([style*="display:none"]):not(.swal-btn-hidden-force),
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading):not(.swal-no-cancel) .swal-btn-pill-cancel:not([style*="display: none"]):not([style*="display:none"]):not(.swal-btn-hidden-force) {
+    border-radius: 9999px !important;
+    min-height: 48px !important;
+    min-width: 155px !important;
+    padding: 13px 36px !important;
+    margin: 0 !important;
+    font-size: 0.94rem !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.25px !important;
+    background: #ffffff !important;
+    color: #dc2626 !important;
+    border: 2px solid #fca5a5 !important;
+    cursor: pointer !important;
+    box-shadow: 0 8px 24px -4px rgba(220, 38, 38, 0.16) !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    outline: none !important;
+    display: inline-flex !important;
     visibility: visible !important;
     opacity: 1 !important;
+    pointer-events: auto !important;
     align-items: center !important;
     justify-content: center !important;
-    cursor: pointer !important;
-    pointer-events: auto !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
     z-index: 999999 !important;
+}
+
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading):not(.swal-no-cancel) .swal2-cancel:hover,
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading):not(.swal-no-cancel) .swal-btn-pill-cancel:hover {
+    background: #fef2f2 !important;
+    color: #b91c1c !important;
+    border-color: #f87171 !important;
+    transform: translateY(-2px) scale(1.01) !important;
+    box-shadow: 0 12px 28px -4px rgba(220, 38, 38, 0.25) !important;
+}
+
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading):not(.swal-no-cancel) .swal2-cancel:active,
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading):not(.swal-no-cancel) .swal-btn-pill-cancel:active {
+    transform: translateY(0) scale(0.99) !important;
+}
+
+/* Tombol Deny Selaras */
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading) .swal2-deny:not([style*="display: none"]):not([style*="display:none"]):not(.swal-btn-hidden-force) {
+    border-radius: 9999px !important;
+    min-height: 48px !important;
+    min-width: 155px !important;
+    padding: 13px 36px !important;
+    margin: 0 !important;
+    font-size: 0.94rem !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.25px !important;
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+    color: #ffffff !important;
+    border: 2px solid transparent !important;
+    cursor: pointer !important;
+    box-shadow: 0 8px 24px -4px rgba(2, 132, 199, 0.4) !important;
     transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
     outline: none !important;
-    user-select: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+    z-index: 999999 !important;
+}
+
+.swal2-popup .swal2-deny[style*="display: none"],
+.swal2-popup .swal2-deny[style*="display:none"],
+.swal2-popup .swal2-deny.swal-btn-hidden-force,
+.swal-btn-hidden-force {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+}
+
+.swal2-popup:not(.swal-modern-loading-card):not(.swal2-loading) .swal2-deny:hover {
+    transform: translateY(-2px) scale(1.01) !important;
+    box-shadow: 0 12px 28px -4px rgba(2, 132, 199, 0.5) !important;
+    filter: brightness(1.06) !important;
+}
+
+/* Hilangkan Tombol Silang (Close) pada Semua Pop-Up Modal agar Tidak Double Fungsi */
+.swal2-popup:not(.swal2-toast) .swal2-close,
+.swal-close-modern,
+.swal2-popup.swal-modern-success-popup .swal2-close,
+.swal2-popup:has(.swal2-icon.swal2-success) .swal2-close,
+.swal-close-btn-hidden {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-}
-
-.swal2-popup .swal2-close:hover,
-.swal-close-modern:hover,
-.swal2-popup.swal-modern-success-popup .swal2-close:hover,
-.swal2-popup:has(.swal2-icon.swal2-success) .swal2-close:hover {
-    background: #fee2e2 !important;
-    color: #ef4444 !important;
-    border-color: #fca5a5 !important;
-    transform: rotate(90deg) scale(1.08) !important;
-    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2) !important;
-}
-
-.swal2-popup .swal2-close:active,
-.swal-close-modern:active,
-.swal2-popup.swal-modern-success-popup .swal2-close:active,
-.swal2-popup:has(.swal2-icon.swal2-success) .swal2-close:active {
-    transform: rotate(90deg) scale(0.95) !important;
+    border: none !important;
 }
 
 /* =============================================================================

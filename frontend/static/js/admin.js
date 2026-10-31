@@ -218,11 +218,13 @@ function showAdminAlert(options = {}) {
         }
 
         const isCancelAllowed = options.showCancelButton === true;
+        const isDenyAllowed = options.showDenyButton === true;
         const defaultClass = options.toast ? {} : {
             popup: `swal-modern-rounded ${isCancelAllowed ? 'swal-has-cancel' : 'swal-no-cancel'}`,
             confirmButton: 'swal-btn-pill-primary',
             cancelButton: isCancelAllowed ? 'swal-btn-pill-cancel' : 'swal-btn-hidden-force',
-            denyButton: 'swal-btn-pill-danger',
+            denyButton: isDenyAllowed ? 'swal-btn-pill-danger' : 'swal-btn-hidden-force',
+            closeButton: 'swal-close-btn-hidden',
             loader: 'swal-modern-loader'
         };
 
@@ -231,6 +233,8 @@ function showAdminAlert(options = {}) {
             buttonsStyling: false,
             ...options,
             showCancelButton: isCancelAllowed,
+            showDenyButton: isDenyAllowed,
+            showCloseButton: false,
             customClass: {
                 ...defaultClass,
                 ...(options.customClass || {})
@@ -244,7 +248,15 @@ function showAdminAlert(options = {}) {
                         try { cancelBtn.remove(); } catch(e) {}
                     }
                 }
-                if (options.showCloseButton === false && popup) {
+                if (!isDenyAllowed && popup) {
+                    const denyBtn = popup.querySelector('.swal2-deny');
+                    if (denyBtn) {
+                        denyBtn.style.setProperty('display', 'none', 'important');
+                        denyBtn.style.setProperty('visibility', 'hidden', 'important');
+                        try { denyBtn.remove(); } catch(e) {}
+                    }
+                }
+                if (popup) {
                     const closeBtn = popup.querySelector('.swal2-close');
                     if (closeBtn) {
                         closeBtn.style.setProperty('display', 'none', 'important');

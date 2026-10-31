@@ -15,10 +15,12 @@ window.loadDashboardData = async function (showToast = false) {
         const headers = { 'Accept': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
+        const base = (window.BASE_API_URL || window.API_BASE_URL || window.BASE_URL || (window.CONFIG && window.CONFIG.BASE_URL) || window.location.origin || '').replace(/\/+$/, '');
         const endpointCandidates = [
-            `${window.BASE_URL}/api/warga?_t=${Date.now()}`,
-            `${window.BASE_URL}/warga?_t=${Date.now()}`,
-            `${window.BASE_URL}/api/warga`
+            `${base}/api/warga?_t=${Date.now()}`,
+            `${base}/warga?_t=${Date.now()}`,
+            `/api/warga?_t=${Date.now()}`,
+            `/warga?_t=${Date.now()}`
         ];
 
         let res = null;
@@ -48,14 +50,18 @@ window.loadDashboardData = async function (showToast = false) {
     }
 
     if (!rawData || rawData.length === 0) {
-        const cached = localStorage.getItem('cachedDataWarga');
-        if (cached) {
-            try {
-                const parsed = JSON.parse(cached);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    rawData = parsed;
-                }
-            } catch (e) {}
+        if (window.globalDataWarga && Array.isArray(window.globalDataWarga) && window.globalDataWarga.length > 0) {
+            rawData = window.globalDataWarga;
+        } else {
+            const cached = localStorage.getItem('cachedDataWarga');
+            if (cached) {
+                try {
+                    const parsed = JSON.parse(cached);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        rawData = parsed;
+                    }
+                } catch (e) {}
+            }
         }
     }
 
@@ -100,6 +106,11 @@ window.loadDashboardData = async function (showToast = false) {
     globalDataWarga = window.globalDataWarga;
 
     const total = window.globalDataWarga.length;
+    if (total === 0) {
+        if (typeof window.sembunyikanHasilSPK === 'function') {
+            window.sembunyikanHasilSPK();
+        }
+    }
     const disetujui = window.globalDataWarga.filter(w => w.is_verified).length;
     const menunggu = total - disetujui;
     const telahSalur = window.globalDataWarga.filter(w => w.status_salur === 'Telah Menerima').length;
